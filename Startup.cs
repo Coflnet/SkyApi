@@ -100,9 +100,13 @@ namespace Coflnet.Sky.Api
                 app.UseDeveloperExceptionPage();
             }
             app.UseSwagger();
+            app.UseSwagger(a =>
+            {
+                a.RouteTemplate = "api/swagger/{documentName}/swagger.json";
+            });
             app.UseSwaggerUI(c =>
             {
-                c.SwaggerEndpoint("/swagger/v1/swagger.json", "SkyApi v1");
+                c.SwaggerEndpoint("/api/swagger/v1/swagger.json", "SkyApi v1");
                 c.RoutePrefix = "api";
             });
 
