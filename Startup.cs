@@ -1,12 +1,12 @@
 using System;
 using System.IO;
 using System.Reflection;
-using Coflnet.Sky.Base.Models;
-using Coflnet.Sky.Base.Services;
+using Coflnet.Sky.Api.Models;
 using hypixel;
 using Jaeger.Samplers;
 using Jaeger.Senders;
 using Jaeger.Senders.Thrift;
+using Coflnet.Payments.Client.Api;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.EntityFrameworkCore;
@@ -18,8 +18,9 @@ using Microsoft.OpenApi.Models;
 using OpenTracing;
 using OpenTracing.Util;
 using Prometheus;
+using Coflnet.Sky.Commands.Shared;
 
-namespace Coflnet.Sky.Base
+namespace Coflnet.Sky.Api
 {
     public class Startup
     {
@@ -33,32 +34,34 @@ namespace Coflnet.Sky.Base
         // This method gets called by the runtime. Use this method to add services to the container.
         public void ConfigureServices(IServiceCollection services)
         {
-            services.AddControllers();
+            services.AddControllers().AddNewtonsoftJson();
+            services.AddSwaggerGenNewtonsoftSupport();
             services.AddSwaggerGen(c =>
             {
-                c.SwaggerDoc("v1", new OpenApiInfo { Title = "SkyBase", Version = "v1" });
+                c.SwaggerDoc("v1", new OpenApiInfo { Title = "SkyApi", Version = "v1" });
                 // Set the comments path for the Swagger JSON and UI.
                 var xmlFile = $"{Assembly.GetExecutingAssembly().GetName().Name}.xml";
                 var xmlPath = Path.Combine(AppContext.BaseDirectory, xmlFile);
                 c.IncludeXmlComments(xmlPath);
             });
 
-            // Replace with your server version and type.
-            // Use 'MariaDbServerVersion' for MariaDB.
-            // Alternatively, use 'ServerVersion.AutoDetect(connectionString)'.
-            // For common usages, see pull request #1233.
-            var serverVersion = new MariaDbServerVersion(new Version(Configuration["MARIADB_VERSION"]));
 
-            // Replace 'YourDbContext' with the name of your own DbContext derived class.
-            services.AddDbContext<BaseDbContext>(
-                dbContextOptions => dbContextOptions
-                    .UseMySql(Configuration["DB_CONNECTION"], serverVersion)
-                    .EnableSensitiveDataLogging() // <-- These two calls are optional but help
-                    .EnableDetailedErrors()       // <-- with debugging (remove for production).
-            );
-            services.AddHostedService<BaseBackgroundService>();
             services.AddJaeger();
-            services.AddTransient<BaseService>();
+            services.AddScoped<PricesService>();
+            services.AddSingleton<AuctionService>();
+            services.AddDbContext<HypixelContext>();
+            services.AddSingleton<ProductsApi>(sp =>
+            {
+                return new ProductsApi("http://" + SimplerConfig.Config.Instance["PAYMENTS_HOST"]);
+            });
+            services.AddSingleton<UserApi>(sp =>
+            {
+                return new UserApi("http://" + SimplerConfig.Config.Instance["PAYMENTS_HOST"]);
+            });
+            services.AddSingleton<TopUpApi>(sp =>
+            {
+                return new TopUpApi("http://" + SimplerConfig.Config.Instance["PAYMENTS_HOST"]);
+            });
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
@@ -71,7 +74,7 @@ namespace Coflnet.Sky.Base
             app.UseSwagger();
             app.UseSwaggerUI(c =>
             {
-                c.SwaggerEndpoint("/swagger/v1/swagger.json", "SkyBase v1");
+                c.SwaggerEndpoint("/swagger/v1/swagger.json", "SkyApi v1");
                 c.RoutePrefix = "api";
             });
 
@@ -80,6 +83,38 @@ namespace Coflnet.Sky.Base
             app.UseRouting();
 
             app.UseAuthorization();
+
+                        app.UseExceptionHandler(errorApp =>
+            {
+                errorApp.Run(async context =>
+                {
+                    context.Response.StatusCode = (int)HttpStatusCode.InternalServerError; ;
+                    context.Response.ContentType = "text/json";
+
+                    var exceptionHandlerPathFeature =
+                        context.Features.Get<IExceptionHandlerPathFeature>();
+
+                    if (exceptionHandlerPathFeature?.Error is CoflnetException ex)
+                    {
+                        await context.Response.WriteAsync(
+                                        JsonConvert.SerializeObject(new { ex.Slug, ex.Message }));
+                    }
+                    else
+                    {
+                        using var span = OpenTracing.Util.GlobalTracer.Instance.BuildSpan("error").StartActive();
+                        span.Span.Log(exceptionHandlerPathFeature?.Error?.Message);
+                        span.Span.Log(exceptionHandlerPathFeature?.Error?.StackTrace);
+                        var traceId = System.Net.Dns.GetHostName().Replace("commands", "").Trim('-') + "." + span.Span.Context.TraceId;
+                        await context.Response.WriteAsync(
+                            JsonConvert.SerializeObject(new
+                            {
+                                Slug = "internal_error",
+                                Message = "An unexpected internal error occured. Please check that your request is valid. If it is please report he error and include the Trace.",
+                                Trace = traceId
+                            }));
+                    }
+                });
+            });
 
             app.UseEndpoints(endpoints =>
             {
