@@ -19,6 +19,13 @@ using OpenTracing;
 using OpenTracing.Util;
 using Prometheus;
 using Coflnet.Sky.Commands.Shared;
+using Newtonsoft.Json;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Diagnostics;
+using System.Net;
+using StackExchange.Redis;
+using AspNetCoreRateLimit;
+using AspNetCoreRateLimit.Redis;
 
 namespace Coflnet.Sky.Api
 {
@@ -30,6 +37,7 @@ namespace Coflnet.Sky.Api
         }
 
         public IConfiguration Configuration { get; }
+        private static string CORS_PLICY_NAME = "defaultCorsPolicy";
 
         // This method gets called by the runtime. Use this method to add services to the container.
         public void ConfigureServices(IServiceCollection services)
@@ -44,7 +52,9 @@ namespace Coflnet.Sky.Api
                 var xmlPath = Path.Combine(AppContext.BaseDirectory, xmlFile);
                 c.IncludeXmlComments(xmlPath);
             });
-
+            services.AddCors(o=>{
+                o.AddPolicy(CORS_PLICY_NAME, p => p.AllowAnyHeader().AllowAnyMethod().AllowAnyOrigin());
+            });
 
             services.AddJaeger();
             services.AddScoped<PricesService>();
@@ -62,6 +72,24 @@ namespace Coflnet.Sky.Api
             {
                 return new TopUpApi("http://" + SimplerConfig.Config.Instance["PAYMENTS_HOST"]);
             });
+            services.AddResponseCaching();
+            var redisOptions = ConfigurationOptions.Parse(Configuration["REDIS_HOST"]);
+            
+            services.AddStackExchangeRedisCache(options =>
+            {
+                options.ConfigurationOptions = redisOptions;
+                options.InstanceName = "SampleInstance";
+            });
+            services.AddSingleton<IConnectionMultiplexer>(provider => ConnectionMultiplexer.Connect(redisOptions));
+
+            // Rate limiting 
+            services.Configure<IpRateLimitOptions>(Configuration.GetSection("IpRateLimiting"));
+            services.Configure<IpRateLimitPolicies>(Configuration.GetSection("IpRateLimitPolicies"));
+            services.AddRedisRateLimiting();
+            services.AddSingleton<IIpPolicyStore, DistributedCacheIpPolicyStore>();
+            services.AddSingleton<IRateLimitCounterStore, DistributedCacheRateLimitCounterStore>();
+            services.AddSingleton<IRateLimitConfiguration, RateLimitConfiguration>();
+            services.AddCoflService();
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
@@ -82,9 +110,15 @@ namespace Coflnet.Sky.Api
 
             app.UseRouting();
 
+            app.UseCors(CORS_PLICY_NAME);
+
             app.UseAuthorization();
 
-                        app.UseExceptionHandler(errorApp =>
+            app.UseResponseCaching();
+            app.UseIpRateLimiting();
+
+
+            app.UseExceptionHandler(errorApp =>
             {
                 errorApp.Run(async context =>
                 {

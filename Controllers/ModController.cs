@@ -66,8 +66,10 @@ namespace Coflnet.Hypixel.Controller
             var lastSell = auctions.Where(a => a.End < System.DateTime.Now).FirstOrDefault();
             long med = await GetMedian(lastSell);
             var playerName = await playerNamService.PlayerNameNameUuidGetAsync(lastSell.Bids.FirstOrDefault()?.Bidder);
+            if(lastSell == null )
+                return "Item has no recorded sell";
             return $"Sold {auctions.Count} times\n"
-                + (lastSell == null ? "" : $"last sold for {FormatPrice(lastSell.HighestBidAmount)} to {playerName.Trim('"')}")
+                + (lastSell == null ? "" : $"last sold for {FormatPrice(lastSell.HighestBidAmount)} to {playerName?.Trim('"')}")
                 + (auctions.Count == 0 ? "" : $"Median {FormatPrice(med)}");
         }
 
