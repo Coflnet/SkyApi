@@ -98,7 +98,7 @@ namespace Coflnet.Hypixel.Controller
         /// <summary>
         /// Get flips stats for player
         /// </summary>
-        /// <param name="playerUuid">Uuid of player</param>
+        /// <param name="playerUuid">Uuid of player to get stats for</param>
         /// <returns></returns>
         [Route("stats/player/{playerUuid}")]
         [HttpGet]
