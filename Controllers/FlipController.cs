@@ -93,6 +93,21 @@ namespace Coflnet.Hypixel.Controller
                 TargetPrice = price
             });
         }
+
+
+        /// <summary>
+        /// Get flips stats for player
+        /// </summary>
+        /// <param name="playerUuid">Uuid of player</param>
+        /// <returns></returns>
+        [Route("stats/player/{playerUuid}")]
+        [HttpPost]
+        [ResponseCache(Duration = 600, Location = ResponseCacheLocation.Any, NoStore = false)]
+        public async Task<FlipSumary> GetStats(string playerUuid)
+        {
+            var result = await Sky.Commands.FlipTrackingService.Instance.GetPlayerFlips(playerUuid, TimeSpan.FromDays(2));
+            return result;
+        }
     }
 }
 
