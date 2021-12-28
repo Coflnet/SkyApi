@@ -101,11 +101,25 @@ namespace Coflnet.Hypixel.Controller
         /// <param name="playerUuid">Uuid of player</param>
         /// <returns></returns>
         [Route("stats/player/{playerUuid}")]
-        [HttpPost]
+        [HttpGet]
         [ResponseCache(Duration = 600, Location = ResponseCacheLocation.Any, NoStore = false)]
         public async Task<FlipSumary> GetStats(string playerUuid)
         {
             var result = await Sky.Commands.FlipTrackingService.Instance.GetPlayerFlips(playerUuid, TimeSpan.FromDays(2));
+            return result;
+        }
+
+        /// <summary>
+        /// Get flips stats for player for the last hour (faster)
+        /// </summary>
+        /// <param name="playerUuid">Uuid of player</param>
+        /// <returns></returns>
+        [Route("stats/player/{playerUuid}/hour")]
+        [HttpGet]
+        [ResponseCache(Duration = 60, Location = ResponseCacheLocation.Any, NoStore = false)]
+        public async Task<FlipSumary> GetHourStats(string playerUuid)
+        {
+            var result = await Sky.Commands.FlipTrackingService.Instance.GetPlayerFlips(playerUuid, TimeSpan.FromHours(1));
             return result;
         }
     }

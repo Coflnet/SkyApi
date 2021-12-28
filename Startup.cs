@@ -58,6 +58,7 @@ namespace Coflnet.Sky.Api
 
             services.AddJaeger();
             services.AddScoped<PricesService>();
+            services.AddSingleton<PremiumService>();
             services.AddSingleton<AuctionService>();
             services.AddDbContext<HypixelContext>();
             services.AddSingleton<ProductsApi>(sp =>
