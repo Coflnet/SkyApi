@@ -105,8 +105,7 @@ namespace Coflnet.Hypixel.Controller
         [ResponseCache(Duration = 600, Location = ResponseCacheLocation.Any, NoStore = false)]
         public async Task<FlipSumary> GetStats(string playerUuid)
         {
-            var result = await Sky.Commands.FlipTrackingService.Instance.GetPlayerFlips(playerUuid, TimeSpan.FromDays(2));
-            return result;
+            return await Sky.Commands.FlipTrackingService.Instance.GetPlayerFlips(playerUuid, TimeSpan.FromDays(2));
         }
 
         /// <summary>
