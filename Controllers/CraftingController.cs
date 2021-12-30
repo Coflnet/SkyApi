@@ -32,7 +32,7 @@ namespace Coflnet.Hypixel.Controller
         [HttpGet]
         public async Task<IEnumerable<ProfitableCraft>> GetProfitable(string player = null, string profile = null)
         {
-            var response = await client.ExecuteAsync(new RestRequest("Crafts/profit").AddParameter("profile", profile));
+            var response = await client.ExecuteAsync(new RestRequest("Crafts/profit"));
             var crafts = JsonConvert.DeserializeObject<List<ProfitableCraft>>(response.Content);
             if (profile == null)
                 return crafts;
@@ -41,6 +41,9 @@ namespace Coflnet.Hypixel.Controller
             var list = new List<ProfitableCraft>();
             foreach (var item in crafts)
             {
+                if(item == null)
+                    continue;
+                
                 if(item.ReqCollection == null 
                 || collection.TryGetValue(item.ReqCollection.Name, out CollectionElem elem) 
                         && elem.tier >= item.ReqCollection.Level)
