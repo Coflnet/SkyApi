@@ -139,7 +139,7 @@ namespace Coflnet.Hypixel.Controller
                 end = DateTime.Now;
             if(start == default)
                 start = end - TimeSpan.FromHours(1);
-            return await Sky.Commands.FlipTrackingService.Instance.GetFlipsForFinder(Enum.Parse<LowPricedAuction.FinderType>(finderName), start, end);
+            return await Sky.Commands.FlipTrackingService.Instance.GetFlipsForFinder(Enum.Parse<LowPricedAuction.FinderType>(finderName,true), start, end);
         }
     }
 }
