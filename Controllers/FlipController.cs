@@ -102,7 +102,7 @@ namespace Coflnet.Hypixel.Controller
         /// <returns></returns>
         [Route("stats/player/{playerUuid}")]
         [HttpGet]
-        [ResponseCache(Duration = 600, Location = ResponseCacheLocation.Any, NoStore = false)]
+        [ResponseCache(Duration = 1800, Location = ResponseCacheLocation.Any, NoStore = false)]
         public async Task<FlipSumary> GetStats(string playerUuid)
         {
             return await Sky.Commands.FlipTrackingService.Instance.GetPlayerFlips(playerUuid, TimeSpan.FromDays(7));
