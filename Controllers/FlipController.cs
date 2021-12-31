@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 using Coflnet.Sky;
 using Coflnet.Sky.Commands.MC;
@@ -119,6 +120,26 @@ namespace Coflnet.Hypixel.Controller
         public async Task<FlipSumary> GetHourStats(string playerUuid)
         {
             return await Sky.Commands.FlipTrackingService.Instance.GetPlayerFlips(playerUuid, TimeSpan.FromHours(1));
+        }
+
+
+        /// <summary>
+        /// Get flips stats for player
+        /// </summary>
+        /// <param name="finderName">Uuid of player to get stats for</param>
+        /// <param name="start">The start time of flips to get (inclusive)</param>
+        /// <param name="end">The end time of flips to get (exclusive)</param>
+        /// <returns></returns>
+        [Route("stats/finder/{finderName}")]
+        [HttpGet]
+        [ResponseCache(Duration = 1800, Location = ResponseCacheLocation.Any, NoStore = false)]
+        public async Task<List<FlipDetails>> GetFlipsForFinder(string finderName, DateTime start = default, DateTime end = default)
+        {
+            if(end == default)
+                end = DateTime.Now;
+            if(start == default)
+                start = end - TimeSpan.FromHours(1);
+            return await Sky.Commands.FlipTrackingService.Instance.GetFlipsForFinder(Enum.Parse<LowPricedAuction.FinderType>(finderName), start, end);
         }
     }
 }
