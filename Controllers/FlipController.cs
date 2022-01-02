@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using Coflnet.Sky;
+using Coflnet.Sky.Api.Services;
 using Coflnet.Sky.Commands.MC;
 using Coflnet.Sky.Commands.Shared;
 using Coflnet.Sky.Filter;
@@ -20,14 +21,17 @@ namespace Coflnet.Hypixel.Controller
     public class FlipController : ControllerBase
     {
         private IConfiguration config;
+        private TfmService tfm;
 
         /// <summary>
         /// Creates a new instance of <see cref="FlipController"/>
         /// </summary>
         /// <param name="config"></param>
-        public FlipController(IConfiguration config)
+        /// <param name="tfm"></param>
+        public FlipController(IConfiguration config, TfmService tfm)
         {
             this.config = config;
+            this.tfm = tfm;
         }
 
         /// <summary>
@@ -68,13 +72,28 @@ namespace Coflnet.Hypixel.Controller
         public async Task TrackExternalFlip(string auctionId, string finder, string playerId, int price = -1)
         {
             var received = DateTime.Now;
+            
+            var finderType = finder.ToLower() switch 
+            {
+                "tfm" => LowPricedAuction.FinderType.TFM,
+                "stonks" => LowPricedAuction.FinderType.STONKS,
+                _ => LowPricedAuction.FinderType.EXTERNAL,
+            };
+
+            if(finderType == LowPricedAuction.FinderType.TFM & !await tfm.IsUserOnAsync(playerId))
+            {
+                await Task.Delay(new Random().Next(100,500)); // avoid timing attacks
+                return;
+            }
+
             await Sky.Commands.FlipTrackingService.Instance.NewFlip(new LowPricedAuction()
             {
                 Auction = new hypixel.SaveAuction() { Uuid = auctionId },
-                Finder = finder.ToLower() == "tfm" ? LowPricedAuction.FinderType.TFM : LowPricedAuction.FinderType.EXTERNAL,
+                Finder = finderType,
                 TargetPrice = price
             }, received);
             await Sky.Commands.FlipTrackingService.Instance.ReceiveFlip(auctionId, playerId);
+            await Sky.Commands.FlipTrackingService.Instance.ClickFlip(auctionId, playerId);
         }
 
         /// <summary>
