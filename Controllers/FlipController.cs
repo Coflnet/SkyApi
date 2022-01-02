@@ -67,12 +67,13 @@ namespace Coflnet.Hypixel.Controller
         [HttpPost]
         public async Task TrackExternalFlip(string auctionId, string finder, string playerId, int price = -1)
         {
+            var received = DateTime.Now;
             await Sky.Commands.FlipTrackingService.Instance.NewFlip(new LowPricedAuction()
             {
                 Auction = new hypixel.SaveAuction() { Uuid = auctionId },
                 Finder = finder.ToLower() == "tfm" ? LowPricedAuction.FinderType.TFM : LowPricedAuction.FinderType.EXTERNAL,
                 TargetPrice = price
-            });
+            }, received);
             await Sky.Commands.FlipTrackingService.Instance.ReceiveFlip(auctionId, playerId);
         }
 
@@ -92,7 +93,7 @@ namespace Coflnet.Hypixel.Controller
                 Auction = new hypixel.SaveAuction() { Uuid = auctionId },
                 Finder = finder.ToLower() == "tfm" ? LowPricedAuction.FinderType.TFM : LowPricedAuction.FinderType.EXTERNAL,
                 TargetPrice = price
-            });
+            }, DateTime.Now);
         }
 
 
