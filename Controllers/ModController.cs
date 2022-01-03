@@ -92,7 +92,7 @@ namespace Coflnet.Hypixel.Controller
 
             public CommandListEntry(string subCommand, string description)
             {
-                SubCommand = subCommand;
+                SubCommand = Sky.Commands.MC.McColorCodes.AQUA + subCommand;
                 Description = Sky.Commands.MC.McColorCodes.GRAY + description;
             }
         }
