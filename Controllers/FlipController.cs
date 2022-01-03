@@ -82,7 +82,7 @@ namespace Coflnet.Hypixel.Controller
 
             if(finderType == LowPricedAuction.FinderType.TFM & !await tfm.IsUserOnAsync(playerId))
             {
-                await Task.Delay(new Random().Next(100,500)); // avoid timing attacks
+                await Task.Delay(new Random().Next(100,500)); // avoid timing attacks and silently complete
                 return;
             }
 
