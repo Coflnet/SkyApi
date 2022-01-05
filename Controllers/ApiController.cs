@@ -41,7 +41,7 @@ namespace Coflnet.Hypixel.Controller
         public async Task<ActionResult<List<SearchResultItem>>> FullSearch(string searchVal)
         {
             var cancelationSource = new CancellationTokenSource();
-            cancelationSource.CancelAfter(1000);
+            cancelationSource.CancelAfter(8000);
             var collection = await SearchService.Instance.Search(searchVal, cancelationSource.Token);
 
             // either get a decent amount of results or timeout
@@ -55,7 +55,8 @@ namespace Coflnet.Hypixel.Controller
                 HttpContext.Response.GetTypedHeaders().CacheControl =
                     new Microsoft.Net.Http.Headers.CacheControlHeaderValue()
                     {
-                        Private = true,
+                        NoCache = true,
+                        NoStore = true,
                         MaxAge = TimeSpan.Zero
                     };
             }
