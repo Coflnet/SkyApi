@@ -1,7 +1,9 @@
 using System;
 using System.Collections.Generic;
+using System.Threading;
 using System.Threading.Tasks;
 using hypixel;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Coflnet.Hypixel.Controller
@@ -22,9 +24,9 @@ namespace Coflnet.Hypixel.Controller
         [Route("item/search/{searchVal}")]
         [HttpGet]
         [ResponseCache(Duration = 3600 * 12, Location = ResponseCacheLocation.Any, NoStore = false)]
-        public async Task<ActionResult<List<SearchService.SearchResultItem>>> SearchItem(string searchVal)
+        public async Task<ActionResult<List<SearchResultItem>>> SearchItem(string searchVal)
         {
-            var result = await CoreServer.ExecuteCommandWithCache<string, List<SearchService.SearchResultItem>>("itemSearch", searchVal);
+            var result = await CoreServer.ExecuteCommandWithCache<string, List<SearchResultItem>>("itemSearch", searchVal);
             return Ok(result);
         }
 
@@ -36,9 +38,27 @@ namespace Coflnet.Hypixel.Controller
         [Route("search/{searchVal}")]
         [HttpGet]
         [ResponseCache(Duration = 3600 * 6, Location = ResponseCacheLocation.Any, NoStore = false)]
-        public async Task<ActionResult<List<SearchService.SearchResultItem>>> FullSearch(string searchVal)
+        public async Task<ActionResult<List<SearchResultItem>>> FullSearch(string searchVal)
         {
-            var result = await CoreServer.ExecuteCommandWithCache<string, List<SearchService.SearchResultItem>>("fullSearch", searchVal);
+            var cancelationSource = new CancellationTokenSource();
+            cancelationSource.CancelAfter(1000);
+            var collection = await SearchService.Instance.Search(searchVal, cancelationSource.Token);
+
+            // either get a decent amount of results or timeout
+            while (collection.Count < 10 && !cancelationSource.Token.IsCancellationRequested)
+            {
+                await Task.Delay(20);
+            }
+            var result = SearchService.Instance.RankSearchResults(searchVal, collection);
+            if (result.Count == 0)
+            {
+                HttpContext.Response.GetTypedHeaders().CacheControl =
+                    new Microsoft.Net.Http.Headers.CacheControlHeaderValue()
+                    {
+                        Private = true,
+                        MaxAge = TimeSpan.Zero
+                    };
+            }
             return Ok(result);
         }
 
