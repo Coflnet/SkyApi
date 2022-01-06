@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
@@ -40,15 +41,11 @@ namespace Coflnet.Hypixel.Controller
         [ResponseCache(Duration = 3600 * 6, Location = ResponseCacheLocation.Any, NoStore = false)]
         public async Task<ActionResult<List<SearchResultItem>>> FullSearch(string searchVal)
         {
-            var cancelationSource = new CancellationTokenSource();
-            cancelationSource.CancelAfter(8000);
-            var collection = await SearchService.Instance.Search(searchVal, cancelationSource.Token);
-
-            // either get a decent amount of results or timeout
-            while (collection.Count < 10 && !cancelationSource.Token.IsCancellationRequested)
-            {
-                await Task.Delay(20);
-            }
+            var collection = await NewMethod(searchVal, 1000);
+            if(collection.Count == 0) // search again
+                collection = await NewMethod(searchVal, 3000);
+            if(collection.Count == 0) // search once more
+                collection = await NewMethod(searchVal);
             var result = SearchService.Instance.RankSearchResults(searchVal, collection);
             if (result.Count == 0)
             {
@@ -61,6 +58,21 @@ namespace Coflnet.Hypixel.Controller
                     };
             }
             return Ok(result);
+        }
+
+        private static async Task<ConcurrentQueue<SearchResultItem>> NewMethod(string searchVal, int timeout = 4000)
+        {
+            var cancelationSource = new CancellationTokenSource();
+            cancelationSource.CancelAfter(timeout);
+            var collection = await SearchService.Instance.Search(searchVal, cancelationSource.Token);
+
+            // either get a decent amount of results or timeout
+            while (collection.Count < 10 && !cancelationSource.Token.IsCancellationRequested)
+            {
+                await Task.Delay(20);
+            }
+
+            return collection;
         }
 
 
