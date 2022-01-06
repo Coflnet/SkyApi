@@ -67,12 +67,18 @@ namespace Coflnet.Hypixel.Controller
             var channel = await SearchService.Instance.Search(searchVal, cancelationSource.Token);
 
             var collection = new  ConcurrentQueue<SearchResultItem>();
-            await Task.Delay(20);
 
             // either get a decent amount of results or timeout
-            while (EnoughResults(searchVal, collection.Count) && !cancelationSource.Token.IsCancellationRequested)
+            while (!EnoughResults(searchVal, collection.Count) && !cancelationSource.Token.IsCancellationRequested)
             {
-                collection.Enqueue(await channel.Reader.ReadAsync(cancelationSource.Token));
+                var element = await channel.Reader.ReadAsync(cancelationSource.Token);
+                collection.Enqueue(element);
+            }
+            // give an extra buffer for more results to arrive
+            await Task.Delay(10);
+            while(channel.Reader.TryRead(out SearchResultItem item))
+            {
+                collection.Enqueue(item);
             }
 
             return collection;
