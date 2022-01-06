@@ -42,9 +42,9 @@ namespace Coflnet.Hypixel.Controller
         public async Task<ActionResult<List<SearchResultItem>>> FullSearch(string searchVal)
         {
             var collection = await NewMethod(searchVal, 1000);
-            if(collection.Count == 0) // search again
+            if (collection.Count == 0) // search again
                 collection = await NewMethod(searchVal, 3000);
-            if(collection.Count == 0) // search once more
+            if (collection.Count == 0) // search once more
                 collection = await NewMethod(searchVal);
             var result = SearchService.Instance.RankSearchResults(searchVal, collection);
             if (result.Count == 0)
@@ -64,15 +64,35 @@ namespace Coflnet.Hypixel.Controller
         {
             var cancelationSource = new CancellationTokenSource();
             cancelationSource.CancelAfter(timeout);
-            var collection = await SearchService.Instance.Search(searchVal, cancelationSource.Token);
+            var channel = await SearchService.Instance.Search(searchVal, cancelationSource.Token);
+
+            var collection = new  ConcurrentQueue<SearchResultItem>();
+            await Task.Delay(20);
 
             // either get a decent amount of results or timeout
-            while (collection.Count < 10 && !cancelationSource.Token.IsCancellationRequested)
+            while (EnoughResults(searchVal, collection.Count) && !cancelationSource.Token.IsCancellationRequested)
             {
-                await Task.Delay(20);
+                collection.Enqueue(await channel.Reader.ReadAsync(cancelationSource.Token));
             }
 
             return collection;
+        }
+
+        /// <summary>
+        /// Determines if the result count is enough for a search
+        /// 1 char => 10+ results
+        /// 2 char => 5+
+        /// 3 char => 3
+        /// 4-5 char => 2
+        /// 6 + one is enough
+        /// </summary>
+        /// <param name="searchVal"></param>
+        /// <param name="resultCount"></param>
+        /// <returns></returns>
+        public static bool EnoughResults(string searchVal, int resultCount)
+        {
+            var charCount = searchVal.Length;
+            return (10 / charCount) <= resultCount ;
         }
 
 
