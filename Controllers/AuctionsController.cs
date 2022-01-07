@@ -86,20 +86,20 @@ namespace Coflnet.Hypixel.Controller
         /// <returns></returns>
         [Route("auctions/supply/low")]
         [HttpGet]
-        [ResponseCache(Duration = 60, Location = ResponseCacheLocation.Any, NoStore = false)]
+        [ResponseCache(Duration = 600, Location = ResponseCacheLocation.Any, NoStore = false)]
         public async Task<IEnumerable<SupplyElement>> GetLowestBins()
         {
             var client = new RestClient("http://localhost:8000");
             var lowSupply = await IndexerClient.LowSupply();
             var result = new List<SupplyElement>();
             await Parallel.ForEachAsync(lowSupply, 
-            new ParallelOptions() { MaxDegreeOfParallelism = 2},
+            new ParallelOptions() { MaxDegreeOfParallelism = 6},
             async (item, cancelToken) =>
             {
                 try
                 {
-                    var lowestBinTask = client.ExecuteAsync(new RestRequest($"/api/item/price/{item.Key}/bin"));
-                    var response = await client.ExecuteAsync(new RestRequest("/api/item/price/" + item.Key));
+                    var lowestBinTask = client.ExecuteAsync(CreateRequestTo($"/api/item/price/{item.Key}/bin"));
+                    var response = await client.ExecuteAsync(CreateRequestTo("/api/item/price/" + item.Key));
                     var lowestBin = await lowestBinTask;
                     if (response.StatusCode == System.Net.HttpStatusCode.TooManyRequests)
                     {
@@ -125,6 +125,13 @@ namespace Coflnet.Hypixel.Controller
                 }
             });
             return result;
+        }
+
+        private static RestRequest CreateRequestTo(string path)
+        {
+            var lbinReq = new RestRequest(path);
+            lbinReq.Timeout = 5000;
+            return lbinReq;
         }
 
         public class SupplyElement

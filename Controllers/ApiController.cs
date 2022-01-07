@@ -41,6 +41,7 @@ namespace Coflnet.Hypixel.Controller
         [ResponseCache(Duration = 3600 * 6, Location = ResponseCacheLocation.Any, NoStore = false)]
         public async Task<ActionResult<List<SearchResultItem>>> FullSearch(string searchVal)
         {
+            searchVal = searchVal.ToLower();
             var collection = await NewMethod(searchVal, 1000);
             if (collection.Count == 0) // search again
                 collection = await NewMethod(searchVal, 3000);
