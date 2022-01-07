@@ -32,6 +32,7 @@ namespace Coflnet.Hypixel.Controller
         [HttpGet]
         public async Task<IEnumerable<ProfitableCraft>> GetProfitable(string player = null, string profile = null)
         {
+            var client = new RestClient("http://localhost:8000");
             var response = await client.ExecuteAsync(new RestRequest("Crafts/profit"));
             var crafts = JsonConvert.DeserializeObject<List<ProfitableCraft>>(response.Content);
             if (profile == null)
@@ -41,25 +42,43 @@ namespace Coflnet.Hypixel.Controller
             var list = new List<ProfitableCraft>();
             foreach (var item in crafts)
             {
-                if(item == null)
+                if (item == null)
                     continue;
-                
-                if(item.ReqCollection == null 
-                || collection.TryGetValue(item.ReqCollection.Name, out CollectionElem elem) 
+
+                if (item.ReqCollection == null
+                || collection.TryGetValue(item.ReqCollection.Name, out CollectionElem elem)
                         && elem.tier >= item.ReqCollection.Level)
+                {
+
                     list.Add(item);
-                else 
+                }
+                else
                     Console.WriteLine("Blocked " + item.ItemId + " " + item.ReqCollection.Name);
             }
-            return list;
+
+            return await Task.WhenAll(list.Select(async i =>
+            {
+                try
+                {
+                    var salesJson = await client.ExecuteAsync(new RestRequest("/api/item/price/" + i.ItemId));
+                    var sumary = JsonConvert.DeserializeObject<hypixel.PriceSumary>(salesJson.Content);
+                    i.Volume = sumary.Volume;
+                    i.Median = sumary.Med;
+                }
+                catch (Exception e)
+                {
+                    dev.Logger.Instance.Error(e,"getting price summary for crafts");
+                }
+                return i;
+            }));
         }
 
         [Route("recipe/{itemTag}")]
         [HttpGet]
-        public async Task<Dictionary<string,string>> GetRecipe(string itemTag)
+        public async Task<Dictionary<string, string>> GetRecipe(string itemTag)
         {
             var response = await client.ExecuteAsync(new RestRequest($"Crafts/recipe/{itemTag}"));
-            return JsonConvert.DeserializeObject<Dictionary<string,string>>(response.Content);
+            return JsonConvert.DeserializeObject<Dictionary<string, string>>(response.Content);
         }
     }
 
