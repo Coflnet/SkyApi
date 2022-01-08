@@ -93,7 +93,7 @@ namespace Coflnet.Hypixel.Controller
             var lowSupply = await IndexerClient.LowSupply();
             var result = new List<SupplyElement>();
             await Parallel.ForEachAsync(lowSupply, 
-            new ParallelOptions() { MaxDegreeOfParallelism = 6},
+            new ParallelOptions() { MaxDegreeOfParallelism = 20},
             async (item, cancelToken) =>
             {
                 try
@@ -130,7 +130,7 @@ namespace Coflnet.Hypixel.Controller
         private static RestRequest CreateRequestTo(string path)
         {
             var lbinReq = new RestRequest(path);
-            lbinReq.Timeout = 5000;
+            lbinReq.Timeout = 3000;
             return lbinReq;
         }
 
