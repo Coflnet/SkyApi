@@ -95,8 +95,8 @@ namespace Coflnet.Hypixel.Controller
             var client = new RestClient(config["API_BASE_URL"]);
             var lowSupply = await IndexerClient.LowSupply();
             var result = new List<SupplyElement>();
-            var tasks = lowSupply.Where(s=>s.Value > 2).Select(
-            async (item, cancelToken) =>
+            var tasks = lowSupply.Where(s => s.Value > 2).Select(
+            async item =>
             {
                 try
                 {
