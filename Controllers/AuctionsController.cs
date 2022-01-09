@@ -12,6 +12,7 @@ using Microsoft.EntityFrameworkCore;
 using RestSharp;
 using Newtonsoft.Json;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Configuration;
 
 namespace Coflnet.Hypixel.Controller
 {
@@ -22,12 +23,14 @@ namespace Coflnet.Hypixel.Controller
         AuctionService auctionService;
         HypixelContext context;
         ILogger<AuctionsController> logger;
+        IConfiguration config;
 
-        public AuctionsController(AuctionService auctionService, HypixelContext context, ILogger<AuctionsController> logger)
+        public AuctionsController(AuctionService auctionService, HypixelContext context, ILogger<AuctionsController> logger, IConfiguration config)
         {
             this.auctionService = auctionService;
             this.context = context;
             this.logger = logger;
+            this.config = config;
         }
 
         /// <summary>
@@ -89,11 +92,10 @@ namespace Coflnet.Hypixel.Controller
         [ResponseCache(Duration = 600, Location = ResponseCacheLocation.Any, NoStore = false)]
         public async Task<IEnumerable<SupplyElement>> GetLowestBins()
         {
-            var client = new RestClient("http://localhost:8000");
+            var client = new RestClient(config["API_BASE_URL"]);
             var lowSupply = await IndexerClient.LowSupply();
             var result = new List<SupplyElement>();
-            await Parallel.ForEachAsync(lowSupply, 
-            new ParallelOptions() { MaxDegreeOfParallelism = 20},
+            var tasks = lowSupply.Where(s=>s.Value > 2).Select(
             async (item, cancelToken) =>
             {
                 try
@@ -107,7 +109,7 @@ namespace Coflnet.Hypixel.Controller
                     var data = JsonConvert.DeserializeObject<PriceSumary>(response.Content);
                     if (data.Med < 1_000_000 && data.Volume > 0)
                         return;
-                        
+
                     var lowestBinTask = client.ExecuteAsync(CreateRequestTo($"/api/item/price/{item.Key}/bin"));
                     var lbinData = JsonConvert.DeserializeObject<PricesController.BinResponse>((await lowestBinTask).Content);
                     result.Add(new SupplyElement()
@@ -124,6 +126,7 @@ namespace Coflnet.Hypixel.Controller
                     logger.LogError(e, "getting average price data for low supply page");
                 }
             });
+            await Task.WhenAll(tasks);
             return result;
         }
 
