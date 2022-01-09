@@ -32,7 +32,6 @@ namespace Coflnet.Hypixel.Controller
         [HttpGet]
         public async Task<IEnumerable<ProfitableCraft>> GetProfitable(string player = null, string profile = null)
         {
-            var client = new RestClient("http://localhost:8000");
             var response = await client.ExecuteAsync(new RestRequest("Crafts/profit"));
             var crafts = JsonConvert.DeserializeObject<List<ProfitableCraft>>(response.Content);
             if (profile == null)
@@ -56,11 +55,12 @@ namespace Coflnet.Hypixel.Controller
                     Console.WriteLine("Blocked " + item.ItemId + " " + item.ReqCollection.Name);
             }
 
+            var apiClient = new RestClient("http://localhost:8000");
             return await Task.WhenAll(list.Select(async i =>
             {
                 try
                 {
-                    var salesJson = await client.ExecuteAsync(new RestRequest("/api/item/price/" + i.ItemId));
+                    var salesJson = await apiClient.ExecuteAsync(new RestRequest("/api/item/price/" + i.ItemId));
                     var sumary = JsonConvert.DeserializeObject<hypixel.PriceSumary>(salesJson.Content);
                     i.Volume = sumary.Volume;
                     i.Median = sumary.Med;

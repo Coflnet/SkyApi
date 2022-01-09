@@ -98,18 +98,18 @@ namespace Coflnet.Hypixel.Controller
             {
                 try
                 {
-                    var lowestBinTask = client.ExecuteAsync(CreateRequestTo($"/api/item/price/{item.Key}/bin"));
                     var response = await client.ExecuteAsync(CreateRequestTo("/api/item/price/" + item.Key));
-                    var lowestBin = await lowestBinTask;
                     if (response.StatusCode == System.Net.HttpStatusCode.TooManyRequests)
                     {
                         logger.LogInformation("been rate limited");
                         return;
                     }
                     var data = JsonConvert.DeserializeObject<PriceSumary>(response.Content);
-                    var lbinData = JsonConvert.DeserializeObject<PricesController.BinResponse>(lowestBin.Content);
                     if (data.Med < 1_000_000 && data.Volume > 0)
                         return;
+                        
+                    var lowestBinTask = client.ExecuteAsync(CreateRequestTo($"/api/item/price/{item.Key}/bin"));
+                    var lbinData = JsonConvert.DeserializeObject<PricesController.BinResponse>((await lowestBinTask).Content);
                     result.Add(new SupplyElement()
                     {
                         Supply = item.Value,
