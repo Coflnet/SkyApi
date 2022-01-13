@@ -98,6 +98,8 @@ namespace Coflnet.Hypixel.Controller
         /// <returns></returns>
         public static bool EnoughResults(string searchVal, int resultCount)
         {
+            if(resultCount == 0)
+                return false;
             var charCount = searchVal.Length;
             return (10 / charCount) <= resultCount ;
         }

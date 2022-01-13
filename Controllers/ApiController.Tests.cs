@@ -20,6 +20,7 @@ namespace Coflnet.Hypixel.Controller
             Assert.IsTrue(ApiController.EnoughResults("xxxxxx", 1));
             Assert.IsFalse(ApiController.EnoughResults("x", 9));
             Assert.IsFalse(ApiController.EnoughResults("xxxx", 1));
+            Assert.IsFalse(ApiController.EnoughResults("xxxxxxxxxxxxxxx", 0), "no matter how long minimum is one");
         }
     }
 }
