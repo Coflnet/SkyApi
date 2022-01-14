@@ -59,7 +59,7 @@ namespace Coflnet.Hypixel.Controller
         /// <returns></returns>
         [Route("auctions/tag/{itemTag}/active/bin")]
         [HttpGet]
-        //[ResponseCache(Duration = 120, Location = ResponseCacheLocation.Any, NoStore = false)]
+        [ResponseCache(Duration = 60, Location = ResponseCacheLocation.Any, NoStore = false)]
         public async Task<List<SaveAuction>> GetLowestBins(string itemTag, [FromQuery] IDictionary<string, string> query)
         {
             var itemId = ItemDetails.Instance.GetItemIdForName(itemTag);
@@ -77,6 +77,28 @@ namespace Coflnet.Hypixel.Controller
                         .Include(a => a.Enchantments)
                         .Include(a => a.NbtData)
                         .OrderBy(a => a.StartingBid)
+                        .Skip(page * pageSize)
+                        .Take(pageSize).ToListAsync();
+
+            return result;
+        }
+        /// <summary>
+        /// Get a batch of 1000 auctions that sold in the last week for any kind of processing.
+        /// </summary>
+        /// <param name="itemTag">The itemTag to get auctions for</param>
+        /// <returns></returns>
+        [Route("auctions/tag/{itemTag}/sold")]
+        [HttpGet]
+        [ResponseCache(Duration = 1800, Location = ResponseCacheLocation.Any, NoStore = false, VaryByQueryKeys = new string[] { "page" })]
+        public async Task<List<SaveAuction>> GetHistory(string itemTag, int page = 0)
+        {
+            var itemId = ItemDetails.Instance.GetItemIdForName(itemTag);
+            var pageSize = 1000;
+            var startTime = DateTime.Now.RoundDown(TimeSpan.FromHours(1)) - TimeSpan.FromDays(7);
+            var result = await context.Auctions
+                        .Where(a => a.ItemId == itemId && a.End > startTime && a.End < DateTime.Now && a.HighestBidAmount > 0)
+                        .Include(a => a.Enchantments)
+                        .Include(a => a.NbtData)
                         .Skip(page * pageSize)
                         .Take(pageSize).ToListAsync();
 
