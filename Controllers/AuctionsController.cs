@@ -84,8 +84,11 @@ namespace Coflnet.Hypixel.Controller
         }
         /// <summary>
         /// Get a batch of 1000 auctions that sold in the last week for any kind of processing.
+        /// Please credit us with providing data for whatever you are doing.
+        /// You can also manually request a review to get older data on the discord.
         /// </summary>
         /// <param name="itemTag">The itemTag to get auctions for</param>
+        /// <param name="page">Page of auctions to get</param>
         /// <returns></returns>
         [Route("auctions/tag/{itemTag}/sold")]
         [HttpGet]
