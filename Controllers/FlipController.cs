@@ -133,7 +133,7 @@ namespace Coflnet.Hypixel.Controller
         /// Get flips stats for player for the last hour (faster)
         /// </summary>
         /// <param name="playerUuid">Uuid of player</param>
-        /// <returns></returns>
+        /// <returns>List of lips</returns>
         [Route("stats/player/{playerUuid}/hour")]
         [HttpGet]
         [ResponseCache(Duration = 60, Location = ResponseCacheLocation.Any, NoStore = false)]
