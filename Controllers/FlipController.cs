@@ -144,7 +144,7 @@ namespace Coflnet.Hypixel.Controller
 
 
         /// <summary>
-        /// Get flips stats for player
+        /// Get flips stats for one type of flip finder
         /// </summary>
         /// <param name="finderName">Uuid of player to get stats for</param>
         /// <param name="start">The start time of flips to get (inclusive)</param>
