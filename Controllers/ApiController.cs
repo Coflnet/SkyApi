@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using hypixel;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using System.Text.RegularExpressions;
 
 namespace Coflnet.Hypixel.Controller
 {
@@ -17,6 +18,7 @@ namespace Coflnet.Hypixel.Controller
     [ResponseCache(Duration = 60, Location = ResponseCacheLocation.Any, NoStore = false)]
     public class ApiController : ControllerBase
     {
+        static Regex validCharRegex = new Regex("[^-a-zA-Z0-9_\\.' ]");
         /// <summary>
         /// Searches through all items
         /// </summary>
@@ -24,12 +26,13 @@ namespace Coflnet.Hypixel.Controller
         /// <returns>An array of search results matching the searchValue</returns>
         [Route("item/search/{searchVal}")]
         [HttpGet]
-        [ResponseCache(Duration = 3600 * 12, Location = ResponseCacheLocation.Any, NoStore = false)]
+        [ResponseCache(Duration = 3600 * 3, Location = ResponseCacheLocation.Any, NoStore = false)]
         public async Task<ActionResult<List<SearchResultItem>>> SearchItem(string searchVal)
         {
-            var result = await CoreServer.ExecuteCommandWithCache<string, List<SearchResultItem>>("itemSearch", searchVal);
+            var result = ItemDetails.Instance.Search(RemoveInvalidChars(searchVal), 5);
             return Ok(result);
         }
+
 
         /// <summary>
         /// Full search, includes items, players and enchantments
@@ -42,11 +45,11 @@ namespace Coflnet.Hypixel.Controller
         public async Task<ActionResult<List<SearchResultItem>>> FullSearch(string searchVal)
         {
             searchVal = searchVal.ToLower();
-            var collection = await NewMethod(searchVal, 1000);
+            var collection = await ExecuteSearch(searchVal, 1000);
             if (collection.Count == 0) // search again
-                collection = await NewMethod(searchVal, 3000);
+                collection = await ExecuteSearch(searchVal, 3000);
             if (collection.Count == 0) // search once more
-                collection = await NewMethod(searchVal);
+                collection = await ExecuteSearch(searchVal);
             var result = SearchService.Instance.RankSearchResults(searchVal, collection);
             if (result.Count == 0)
             {
@@ -61,7 +64,7 @@ namespace Coflnet.Hypixel.Controller
             return Ok(result);
         }
 
-        private static async Task<ConcurrentQueue<SearchResultItem>> NewMethod(string searchVal, int timeout = 4000)
+        private static async Task<ConcurrentQueue<SearchResultItem>> ExecuteSearch(string searchVal, int timeout = 4000)
         {
             var cancelationSource = new CancellationTokenSource();
             cancelationSource.CancelAfter(timeout);
@@ -83,6 +86,11 @@ namespace Coflnet.Hypixel.Controller
             }
 
             return collection;
+        }
+
+        private static string RemoveInvalidChars(string search)
+        {
+            return validCharRegex.Replace(search, "").ToLower().TrimStart();
         }
 
         /// <summary>
