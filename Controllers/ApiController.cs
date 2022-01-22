@@ -7,6 +7,7 @@ using hypixel;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using System.Text.RegularExpressions;
+using System.Linq;
 
 namespace Coflnet.Hypixel.Controller
 {
@@ -27,10 +28,10 @@ namespace Coflnet.Hypixel.Controller
         [Route("item/search/{searchVal}")]
         [HttpGet]
         [ResponseCache(Duration = 3600 * 3, Location = ResponseCacheLocation.Any, NoStore = false)]
-        public async Task<ActionResult<List<SearchResultItem>>> SearchItem(string searchVal)
+        public async Task<List<SearchResultItem>> SearchItem(string searchVal)
         {
-            var result = await ItemDetails.Instance.Search(RemoveInvalidChars(searchVal), 5);
-            return Ok(result);
+            var itemSearch = await ItemDetails.Instance.Search(RemoveInvalidChars(searchVal), 5);
+            return itemSearch.Select(i=>new SearchResultItem(i)).ToList();
         }
 
 
@@ -42,7 +43,7 @@ namespace Coflnet.Hypixel.Controller
         [Route("search/{searchVal}")]
         [HttpGet]
         [ResponseCache(Duration = 3600 * 6, Location = ResponseCacheLocation.Any, NoStore = false)]
-        public async Task<ActionResult<List<SearchResultItem>>> FullSearch(string searchVal)
+        public async Task<List<SearchResultItem>> FullSearch(string searchVal)
         {
             searchVal = searchVal.ToLower();
             var collection = await ExecuteSearch(searchVal, 1000);
@@ -61,7 +62,7 @@ namespace Coflnet.Hypixel.Controller
                         MaxAge = TimeSpan.Zero
                     };
             }
-            return Ok(result);
+            return result;
         }
 
         private static async Task<ConcurrentQueue<SearchResultItem>> ExecuteSearch(string searchVal, int timeout = 4000)
