@@ -40,6 +40,9 @@ namespace Coflnet.Sky.Api
         public IConfiguration Configuration { get; }
         private static string CORS_PLICY_NAME = "defaultCorsPolicy";
 
+        Prometheus.Counter errorCount = Prometheus.Metrics.CreateCounter("sky_api_error", "Counts the amount of error responses handed out");
+        Prometheus.Counter badRequestCount = Prometheus.Metrics.CreateCounter("sky_api_bad_request", "Counts the responses for invalid requests");
+
         // This method gets called by the runtime. Use this method to add services to the container.
         public void ConfigureServices(IServiceCollection services)
         {
@@ -53,7 +56,8 @@ namespace Coflnet.Sky.Api
                 var xmlPath = Path.Combine(AppContext.BaseDirectory, xmlFile);
                 c.IncludeXmlComments(xmlPath);
             });
-            services.AddCors(o=>{
+            services.AddCors(o =>
+            {
                 o.AddPolicy(CORS_PLICY_NAME, p => p.AllowAnyHeader().AllowAnyMethod().AllowAnyOrigin());
             });
 
@@ -76,7 +80,7 @@ namespace Coflnet.Sky.Api
             });
             services.AddResponseCaching();
             var redisOptions = ConfigurationOptions.Parse(Configuration["REDIS_HOST"]);
-            
+
             services.AddStackExchangeRedisCache(options =>
             {
                 options.ConfigurationOptions = redisOptions;
@@ -130,7 +134,7 @@ namespace Coflnet.Sky.Api
             {
                 errorApp.Run(async context =>
                 {
-                    context.Response.StatusCode = (int)HttpStatusCode.InternalServerError; ;
+                    context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
                     context.Response.ContentType = "text/json";
 
                     var exceptionHandlerPathFeature =
@@ -138,8 +142,10 @@ namespace Coflnet.Sky.Api
 
                     if (exceptionHandlerPathFeature?.Error is CoflnetException ex)
                     {
+                        context.Response.StatusCode = (int)HttpStatusCode.BadRequest;
                         await context.Response.WriteAsync(
                                         JsonConvert.SerializeObject(new { ex.Slug, ex.Message }));
+                        badRequestCount.Inc();
                     }
                     else
                     {
@@ -154,6 +160,7 @@ namespace Coflnet.Sky.Api
                                 Message = "An unexpected internal error occured. Please check that your request is valid. If it is please report he error and include the Trace.",
                                 Trace = traceId
                             }));
+                        errorCount.Inc();
                     }
                 });
             });
