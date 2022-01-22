@@ -29,7 +29,7 @@ namespace Coflnet.Hypixel.Controller
         [ResponseCache(Duration = 3600 * 3, Location = ResponseCacheLocation.Any, NoStore = false)]
         public async Task<ActionResult<List<SearchResultItem>>> SearchItem(string searchVal)
         {
-            var result = ItemDetails.Instance.Search(RemoveInvalidChars(searchVal), 5);
+            var result = await ItemDetails.Instance.Search(RemoveInvalidChars(searchVal), 5);
             return Ok(result);
         }
 
