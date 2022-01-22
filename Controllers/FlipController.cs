@@ -123,7 +123,7 @@ namespace Coflnet.Hypixel.Controller
         /// <returns></returns>
         [Route("stats/player/{playerUuid}")]
         [HttpGet]
-        [ResponseCache(Duration = 1800, Location = ResponseCacheLocation.Any, NoStore = false)]
+        [ResponseCache(Duration = 600, Location = ResponseCacheLocation.Any, NoStore = false)]
         public async Task<FlipSumary> GetStats(string playerUuid)
         {
             return await Sky.Commands.FlipTrackingService.Instance.GetPlayerFlips(playerUuid, TimeSpan.FromDays(7));
@@ -152,7 +152,7 @@ namespace Coflnet.Hypixel.Controller
         /// <returns></returns>
         [Route("stats/finder/{finderName}")]
         [HttpGet]
-        [ResponseCache(Duration = 1800, Location = ResponseCacheLocation.Any, NoStore = false, VaryByQueryKeys = new string[] { "start", "end" })]
+        [ResponseCache(Duration = 300, Location = ResponseCacheLocation.Any, NoStore = false, VaryByQueryKeys = new string[] { "start", "end" })]
         public async Task<List<FlipDetails>> GetFlipsForFinder(string finderName, DateTime start = default, DateTime end = default)
         {
             if (end == default)
