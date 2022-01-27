@@ -13,6 +13,7 @@ using RestSharp;
 using Newtonsoft.Json;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Configuration;
+using Coflnet.Sky.Api.Models;
 
 namespace Coflnet.Hypixel.Controller
 {
@@ -136,7 +137,7 @@ namespace Coflnet.Hypixel.Controller
                         return;
 
                     var lowestBinTask = client.ExecuteAsync(CreateRequestTo($"/api/item/price/{item.Key}/bin"));
-                    var lbinData = JsonConvert.DeserializeObject<PricesController.BinResponse>((await lowestBinTask).Content);
+                    var lbinData = JsonConvert.DeserializeObject<BinResponse>((await lowestBinTask).Content);
                     result.Add(new SupplyElement()
                     {
                         Supply = item.Value,
@@ -167,7 +168,7 @@ namespace Coflnet.Hypixel.Controller
             public string Tag;
             public long Supply;
             public long Median;
-            public PricesController.BinResponse LbinData;
+            public BinResponse LbinData;
             public long Volume;
         }
     }

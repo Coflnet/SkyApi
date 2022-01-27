@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Runtime.Serialization;
 using System.Threading.Tasks;
 using Coflnet.Sky;
 using Coflnet.Sky.Filter;
@@ -9,6 +8,7 @@ using hypixel;
 using Coflnet.Sky.Commands.Shared;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Coflnet.Sky.Api.Models;
 
 namespace Coflnet.Hypixel.Controller
 {
@@ -23,6 +23,11 @@ namespace Coflnet.Hypixel.Controller
         private PricesService priceService;
         HypixelContext context;
 
+        /// <summary>
+        /// Creates a new intance of <see cref="PricesController"/>
+        /// </summary>
+        /// <param name="pricesService"></param>
+        /// <param name="context"></param>
         public PricesController(PricesService pricesService, HypixelContext context)
         {
             priceService = pricesService;
@@ -116,44 +121,6 @@ namespace Coflnet.Hypixel.Controller
         public class TimedQuickStatus : dev.QuickStatus
         {
             public DateTime Time;
-        }
-
-
-
-        /// <summary>
-        /// Lowest bin response
-        /// </summary>
-        [DataContract]
-        public class BinResponse
-        {
-            /// <summary>
-            /// The lowest bin price
-            /// </summary>
-            [DataMember(Name = "lowest")]
-            public long Lowest;
-            /// <summary>
-            /// The lowest bin auction uuid
-            /// </summary>
-            [DataMember(Name = "uuid")]
-            public string Uuid;
-            /// <summary>
-            /// The price of the second lowest bin
-            /// </summary>
-            [DataMember(Name = "secondLowest")]
-            public long SecondLowest;
-
-            /// <summary>
-            /// Creates a new instance of <see cref="BinResponse"/>
-            /// </summary>
-            /// <param name="lowest"></param>
-            /// <param name="uuid"></param>
-            /// <param name="secondLowest"></param>
-            public BinResponse(long lowest, string uuid, long secondLowest)
-            {
-                Lowest = lowest;
-                Uuid = uuid;
-                SecondLowest = secondLowest;
-            }
         }
     }
 }
