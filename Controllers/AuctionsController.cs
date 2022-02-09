@@ -162,15 +162,6 @@ namespace Coflnet.Hypixel.Controller
             lbinReq.Timeout = 3000;
             return lbinReq;
         }
-
-        public class SupplyElement
-        {
-            public string Tag;
-            public long Supply;
-            public long Median;
-            public BinResponse LbinData;
-            public long Volume;
-        }
     }
 }
 
