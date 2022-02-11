@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Coflnet.Sky.PlayerName.Client.Api;
 using Coflnet.Sky.Commands.Shared;
+using Coflnet.Sky.Api.Models;
 
 namespace Coflnet.Hypixel.Controller
 {
@@ -84,19 +85,6 @@ namespace Coflnet.Hypixel.Controller
         {
             return string.Format("{0:n0}", price);
         }
-
-        public class CommandListEntry
-        {
-            public string SubCommand;
-            public string Description;
-
-            public CommandListEntry(string subCommand, string description)
-            {
-                SubCommand = Sky.Commands.MC.McColorCodes.AQUA + subCommand;
-                Description = Sky.Commands.MC.McColorCodes.GRAY + description;
-            }
-        }
-
     }
 }
 
