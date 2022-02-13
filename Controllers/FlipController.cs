@@ -30,6 +30,7 @@ namespace Coflnet.Hypixel.Controller
         /// </summary>
         /// <param name="config"></param>
         /// <param name="tfm"></param>
+        /// <param name="flipService"></param>
         public FlipController(IConfiguration config, TfmService tfm, FlipTrackingService flipService)
         {
             this.config = config;
