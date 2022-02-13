@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Threading.Tasks;
 using Coflnet.Sky;
 using Coflnet.Sky.Api.Services;
+using Coflnet.Sky.Commands;
 using Coflnet.Sky.Commands.MC;
 using Coflnet.Sky.Commands.Shared;
 using Coflnet.Sky.Filter;
@@ -22,16 +23,18 @@ namespace Coflnet.Hypixel.Controller
     {
         private IConfiguration config;
         private TfmService tfm;
+        private FlipTrackingService flipService;
 
         /// <summary>
         /// Creates a new instance of <see cref="FlipController"/>
         /// </summary>
         /// <param name="config"></param>
         /// <param name="tfm"></param>
-        public FlipController(IConfiguration config, TfmService tfm)
+        public FlipController(IConfiguration config, TfmService tfm, FlipTrackingService flipService)
         {
             this.config = config;
             this.tfm = tfm;
+            this.flipService = flipService;
         }
 
         /// <summary>
@@ -86,14 +89,14 @@ namespace Coflnet.Hypixel.Controller
                 return;
             }
 
-            await Sky.Commands.FlipTrackingService.Instance.NewFlip(new LowPricedAuction()
+            await flipService.NewFlip(new LowPricedAuction()
             {
                 Auction = new hypixel.SaveAuction() { Uuid = auctionId },
                 Finder = finderType,
                 TargetPrice = price
             }, received);
-            await Sky.Commands.FlipTrackingService.Instance.ReceiveFlip(auctionId, playerId);
-            await Sky.Commands.FlipTrackingService.Instance.ClickFlip(auctionId, playerId);
+            await flipService.ReceiveFlip(auctionId, playerId);
+            await flipService.ClickFlip(auctionId, playerId);
         }
 
         /// <summary>
@@ -107,7 +110,7 @@ namespace Coflnet.Hypixel.Controller
         [HttpPost]
         public async Task TrackExternalFlip(string auctionId, string finder, int price = -1)
         {
-            await Sky.Commands.FlipTrackingService.Instance.NewFlip(new LowPricedAuction()
+            await flipService.NewFlip(new LowPricedAuction()
             {
                 Auction = new hypixel.SaveAuction() { Uuid = auctionId },
                 Finder = finder.ToLower() == "tfm" ? LowPricedAuction.FinderType.TFM : LowPricedAuction.FinderType.EXTERNAL,
@@ -126,7 +129,7 @@ namespace Coflnet.Hypixel.Controller
         [ResponseCache(Duration = 600, Location = ResponseCacheLocation.Any, NoStore = false)]
         public async Task<FlipSumary> GetStats(string playerUuid)
         {
-            return await Sky.Commands.FlipTrackingService.Instance.GetPlayerFlips(playerUuid, TimeSpan.FromDays(7));
+            return await flipService.GetPlayerFlips(playerUuid, TimeSpan.FromDays(7));
         }
 
         /// <summary>
@@ -139,7 +142,7 @@ namespace Coflnet.Hypixel.Controller
         [ResponseCache(Duration = 60, Location = ResponseCacheLocation.Any, NoStore = false)]
         public async Task<FlipSumary> GetHourStats(string playerUuid)
         {
-            return await Sky.Commands.FlipTrackingService.Instance.GetPlayerFlips(playerUuid, TimeSpan.FromHours(1));
+            return await flipService.GetPlayerFlips(playerUuid, TimeSpan.FromHours(1));
         }
 
 
@@ -160,7 +163,7 @@ namespace Coflnet.Hypixel.Controller
             if (start == default)
                 start = end - TimeSpan.FromHours(1);
             Console.WriteLine(start);
-            return await Sky.Commands.FlipTrackingService.Instance.GetFlipsForFinder(Enum.Parse<LowPricedAuction.FinderType>(finderName, true), start, end);
+            return await flipService.GetFlipsForFinder(Enum.Parse<LowPricedAuction.FinderType>(finderName, true), start, end);
         }
     }
 }
