@@ -70,7 +70,7 @@ namespace Coflnet.Hypixel.Controller
         /// <returns></returns>
         [Route("item/price/{itemTag}/current")]
         [HttpGet]
-        [ResponseCache(Duration = 60, Location = ResponseCacheLocation.Any, NoStore = false)]
+        [ResponseCache(Duration = 180, Location = ResponseCacheLocation.Any, NoStore = false)]
         public async Task<CurrentPrice> GetCurrentPrice(string itemTag, int count = 1)
         {
             return await priceService.GetCurrentPrice(itemTag, count);
