@@ -31,7 +31,7 @@ namespace Coflnet.Hypixel.Controller
         public async Task<List<SearchResultItem>> SearchItem(string searchVal)
         {
             var itemSearch = await ItemDetails.Instance.Search(RemoveInvalidChars(searchVal), 5);
-            return itemSearch.Select(i=>new SearchResultItem(i)).ToList();
+            return itemSearch.Select(i => new SearchResultItem(i)).ToList();
         }
 
 
@@ -48,7 +48,7 @@ namespace Coflnet.Hypixel.Controller
             searchVal = searchVal.ToLower();
             var collection = await ExecuteSearch(searchVal, 1000);
             if (collection.Count == 0) // search again
-                collection = await ExecuteSearch(searchVal, 3000);
+                collection = await ExecuteSearch(searchVal, 2000);
             if (collection.Count == 0) // search once more
                 collection = await ExecuteSearch(searchVal);
             var result = SearchService.Instance.RankSearchResults(searchVal, collection);
@@ -65,23 +65,29 @@ namespace Coflnet.Hypixel.Controller
             return result;
         }
 
-        private static async Task<ConcurrentQueue<SearchResultItem>> ExecuteSearch(string searchVal, int timeout = 4000)
+        private static async Task<ConcurrentQueue<SearchResultItem>> ExecuteSearch(string searchVal, int timeout = 3000)
         {
             var cancelationSource = new CancellationTokenSource();
             cancelationSource.CancelAfter(timeout);
             var channel = await SearchService.Instance.Search(searchVal, cancelationSource.Token);
 
-            var collection = new  ConcurrentQueue<SearchResultItem>();
+            var collection = new ConcurrentQueue<SearchResultItem>();
 
             // either get a decent amount of results or timeout
             while (!EnoughResults(searchVal, collection.Count) && !cancelationSource.Token.IsCancellationRequested)
             {
-                var element = await channel.Reader.ReadAsync(cancelationSource.Token);
-                collection.Enqueue(element);
+                try
+                {
+                    var element = await channel.Reader.ReadAsync(cancelationSource.Token);
+                    collection.Enqueue(element);
+                } catch(OperationCanceledException)
+                {
+                    // done
+                }
             }
             // give an extra buffer for more results to arrive
             await Task.Delay(10);
-            while(channel.Reader.TryRead(out SearchResultItem item))
+            while (channel.Reader.TryRead(out SearchResultItem item))
             {
                 collection.Enqueue(item);
             }
@@ -107,10 +113,10 @@ namespace Coflnet.Hypixel.Controller
         /// <returns></returns>
         public static bool EnoughResults(string searchVal, int resultCount)
         {
-            if(resultCount == 0)
+            if (resultCount == 0)
                 return false;
             var charCount = searchVal.Length;
-            return (10 / charCount) <= resultCount ;
+            return (10 / charCount) <= resultCount;
         }
 
 
