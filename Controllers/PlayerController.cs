@@ -30,6 +30,7 @@ namespace Coflnet.Hypixel.Controller
         /// <returns></returns>
         [Route("{playerUuid}/bids")]
         [HttpGet]
+        [ResponseCache(Duration = 60, Location = ResponseCacheLocation.Any, NoStore = false, VaryByQueryKeys = new string[] { "page" })]
         public async Task<List<BidResult>> GetPlayerBids(string playerUuid, int page = 0)
         {
             AssertUuid(playerUuid);
@@ -91,6 +92,7 @@ namespace Coflnet.Hypixel.Controller
         /// <returns></returns>
         [Route("{playerUuid}/auctions")]
         [HttpGet]
+        [ResponseCache(Duration = 60, Location = ResponseCacheLocation.Any, NoStore = false, VaryByQueryKeys = new string[] { "page" })]
         public async Task<List<AuctionResult>> GetPlayerAuctions(string playerUuid, int page = 0)
         {
             AssertUuid(playerUuid);

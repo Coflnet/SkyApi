@@ -41,7 +41,7 @@ namespace Coflnet.Hypixel.Controller
         /// <returns></returns>
         [Route("item/price/{itemTag}")]
         [HttpGet]
-        [ResponseCache(Duration = 1800, Location = ResponseCacheLocation.Any, NoStore = false)]
+        [ResponseCache(Duration = 1800, Location = ResponseCacheLocation.Any, NoStore = false, VaryByQueryKeys = new string[] { "query" })]
         public Task<PriceSumary> GetSumary(string itemTag, [FromQuery] IDictionary<string, string> query)
         {
             return priceService.GetSumary(itemTag, new Dictionary<string, string>(query));
@@ -55,7 +55,7 @@ namespace Coflnet.Hypixel.Controller
         /// <returns></returns>
         [Route("item/price/{itemTag}/bin")]
         [HttpGet]
-        [ResponseCache(Duration = 60, Location = ResponseCacheLocation.Any, NoStore = false)]
+        [ResponseCache(Duration = 60, Location = ResponseCacheLocation.Any, NoStore = false, VaryByQueryKeys = new string[] { "query" })]
         public async Task<ActionResult<BinResponse>> GetLowestBin(string itemTag, [FromQuery] IDictionary<string, string> query)
         {
             var result = await ItemPrices.GetLowestBin(itemTag, new Dictionary<string, string>(query));
@@ -70,7 +70,7 @@ namespace Coflnet.Hypixel.Controller
         /// <returns></returns>
         [Route("item/price/{itemTag}/current")]
         [HttpGet]
-        [ResponseCache(Duration = 180, Location = ResponseCacheLocation.Any, NoStore = false)]
+        [ResponseCache(Duration = 180, Location = ResponseCacheLocation.Any, NoStore = false, VaryByQueryKeys = new string[] { "count" })]
         public async Task<CurrentPrice> GetCurrentPrice(string itemTag, int count = 1)
         {
             return await priceService.GetCurrentPrice(itemTag, count);
