@@ -55,7 +55,7 @@ namespace Coflnet.Hypixel.Controller
         /// <returns></returns>
         [Route("item/price/{itemTag}/bin")]
         [HttpGet]
-        [ResponseCache(Duration = 60, Location = ResponseCacheLocation.Any, NoStore = false, VaryByQueryKeys = new string[] { "query" })]
+        [ResponseCache(Duration = 120, Location = ResponseCacheLocation.Any, NoStore = false, VaryByQueryKeys = new string[] { "query" })]
         public async Task<ActionResult<BinResponse>> GetLowestBin(string itemTag, [FromQuery] IDictionary<string, string> query)
         {
             var result = await ItemPrices.GetLowestBin(itemTag, new Dictionary<string, string>(query));
