@@ -163,7 +163,6 @@ namespace Coflnet.Hypixel.Controller
                 end = DateTime.Now;
             if (start == default)
                 start = end - TimeSpan.FromHours(1);
-            Console.WriteLine(start);
             return await flipService.GetFlipsForFinder(Enum.Parse<LowPricedAuction.FinderType>(finderName, true), start, end);
         }
     }
