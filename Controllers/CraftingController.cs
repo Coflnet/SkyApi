@@ -28,6 +28,12 @@ namespace Coflnet.Hypixel.Controller
                 profileClient = new RestClient("http://" + config["PROFILE_HOST"]);
         }
 
+        /// <summary>
+        /// Craft flips
+        /// </summary>
+        /// <param name="player"></param>
+        /// <param name="profile"></param>
+        /// <returns></returns>
         [Route("profit")]
         [HttpGet]
         [ResponseCache(Duration = 120, Location = ResponseCacheLocation.Any, NoStore = false, VaryByQueryKeys = new string[] { "player", "profile" })]
