@@ -68,7 +68,7 @@ namespace Coflnet.Hypixel.Controller
                 }
                 catch (Exception e)
                 {
-                    dev.Logger.Instance.Error(e,"getting price summary for crafts");
+                    dev.Logger.Instance.Error(e, "getting price summary for crafts");
                 }
                 return i;
             }));
@@ -76,6 +76,8 @@ namespace Coflnet.Hypixel.Controller
 
         [Route("recipe/{itemTag}")]
         [HttpGet]
+        [Route("api/craft")]
+        [ResponseCache(Duration = 3600 * 12, Location = ResponseCacheLocation.Any, NoStore = false)]
         public async Task<Dictionary<string, string>> GetRecipe(string itemTag)
         {
             var response = await client.ExecuteAsync(new RestRequest($"Crafts/recipe/{itemTag}"));
