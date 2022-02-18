@@ -34,14 +34,14 @@ namespace Coflnet.Hypixel.Controller
             this.context = context;
         }
         /// <summary>
-        /// Aggregated sumary of item prices for the last day
+        /// Aggregated sumary of item prices for the 3 last days
         /// </summary>
         /// <param name="itemTag">The item tag you want prices for</param>
         /// <param name="query">Filter query</param>
         /// <returns></returns>
         [Route("item/price/{itemTag}")]
         [HttpGet]
-        [ResponseCache(Duration = 1800, Location = ResponseCacheLocation.Any, NoStore = false, VaryByQueryKeys = new string[] { "query" })]
+        [ResponseCache(Duration = 1800, Location = ResponseCacheLocation.Any, NoStore = false, VaryByQueryKeys = new string[] { "*" })]
         public Task<PriceSumary> GetSumary(string itemTag, [FromQuery] IDictionary<string, string> query)
         {
             return priceService.GetSumary(itemTag, new Dictionary<string, string>(query));
@@ -55,7 +55,7 @@ namespace Coflnet.Hypixel.Controller
         /// <returns></returns>
         [Route("item/price/{itemTag}/bin")]
         [HttpGet]
-        [ResponseCache(Duration = 120, Location = ResponseCacheLocation.Any, NoStore = false, VaryByQueryKeys = new string[] { "query" })]
+        [ResponseCache(Duration = 120, Location = ResponseCacheLocation.Any, NoStore = false, VaryByQueryKeys = new string[] { "*" })]
         public async Task<ActionResult<BinResponse>> GetLowestBin(string itemTag, [FromQuery] IDictionary<string, string> query)
         {
             var result = await ItemPrices.GetLowestBin(itemTag, new Dictionary<string, string>(query));

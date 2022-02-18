@@ -60,7 +60,7 @@ namespace Coflnet.Hypixel.Controller
         /// <returns></returns>
         [Route("auctions/tag/{itemTag}/active/bin")]
         [HttpGet]
-        [ResponseCache(Duration = 120, Location = ResponseCacheLocation.Any, NoStore = false)]
+        [ResponseCache(Duration = 120, Location = ResponseCacheLocation.Any, NoStore = false, VaryByQueryKeys = new string[] { "*" })]
         public async Task<List<SaveAuction>> GetLowestBins(string itemTag, [FromQuery] IDictionary<string, string> query)
         {
             var itemId = ItemDetails.Instance.GetItemIdForName(itemTag);
