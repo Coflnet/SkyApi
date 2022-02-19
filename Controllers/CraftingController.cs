@@ -7,6 +7,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Configuration;
 using Coflnet.Sky.Crafts.Models;
 using Newtonsoft.Json;
+using Coflnet.Sky.Api.Models;
 
 namespace Coflnet.Hypixel.Controller
 {
@@ -20,6 +21,10 @@ namespace Coflnet.Hypixel.Controller
     {
         private static RestClient client = null;
         private static RestClient profileClient = null;
+        /// <summary>
+        /// Creates a new instance of <see cref="CraftingController"/>
+        /// </summary>
+        /// <param name="config"></param>
         public CraftingController(IConfiguration config)
         {
             if (client == null)
@@ -80,6 +85,11 @@ namespace Coflnet.Hypixel.Controller
             }));
         }
 
+        /// <summary>
+        /// Returns the crafting recipe for some item
+        /// </summary>
+        /// <param name="itemTag"></param>
+        /// <returns></returns>
         [Route("recipe/{itemTag}")]
         [HttpGet]
         [Route("api/craft")]
@@ -89,10 +99,5 @@ namespace Coflnet.Hypixel.Controller
             var response = await client.ExecuteAsync(new RestRequest($"Crafts/recipe/{itemTag}"));
             return JsonConvert.DeserializeObject<Dictionary<string, string>>(response.Content);
         }
-    }
-
-    public class CollectionElem
-    {
-        public int tier;
     }
 }
