@@ -130,7 +130,7 @@ namespace Coflnet.Hypixel.Controller
         [Route("stats/player/{playerUuid}")]
         [HttpGet]
         [ResponseCache(Duration = 600, Location = ResponseCacheLocation.Any, NoStore = false, VaryByQueryKeys = new string[] { "days" })]
-        public async Task<FlipSumary> GetStats(string playerUuid, int days = 7)
+        public async Task<FlipSumary> GetStats(string playerUuid, float days = 7)
         {
             if(days > 7)
                 throw new CoflnetException("invalid_time", "Sorry but this is currently limited to one week");
