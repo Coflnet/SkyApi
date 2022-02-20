@@ -7,6 +7,7 @@ using Coflnet.Sky.Commands;
 using Coflnet.Sky.Commands.MC;
 using Coflnet.Sky.Commands.Shared;
 using Coflnet.Sky.Filter;
+using hypixel;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Configuration;
 using RestSharp;
@@ -124,13 +125,18 @@ namespace Coflnet.Hypixel.Controller
         /// Get flips stats for player
         /// </summary>
         /// <param name="playerUuid">Uuid of player to get stats for</param>
+        /// <param name="days"></param>
         /// <returns></returns>
         [Route("stats/player/{playerUuid}")]
         [HttpGet]
-        [ResponseCache(Duration = 600, Location = ResponseCacheLocation.Any, NoStore = false)]
-        public async Task<FlipSumary> GetStats(string playerUuid)
+        [ResponseCache(Duration = 600, Location = ResponseCacheLocation.Any, NoStore = false, VaryByQueryKeys = new string[] { "days" })]
+        public async Task<FlipSumary> GetStats(string playerUuid, int days = 7)
         {
-            return await flipService.GetPlayerFlips(playerUuid, TimeSpan.FromDays(7));
+            if(days > 7)
+                throw new CoflnetException("invalid_time", "Sorry but this is currently limited to one week");
+            if(days < 0)
+                throw new CoflnetException("invalid_time", "You can't request flips in the future");
+            return await flipService.GetPlayerFlips(playerUuid, TimeSpan.FromDays(days));
         }
 
         /// <summary>
