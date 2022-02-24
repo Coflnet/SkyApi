@@ -110,6 +110,28 @@ namespace Coflnet.Hypixel.Controller
         }
 
         /// <summary>
+        /// Checks an array of item uuids if they are active on the ah
+        /// </summary>
+        /// <param name="uuids">The list of uuids to check</param>
+        /// <returns>A list of found uuids with active auctions</returns>
+        [Route("auctions/active/uuid")]
+        [HttpPost]
+        [ResponseCache(Duration = 1800, Location = ResponseCacheLocation.Any, NoStore = false)]
+        public async Task<IEnumerable<string>> CheckIfIdsActive([FromBody] List<string> uuids)
+        {
+            var key = NBT.Instance.GetKeyId("uid");
+            var uIds = uuids.Select(u=>NBT.UidToLong(u.Substring(24))).ToHashSet();
+            var lookups = context.NBTLookups.Where(l=>l.KeyId == key && uIds.Contains(l.Value)).Select(l=>l.AuctionId);
+            
+            var result = await context.Auctions
+                        .Where(a => context.NBTLookups.Where(l=>l.KeyId == key && uIds.Contains(l.Value)).Select(l=>l.AuctionId).Contains(a.Id) && a.End > DateTime.Now)
+                        .Include(a=>a.NBTLookup)
+                        .Select(a=>a.NBTLookup.Where(l=>l.KeyId == key).Select(l=>l.Value).FirstOrDefault()).ToListAsync();
+            var endings = result.Select(id=> id.ToString("x")).ToHashSet();
+            return uuids.Where(id=>endings.Contains(id.Substring(24)));
+        }
+
+        /// <summary>
         /// Get items that are in low supply
         /// </summary>
         /// <returns></returns>
