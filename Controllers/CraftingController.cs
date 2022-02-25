@@ -49,7 +49,9 @@ namespace Coflnet.Hypixel.Controller
             if (profile == null)
                 return crafts;
             var collectionJson = await profileClient.ExecuteAsync(new RestRequest($"/api/profile/{player}/{profile}/data/collections"));
+            var slayersJson = await profileClient.ExecuteAsync(new RestRequest($"/api/profile/{player}/{profile}/data/collections"));
             var collection = JsonConvert.DeserializeObject<Dictionary<string, CollectionElem>>(collectionJson.Content);
+            var slayers = JsonConvert.DeserializeObject<Dictionary<string, SlayerElem>>(slayersJson.Content);
             var list = new List<ProfitableCraft>();
             foreach (var item in crafts)
             {
@@ -60,9 +62,12 @@ namespace Coflnet.Hypixel.Controller
                 || collection.TryGetValue(item.ReqCollection.Name, out CollectionElem elem)
                         && elem.tier >= item.ReqCollection.Level)
                 {
-
                     list.Add(item);
                 }
+                else if (item.ReqSlayer == null
+                    || slayers.TryGetValue(item.ReqSlayer.Name.ToLower(), out SlayerElem slayerElem)
+                      && slayerElem.Level.currentLevel >= item.ReqSlayer.Level)
+                    list.Add(item);
                 else
                     Console.WriteLine("Blocked " + item.ItemId + " " + item.ReqCollection.Name);
             }
