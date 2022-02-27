@@ -49,7 +49,7 @@ namespace Coflnet.Hypixel.Controller
             var response = await client.ExecuteAsync(new RestRequest("Crafts/profit"));
             var crafts = JsonConvert.DeserializeObject<List<ProfitableCraft>>(response.Content);
             if (profile == null)
-                return crafts;
+                return await AddSaleData(crafts);
             var collectionJson = await profileClient.ExecuteAsync(new RestRequest($"/api/profile/{player}/{profile}/data/collections"));
             var slayersJson = await profileClient.ExecuteAsync(new RestRequest($"/api/profile/{player}/{profile}/data/collections"));
             var collection = JsonConvert.DeserializeObject<Dictionary<string, CollectionElem>>(collectionJson.Content);
@@ -73,11 +73,16 @@ namespace Coflnet.Hypixel.Controller
                 else
                     Console.WriteLine("Blocked " + item.ItemId + " " + item.ReqCollection.Name);
             }
+            return await AddSaleData(list);
+        }
 
+        private async Task<IEnumerable<ProfitableCraft>> AddSaleData(List<ProfitableCraft> list)
+        {
             return await Task.WhenAll(list.Select(async i =>
             {
                 try
                 {
+                    i.Median = -1;
                     var salesJson = await apiClient.ExecuteAsync(new RestRequest("/api/item/price/" + i.ItemId));
                     var sumary = JsonConvert.DeserializeObject<hypixel.PriceSumary>(salesJson.Content);
                     i.Volume = sumary.Volume;
