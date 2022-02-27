@@ -33,6 +33,7 @@ namespace Coflnet.Hypixel.Controller
             if (profileClient == null)
                 profileClient = new RestClient("http://" + config["PROFILE_HOST"]);
             apiClient = new (config["API_BASE_URL"]);
+            apiClient.Timeout = 3000;
         }
 
         /// <summary>

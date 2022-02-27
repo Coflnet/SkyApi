@@ -67,11 +67,46 @@ namespace Coflnet.Hypixel.Controller
             var lastSell = auctions.Where(a => a.End < System.DateTime.Now).FirstOrDefault();
             long med = await GetMedian(lastSell);
             var playerName = await playerNamService.PlayerNameNameUuidGetAsync(lastSell.Bids.FirstOrDefault()?.Bidder);
-            if(lastSell == null )
+            if (lastSell == null)
                 return "Item has no recorded sell";
             return $"Sold {auctions.Count} times\n"
                 + (lastSell == null ? "" : $"last sold for {FormatPrice(lastSell.HighestBidAmount)} to {playerName?.Trim('"')}")
                 + (auctions.Count == 0 ? "" : $"Median {FormatPrice(med)}");
+        }
+        /// <summary>
+        /// Returns new descriptions for an array of items
+        /// </summary>
+        [Route("description")]
+        [HttpPost]
+        public async Task<IEnumerable<string[]>> ItemDescription([FromBody] InventoryData inventory, [FromHeader] string conId, [FromHeader] string uuid)
+        {
+            var name = await db.Players.Where(p=>p.UuId == uuid).Select(p=>p.Name).FirstOrDefaultAsync();
+            return inventory.Items.Select(d => d.Tag.Display.Lore.Append("test line " + name).ToArray());
+        }
+
+        public class InventoryData
+        {
+            public string ChestName;
+            public ItemNbtData[] Items;
+        }
+
+        public class ItemNbtData
+        {
+            public byte Count;
+            public int Id;
+            public ItemTag Tag;
+        }
+
+        public class ItemTag
+        {
+            public Display Display;
+            public Dictionary<string, string> ExtraAttributes;
+        }
+
+        public class Display
+        {
+            public string[] Lore;
+            public string Name;
         }
 
         private static async Task<long> GetMedian(SaveAuction lastSell)
