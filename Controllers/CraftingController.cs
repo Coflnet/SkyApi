@@ -21,6 +21,7 @@ namespace Coflnet.Hypixel.Controller
     {
         private static RestClient client = null;
         private static RestClient profileClient = null;
+        private RestClient apiClient;
         /// <summary>
         /// Creates a new instance of <see cref="CraftingController"/>
         /// </summary>
@@ -31,6 +32,7 @@ namespace Coflnet.Hypixel.Controller
                 client = new RestClient("http://" + config["CRAFTS_HOST"]);
             if (profileClient == null)
                 profileClient = new RestClient("http://" + config["PROFILE_HOST"]);
+            apiClient = new (config["API_BASE_URL"]);
         }
 
         /// <summary>
@@ -72,7 +74,6 @@ namespace Coflnet.Hypixel.Controller
                     Console.WriteLine("Blocked " + item.ItemId + " " + item.ReqCollection.Name);
             }
 
-            var apiClient = new RestClient("http://localhost:8000");
             return await Task.WhenAll(list.Select(async i =>
             {
                 try
