@@ -85,7 +85,7 @@ namespace Coflnet.Hypixel.Controller
                 try
                 {
                     i.Median = -1;
-                    var salesJson = await apiClient.ExecuteAsync(new RestRequest("/api/item/price/" + i.ItemId));
+                    var salesJson = await Task.Run(async()=>await apiClient.ExecuteAsync(new RestRequest("/api/item/price/" + i.ItemId))).ConfigureAwait(false);
                     var sumary = JsonConvert.DeserializeObject<hypixel.PriceSumary>(salesJson.Content);
                     i.Volume = sumary.Volume;
                     i.Median = sumary.Med;
