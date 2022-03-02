@@ -120,15 +120,20 @@ namespace Coflnet.Hypixel.Controller
         public async Task<IEnumerable<string>> CheckIfIdsActive([FromBody] List<string> uuids)
         {
             var key = NBT.Instance.GetKeyId("uid");
-            var uIds = uuids.Select(u=>NBT.UidToLong(u.Substring(24))).ToHashSet();
-            var lookups = context.NBTLookups.Where(l=>l.KeyId == key && uIds.Contains(l.Value)).Select(l=>l.AuctionId);
-            
+            var uIds = uuids.Select(u =>
+            {
+                if (u.Length < 12)
+                    throw new CoflnetException("invalid_uuid", "One or more passed uuids are invalid (to short)");
+                return NBT.UidToLong(u.Substring(u.Length - 12));
+            }).ToHashSet();
+            var lookups = context.NBTLookups.Where(l => l.KeyId == key && uIds.Contains(l.Value)).Select(l => l.AuctionId);
+
             var result = await context.Auctions
-                        .Where(a => context.NBTLookups.Where(l=>l.KeyId == key && uIds.Contains(l.Value)).Select(l=>l.AuctionId).Contains(a.Id) && a.End > DateTime.Now)
-                        .Include(a=>a.NBTLookup)
-                        .Select(a=>a.NBTLookup.Where(l=>l.KeyId == key).Select(l=>l.Value).FirstOrDefault()).ToListAsync();
-            var endings = result.Select(id=> id.ToString("x")).ToHashSet();
-            return uuids.Where(id=>endings.Contains(id.Substring(24)));
+                        .Where(a => context.NBTLookups.Where(l => l.KeyId == key && uIds.Contains(l.Value)).Select(l => l.AuctionId).Contains(a.Id) && a.End > DateTime.Now)
+                        .Include(a => a.NBTLookup)
+                        .Select(a => a.NBTLookup.Where(l => l.KeyId == key).Select(l => l.Value).FirstOrDefault()).ToListAsync();
+            var endings = result.Select(id => id.ToString("x")).ToHashSet();
+            return uuids.Where(id => endings.Contains(id.Substring(id.Length - 12)));
         }
 
         /// <summary>
