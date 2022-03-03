@@ -78,14 +78,14 @@ namespace Coflnet.Hypixel.Controller
 
         private async Task<IEnumerable<ProfitableCraft>> AddSaleData(List<ProfitableCraft> list)
         {
-            return await Task.WhenAll(list.Select(async i =>
+            var apiClient = new RestClient(apiUrl);
+            apiClient.Timeout = 3000;
+            var taskList = list.Select((async i =>
             {
-                var apiClient = new RestClient(apiUrl);
-                apiClient.Timeout = 3000;
                 try
                 {
                     i.Median = -1;
-                    var salesJson = await Task.Run(async()=>await apiClient.ExecuteAsync(new RestRequest("/api/item/price/" + i.ItemId))).ConfigureAwait(false);
+                    var salesJson = await Task.Run(async () => await apiClient.ExecuteAsync(new RestRequest("/api/item/price/" + i.ItemId))).ConfigureAwait(false);
                     var sumary = JsonConvert.DeserializeObject<hypixel.PriceSumary>(salesJson.Content);
                     i.Volume = sumary.Volume;
                     i.Median = sumary.Med;
@@ -95,7 +95,13 @@ namespace Coflnet.Hypixel.Controller
                     dev.Logger.Instance.Error(e, "getting price summary for crafts");
                 }
                 return i;
-            }));
+            })).Select(t=>t.ConfigureAwait(false));
+            var result = new List<ProfitableCraft>();
+            foreach (var item in taskList)
+            {
+                result.Add(await item);
+            }
+            return result;
         }
 
         /// <summary>
