@@ -75,6 +75,32 @@ namespace Coflnet.Hypixel.Controller
         {
             return await priceService.GetCurrentPrice(itemTag, count);
         }
+        /// <summary>
+        /// Gets the price history for an item
+        /// </summary>
+        /// <param name="itemTag">The tag of the item/param>
+        /// <param name="count">How many items to search for</param>
+        /// <returns></returns>
+        [Route("item/price/{itemTag}/history/week")]
+        [HttpGet]
+        [ResponseCache(Duration = 1800, Location = ResponseCacheLocation.Any, NoStore = false, VaryByQueryKeys = new string[] { "*" })]
+        public async Task<IEnumerable<AveragePrice>> GetWeekHistory(string itemTag, [FromQuery] IDictionary<string, string> query)
+        {
+            return await priceService.GetHistory(itemTag, DateTime.UtcNow - TimeSpan.FromDays(7), DateTime.UtcNow, new Dictionary<string, string>(query));
+        }
+        /// <summary>
+        /// Gets the price history for an item for one month
+        /// </summary>
+        /// <param name="itemTag">The tag of the item/param>
+        /// <param name="count">How many items to search for</param>
+        /// <returns></returns>
+        [Route("item/price/{itemTag}/history/month")]
+        [HttpGet]
+        [ResponseCache(Duration = 3600*2, Location = ResponseCacheLocation.Any, NoStore = false, VaryByQueryKeys = new string[] { "count" })]
+        public async Task<IEnumerable<AveragePrice>> GetMonthHistory(string itemTag)
+        {
+            return await priceService.GetHistory(itemTag, DateTime.UtcNow - TimeSpan.FromDays(30), DateTime.UtcNow, null);
+        }
 
         /// <summary>
         /// Returns all available filters with all available options
