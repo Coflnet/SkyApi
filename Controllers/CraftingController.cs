@@ -53,8 +53,9 @@ namespace Coflnet.Hypixel.Controller
             var crafts = JsonConvert.DeserializeObject<List<ProfitableCraft>>(response.Content);
             if (profile == null)
                 return await AddSaleData(crafts);
+            var slayersJsonTask = profileClient.ExecuteAsync(new RestRequest($"/api/profile/{player}/{profile}/data/slayers"));
             var collectionJson = await profileClient.ExecuteAsync(new RestRequest($"/api/profile/{player}/{profile}/data/collections"));
-            var slayersJson = await profileClient.ExecuteAsync(new RestRequest($"/api/profile/{player}/{profile}/data/collections"));
+            var slayersJson = await slayersJsonTask;
             var collection = JsonConvert.DeserializeObject<Dictionary<string, CollectionElem>>(collectionJson.Content);
             var slayers = JsonConvert.DeserializeObject<Dictionary<string, SlayerElem>>(slayersJson.Content);
             var list = new List<ProfitableCraft>();
