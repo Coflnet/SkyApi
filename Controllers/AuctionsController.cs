@@ -14,6 +14,7 @@ using Newtonsoft.Json;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Configuration;
 using Coflnet.Sky.Api.Models;
+using Coflnet.Sky.Commands.Shared;
 
 namespace Coflnet.Hypixel.Controller
 {
@@ -24,14 +25,16 @@ namespace Coflnet.Hypixel.Controller
         AuctionService auctionService;
         HypixelContext context;
         ILogger<AuctionsController> logger;
+        PricesService pricesService;
         IConfiguration config;
 
-        public AuctionsController(AuctionService auctionService, HypixelContext context, ILogger<AuctionsController> logger, IConfiguration config)
+        public AuctionsController(AuctionService auctionService, HypixelContext context, ILogger<AuctionsController> logger, IConfiguration config, PricesService pricesService)
         {
             this.auctionService = auctionService;
             this.context = context;
             this.logger = logger;
             this.config = config;
+            this.pricesService = pricesService;
         }
 
         /// <summary>
@@ -153,13 +156,7 @@ namespace Coflnet.Hypixel.Controller
             {
                 try
                 {
-                    var response = await client.ExecuteAsync(CreateRequestTo("/api/item/price/" + item.Key));
-                    if (response.StatusCode == System.Net.HttpStatusCode.TooManyRequests)
-                    {
-                        logger.LogInformation("been rate limited");
-                        return;
-                    }
-                    var data = JsonConvert.DeserializeObject<PriceSumary>(response.Content);
+                    var data = await pricesService.GetSumaryCache(item.Key);
                     if (data.Med < 1_000_000 && data.Volume > 0)
                         return;
 

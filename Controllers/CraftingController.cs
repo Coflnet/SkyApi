@@ -8,6 +8,7 @@ using Microsoft.Extensions.Configuration;
 using Coflnet.Sky.Crafts.Models;
 using Newtonsoft.Json;
 using Coflnet.Sky.Api.Models;
+using Coflnet.Sky.Commands.Shared;
 
 namespace Coflnet.Hypixel.Controller
 {
@@ -22,17 +23,19 @@ namespace Coflnet.Hypixel.Controller
         private static RestClient client = null;
         private static RestClient profileClient = null;
         private string apiUrl;
+        PricesService pricesService;
         /// <summary>
         /// Creates a new instance of <see cref="CraftingController"/>
         /// </summary>
         /// <param name="config"></param>
-        public CraftingController(IConfiguration config)
+        public CraftingController(IConfiguration config, PricesService pricesService)
         {
             if (client == null)
                 client = new RestClient("http://" + config["CRAFTS_HOST"]);
             if (profileClient == null)
                 profileClient = new RestClient("http://" + config["PROFILE_HOST"]);
             apiUrl = config["API_BASE_URL"];
+            this.pricesService = pricesService;
         }
 
         /// <summary>
@@ -43,7 +46,7 @@ namespace Coflnet.Hypixel.Controller
         /// <returns></returns>
         [Route("profit")]
         [HttpGet]
-        [ResponseCache(Duration = 120, Location = ResponseCacheLocation.Any, NoStore = false, VaryByQueryKeys = new string[] { "player", "profile" })]
+        [ResponseCache(Duration = 12, Location = ResponseCacheLocation.Any, NoStore = false, VaryByQueryKeys = new string[] { "player", "profile" })]
         public async Task<IEnumerable<ProfitableCraft>> GetProfitable(string player = null, string profile = null)
         {
             var response = await client.ExecuteAsync(new RestRequest("Crafts/profit"));
@@ -85,8 +88,7 @@ namespace Coflnet.Hypixel.Controller
                 try
                 {
                     i.Median = -1;
-                    var salesJson = await Task.Run(async () => await apiClient.ExecuteAsync(new RestRequest("/api/item/price/" + i.ItemId))).ConfigureAwait(false);
-                    var sumary = JsonConvert.DeserializeObject<hypixel.PriceSumary>(salesJson.Content);
+                    var sumary = await pricesService.GetSumaryCache(i.ItemId);
                     i.Volume = sumary.Volume;
                     i.Median = sumary.Med;
                 }
