@@ -46,7 +46,7 @@ namespace Coflnet.Hypixel.Controller
         /// <returns></returns>
         [Route("profit")]
         [HttpGet]
-        [ResponseCache(Duration = 12, Location = ResponseCacheLocation.Any, NoStore = false, VaryByQueryKeys = new string[] { "player", "profile" })]
+        [ResponseCache(Duration = 120, Location = ResponseCacheLocation.Any, NoStore = false, VaryByQueryKeys = new string[] { "player", "profile" })]
         public async Task<IEnumerable<ProfitableCraft>> GetProfitable(string player = null, string profile = null)
         {
             var response = await client.ExecuteAsync(new RestRequest("Crafts/profit"));
