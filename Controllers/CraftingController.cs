@@ -82,8 +82,6 @@ namespace Coflnet.Hypixel.Controller
 
         private async Task<IEnumerable<ProfitableCraft>> AddSaleData(List<ProfitableCraft> list)
         {
-            var apiClient = new RestClient(apiUrl);
-            apiClient.Timeout = 3000;
             var taskList = list.Select((async i =>
             {
                 try
