@@ -71,23 +71,24 @@ namespace Coflnet.Hypixel.Controller
         /// <param name="finder">Identifier of finder</param>
         /// <param name="playerId">The uuid of the player</param>
         /// <param name="price">Sugested target price</param>
+        /// <param name="timeStamp">Unix millisecond timestamp when the flip was found</param>
         /// <returns></returns>
         [Route("track/purchase/{auctionId}")]
         [HttpPost]
-        public async Task TrackExternalFlip(string auctionId, string finder, string playerId, int price = -1)
+        public async Task TrackExternalFlip(string auctionId, string finder, string playerId, int price = -1, long timeStamp = 0)
         {
-            var received = DateTime.Now;
-            
-            var finderType = finder.ToLower() switch 
+            var received =  GetTime(timeStamp);
+
+            var finderType = finder.ToLower() switch
             {
                 "tfm" => LowPricedAuction.FinderType.TFM,
                 "stonks" => LowPricedAuction.FinderType.STONKS,
                 _ => LowPricedAuction.FinderType.EXTERNAL,
             };
 
-            if(finderType == LowPricedAuction.FinderType.TFM & !await tfm.IsUserOnAsync(playerId))
+            if (finderType == LowPricedAuction.FinderType.TFM && !await tfm.IsUserOnAsync(playerId))
             {
-                await Task.Delay(new Random().Next(100,500)); // avoid timing attacks and silently complete
+                await Task.Delay(new Random().Next(100, 500)); // avoid timing attacks and silently complete
                 return;
             }
 
@@ -107,17 +108,33 @@ namespace Coflnet.Hypixel.Controller
         /// <param name="finder">Identifier of finder</param>
         /// <param name="auctionId">The id of the found auction</param>
         /// <param name="price">Suggested target price</param>
+        /// <param name="timeStamp">Unix millisecond timestamp when the flip was found</param>
         /// <returns></returns>
         [Route("track/found/{auctionId}")]
         [HttpPost]
-        public async Task TrackExternalFlip(string auctionId, string finder, int price = -1)
+        public async Task TrackExternalFlip(string auctionId, string finder, int price = -1, long timeStamp = 0)
         {
+            DateTime time = GetTime(timeStamp);
             await flipService.NewFlip(new LowPricedAuction()
             {
                 Auction = new hypixel.SaveAuction() { Uuid = auctionId },
                 Finder = finder.ToLower() == "tfm" ? LowPricedAuction.FinderType.TFM : LowPricedAuction.FinderType.EXTERNAL,
                 TargetPrice = price
-            }, DateTime.Now);
+            }, time);
+        }
+
+        private static DateTime GetTime(long timeStamp)
+        {
+            DateTime time = DateTime.Now;
+            if (timeStamp != 0)
+            {
+                time = (new DateTime(1970, 1, 1)).AddMilliseconds(timeStamp);
+                if (time > DateTime.Now)
+                    throw new CoflnetException("invalid_time", "Flips can't be found in the future");
+                if (time < DateTime.Now - TimeSpan.FromSeconds(30))
+                    throw new CoflnetException("invalid_time", "Provided timestamp is more than 30 seconds in the past. Make sure you are providing timestamp as miliseconds");
+            }
+            return time;
         }
 
 
@@ -132,9 +149,9 @@ namespace Coflnet.Hypixel.Controller
         [ResponseCache(Duration = 600, Location = ResponseCacheLocation.Any, NoStore = false, VaryByQueryKeys = new string[] { "days" })]
         public async Task<FlipSumary> GetStats(string playerUuid, float days = 7)
         {
-            if(days > 7)
+            if (days > 7)
                 throw new CoflnetException("invalid_time", "Sorry but this is currently limited to one week");
-            if(days < 0)
+            if (days < 0)
                 throw new CoflnetException("invalid_time", "You can't request flips in the future");
             return await flipService.GetPlayerFlips(playerUuid, TimeSpan.FromDays(days));
         }
