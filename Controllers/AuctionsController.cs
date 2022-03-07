@@ -83,7 +83,6 @@ namespace Coflnet.Hypixel.Controller
                         .OrderBy(a => a.StartingBid)
                         .Skip(page * pageSize)
                         .Take(pageSize).ToListAsync();
-
             return result;
         }
         /// <summary>
