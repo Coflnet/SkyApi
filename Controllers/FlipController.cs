@@ -121,17 +121,19 @@ namespace Coflnet.Hypixel.Controller
                 Finder = finder.ToLower() == "tfm" ? LowPricedAuction.FinderType.TFM : LowPricedAuction.FinderType.EXTERNAL,
                 TargetPrice = price
             }, time);
+            if(finder.ToLower() == "tfm")
+                Console.WriteLine($"TFM found {auctionId} at {timeStamp}");
         }
 
         private static DateTime GetTime(long timeStamp)
         {
-            DateTime time = DateTime.Now;
+            DateTime time = DateTime.UtcNow;
             if (timeStamp != 0)
             {
                 time = (new DateTime(1970, 1, 1)).AddMilliseconds(timeStamp);
-                if (time > DateTime.Now)
+                if (time > DateTime.UtcNow)
                     throw new CoflnetException("invalid_time", "Flips can't be found in the future");
-                if (time < DateTime.Now - TimeSpan.FromSeconds(30))
+                if (time < DateTime.UtcNow - TimeSpan.FromSeconds(30))
                     throw new CoflnetException("invalid_time", "Provided timestamp is more than 30 seconds in the past. Make sure you are providing timestamp as miliseconds");
             }
             return time;
