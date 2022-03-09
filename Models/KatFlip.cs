@@ -10,6 +10,7 @@ namespace Coflnet.Sky.Api.Models
             this.OriginAuction = up.OriginAuction;
             this.TargetRarity = (hypixel.Tier?)up.TargetRarity;
             this.MaterialCost = up.MaterialCost;
+            this.UpgradeCost = up.UpgradeCost;
             this.Profit = up.Profit;
             this.ReferenceAuction = up.ReferenceAuction;
         }
