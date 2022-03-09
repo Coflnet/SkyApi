@@ -42,7 +42,7 @@ namespace Coflnet.Hypixel.Controller
         [Route("data")]
         [HttpGet]
         [ResponseCache(Duration = 120, Location = ResponseCacheLocation.Any, NoStore = false)]
-        public async Task<IEnumerable<Sky.Crafts.Client.Model.KatUpgradeCost>> GetData()
+        public async Task<IEnumerable<KatUpgradeCost>> GetData()
         {
             return await katService.GetRawData();
         }

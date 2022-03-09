@@ -25,9 +25,9 @@ namespace Coflnet.Sky.Api.Services
             var flips = await katApi.KatProfitGetAsync();
             return await AddSaleData(flips);
         }
-        public async Task<IEnumerable<KatUpgradeCost>> GetRawData()
+        public async Task<IEnumerable<Models.KatUpgradeCost>> GetRawData()
         {
-            return await katApi.KatRawGetAsync();
+            return (await katApi.KatRawGetAsync()).Select(c=>new Models.KatUpgradeCost(c));
         }
 
         private async Task<IEnumerable<KatFlip>> AddSaleData(List<KatUpgradeResult> list)
