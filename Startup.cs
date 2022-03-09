@@ -66,6 +66,7 @@ namespace Coflnet.Sky.Api
             services.AddSingleton<PremiumService>();
             services.AddSingleton<AuctionService>();
             services.AddDbContext<HypixelContext>();
+            services.AddTransient<KatService>();
             services.AddSingleton<ProductsApi>(sp =>
             {
                 return new ProductsApi("http://" + SimplerConfig.Config.Instance["PAYMENTS_HOST"]);
