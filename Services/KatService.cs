@@ -27,7 +27,7 @@ namespace Coflnet.Sky.Api.Services
         }
         public async Task<IEnumerable<Models.KatUpgradeCost>> GetRawData()
         {
-            return (await katApi.KatRawGetAsync()).Select(c=>new Models.KatUpgradeCost(c));
+            return (await katApi.KatRawGetAsync()).Select(c => new Models.KatUpgradeCost(c));
         }
 
         private async Task<IEnumerable<KatFlip>> AddSaleData(List<KatUpgradeResult> list)
@@ -56,7 +56,7 @@ namespace Coflnet.Sky.Api.Services
                 if (flip != null)
                     result.Add(flip);
             }
-            return result;
+            return result.OrderByDescending(r => r.Profit / r.CoreData.Hours);
         }
     }
 }

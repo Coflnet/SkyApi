@@ -16,10 +16,10 @@ namespace Coflnet.Hypixel.Controller
     {
         KatService katService;
         /// <summary>
-        /// Creates a new instance of <see cref="CraftingController"/>
+        /// Creates a new instance of <see cref="KatController"/>
         /// </summary>
-        /// <param name="config"></param>
-        public KatController( KatService katService)
+        /// <param name="katService"></param>
+        public KatController(KatService katService)
         {
             this.katService = katService;
         }
