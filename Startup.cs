@@ -67,18 +67,7 @@ namespace Coflnet.Sky.Api
             services.AddSingleton<AuctionService>();
             services.AddDbContext<HypixelContext>();
             services.AddTransient<KatService>();
-            services.AddSingleton<ProductsApi>(sp =>
-            {
-                return new ProductsApi("http://" + SimplerConfig.Config.Instance["PAYMENTS_HOST"]);
-            });
-            services.AddSingleton<UserApi>(sp =>
-            {
-                return new UserApi("http://" + SimplerConfig.Config.Instance["PAYMENTS_HOST"]);
-            });
-            services.AddSingleton<TopUpApi>(sp =>
-            {
-                return new TopUpApi("http://" + SimplerConfig.Config.Instance["PAYMENTS_HOST"]);
-            });
+
             services.AddResponseCaching();
             var redisOptions = ConfigurationOptions.Parse(Configuration["REDIS_HOST"]);
 
