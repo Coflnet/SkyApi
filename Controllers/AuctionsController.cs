@@ -54,6 +54,19 @@ namespace Coflnet.Hypixel.Controller
 
             return EnchantColorMapper.Instance.AddColors(result);
         }
+        /// <summary>
+        /// Retrieve the uid of an auction (mainly a helper to get the lookup id for another service)
+        /// </summary>
+        /// <param name="auctionUuid">The uuid of the auction you want the details for</param>
+        /// <returns></returns>
+        [Route("auction/{auctionUuid}/uid")]
+        [HttpGet]
+        [ResponseCache(Duration = 3, Location = ResponseCacheLocation.Any, NoStore = false)]
+        public string getAuctionUid(string auctionUuid)
+        {
+            Console.WriteLine(auctionUuid);
+            return auctionService.GetId(auctionUuid).ToString();
+        }
 
         /// <summary>
         /// Get the 10 (or how many are available) lowest bins
@@ -110,6 +123,34 @@ namespace Coflnet.Hypixel.Controller
 
             return result;
         }
+        /// <summary>
+        /// Gets all recorded past sells of an item with a specific uuid
+        /// meant for dupe detection
+        /// </summary>
+        /// <param name="uid">The Item uuid or just uid</param>
+        /// <returns></returns>
+        [Route("auctions/uid/{uid}/sold")]
+        [HttpGet]
+        [ResponseCache(Duration = 600, Location = ResponseCacheLocation.Any, NoStore = false)]
+        public async Task<IEnumerable<ItemSell>> GetUidHistory(string uid)
+        {
+            var numericId = GetUidFromString(uid);
+            var key = NBT.Instance.GetKeyId("uid");
+            var result = await context.Auctions
+                        .Where(a => a.NBTLookup.Where(l=>l.KeyId == key && l.Value == numericId).Any())
+                        .Where(a => a.HighestBidAmount > 0)
+                        .Select(a=>new {a.AuctioneerId, a.Uuid, a.End, Buyer = a.Bids.OrderByDescending(b=>b.Amount).Select(b=>b.Bidder).FirstOrDefault()})
+                        .AsSplitQuery()
+                        .ToListAsync();
+
+            return result.Select(i=>new ItemSell()
+            {
+                Buyer = i.Buyer,
+                Seller = i.AuctioneerId,
+                Timestamp = i.End,
+                Uuid = i.Uuid
+            });
+        }
 
         /// <summary>
         /// Checks an array of item uuids if they are active on the ah
@@ -124,9 +165,7 @@ namespace Coflnet.Hypixel.Controller
             var key = NBT.Instance.GetKeyId("uid");
             var uIds = uuids.Select(u =>
             {
-                if (u.Length < 12)
-                    throw new CoflnetException("invalid_uuid", "One or more passed uuids are invalid (to short)");
-                return NBT.UidToLong(u.Substring(u.Length - 12));
+                return GetUidFromString(u);
             }).ToHashSet();
             var lookups = context.NBTLookups.Where(l => l.KeyId == key && uIds.Contains(l.Value)).Select(l => l.AuctionId);
 
@@ -136,6 +175,13 @@ namespace Coflnet.Hypixel.Controller
                         .Select(a => a.NBTLookup.Where(l => l.KeyId == key).Select(l => l.Value).FirstOrDefault()).ToListAsync();
             var endings = result.Select(id => id.ToString("x")).ToHashSet();
             return uuids.Where(id => endings.Contains(id.Substring(id.Length - 12)));
+        }
+
+        private static long GetUidFromString(string u)
+        {
+            if (u.Length < 12)
+                throw new CoflnetException("invalid_uuid", "One or more passed uuids are invalid (to short)");
+            return NBT.UidToLong(u.Substring(u.Length - 12));
         }
 
         /// <summary>
