@@ -122,31 +122,10 @@ namespace Coflnet.Hypixel.Controller
         [Route("bazaar/item/history/{itemTag}/status")]
         [HttpGet]
         [ResponseCache(Duration = 3600 * 6, Location = ResponseCacheLocation.Any, NoStore = false)]
-        public async Task<List<TimedQuickStatus>> GetBazaar(string itemTag)
+        [Obsolete("Uses an endpoint starting with /api/bazaar instead",true)]
+        public string GetBazaar(string itemTag)
         {
-            var itemId = ItemDetails.Instance.GetItemIdForName(itemTag);
-            var maxTime = DateTime.Now - TimeSpan.FromDays(5);
-            var fe = await context.BazaarPull.Where(b => b.Timestamp.Minute == 0 && b.Timestamp.Hour == 0 && b.Timestamp > maxTime)
-                    //.GroupBy(b=> new {/*b.PullInstance.Timestamp.Hour,*/ b.PullInstance.Timestamp.Date})
-                    .SelectMany(p => p.Products.Where(b => b.ProductId == itemTag).Select(b => new { b.QuickStatus, b.PullInstance.Timestamp })).ToListAsync();
-
-            return fe.GroupBy(b => b.Timestamp.Date).Select(b => b.First()).Select(f => new TimedQuickStatus()
-            {
-                BuyMovingWeek = f.QuickStatus.BuyMovingWeek,
-                BuyOrders = f.QuickStatus.BuyOrders,
-                BuyPrice = f.QuickStatus.BuyPrice,
-                BuyVolume = f.QuickStatus.BuyVolume,
-                SellMovingWeek = f.QuickStatus.SellMovingWeek,
-                SellOrders = f.QuickStatus.SellOrders,
-                SellPrice = f.QuickStatus.SellPrice,
-                SellVolume = f.QuickStatus.SellVolume,
-                Time = f.Timestamp
-            }).ToList();
-        }
-
-        public class TimedQuickStatus : dev.QuickStatus
-        {
-            public DateTime Time;
+            return "endpoint deprecated, use one starting with /api/bazaar";
         }
     }
 }
