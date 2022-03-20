@@ -36,7 +36,7 @@ namespace Coflnet.Hypixel.Controller
 
 
         /// <summary>
-        /// Full search, includes items, players and enchantments
+        /// Full search, includes items, players, auctions and enchantments
         /// </summary>
         /// <param name="searchVal">The search term to search for</param>
         /// <returns></returns>
