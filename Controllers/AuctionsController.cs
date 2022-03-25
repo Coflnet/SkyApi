@@ -219,7 +219,7 @@ namespace Coflnet.Hypixel.Controller
         private static long GetUidFromString(string u)
         {
             if (u.Length < 12)
-                throw new CoflnetException("invalid_uuid", "One or more passed uuids are invalid (to short)");
+                throw new CoflnetException("invalid_uuid", "One or more passed uuids are invalid (too short)");
             return NBT.UidToLong(u.Substring(u.Length - 12));
         }
 
