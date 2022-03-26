@@ -7,10 +7,11 @@ using System.Runtime.Serialization;
 using System.Threading.Tasks;
 using Coflnet.Payments.Client.Api;
 using Coflnet.Sky.Filter;
-using hypixel;
+using Coflnet.Sky.Core;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Primitives;
 using Coflnet.Payments.Client.Model;
+using Coflnet.Sky.Api;
 
 namespace Coflnet.Hypixel.Controller
 {

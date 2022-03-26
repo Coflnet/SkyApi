@@ -6,7 +6,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using Coflnet.Sky.Commands;
 using Coflnet.Sky.Filter;
-using hypixel;
+using Coflnet.Sky.Core;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using RestSharp;

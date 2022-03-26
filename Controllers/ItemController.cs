@@ -5,7 +5,7 @@ using System.Threading.Tasks;
 using Coflnet.Sky.Api.Services;
 using Coflnet.Sky.Commands;
 using Coflnet.Sky.Commands.MC;
-using hypixel;
+using Coflnet.Sky.Core;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;

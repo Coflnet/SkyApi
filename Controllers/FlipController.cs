@@ -7,7 +7,7 @@ using Coflnet.Sky.Commands;
 using Coflnet.Sky.Commands.MC;
 using Coflnet.Sky.Commands.Shared;
 using Coflnet.Sky.Filter;
-using hypixel;
+using Coflnet.Sky.Core;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Configuration;
 using RestSharp;
@@ -94,7 +94,7 @@ namespace Coflnet.Hypixel.Controller
 
             await flipService.NewFlip(new LowPricedAuction()
             {
-                Auction = new hypixel.SaveAuction() { Uuid = auctionId },
+                Auction = new SaveAuction() { Uuid = auctionId },
                 Finder = finderType,
                 TargetPrice = price
             }, received);
@@ -117,7 +117,7 @@ namespace Coflnet.Hypixel.Controller
             DateTime time = GetTime(timeStamp);
             await flipService.NewFlip(new LowPricedAuction()
             {
-                Auction = new hypixel.SaveAuction() { Uuid = auctionId },
+                Auction = new SaveAuction() { Uuid = auctionId },
                 Finder = finder.ToLower() == "tfm" ? LowPricedAuction.FinderType.TFM : LowPricedAuction.FinderType.EXTERNAL,
                 TargetPrice = price
             }, time);

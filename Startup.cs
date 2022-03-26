@@ -2,7 +2,7 @@ using System;
 using System.IO;
 using System.Reflection;
 using Coflnet.Sky.Api.Models;
-using hypixel;
+using Coflnet.Sky.Core;
 using Jaeger.Samplers;
 using Jaeger.Senders;
 using Jaeger.Senders.Thrift;

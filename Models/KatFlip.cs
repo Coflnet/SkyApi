@@ -1,4 +1,5 @@
 using System.Runtime.Serialization;
+using Coflnet.Sky.Core;
 
 namespace Coflnet.Sky.Api.Models
 {
@@ -8,7 +9,7 @@ namespace Coflnet.Sky.Api.Models
         {
             this.CoreData = new(up.CoreData);
             this.OriginAuction = up.OriginAuction;
-            this.TargetRarity = (hypixel.Tier?)up.TargetRarity;
+            this.TargetRarity = (Tier?)up.TargetRarity;
             this.MaterialCost = up.MaterialCost;
             this.UpgradeCost = up.UpgradeCost;
             this.Profit = up.Profit;
@@ -34,7 +35,7 @@ namespace Coflnet.Sky.Api.Models
         // Summary:
         //     Gets or Sets TargetRarity
         [DataMember(Name = "targetRarity", EmitDefaultValue = false)]
-        public hypixel.Tier? TargetRarity { get; set; }
+        public Tier? TargetRarity { get; set; }
         //
         // Summary:
         //     Gets or Sets Profit

@@ -1,7 +1,7 @@
 
 using System;
 using System.Text.Json.Serialization;
-using hypixel;
+using Coflnet.Sky.Core;
 using MessagePack;
 using System.Linq;
 

@@ -1,6 +1,6 @@
 using System.Collections.Generic;
 using System.Threading.Tasks;
-using hypixel;
+using Coflnet.Sky.Core;
 using Microsoft.AspNetCore.Mvc;
 using Coflnet.Sky.Bazaar.Client.Api;
 using System;

@@ -1,7 +1,8 @@
 using System;
+using Coflnet.Sky.Core;
 using Google.Apis.Auth;
 
-namespace hypixel
+namespace Coflnet.Sky.Api
 {
     public class PremiumService
     {

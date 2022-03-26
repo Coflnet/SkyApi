@@ -1,4 +1,4 @@
-using hypixel;
+using Coflnet.Sky.Core;
 using Newtonsoft.Json;
 
 namespace Coflnet.Sky.Api.Models

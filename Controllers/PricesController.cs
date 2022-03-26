@@ -4,7 +4,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using Coflnet.Sky;
 using Coflnet.Sky.Filter;
-using hypixel;
+using Coflnet.Sky.Core;
 using Coflnet.Sky.Commands.Shared;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;

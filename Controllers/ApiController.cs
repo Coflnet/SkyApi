@@ -3,11 +3,12 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
-using hypixel;
+using Coflnet.Sky.Core;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using System.Text.RegularExpressions;
 using System.Linq;
+using Coflnet.Sky.Commands.Shared;
 
 namespace Coflnet.Hypixel.Controller
 {
@@ -130,7 +131,7 @@ namespace Coflnet.Hypixel.Controller
         [ResponseCache(Duration = 3600 * 2, Location = ResponseCacheLocation.Any, NoStore = false)]
         public Task<IEnumerable<PlayerResult>> PlayerSearch(string playerName)
         {
-            return hypixel.PlayerSearch.Instance.Search(playerName, 5);
+            return Coflnet.Sky.Core.PlayerSearch.Instance.Search(playerName, 5);
         }
     }
 }

@@ -1,10 +1,11 @@
 using System.Collections.Generic;
 using System.Threading.Tasks;
-using hypixel;
+using Coflnet.Sky.Core;
 using Microsoft.AspNetCore.Mvc;
 using Coflnet.Sky.Api.Models;
 using System.Linq;
 using Microsoft.EntityFrameworkCore;
+using Coflnet.Sky.Commands.Shared;
 
 namespace Coflnet.Hypixel.Controller
 {
