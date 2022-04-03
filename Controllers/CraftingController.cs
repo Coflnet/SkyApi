@@ -96,11 +96,13 @@ namespace Coflnet.Hypixel.Controller
                     dev.Logger.Instance.Error(e, "getting price summary for crafts");
                 }
                 return i;
-            })).Select(t=>t.ConfigureAwait(false));
+            })).Select(t => t.ConfigureAwait(false));
             var result = new List<ProfitableCraft>();
             foreach (var item in taskList)
             {
-                result.Add(await item);
+                var flip = await item;
+                if (flip.Volume > 2)
+                    result.Add(flip);
             }
             return result;
         }
