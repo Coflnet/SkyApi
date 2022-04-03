@@ -79,7 +79,7 @@ namespace Coflnet.Hypixel.Controller
         [ResponseCache(Duration = 120, Location = ResponseCacheLocation.Any, NoStore = false, VaryByQueryKeys = new string[] { "*" })]
         public async Task<List<SaveAuction>> GetLowestBins(string itemTag, [FromQuery] IDictionary<string, string> query)
         {
-            var itemId = ItemDetails.Instance.GetItemIdForName(itemTag);
+            var itemId = ItemDetails.Instance.GetItemIdForTag(itemTag);
             var filter = new Dictionary<string, string>(query);
             int page = 0;
             if (filter.ContainsKey("page"))
@@ -111,7 +111,7 @@ namespace Coflnet.Hypixel.Controller
         [ResponseCache(Duration = 1800, Location = ResponseCacheLocation.Any, NoStore = false, VaryByQueryKeys = new string[] { "page" })]
         public async Task<List<SaveAuction>> GetHistory(string itemTag, int page = 0)
         {
-            var itemId = ItemDetails.Instance.GetItemIdForName(itemTag);
+            var itemId = ItemDetails.Instance.GetItemIdForTag(itemTag);
             var pageSize = 1000;
             var startTime = DateTime.Now.RoundDown(TimeSpan.FromHours(1)) - TimeSpan.FromDays(7);
             var result = await context.Auctions

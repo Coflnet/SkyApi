@@ -47,7 +47,7 @@ namespace Coflnet.Sky.Api.Models
         [DataMember(Name = "referenceAuction", EmitDefaultValue = true)]
         public string ReferenceAuction { get; set; }
 
-        public float Volume;
+        public double Volume;
         public long Median;
     }
 }

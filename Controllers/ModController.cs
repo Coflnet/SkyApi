@@ -55,7 +55,7 @@ namespace Coflnet.Hypixel.Controller
         {
             if (uuid.Length < 32 && uuid.Length != 12)
             {
-                if (ItemDetails.Instance.GetItemIdForName(uuid) == 0)
+                if (ItemDetails.Instance.GetItemIdForTag(uuid) == 0)
                     throw new CoflnetException("invalid_id", "the passed id does not map to an item");
                 var median = await priceService.GetSumary(uuid, new Dictionary<string, string>());
                 return $"Median sell for {count} is {FormatPrice(median.Med)}";

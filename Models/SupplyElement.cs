@@ -22,8 +22,8 @@ namespace Coflnet.Sky.Api.Models
         /// </summary>
         public BinResponse LbinData;
         /// <summary>
-        /// The amount of sells in 24 hours
+        /// The average amount of sells in 24 hours
         /// </summary>
-        public long Volume;
+        public double Volume;
     }
 }
