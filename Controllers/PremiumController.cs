@@ -43,10 +43,10 @@ namespace Coflnet.Hypixel.Controller
         [Route("topup/options")]
         [HttpGet]
         [ResponseCache(Duration = 60, Location = ResponseCacheLocation.Any, NoStore = false)]
-        public async Task<IEnumerable<Payments.Client.Model.PurchaseableProduct>> TopupOptions()
+        public async Task<IEnumerable<Payments.Client.Model.TopUpProduct>> TopupOptions()
         {
-            var products = await productsService.ProductsGetAsync();
-            return products.Where(p => p.Type == Coflnet.Payments.Client.Model.ProductType.NUMBER_4);
+            var products = await productsService.ProductsTopupGetAsync();
+            return products;
         }
 
         /// <summary>
