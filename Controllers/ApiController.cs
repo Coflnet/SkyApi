@@ -43,7 +43,8 @@ namespace Coflnet.Hypixel.Controller
             var itemsResult = await itemsApi.ItemsSearchTermGetAsync(searchVal, 5);
             return itemsResult?.Select(i => new SearchResultItem(new ItemDetails.ItemSearchResult()
             {
-                Name = i.Text,
+                Name = i.Text + (i.Flags.Value.HasFlag(Sky.Items.Client.Model.ItemFlags.BAZAAR) ? " - bazaar" 
+                        : i.Flags.Value.HasFlag(Sky.Items.Client.Model.ItemFlags.AUCTION) ? "" : " - not on ah"),
                 Tag = i.Tag,
 
             })).ToList();
