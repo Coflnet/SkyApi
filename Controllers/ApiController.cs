@@ -46,6 +46,7 @@ namespace Coflnet.Hypixel.Controller
                 Name = i.Text + (i.Flags.Value.HasFlag(Sky.Items.Client.Model.ItemFlags.BAZAAR) ? " - bazaar" 
                         : i.Flags.Value.HasFlag(Sky.Items.Client.Model.ItemFlags.AUCTION) ? "" : " - not on ah"),
                 Tag = i.Tag,
+                IconUrl = "https://sky.coflnet.com/static/icon/" + i.Tag
 
             })).ToList();
         }
