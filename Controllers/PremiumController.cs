@@ -93,9 +93,15 @@ namespace Coflnet.Hypixel.Controller
         {
             if (!TryGetUser(out GoogleUser user))
                 return Unauthorized("no googletoken header");
-
-            var purchaseResult = await userApi.UserUserIdPurchaseProductSlugPostAsync(user.Id.ToString(), productSlug);
-            return Ok(purchaseResult);
+            try
+            {
+                var purchaseResult = await userApi.UserUserIdPurchaseProductSlugPostAsync(user.Id.ToString(), productSlug);
+                return Ok(purchaseResult);
+            }
+            catch (Exception e)
+            {
+                throw new CoflnetException("payment_error", e.Message);
+            }
         }
 
         private bool TryGetUser(out GoogleUser user)
