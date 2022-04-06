@@ -28,6 +28,14 @@ namespace Coflnet.Hypixel.Controller
         PricesService pricesService;
         IConfiguration config;
 
+        /// <summary>
+        /// Creates a new instance of <see cref="AuctionsController"/>
+        /// </summary>
+        /// <param name="auctionService"></param>
+        /// <param name="context"></param>
+        /// <param name="logger"></param>
+        /// <param name="config"></param>
+        /// <param name="pricesService"></param>
         public AuctionsController(AuctionService auctionService, HypixelContext context, ILogger<AuctionsController> logger, IConfiguration config, PricesService pricesService)
         {
             this.auctionService = auctionService;
