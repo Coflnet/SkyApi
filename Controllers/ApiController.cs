@@ -9,6 +9,7 @@ using Microsoft.AspNetCore.Mvc;
 using System.Text.RegularExpressions;
 using System.Linq;
 using Coflnet.Sky.Commands.Shared;
+using Coflnet.Sky.Items.Client.Api;
 
 namespace Coflnet.Hypixel.Controller
 {
@@ -21,6 +22,13 @@ namespace Coflnet.Hypixel.Controller
     public class ApiController : ControllerBase
     {
         static Regex validCharRegex = new Regex("[^-a-zA-Z0-9_\\.' ]");
+        private Sky.Items.Client.Api.IItemsApi itemsApi;
+
+        public ApiController(IItemsApi itemsApi)
+        {
+            this.itemsApi = itemsApi;
+        }
+
         /// <summary>
         /// Searches through all items
         /// </summary>
@@ -28,11 +36,17 @@ namespace Coflnet.Hypixel.Controller
         /// <returns>An array of search results matching the searchValue</returns>
         [Route("item/search/{searchVal}")]
         [HttpGet]
-        [ResponseCache(Duration = 3600 * 3, Location = ResponseCacheLocation.Any, NoStore = false)]
+        [ResponseCache(Duration = 3600, Location = ResponseCacheLocation.Any, NoStore = false)]
         public async Task<List<SearchResultItem>> SearchItem(string searchVal)
         {
-            var itemSearch = await ItemDetails.Instance.Search(RemoveInvalidChars(searchVal), 5);
-            return itemSearch.Select(i => new SearchResultItem(i)).ToList();
+            //var itemSearch = await ItemDetails.Instance.Search(RemoveInvalidChars(searchVal), 5);
+            var itemsResult = await itemsApi.ItemsSearchTermGetAsync(searchVal, 5);
+            return itemsResult?.Select(i => new SearchResultItem(new ItemDetails.ItemSearchResult()
+            {
+                Name = i.Text,
+                Tag = i.Tag,
+
+            })).ToList();
         }
 
 
