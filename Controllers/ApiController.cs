@@ -24,6 +24,10 @@ namespace Coflnet.Hypixel.Controller
         static Regex validCharRegex = new Regex("[^-a-zA-Z0-9_\\.' ]");
         private Sky.Items.Client.Api.IItemsApi itemsApi;
 
+        /// <summary>
+        /// Creates a new instance of <see cref="ApiController"/>
+        /// </summary>
+        /// <param name="itemsApi"></param>
         public ApiController(IItemsApi itemsApi)
         {
             this.itemsApi = itemsApi;
