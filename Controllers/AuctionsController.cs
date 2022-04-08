@@ -18,6 +18,9 @@ using Coflnet.Sky.Commands.Shared;
 
 namespace Coflnet.Hypixel.Controller
 {
+    /// <summary>
+    /// Endpoints for retrieving information about auctions
+    /// </summary>
     [ApiController]
     [Route("api")]
     public class AuctionsController : ControllerBase
