@@ -30,6 +30,7 @@ namespace Coflnet.Hypixel.Controller
         ILogger<AuctionsController> logger;
         PricesService pricesService;
         IConfiguration config;
+        static FilterEngine fe = new FilterEngine();
 
         /// <summary>
         /// Creates a new instance of <see cref="AuctionsController"/>
@@ -100,13 +101,14 @@ namespace Coflnet.Hypixel.Controller
             }
             filter["ItemId"] = itemId.ToString();
             var pageSize = 10;
-            var result = await new FilterEngine().AddFilters(context.Auctions
+            var select = fe.AddFilters(context.Auctions
                         .Where(a => a.ItemId == itemId && a.End > DateTime.Now && a.HighestBidAmount == 0 && a.Bin), filter)
                         .Include(a => a.Enchantments)
                         .Include(a => a.NbtData)
                         .OrderBy(a => a.StartingBid)
                         .Skip(page * pageSize)
-                        .Take(pageSize).ToListAsync();
+                        .Take(pageSize);
+            var result = await select.ToListAsync();
             return result;
         }
         /// <summary>
