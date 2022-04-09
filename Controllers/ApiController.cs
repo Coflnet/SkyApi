@@ -60,11 +60,12 @@ namespace Coflnet.Hypixel.Controller
         /// Full search, includes item types, items (by uuid), players, auctions and enchantments
         /// </summary>
         /// <param name="searchVal">The search term to search for</param>
+        /// <param name="limit">The maximum amount of results to return</param>
         /// <returns></returns>
         [Route("search/{searchVal}")]
         [HttpGet]
         [ResponseCache(Duration = 3600 * 6, Location = ResponseCacheLocation.Any, NoStore = false)]
-        public async Task<List<SearchResultItem>> FullSearch(string searchVal)
+        public async Task<IEnumerable<SearchResultItem>> FullSearch(string searchVal, int limit = 5)
         {
             searchVal = searchVal.ToLower();
             var collection = await ExecuteSearch(searchVal, 1000);
@@ -83,7 +84,7 @@ namespace Coflnet.Hypixel.Controller
                         MaxAge = TimeSpan.Zero
                     };
             }
-            return result;
+            return result.Take(limit);
         }
 
         private static async Task<ConcurrentQueue<SearchResultItem>> ExecuteSearch(string searchVal, int timeout = 3000)
@@ -108,6 +109,8 @@ namespace Coflnet.Hypixel.Controller
             }
             // give an extra buffer for more results to arrive
             await Task.Delay(10);
+            if(!collection.Any(r=>r.Type == "item"))
+                await Task.Delay(30);
             while (channel.Reader.TryRead(out SearchResultItem item))
             {
                 collection.Enqueue(item);
