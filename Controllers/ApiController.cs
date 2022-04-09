@@ -47,7 +47,7 @@ namespace Coflnet.Hypixel.Controller
             var itemsResult = await itemsApi.ItemsSearchTermGetAsync(searchVal, 5);
             return itemsResult?.Select(i => new SearchResultItem(new ItemDetails.ItemSearchResult()
             {
-                Name = i.Text + (i.Flags.Value.HasFlag(Sky.Items.Client.Model.ItemFlags.BAZAAR) ? " - bazaar" 
+                Name = i.Text + (i.Flags.Value.HasFlag(Sky.Items.Client.Model.ItemFlags.BAZAAR) ? " - bazaar"
                         : i.Flags.Value.HasFlag(Sky.Items.Client.Model.ItemFlags.AUCTION) ? "" : " - not on ah"),
                 Tag = i.Tag,
                 IconUrl = "https://sky.coflnet.com/static/icon/" + i.Tag
@@ -64,7 +64,7 @@ namespace Coflnet.Hypixel.Controller
         /// <returns></returns>
         [Route("search/{searchVal}")]
         [HttpGet]
-        [ResponseCache(Duration = 3600 * 6, Location = ResponseCacheLocation.Any, NoStore = false)]
+        [ResponseCache(Duration = 3600, Location = ResponseCacheLocation.Any, NoStore = false)]
         public async Task<IEnumerable<SearchResultItem>> FullSearch(string searchVal, int limit = 5)
         {
             searchVal = searchVal.ToLower();
@@ -102,15 +102,19 @@ namespace Coflnet.Hypixel.Controller
                 {
                     var element = await channel.Reader.ReadAsync(cancelationSource.Token);
                     collection.Enqueue(element);
-                } catch(OperationCanceledException)
+                }
+                catch (OperationCanceledException)
                 {
                     // done
                 }
             }
             // give an extra buffer for more results to arrive
-            await Task.Delay(10);
-            if(!collection.Any(r=>r.Type == "item"))
-                await Task.Delay(30);
+            for (int i = 0; i < 6; i++)
+            {
+                await Task.Delay(10);
+                if (collection.Any(r => r.Type == "item"))
+                    continue;
+            }
             while (channel.Reader.TryRead(out SearchResultItem item))
             {
                 collection.Enqueue(item);
