@@ -16,7 +16,10 @@ namespace Coflnet.Hypixel.Controller
     public class BazaarController : ControllerBase
     {
         private BazaarApi bazaarClient;
-
+        /// <summary>
+        /// Creates a new instance of <see cref="BazaarApi"/>
+        /// </summary>
+        /// <param name="bazaarClient"></param>
         public BazaarController(BazaarApi bazaarClient)
         {
             this.bazaarClient = bazaarClient;

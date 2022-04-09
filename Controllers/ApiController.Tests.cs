@@ -10,8 +10,14 @@ using NUnit.Framework;
 
 namespace Coflnet.Hypixel.Controller
 {
+    /// <summary>
+    /// Tests for <see cref="ApiController"/>
+    /// </summary>
     public class ApiControllerTests
     {
+        /// <summary>
+        /// Test search result threshold
+        /// </summary>
         [Test]
         public void MinResultCount()
         {
