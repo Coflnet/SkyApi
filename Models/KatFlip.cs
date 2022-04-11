@@ -14,6 +14,8 @@ namespace Coflnet.Sky.Api.Models
             this.UpgradeCost = up.UpgradeCost;
             this.Profit = up.Profit;
             this.ReferenceAuction = up.ReferenceAuction;
+            this.PurchaseCost = up.PurchaseCost;
+            this.OriginAuctionName = up.OriginAuctionName;
         }
         public double UpgradeCost { get; }
         //
@@ -46,6 +48,10 @@ namespace Coflnet.Sky.Api.Models
         //     Gets or Sets ReferenceAuction
         [DataMember(Name = "referenceAuction", EmitDefaultValue = true)]
         public string ReferenceAuction { get; set; }
+        [DataMember(Name = "purchaseCost", EmitDefaultValue = true)]
+        public long PurchaseCost { get; }
+        [DataMember(Name = "originAuctionName", EmitDefaultValue = true)]
+        public string OriginAuctionName { get; }
 
         public double Volume;
         public long Median;
