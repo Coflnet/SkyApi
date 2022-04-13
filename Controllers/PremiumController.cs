@@ -84,18 +84,20 @@ namespace Coflnet.Hypixel.Controller
 
 
         /// <summary>
-        /// Purchase a product 
+        /// Purchase a service 
         /// </summary>
         /// <returns></returns>
         [Route("purchase/{productSlug}")]
         [HttpPost]
-        public async Task<IActionResult> Purchase(string productSlug)
+        public async Task<IActionResult> Purchase(string productSlug, int count = 1, string reference = null)
         {
             if (!TryGetUser(out GoogleUser user))
                 return Unauthorized("no googletoken header");
             try
             {
-                var purchaseResult = await userApi.UserUserIdPurchaseProductSlugPostAsync(user.Id.ToString(), productSlug);
+                if (string.IsNullOrEmpty(reference))
+                    reference = "apiautofill" + DateTime.UtcNow;
+                var purchaseResult = await userApi.UserUserIdServicePurchaseProductSlugPostAsync(user.Id.ToString(), productSlug, reference, count);
                 return Ok(purchaseResult);
             }
             catch (Exception e)
