@@ -97,7 +97,7 @@ namespace Coflnet.Hypixel.Controller
             try
             {
                 var reference = args.reference;
-                var count =  args.count == 0 ? 1 : args.count;
+                var count = args.count == 0 ? 1 : args.count;
                 if (string.IsNullOrEmpty(reference))
                     reference = "apiautofill" + DateTime.UtcNow;
                 var purchaseResult = await userApi.UserUserIdServicePurchaseProductSlugPostAsync(user.Id.ToString(), args.slug, reference, count);
