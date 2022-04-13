@@ -12,6 +12,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Primitives;
 using Coflnet.Payments.Client.Model;
 using Coflnet.Sky.Api;
+using Coflnet.Sky.Api.Models;
 
 namespace Coflnet.Hypixel.Controller
 {
@@ -87,17 +88,19 @@ namespace Coflnet.Hypixel.Controller
         /// Purchase a service 
         /// </summary>
         /// <returns></returns>
-        [Route("purchase/{productSlug}")]
+        [Route("service/purchase")]
         [HttpPost]
-        public async Task<IActionResult> Purchase(string productSlug, int count = 1, string reference = null)
+        public async Task<IActionResult> PurchaseService([FromBody] PurchaseArgs args)
         {
             if (!TryGetUser(out GoogleUser user))
                 return Unauthorized("no googletoken header");
             try
             {
+                var reference = args.reference;
+                var count =  args.count == 0 ? 1 : args.count;
                 if (string.IsNullOrEmpty(reference))
                     reference = "apiautofill" + DateTime.UtcNow;
-                var purchaseResult = await userApi.UserUserIdServicePurchaseProductSlugPostAsync(user.Id.ToString(), productSlug, reference, count);
+                var purchaseResult = await userApi.UserUserIdServicePurchaseProductSlugPostAsync(user.Id.ToString(), args.slug, reference, count);
                 return Ok(purchaseResult);
             }
             catch (Exception e)
