@@ -63,7 +63,8 @@ namespace Coflnet.Hypixel.Controller
                         .Include(a => a.Enchantments)
                         .Include(a => a.NbtData)
                         .Include(a => a.Bids));
-
+            if(result != null && string.IsNullOrEmpty(result.ItemName))
+                result.ItemName = ItemDetails.TagToName(result.Tag);
             return EnchantColorMapper.Instance.AddColors(result);
         }
         /// <summary>
