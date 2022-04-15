@@ -39,7 +39,7 @@ namespace Coflnet.Hypixel.Controller
         /// </summary>
         /// <returns></returns>
         [Route("referred/by")]
-        [HttpGet]
+        [HttpPost]
         [ResponseCache(Duration = 60, Location = ResponseCacheLocation.Any, NoStore = false)]
         public async Task<IActionResult> TopupOptions([FromBody] Argument args)
         {
