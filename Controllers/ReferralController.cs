@@ -18,7 +18,7 @@ namespace Coflnet.Hypixel.Controller
     /// Endpoints for related to paid services
     /// </summary>
     [ApiController]
-    [Route("api")]
+    [Route("api/referral")]
     [ResponseCache(Duration = 120, Location = ResponseCacheLocation.Any, NoStore = false)]
     public class ReferralController : ControllerBase
     {
