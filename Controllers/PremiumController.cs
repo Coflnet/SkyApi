@@ -65,7 +65,10 @@ namespace Coflnet.Hypixel.Controller
             if (!TryGetUser(out GoogleUser user))
                 return Unauthorized("no googletoken header");
 
-            var session = await topUpApi.TopUpStripePostAsync(user.Id.ToString(), productSlug);
+            var session = await topUpApi.TopUpStripePostAsync(user.Id.ToString(), productSlug, new TopUpOptions()
+            {
+                UserEmail = user.Email
+            });
             return Ok(session);
         }
         /// <summary>
@@ -79,7 +82,10 @@ namespace Coflnet.Hypixel.Controller
             if (!TryGetUser(out GoogleUser user))
                 return Unauthorized("no googletoken header");
 
-            var session = await topUpApi.TopUpPaypalPostAsync(user.Id.ToString(), productSlug);
+            var session = await topUpApi.TopUpPaypalPostAsync(user.Id.ToString(), productSlug, new TopUpOptions()
+            {
+                UserEmail = user.Email
+            });
             return Ok(session);
         }
 
