@@ -56,7 +56,7 @@ namespace Coflnet.Hypixel.Controller
         /// <returns></returns>
         [Route("topup/stripe/{productSlug}")]
         [HttpPost]
-        public async Task<IActionResult> StartTopUp(string productSlug)
+        public async Task<IActionResult> StartTopUp(string productSlug, [FromBody] TopUpArguments args)
         {
             foreach (var item in Request.Headers)
             {
@@ -67,7 +67,8 @@ namespace Coflnet.Hypixel.Controller
 
             var session = await topUpApi.TopUpStripePostAsync(user.Id.ToString(), productSlug, new TopUpOptions()
             {
-                UserEmail = user.Email
+                UserEmail = user.Email,
+                TopUpAmount = args.CoinAmount
             });
             return Ok(session);
         }
@@ -77,14 +78,15 @@ namespace Coflnet.Hypixel.Controller
         /// <returns></returns>
         [Route("topup/paypal/{productSlug}")]
         [HttpPost]
-        public async Task<IActionResult> StartTopUpPaypal(string productSlug)
+        public async Task<IActionResult> StartTopUpPaypal(string productSlug, [FromBody] TopUpArguments args)
         {
             if (!TryGetUser(out GoogleUser user))
                 return Unauthorized("no googletoken header");
 
             var session = await topUpApi.TopUpPaypalPostAsync(user.Id.ToString(), productSlug, new TopUpOptions()
             {
-                UserEmail = user.Email
+                UserEmail = user.Email,
+                TopUpAmount = args.CoinAmount
             });
             return Ok(session);
         }
