@@ -27,10 +27,11 @@ namespace Coflnet.Hypixel.Controller
         private HypixelContext db;
         Hashids hashids = new Hashids("simple salt", 6);
 
-        public ReferralController(IReferralApi refApi, PremiumService premiumService)
+        public ReferralController(IReferralApi refApi, PremiumService premiumService, HypixelContext db)
         {
             this.refApi = refApi;
             this.premiumService = premiumService;
+            this.db = db;
         }
 
 
