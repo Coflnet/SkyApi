@@ -42,7 +42,10 @@ namespace Coflnet.Hypixel.Controller
                 new CommandListEntry("report {message}","Creates an error report with an optional message"),
                 new CommandListEntry("online", "Tells you how many connections there are to the server"),
                 new CommandListEntry("reset", "Resets the mod (deletes everything)"),
-                new CommandListEntry("profit 7","Shows your profit from flips in the last week")
+                new CommandListEntry("profit 7","Shows your profit from flips in the last week"),
+                new CommandListEntry("logout","Logs out all connected mods"),
+                new CommandListEntry("set","Sets some setting"),
+                new CommandListEntry("chat {message}","Sends message in chat")
             };
         }
 
@@ -80,7 +83,7 @@ namespace Coflnet.Hypixel.Controller
         [HttpPost]
         public async Task<IEnumerable<string[]>> ItemDescription([FromBody] InventoryData inventory, [FromHeader] string conId, [FromHeader] string uuid)
         {
-            var name = await db.Players.Where(p=>p.UuId == uuid).Select(p=>p.Name).FirstOrDefaultAsync();
+            var name = await db.Players.Where(p => p.UuId == uuid).Select(p => p.Name).FirstOrDefaultAsync();
             return inventory.Items.Select(d => d.Tag.Display.Lore.Append("test line " + name).ToArray());
         }
 
