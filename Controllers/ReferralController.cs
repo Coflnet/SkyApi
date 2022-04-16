@@ -8,7 +8,7 @@ using Coflnet.Sky.Api;
 using HashidsNet;
 using System;
 using System.Linq;
-using System.Runtime.Serialization;
+using Coflnet.Sky.Api.Models.Referral;
 using Microsoft.EntityFrameworkCore;
 using Coflnet.Sky.Referral.Client.Model;
 
@@ -100,35 +100,6 @@ namespace Coflnet.Hypixel.Controller
                 ReceivedHours = (int)receivedHours,
                 ReferCount = referedUsers.Count
             };
-        }
-
-        public class ReferralInfo
-        {
-            public int ReferedCount { get; set; }
-            public int ValidatedMinecraft { get; set; }
-            public int PurchasedCoins { get; set; }
-            public string ReferredBy { get; set; }
-            public OldRefInfo oldInfo { get; set; }
-        }
-
-        [DataContract]
-        public class OldRefInfo
-        {
-            [DataMember(Name = "refId")]
-            public string RefId;
-            [DataMember(Name = "count")]
-            public int ReferCount;
-            [DataMember(Name = "receivedTime")]
-            public TimeSpan ReceivedTime;
-            [DataMember(Name = "receivedHours")]
-            public int ReceivedHours;
-            [DataMember(Name = "bougthPremium")]
-            public int BougthPremium;
-        }
-
-        public class Argument
-        {
-            public string RefCode { get; set; }
         }
 
         private int GetId(string referer)
