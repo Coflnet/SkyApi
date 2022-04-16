@@ -52,7 +52,7 @@ namespace Coflnet.Hypixel.Controller
                 Tag = i.Tag,
                 IconUrl = "https://sky.coflnet.com/static/icon/" + i.Tag
 
-            })).ToList();
+            })).Take(5).ToList();
         }
 
 
