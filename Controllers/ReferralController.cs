@@ -59,7 +59,16 @@ namespace Coflnet.Hypixel.Controller
                 return Unauthorized("no googletoken header");
             var infoTask = refApi.ReferralUserIdGetAsync(user.Id.ToString());
             var oldInfo = await GetOldRefInfo(user);
-            var info = await infoTask;
+            RefInfo info;
+            try
+            {
+                info = await infoTask;
+            }
+            catch (Exception e)
+            {
+                dev.Logger.Instance.Error(e, "getting ref info");
+                info = new RefInfo(new ReferralElement(), new List<ReferralElement>());
+            }
             string refedBy = null;
             if (!string.IsNullOrEmpty(info.Inviter.Inviter))
             {
