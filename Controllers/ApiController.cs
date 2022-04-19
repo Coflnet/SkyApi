@@ -10,6 +10,7 @@ using System.Text.RegularExpressions;
 using System.Linq;
 using Coflnet.Sky.Commands.Shared;
 using Coflnet.Sky.Items.Client.Api;
+using OpenTracing;
 
 namespace Coflnet.Hypixel.Controller
 {
@@ -23,14 +24,16 @@ namespace Coflnet.Hypixel.Controller
     {
         static Regex validCharRegex = new Regex("[^-a-zA-Z0-9_\\.' ]");
         private Sky.Items.Client.Api.IItemsApi itemsApi;
+        private readonly ITracer Tracer;
 
         /// <summary>
         /// Creates a new instance of <see cref="ApiController"/>
         /// </summary>
         /// <param name="itemsApi"></param>
-        public ApiController(IItemsApi itemsApi)
+        public ApiController(IItemsApi itemsApi, ITracer tracer)
         {
             this.itemsApi = itemsApi;
+            Tracer = tracer;
         }
 
         /// <summary>
@@ -85,6 +88,21 @@ namespace Coflnet.Hypixel.Controller
                         MaxAge = TimeSpan.Zero
                     };
             }
+
+            if (result.Count < 5)
+            {
+                var span = Tracer.ActiveSpan;
+                var id = span.Context.TraceId.Substring(0, 6);
+                span.SetTag("id", id);
+                return result.Append(new SearchResultItem()
+                {
+                    Name = "Not what I wanted, report " + id,
+                    IconUrl = "https://sky.shiiyu.moe/item/BARRIER",
+                    Type = "error",
+                    Id = span.Context.TraceId
+                });
+            }
+
             return result.Take(limit);
         }
 
