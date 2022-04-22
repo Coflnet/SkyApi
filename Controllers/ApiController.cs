@@ -132,7 +132,7 @@ namespace Coflnet.Hypixel.Controller
             {
                 await Task.Delay(25);
                 if (collection.Any(r => r.Type == "item") || collection.Any(r => r.Type == "internal" && r.Id == "items"))
-                    continue;
+                    break;
             }
             while (channel.Reader.TryRead(out SearchResultItem item))
             {
