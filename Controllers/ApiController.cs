@@ -77,7 +77,7 @@ namespace Coflnet.Hypixel.Controller
                 collection = await ExecuteSearch(searchVal, 2000);
             if (collection.Count == 0) // search once more
                 collection = await ExecuteSearch(searchVal);
-            var result = SearchService.Instance.RankSearchResults(searchVal, collection);
+            var result = SearchService.Instance.RankSearchResults(searchVal, collection.Where(r=>r.Type != "internal"));
             if (result.Count == 0)
             {
                 HttpContext.Response.GetTypedHeaders().CacheControl =
@@ -128,10 +128,10 @@ namespace Coflnet.Hypixel.Controller
                 }
             }
             // give an extra buffer for more results to arrive
-            for (int i = 0; i < 6; i++)
+            for (int i = 0; i < 30; i++)
             {
-                await Task.Delay(10);
-                if (collection.Any(r => r.Type == "item"))
+                await Task.Delay(25);
+                if (collection.Any(r => r.Type == "item") || collection.Any(r => r.Type == "internal" && r.Id == "items"))
                     continue;
             }
             while (channel.Reader.TryRead(out SearchResultItem item))
