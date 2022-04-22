@@ -81,6 +81,19 @@ namespace Coflnet.Hypixel.Controller
         /// <param name="itemTag">The tag of the item/param>
         /// <param name="count">How many items to search for</param>
         /// <returns></returns>
+        [Route("item/price/{itemTag}/history/day")]
+        [HttpGet]
+        [ResponseCache(Duration = 120, Location = ResponseCacheLocation.Any, NoStore = false, VaryByQueryKeys = new string[] { "*" })]
+        public async Task<IEnumerable<AveragePrice>> GetDayHistory(string itemTag, [FromQuery] IDictionary<string, string> query)
+        {
+            return await priceService.GetHistory(itemTag, DateTime.UtcNow - TimeSpan.FromDays(1), DateTime.UtcNow, new Dictionary<string, string>(query));
+        }
+        /// <summary>
+        /// Gets the price history for an item
+        /// </summary>
+        /// <param name="itemTag">The tag of the item/param>
+        /// <param name="count">How many items to search for</param>
+        /// <returns></returns>
         [Route("item/price/{itemTag}/history/week")]
         [HttpGet]
         [ResponseCache(Duration = 1800, Location = ResponseCacheLocation.Any, NoStore = false, VaryByQueryKeys = new string[] { "*" })]

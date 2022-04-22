@@ -63,7 +63,7 @@ namespace Coflnet.Hypixel.Controller
                         .Include(a => a.Enchantments)
                         .Include(a => a.NbtData)
                         .Include(a => a.Bids));
-            if(result != null && string.IsNullOrEmpty(result.ItemName))
+            if (result != null && string.IsNullOrEmpty(result.ItemName))
                 result.ItemName = ItemDetails.TagToName(result.Tag);
             return EnchantColorMapper.Instance.AddColors(result);
         }
@@ -119,20 +119,23 @@ namespace Coflnet.Hypixel.Controller
         /// </summary>
         /// <param name="itemTag">The itemTag to get auctions for</param>
         /// <param name="page">Page of auctions to get</param>
+        /// <param name="pageSize">how many auctions to get per page 1-1000</param>
         /// <returns></returns>
         [Route("auctions/tag/{itemTag}/sold")]
         [HttpGet]
         [ResponseCache(Duration = 1800, Location = ResponseCacheLocation.Any, NoStore = false, VaryByQueryKeys = new string[] { "page" })]
-        public async Task<List<SaveAuction>> GetHistory(string itemTag, int page = 0)
+        public async Task<List<SaveAuction>> GetHistory(string itemTag, int page = 0, int pageSize = 1000)
         {
             var itemId = ItemDetails.Instance.GetItemIdForTag(itemTag);
-            var pageSize = 1000;
+            if (pageSize < 0 || pageSize > 1000)
+                pageSize = 1000;
             var startTime = DateTime.Now.RoundDown(TimeSpan.FromHours(1)) - TimeSpan.FromDays(7);
             var result = await context.Auctions
                         .Where(a => a.ItemId == itemId && a.End > startTime && a.End < DateTime.Now && a.HighestBidAmount > 0)
                         .Include(a => a.Enchantments)
                         .Include(a => a.NbtData)
                         .Skip(page * pageSize)
+                        .OrderByDescending(a=>a.End)
                         .Take(pageSize).ToListAsync();
 
             return result;
@@ -178,7 +181,7 @@ namespace Coflnet.Hypixel.Controller
         {
             if (request.Uuids.Length > 35)
                 throw new CoflnetException("to_many_uuid", "Please do batch lookups on no more than 35 uuids at a time");
-            var numericIds = request.Uuids.GroupBy(id=>id).Select(ids=>ids.First()).ToDictionary(uid => GetUidFromString(uid));
+            var numericIds = request.Uuids.GroupBy(id => id).Select(ids => ids.First()).ToDictionary(uid => GetUidFromString(uid));
             var key = NBT.Instance.GetKeyId("uid");
             var result = await context.Auctions
                         .Where(a => a.NBTLookup.Where(l => l.KeyId == key && numericIds.Keys.Contains(l.Value)).Any())
@@ -278,6 +281,52 @@ namespace Coflnet.Hypixel.Controller
             return result;
         }
 
+/*
+        /// <summary>
+        /// Get recently sold auctions
+        /// </summary>
+        /// <returns></returns>
+        [Route("auctions/sold/recent")]
+        [HttpGet]
+        [ResponseCache(Duration = 120, Location = ResponseCacheLocation.Any, NoStore = false, VaryByQueryKeys = new string[] { "*" })]
+        public async Task<List<AuctionPreview>> SoldRecent(string itemTag, [FromQuery] IDictionary<string, string> query)
+        {
+            var itemId = ItemDetails.Instance.GetItemIdForTag(itemTag);
+            var filter = new Dictionary<string, string>(query);
+            int page = 0;
+            if (filter.ContainsKey("page"))
+            {
+                int.TryParse(filter["page"], out page);
+                filter.Remove("page");
+            }
+            filter["ItemId"] = itemId.ToString();
+            var pageSize = 20;
+            var select = fe.AddFilters(context.Auctions
+                        .Where(a => a.ItemId == itemId && a.End > DateTime.Now && a.HighestBidAmount == 0 && a.Bin), filter)
+                        .Include(a => a.Enchantments)
+                        .Include(a => a.NbtData)
+                        .OrderBy(a => a.StartingBid)
+                        .Skip(page * pageSize)
+                        .Take(pageSize);
+
+            var result = select
+                        .OrderByDescending(a => a.End).Take(pageSize).Select(a => new
+                        {
+                            a.End,
+                            Price = a.HighestBidAmount,
+                            a.AuctioneerId,
+                            a.Uuid
+                        }).ToList();
+            return result.Select(async a => new AuctionPreview()
+            {
+                End = a.End,
+                Price = a.Price,
+                Seller = a.AuctioneerId,
+                Uuid = a.Uuid,
+                PlayerName = await PlayerSearch.Instance.GetNameWithCacheAsync(a.AuctioneerId)
+            }).Select(a => a.Result).ToList();
+        }
+*/
         private static RestRequest CreateRequestTo(string path)
         {
             var lbinReq = new RestRequest(path);
