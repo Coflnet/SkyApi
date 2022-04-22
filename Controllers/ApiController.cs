@@ -77,7 +77,7 @@ namespace Coflnet.Hypixel.Controller
                 collection = await ExecuteSearch(searchVal, 2000);
             if (collection.Count == 0) // search once more
                 collection = await ExecuteSearch(searchVal);
-            var result = SearchService.Instance.RankSearchResults(searchVal, collection.Where(r=>r.Type != "internal"));
+            var result = SearchService.Instance.RankSearchResults(searchVal, collection.Where(r => r.Type != "internal"));
             if (result.Count == 0)
             {
                 HttpContext.Response.GetTypedHeaders().CacheControl =
@@ -106,7 +106,7 @@ namespace Coflnet.Hypixel.Controller
             return result.Take(limit);
         }
 
-        private static async Task<ConcurrentQueue<SearchResultItem>> ExecuteSearch(string searchVal, int timeout = 3000)
+        private async Task<ConcurrentQueue<SearchResultItem>> ExecuteSearch(string searchVal, int timeout = 3000)
         {
             var cancelationSource = new CancellationTokenSource();
             cancelationSource.CancelAfter(timeout);
@@ -114,8 +114,10 @@ namespace Coflnet.Hypixel.Controller
 
             var collection = new ConcurrentQueue<SearchResultItem>();
 
-            // either get a decent amount of results or timeout
-            while (!EnoughResults(searchVal, collection.Count) && !cancelationSource.Token.IsCancellationRequested)
+            // either get a decent amount of results (and require the item service to have responded) or timeout
+            while ((!EnoughResults(searchVal, collection.Count) ||
+                !(collection.Any(r => r.Type == "item") || collection.Any(r => r.Type == "internal" && r.Id == "items"))
+            ) && !cancelationSource.Token.IsCancellationRequested)
             {
                 try
                 {
@@ -128,12 +130,7 @@ namespace Coflnet.Hypixel.Controller
                 }
             }
             // give an extra buffer for more results to arrive
-            for (int i = 0; i < 30; i++)
-            {
-                await Task.Delay(25);
-                if (collection.Any(r => r.Type == "item") || collection.Any(r => r.Type == "internal" && r.Id == "items"))
-                    break;
-            }
+            await Task.Delay(10);
             while (channel.Reader.TryRead(out SearchResultItem item))
             {
                 collection.Enqueue(item);
