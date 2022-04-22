@@ -102,7 +102,7 @@ namespace Coflnet.Hypixel.Controller
                     Id = span.Context.TraceId
                 });
             }
-
+            Tracer.ActiveSpan.SetTag("search",searchVal.ToLower());
             return result.Take(limit);
         }
 
