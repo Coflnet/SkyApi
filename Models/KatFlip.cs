@@ -48,12 +48,25 @@ namespace Coflnet.Sky.Api.Models
         //     Gets or Sets ReferenceAuction
         [DataMember(Name = "referenceAuction", EmitDefaultValue = true)]
         public string ReferenceAuction { get; set; }
+        /// <summary>
+        /// How much the starting bid of the auction is
+        /// </summary>
+        /// <value></value>
         [DataMember(Name = "purchaseCost", EmitDefaultValue = true)]
         public long PurchaseCost { get; }
+        /// <summary>
+        /// The full name of the origin auction (cotnaining pet level)
+        /// </summary>
+        /// <value></value>
         [DataMember(Name = "originAuctionName", EmitDefaultValue = true)]
         public string OriginAuctionName { get; }
-
+        /// <summary>
+        /// 24 hour sell volume
+        /// </summary>
         public double Volume;
+        /// <summary>
+        /// Median prie of the item
+        /// </summary>
         public long Median;
     }
 }

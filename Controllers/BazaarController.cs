@@ -36,7 +36,6 @@ namespace Coflnet.Hypixel.Controller
         public async Task<List<Sky.Bazaar.Client.Model.GraphResult>> HistoryGraphHour(string itemTag)
         {
             var data = await bazaarClient.ApiBazaarItemIdHistoryGetAsync(itemTag, DateTime.UtcNow - TimeSpan.FromHours(1), DateTime.UtcNow - TimeSpan.FromMilliseconds(2));
-            Console.WriteLine(Newtonsoft.Json.JsonConvert.SerializeObject(data[0]));
             return data;
         }
         /// <summary>
