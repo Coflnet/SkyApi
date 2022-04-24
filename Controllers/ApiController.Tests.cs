@@ -11,7 +11,7 @@ using NUnit.Framework;
 namespace Coflnet.Hypixel.Controller
 {
     /// <summary>
-    /// Tests for <see cref="ApiController"/>
+    /// Tests for <see cref="SearchController"/>
     /// </summary>
     public class ApiControllerTests
     {
@@ -21,12 +21,12 @@ namespace Coflnet.Hypixel.Controller
         [Test]
         public void MinResultCount()
         {
-            Assert.IsTrue(ApiController.EnoughResults("xx", 5));
-            Assert.IsTrue(ApiController.EnoughResults("xxxxx", 2));
-            Assert.IsTrue(ApiController.EnoughResults("xxxxxx", 1));
-            Assert.IsFalse(ApiController.EnoughResults("x", 9));
-            Assert.IsFalse(ApiController.EnoughResults("xxxx", 1));
-            Assert.IsFalse(ApiController.EnoughResults("xxxxxxxxxxxxxxx", 0), "no matter how long minimum is one");
+            Assert.IsTrue(SearchController.EnoughResults("xx", 5));
+            Assert.IsTrue(SearchController.EnoughResults("xxxxx", 2));
+            Assert.IsTrue(SearchController.EnoughResults("xxxxxx", 1));
+            Assert.IsFalse(SearchController.EnoughResults("x", 9));
+            Assert.IsFalse(SearchController.EnoughResults("xxxx", 1));
+            Assert.IsFalse(SearchController.EnoughResults("xxxxxxxxxxxxxxx", 0), "no matter how long minimum is one");
         }
     }
 }

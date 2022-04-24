@@ -20,17 +20,17 @@ namespace Coflnet.Hypixel.Controller
     [ApiController]
     [Route("api")]
     [ResponseCache(Duration = 60, Location = ResponseCacheLocation.Any, NoStore = false)]
-    public class ApiController : ControllerBase
+    public class SearchController : ControllerBase
     {
         static Regex validCharRegex = new Regex("[^-a-zA-Z0-9_\\.' ]");
         private Sky.Items.Client.Api.IItemsApi itemsApi;
         private readonly ITracer Tracer;
 
         /// <summary>
-        /// Creates a new instance of <see cref="ApiController"/>
+        /// Creates a new instance of <see cref="SearchController"/>
         /// </summary>
         /// <param name="itemsApi"></param>
-        public ApiController(IItemsApi itemsApi, ITracer tracer)
+        public SearchController(IItemsApi itemsApi, ITracer tracer)
         {
             this.itemsApi = itemsApi;
             Tracer = tracer;
