@@ -116,7 +116,7 @@ namespace Coflnet.Hypixel.Controller
 
             // either get a decent amount of results (and require the item service to have responded) or timeout
             while ((!EnoughResults(searchVal, collection.Count) ||
-                !(collection.Any(r => r.Type == "item") || collection.Any(r => r.Type == "internal" && r.Id == "items"))
+                !(collection.Any(r => r.Type == "internal" && r.Id == "items"))
             ) && !cancelationSource.Token.IsCancellationRequested)
             {
                 try
