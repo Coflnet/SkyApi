@@ -114,6 +114,19 @@ namespace Coflnet.Hypixel.Controller
         {
             return await priceService.GetHistory(itemTag, DateTime.UtcNow - TimeSpan.FromDays(30), DateTime.UtcNow, null);
         }
+        /// <summary>
+        /// Gets the price history for an item for all time
+        /// </summary>
+        /// <param name="itemTag">The tag of the item/param>
+        /// <returns></returns>
+        [Route("item/price/{itemTag}/history/full")]
+        [HttpGet]
+        [ResponseCache(Duration = 3600*2, Location = ResponseCacheLocation.Any, NoStore = false)]
+        public async Task<IEnumerable<AveragePrice>> GetFullHistory(string itemTag)
+        {
+            var id =  ItemDetails.Instance.GetItemIdForTag(itemTag, true);
+            return await context.Prices.Where(p=>p.ItemId == id).ToListAsync();
+        }
 
         /// <summary>
         /// Returns all available filters with all available options

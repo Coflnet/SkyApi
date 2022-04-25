@@ -15,6 +15,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Configuration;
 using Coflnet.Sky.Api.Models;
 using Coflnet.Sky.Commands.Shared;
+using static Coflnet.Sky.Core.ItemPrices;
 
 namespace Coflnet.Hypixel.Controller
 {
@@ -139,7 +140,83 @@ namespace Coflnet.Hypixel.Controller
                         .Take(pageSize).ToListAsync();
 
             return result;
+        }        
+        /// <summary>
+        /// Gets a preview of recent auctions useful in overviews
+        /// </summary>
+        /// <param name="itemTag">The itemTag to get auctions for</param>
+        /// <returns></returns>
+        [Route("auctions/tag/{itemTag}/recent/overview")]
+        [HttpGet]
+        [ResponseCache(Duration = 120, Location = ResponseCacheLocation.Any, NoStore = false, VaryByQueryKeys = new string[] { "*" })]
+        public async Task<List<AuctionPreview>> GetRecent(string itemTag, [FromQuery] IDictionary<string, string> query)
+        {
+
+            var itemId = ItemDetails.Instance.GetItemIdForTag(itemTag);
+            var baseSelect = context.Auctions
+                                        .Where(a => a.ItemId == itemId && a.End < DateTime.Now).OrderByDescending(a => a.End);
+            return await ToPreview(query, itemId, baseSelect);
+        }        
+        /// <summary>
+        /// Gets a preview of active auctions useful in overviews, available orderBy options 
+        /// HIGHEST_PRICE, LOWEST_PRICE (default), ENDING_SOON
+        /// </summary>
+        /// <param name="itemTag">The itemTag to get auctions for</param>
+        /// <returns></returns>
+        [Route("auctions/tag/{itemTag}/active/overview")]
+        [HttpGet]
+        [ResponseCache(Duration = 120, Location = ResponseCacheLocation.Any, NoStore = false, VaryByQueryKeys = new string[] { "*" })]
+        public async Task<List<AuctionPreview>> GetActive(string itemTag, [FromQuery] IDictionary<string, string> query)
+        {
+            var filter = new Dictionary<string, string>(query, StringComparer.OrdinalIgnoreCase);
+            var itemId = ItemDetails.Instance.GetItemIdForTag(itemTag);
+            var order = ActiveItemSearchQuery.SortOrder.LOWEST_PRICE;
+            if (filter.ContainsKey("orderBy"))
+            {
+                Enum.TryParse<ActiveItemSearchQuery.SortOrder>(filter["orderBy"], out order);
+                filter.Remove("orderBy");
+                Console.WriteLine(order);
+            }
+            var baseSelect = context.Auctions
+                                        .Where(a => a.ItemId == itemId && a.End > DateTime.Now);//.OrderByDescending(a => a.End);
+            var orderedSelect = order switch
+            {
+                ActiveItemSearchQuery.SortOrder.ENDING_SOON => baseSelect.OrderBy(b=>b.End),
+                ActiveItemSearchQuery.SortOrder.HIGHEST_PRICE => baseSelect.OrderByDescending(a=>a.HighestBidAmount == 0 ? a.StartingBid : a.HighestBidAmount),
+                _ => baseSelect.OrderBy(a=>a.HighestBidAmount == 0 ? a.StartingBid : a.HighestBidAmount)
+            };
+            return await ToPreview(filter, itemId, orderedSelect);
         }
+
+        private static async Task<List<AuctionPreview>> ToPreview(IDictionary<string, string> query, int itemId, IOrderedQueryable<SaveAuction> baseSelect)
+        {
+            var filter = new Dictionary<string, string>(query);
+            int page = 0;
+            if (filter.ContainsKey("page"))
+            {
+                int.TryParse(filter["page"], out page);
+                filter.Remove("page");
+                if (page > 10)
+                     throw new CoflnetException("max_page_exceeded", "Sorry you are only allowed to query 10 pages");
+            }
+            filter["ItemId"] = itemId.ToString();
+            var pageSize = 12;
+            var select = fe.AddFilters(baseSelect, filter)
+
+                        .Skip(page * pageSize)
+                        .Take(pageSize);
+
+            var result = await select.ToListAsync();
+            return result.Select(async a => new AuctionPreview()
+            {
+                End = a.End,
+                Price = a.HighestBidAmount == 0 ? a.StartingBid : a.HighestBidAmount,
+                Seller = a.AuctioneerId,
+                Uuid = a.Uuid,
+                PlayerName = await PlayerSearch.Instance.GetNameWithCacheAsync(a.AuctioneerId)
+            }).Select(a => a.Result).ToList();
+        }
+
         /// <summary>
         /// Gets all recorded past sells of an item with a specific uuid
         /// meant for dupe detection
