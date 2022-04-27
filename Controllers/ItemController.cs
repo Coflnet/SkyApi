@@ -48,7 +48,7 @@ namespace Coflnet.Hypixel.Controller
         [ResponseCache(Duration = 3600, Location = ResponseCacheLocation.Any, NoStore = false)]
         public async Task<IEnumerable<string>> GetFlipTime()
         {
-            return await db.Items.Where(i => i.IsBazaar).Select(i => i.Tag).ToListAsync();
+            return await itemsApi.ItemsBazaarTagsGetAsync();
         }
 
         /// <summary>
