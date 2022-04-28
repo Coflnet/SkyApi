@@ -1,5 +1,7 @@
+using System;
 using System.Runtime.Serialization;
 using Coflnet.Sky.Core;
+using Newtonsoft.Json;
 
 namespace Coflnet.Sky.Api.Models
 {
@@ -46,6 +48,7 @@ namespace Coflnet.Sky.Api.Models
         // Summary:
         //     Gets or Sets Flags
         [DataMember(Name = "flags", EmitDefaultValue = false)]
+        [JsonConverter(typeof(ForceDefaultConverter))]
         public Items.Client.Model.ItemFlags? Flags { get; set; }
         //
         // Summary:
@@ -57,5 +60,23 @@ namespace Coflnet.Sky.Api.Models
         //     Gets or Sets Category
         [DataMember(Name = "category", EmitDefaultValue = false)]
         public Items.Client.Model.ItemCategory? Category { get; set; }
+
+        public class ForceDefaultConverter : JsonConverter
+        {
+            public override bool CanRead => false;
+            public override bool CanWrite => false;
+            public override bool CanConvert(Type objectType)
+            {
+                throw new NotImplementedException();
+            }
+            public override object ReadJson(JsonReader reader, Type objectType, object existingValue, JsonSerializer serializer)
+            {
+                throw new NotImplementedException();
+            }
+            public override void WriteJson(JsonWriter writer, object value, JsonSerializer serializer)
+            {
+                throw new NotImplementedException();
+            }
+        }
     }
 }
