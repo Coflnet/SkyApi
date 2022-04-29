@@ -109,10 +109,10 @@ namespace Coflnet.Hypixel.Controller
         /// <returns></returns>
         [Route("item/price/{itemTag}/history/month")]
         [HttpGet]
-        [ResponseCache(Duration = 3600*2, Location = ResponseCacheLocation.Any, NoStore = false, VaryByQueryKeys = new string[] { "count" })]
-        public async Task<IEnumerable<AveragePrice>> GetMonthHistory(string itemTag)
+        [ResponseCache(Duration = 3600*2, Location = ResponseCacheLocation.Any, NoStore = false, VaryByQueryKeys = new string[] { "*" })]
+        public async Task<IEnumerable<AveragePrice>> GetMonthHistory(string itemTag, [FromQuery] IDictionary<string, string> query)
         {
-            return await priceService.GetHistory(itemTag, DateTime.UtcNow - TimeSpan.FromDays(30), DateTime.UtcNow, null);
+            return await priceService.GetHistory(itemTag, DateTime.UtcNow - TimeSpan.FromDays(30), DateTime.UtcNow, itemTag == "ENCHANTED_BOOK" ? null : new Dictionary<string, string>(query));
         }
         /// <summary>
         /// Gets the price history for an item for all time
