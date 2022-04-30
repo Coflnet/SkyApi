@@ -65,7 +65,7 @@ namespace Coflnet.Hypixel.Controller
         /// <summary>
         /// Gets the current (latest known) price for an item
         /// </summary>
-        /// <param name="itemTag">The tag of the item/param>
+        /// <param name="itemTag">The tag of the item</param>
         /// <param name="count">How many items to search for</param>
         /// <returns></returns>
         [Route("item/price/{itemTag}/current")]
@@ -78,7 +78,7 @@ namespace Coflnet.Hypixel.Controller
         /// <summary>
         /// Gets the price history for an item
         /// </summary>
-        /// <param name="itemTag">The tag of the item/param>
+        /// <param name="itemTag">The tag of the item</param>
         /// <param name="query">filter query</param>
         /// <returns></returns>
         [Route("item/price/{itemTag}/history/day")]
@@ -91,7 +91,7 @@ namespace Coflnet.Hypixel.Controller
         /// <summary>
         /// Gets the price history for an item
         /// </summary>
-        /// <param name="itemTag">The tag of the item/param>
+        /// <param name="itemTag">The tag of the item</param>
         /// <param name="query">filter query</param>
         /// <returns></returns>
         [Route("item/price/{itemTag}/history/week")]
@@ -104,7 +104,7 @@ namespace Coflnet.Hypixel.Controller
         /// <summary>
         /// Gets the price history for an item for one month
         /// </summary>
-        /// <param name="itemTag">The tag of the item/param>
+        /// <param name="itemTag">The tag of the item</param>
         /// <param name="query">filter query</param>
         /// <returns></returns>
         [Route("item/price/{itemTag}/history/month")]
@@ -117,7 +117,7 @@ namespace Coflnet.Hypixel.Controller
         /// <summary>
         /// Gets the price history for an item for all time
         /// </summary>
-        /// <param name="itemTag">The tag of the item/param>
+        /// <param name="itemTag">The tag of the item</param>
         /// <returns></returns>
         [Route("item/price/{itemTag}/history/full")]
         [HttpGet]
