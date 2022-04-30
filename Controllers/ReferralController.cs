@@ -19,7 +19,7 @@ namespace Coflnet.Hypixel.Controller
     /// </summary>
     [ApiController]
     [Route("api/referral")]
-    [ResponseCache(Duration = 120, Location = ResponseCacheLocation.Any, NoStore = false)]
+    [ResponseCache(Duration = 0, Location = ResponseCacheLocation.None, NoStore = true)]
     public class ReferralController : ControllerBase
     {
         private IReferralApi refApi;
@@ -32,6 +32,9 @@ namespace Coflnet.Hypixel.Controller
             this.refApi = refApi;
             this.premiumService = premiumService;
             this.db = db;
+            Console.WriteLine(GetId("ZQWKaQ"));
+            Console.WriteLine(GetId("oD65nQ"));
+            Console.WriteLine(GetId("9gKwV9"));
         }
 
 
@@ -41,7 +44,6 @@ namespace Coflnet.Hypixel.Controller
         /// <returns></returns>
         [Route("referred/by")]
         [HttpPost]
-        [ResponseCache(Duration = 60, Location = ResponseCacheLocation.Any, NoStore = false)]
         public async Task<IActionResult> TopupOptions([FromBody] Argument args)
         {
             if (!TryGetUser(out GoogleUser user))
@@ -52,7 +54,7 @@ namespace Coflnet.Hypixel.Controller
 
         [Route("info")]
         [HttpGet]
-        [ResponseCache(Duration = 60, Location = ResponseCacheLocation.Any, NoStore = false)]
+        [ResponseCache(Duration = 0, Location = ResponseCacheLocation.None, NoStore = true)]
         public async Task<ActionResult<ReferralInfo>> GetRefInfo()
         {
             if (!TryGetUser(out GoogleUser user))
