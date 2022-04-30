@@ -54,7 +54,7 @@ namespace Coflnet.Sky.Api
                 // Set the comments path for the Swagger JSON and UI.
                 var xmlFile = $"{Assembly.GetExecutingAssembly().GetName().Name}.xml";
                 var xmlPath = Path.Combine(AppContext.BaseDirectory, xmlFile);
-                c.IncludeXmlComments(xmlPath);
+                c.IncludeXmlComments(xmlPath, true);
             });
             services.AddCors(o =>
             {
@@ -144,7 +144,7 @@ namespace Coflnet.Sky.Api
                         span.Span.Log(exceptionHandlerPathFeature?.Error?.StackTrace);
                         var traceId = System.Net.Dns.GetHostName().Replace("commands", "").Trim('-') + "." + span.Span.Context.TraceId;
                         await context.Response.WriteAsync(
-                            JsonConvert.SerializeObject(new
+                            JsonConvert.SerializeObject(new ErrorResponse
                             {
                                 Slug = "internal_error",
                                 Message = "An unexpected internal error occured. Please check that your request is valid. If it is please report he error and include the Trace.",
