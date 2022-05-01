@@ -91,9 +91,9 @@ namespace Coflnet.Hypixel.Controller
         /// <summary>
         /// Returns new descriptions for an array of items
         /// </summary>
-        /// <param name="inventory">Inventory data. Either the decoded array of items or the nbt encoded, ziped, base64 encoded fullInventoryNbt has to be passed</param>
-        /// <param name="conId">Connection id of the calling mod to apply user settings</param>
-        /// <param name="uuid">The uuid of the calling player</param>
+        /// <param name="inventory">Inventory data. The nbt encoded, ziped, base64 encoded fullInventoryNbt</param>
+        /// <param name="conId">(optional) Connection id of the calling mod to apply user settings</param>
+        /// <param name="uuid">(optional) The uuid of the calling player</param>
         /// <returns>New description for each passed item. The existing one should be replaced with the new one</returns>
         [Route("description")]
         [HttpPost]
@@ -141,6 +141,7 @@ namespace Coflnet.Hypixel.Controller
                     Count = a.Count,
                     Enchantments = a.Enchantments.Select(e => new Sky.Sniper.Client.Model.Enchantment(0, (Sky.Sniper.Client.Model.EnchantmentType?)e.Type, e.Level)).ToList(),
                     FlatenedNBT = a.FlatenedNBT,
+                    Reforge = (Sky.Sniper.Client.Model.Reforge?)a.Reforge,
                     Tag = a.Tag
                 };
             }).ToList());
