@@ -142,6 +142,7 @@ namespace Coflnet.Hypixel.Controller
                     Enchantments = a.Enchantments.Select(e => new Sky.Sniper.Client.Model.Enchantment(0, (Sky.Sniper.Client.Model.EnchantmentType?)e.Type, e.Level)).ToList(),
                     FlatenedNBT = a.FlatenedNBT,
                     Reforge = (Sky.Sniper.Client.Model.Reforge?)a.Reforge,
+                    Tier = (Sky.Sniper.Client.Model.Tier?)a.Tier,
                     Tag = a.Tag
                 };
             }).ToList());
