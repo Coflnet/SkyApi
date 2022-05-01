@@ -10,6 +10,8 @@ using Coflnet.Sky.Api.Models;
 using System;
 using Newtonsoft.Json;
 using Coflnet.Sky.Sniper.Client.Api;
+using Coflnet.Sky.Api.Services;
+using static Coflnet.Sky.Api.Services.ModDescriptionService;
 
 namespace Coflnet.Hypixel.Controller
 {
@@ -25,7 +27,7 @@ namespace Coflnet.Hypixel.Controller
         private HypixelContext db;
         private PricesService priceService;
         private PlayerNameApi playerNamService;
-        private ISniperApi sniperApi;
+        private ModDescriptionService descriptionService;
 
         /// <summary>
         /// Creates a new instance of <see cref="ModController"/>
@@ -34,12 +36,12 @@ namespace Coflnet.Hypixel.Controller
         /// <param name="pricesService"></param>
         /// <param name="playerName"></param>
         /// <param name="sniperApi"></param>
-        public ModController(HypixelContext db, PricesService pricesService, PlayerNameApi playerName = null, ISniperApi sniperApi = null)
+        public ModController(HypixelContext db, PricesService pricesService, PlayerNameApi playerName = null, ModDescriptionService sniperApi = null)
         {
             this.db = db;
             priceService = pricesService;
             this.playerNamService = playerName;
-            this.sniperApi = sniperApi;
+            this.descriptionService = sniperApi;
         }
 
         /// <summary>
@@ -115,66 +117,10 @@ namespace Coflnet.Hypixel.Controller
                                             + "JZY3friqwDN9C4PjTdjDOZrMllv39fZhU6/b3U0bGq82dOf12A7EAJLSYzQJt9sOuHm53jso6/Xqa0sIFdGH3M/nJEFROckXXC7v+Dkuj/K8gBzXd2TnauWc37+snGPaxtIadkSr1D82G9vKOfuRZQ8gidsfWXYIn3XeHBqLWqUjmiVjYQ7LJ91SfWjah8edxUvLOYITd0Mnro+9iJQzTuDzYVbm2F+itjfvHJFks9XoHu0KpPTTpSWNAu/GrTDrdz65JW05uh7su8nP9u1g7RnpD/Md0/O+StJr2WXerJi8GXWHplg+6UTlRTdqQsJr8lbbUKxlK+rYfalrD0hJa2C2jZNayVx2IlOyoqZoLk2lMwTZDDsLcwlyK4GsillpZo+H/wWtGPPb8t93aADZBduhWS5kr0sSH1pJCLiWrArDhQktxxLMA+cn4dfrY4KZuaws8wVNdccrXNswDSyTB/v/E5JlNJJ56NAls4eElp9ipl2vHex12F2jsbfyE8iAtXSuwE2TdD+YDp4/I1sI6RzVQr1mdctbPeiTVq1a1C2j2KMpIJm8lw3ZkIe9ij+54Eai4kkcEnIyJ3mSzzmaqnI53seSJAPj4rWr+dO3Ly2Plg4lc+kKNXskW8FWfxqBvwlWe3/QaYOtDMG+hiOh096POsNC2B3uBp22segsC0CQXupPTUcUxuAzg//X5VGxG4FMFIgTi+7wcGGWOseddvPYsjvLztI9toiP2F7YWR6SsjFfqzQlswKksmScmBWIM3ZhZA7NY0ss89ayD37XGpqRGaQ+Dv4TkNLmWNvmRB/9iCTy5xtIJLmtCvwAWORnl1gkYUhjkgiuOBN1j0RPK1pTcA1YgvUDcL6ElC1/kbb7WQSArAqnaT2auGg6TfP6B2mnygBNZ49YAygaxtGUDYMR7bxgcTxMFmQ50g2x0xjRyitEBwgZyTxLeCEB/SLtcpxMQo/1J0nEkvSSXgPB/+ye6OyAW+jvBxfJrqhcjSHepgzROEcRT8PORooIFFoz8QyDkhoDNNmcrZP4cscs2+VavdfY02nCn2bYCDuyiniZEx1Z4WTkIg6pmscpbl4WVVWVZWFL9UfYkfktJLH7mknih5dJoihQntPAwH5gMhKjLlQBgO2TasIuniQu5W4pvYLpPiEsJ+6HgA92rdbbA+"
                                             + "LWs5pmoVynJdYVeVzxRtC8i2buAEwK0YqJmy24qgCQtTKymF1zVoKnVMHaNCOxhPhhat+wA5LNOiiYpU73kPTz6NlIrzEpA/O0MkIQBJaeQ5aa1WfdtHaxosbsLwWFXNB+TQ6X48nusx6prKD9fAdSQ/5q/YYXViAGOCVcMz2NllMeXIlEfnGxqE8Qy7AqbLusH6xRIbUxALYEOeT3ZZJ3CH9s7NXLJcgtL5HItxHVIWzWO2OM2HNUNYd9TvNEHuw5z3MIazyXcxxPcnns5HLaJcaoEXtWd4T8lmrmb18lw/9+jPFdeFhHx2wdOU6wnaK9XdcLBeMCO1tt8y9fI2e8CQ+LaDJJXkIXi3q9XrN7RGmvK+Xnsc/nfBlSflVCnJSXSc3Ky3N8zkWeIHs5x/WuVgP+lx+rBtwhqS+kvJCijDptgOPIkDrL/aDb3g0InAOdULolSI2Hh3xn2RpZ7Y5i2n2xEwGUi6Zg2t2BRaC/DSmAeMh37UPBbNAa8B8CvR9sLAED+qbQlvk7LefSlx2yu6YsIJ3vehUUFFQY9/65cWmJlZRlK6clsAfs2RUYPhk/olGVNpN3LRD/SKA9zsIzKeTRTiCNLEaQcEbZPqmcJRNaCUTU92jNLYLFf5ySLRxOWR1Oj5wtQY9WFmC8YZVLPZ1Az2kEy+"
                                             + "c8RZN5kZOQL3Cy6jtcHnuQpcuS4GmaqyB3e9n24jXYCpE/e82IfIcIYg2RtW80jf5B63ugYJKMjGMM+VmVAt65CjoOMWZTxGM9ckVACq/vpoVXVVmHUu/LWkwNM5niMzum9+OgedLJo3CMU+6XZm0Eq44DDJ9oRgca9JwQefjRl1dCtg/X79/WKqTk6q0Bq3hrt26sRu72vie6pTdydPYeGX8J4G5OVzIkZegzjFNcrGLX1TjRk0VOFn1AO0ETubziy66YyyFHWb8ofR8AToBfVhB3FOESyP2AeK0JruIKDuYEjdRp+HyOy7t5iVMF2KGPeV7M8X/gO7vucLQ029ag1m7y5M2T7pDEYFOwKt0BKd0ATV10ozJQK2to2WHQtZvH3agb1EqFsNauj2qV3cgqjYDSmlKtYkW1Ujiy0ni99Q2SN6n1ZvcMU/JmCEQhB4fJcfZuBFg6EALyj77vBsEmTtgwiUnNAgyqj2ekAErc4KNzBEAvFsuNRq3eWVkjYQdGDIoOPEQqo6xOWAlyN4P2S2zxJ+QVCtMo6bZRs3p63TZ29aJ9Vod3fBESOIfzJE3jgBK4nOOpiBN4Jy8KvOQpeP2Nivdyj2VicBte8MpCEvPxD33J8i3qyvp8lkRweBeFECc8iC0QC8gVBrAzlzIA4uRA8WIKXXOAEyCsmNZ+OXdVLXaT2A/687SO/MnFzHaT3NUD0GwSo5AtkTVBv7ltMeCDcda15ybRGLTT49fqpS/XzEG53qhZerVXKlfLNhA4ss6523uUl5AEhE0mt/eyIHNIQjzwNwFLno80T5WvMR9fmgS0a7TK19aBRHks0TCh7EjypcuT1U8aLB6+hvcq7m2+7v3ppltd8SWXuh9cuGoWgGN9eCnz0PiL183Slptl8MzVVWP+xT/+bXbVCKmCugvhj22Ac6YvSLGNOag2AN0XwiTxMqefzk5vOdJ7YgTcNMjgL+2U8kYKdfQGg1wxnr92I1mZml78pneG2etXBC1pnqJQxkkPRG4/MjS92ls8n14077OXQq4zb7lJmEyY//6Peytb/5wQuNU5s8vos5dPtmY3nzaaYHQGmFp2N73h1RNVpS+I8pyGNJ/cUEtc3pd8DjIcVxWEnKaI29/4ufzqCf35X8k8oLnOLQAA";
-            var nbt = NBT.File(Convert.FromBase64String(inventory.FullInventoryNbt));
-            var auctionRepresent = nbt.RootTag.Get<fNbt.NbtList>("i").Select(t =>
-            {
-                var compound = t as fNbt.NbtCompound;
-
-                if (compound.Count == 0)
-                    return (null, new string[0]);
-                var auction = new SaveAuction();
-                auction.Context = new Dictionary<string, string>();
-                NBT.FillFromTag(auction, compound, true);
-                var desc = NBT.GetLore(compound);
-                //Console.WriteLine(JsonConvert.SerializeObject(auction));
-                //Console.WriteLine(JsonConvert.SerializeObject(auction.Context));
-                return (auction, desc);
-            }).ToList();
-
-            var res = await sniperApi.ApiSniperPricePostAsync(auctionRepresent.Select(el =>
-            {
-                var a = el.auction;
-                if (a == null)
-                    return null;
-                return new Sky.Sniper.Client.Model.SaveAuction()
-                {
-                    Count = a.Count,
-                    Enchantments = a.Enchantments.Select(e => new Sky.Sniper.Client.Model.Enchantment(0, (Sky.Sniper.Client.Model.EnchantmentType?)e.Type, e.Level)).ToList(),
-                    FlatenedNBT = a.FlatenedNBT,
-                    Reforge = (Sky.Sniper.Client.Model.Reforge?)a.Reforge,
-                    Tier = (Sky.Sniper.Client.Model.Tier?)a.Tier,
-                    Tag = a.Tag
-                };
-            }).ToList());
-
-            var result = new List<string[]>();
-            for (int i = 0; i < auctionRepresent.Count; i++)
-            {
-                var desc = auctionRepresent[i].desc;
-                var price = res[i];
-                if (desc == null || price == null)
-                    result.Add(null);
-                else if(price.Median == 0)
-                    result.Add(desc.Append("no price data").ToArray());
-                else
-                    result.Add(desc.Append($"lbin: {FormatNumber(price.Lbin.Price)}").Append($"Med: {FormatNumber(price.Median)} Vol: {price.Volume}").ToArray());
-            }
-            return result;
+            return await descriptionService.GetDescriptions(inventory);
         }
 
-        private string FormatNumber(long price)
-        {
-            return string.Format("{0:n0}", price);
-        }
-
-        /// <summary>
-        /// Representation of an inventory
-        /// </summary>
-        public class InventoryData
-        {
-            public string ChestName;
-            public string FullInventoryNbt;
-        }
+        
 
         public class ItemNbtData
         {
