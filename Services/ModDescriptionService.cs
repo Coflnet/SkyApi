@@ -72,8 +72,14 @@ namespace Coflnet.Sky.Api.Services
                 else
                 {
                     var craftPrice = allCrafts?.Where(c => auction != null && c.ItemId == auction.Tag && c.CraftCost > 0)?.FirstOrDefault()?.CraftCost;
-                    result.Add(desc.Append($"lbin: {FormatNumber(price.Lbin.Price)}{(craftPrice == null ? "" : " craft: " + FormatNumber((int)craftPrice))}")
-                                    .Append($"Med: {FormatNumber(price.Median)} Vol: {price.Volume.ToString("0.#")}").ToArray());
+                    var newOne = desc.AsEnumerable();
+                    if (price.Lbin.Price > 0)
+                        newOne = desc.Append($"lbin: {FormatNumber(price.Lbin.Price)}");
+                    if (price.Lbin.Price > 0)
+                        newOne = desc.Append($"Med: {FormatNumber(price.Median)} Vol: {price.Volume.ToString("0.#")}");
+                    if (craftPrice != null)
+                        newOne = desc.Append($"craft: {FormatNumber((int)craftPrice)}");
+                    result.Add(newOne.ToArray());
                 }
             }
             return result;
