@@ -80,11 +80,11 @@ namespace Coflnet.Sky.Api.Services
                 {
                     var newOne = desc.AsEnumerable();
                     if (price.Lbin.Price > 0)
-                        newOne = desc.Append($"lbin: {FormatNumber(price.Lbin.Price)}");
+                        newOne = newOne.Append($"lbin: {FormatNumber(price.Lbin.Price)}");
                     if (price.Lbin.Price > 0)
-                        newOne = desc.Append($"Med: {FormatNumber(price.Median)} Vol: {price.Volume.ToString("0.#")}");
+                        newOne = newOne.Append($"Med: {FormatNumber(price.Median)} Vol: {price.Volume.ToString("0.#")}");
                     if (craftPrice != null)
-                        newOne = desc.Append($"craft: {FormatNumber((int)craftPrice)}");
+                        newOne = newOne.Append($"craft: {FormatNumber((int)craftPrice)}");
                     result.Add(newOne.ToArray());
                 }
             }
