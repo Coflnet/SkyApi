@@ -84,7 +84,10 @@ namespace Coflnet.Sky.Api.Services
                     if (price.Lbin.Price > 0)
                         newOne = newOne.Append($"Med: {FormatNumber(price.Median)} Vol: {price.Volume.ToString("0.#")}");
                     if (craftPrice != null)
-                        newOne = newOne.Append($"craft: {FormatNumber((int)craftPrice)}");
+                        if (craftPrice.Value >= int.MaxValue)
+                            newOne = newOne.Append($"craft: unavailable ingredients");
+                        else
+                            newOne = newOne.Append($"craft: {FormatNumber((long)craftPrice)}");
                     result.Add(newOne.ToArray());
                 }
             }
