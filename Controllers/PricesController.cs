@@ -63,10 +63,10 @@ namespace Coflnet.Hypixel.Controller
         }
 
         /// <summary>
-        /// Gets the current (latest known) price for an item
+        /// Gets the current (latest known) price for an item and available quantity
         /// </summary>
         /// <param name="itemTag">The tag of the item</param>
-        /// <param name="count">How many items to search for</param>
+        /// <param name="count">How many items to search for (and include in cost)</param>
         /// <returns></returns>
         [Route("item/price/{itemTag}/current")]
         [HttpGet]
