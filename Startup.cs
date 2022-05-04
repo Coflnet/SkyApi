@@ -61,7 +61,7 @@ namespace Coflnet.Sky.Api
                 o.AddPolicy(CORS_PLICY_NAME, p => p.AllowAnyHeader().AllowAnyMethod().AllowAnyOrigin());
             });
 
-            services.AddJaeger();
+            services.AddJaeger(0.001, 60);
             services.AddScoped<PricesService>();
             services.AddSingleton<PremiumService>();
             services.AddSingleton<AuctionService>();
