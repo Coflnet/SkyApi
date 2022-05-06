@@ -144,7 +144,7 @@ namespace Coflnet.Sky.Api
                         span.Span.Log(exceptionHandlerPathFeature?.Error?.Message);
                         span.Span.Log(exceptionHandlerPathFeature?.Error?.StackTrace);
                         var traceId = System.Net.Dns.GetHostName().Replace("commands", "").Trim('-') + "." + span.Span.Context.TraceId;
-                        logger.LogError(exceptionHandlerPathFeature?.Error, "fatal request error");
+                        logger.LogError(exceptionHandlerPathFeature?.Error, "fatal request error " + traceId);
                         await context.Response.WriteAsync(
                             JsonConvert.SerializeObject(new ErrorResponse
                             {
