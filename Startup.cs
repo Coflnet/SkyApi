@@ -92,7 +92,7 @@ namespace Coflnet.Sky.Api
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
-        public void Configure(IApplicationBuilder app, IWebHostEnvironment env)
+        public void Configure(IApplicationBuilder app, IWebHostEnvironment env, ILogger<Startup> logger)
         {
             if (env.IsDevelopment())
             {
@@ -144,6 +144,7 @@ namespace Coflnet.Sky.Api
                         span.Span.Log(exceptionHandlerPathFeature?.Error?.Message);
                         span.Span.Log(exceptionHandlerPathFeature?.Error?.StackTrace);
                         var traceId = System.Net.Dns.GetHostName().Replace("commands", "").Trim('-') + "." + span.Span.Context.TraceId;
+                        logger.LogError(exceptionHandlerPathFeature?.Error, "fatal request error");
                         await context.Response.WriteAsync(
                             JsonConvert.SerializeObject(new ErrorResponse
                             {
