@@ -98,7 +98,7 @@ namespace Coflnet.Hypixel.Controller
                 Finder = finderType,
                 TargetPrice = price
             }, received);
-            await flipService.ReceiveFlip(auctionId, playerId);
+            await flipService.ReceiveFlip(auctionId, playerId, received);
             await flipService.ClickFlip(auctionId, playerId);
         }
 
