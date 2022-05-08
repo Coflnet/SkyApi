@@ -9,6 +9,8 @@ using Coflnet.Sky.Commands.Shared;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Coflnet.Sky.Api.Models;
+using Microsoft.Extensions.Logging;
+using Coflnet.Sky.Items.Client.Api;
 
 namespace Coflnet.Hypixel.Controller
 {
@@ -22,16 +24,22 @@ namespace Coflnet.Hypixel.Controller
     {
         private PricesService priceService;
         HypixelContext context;
+        private IItemsApi itemsApi;
+        private ILogger<PricesController> logger;
 
         /// <summary>
         /// Creates a new intance of <see cref="PricesController"/>
         /// </summary>
         /// <param name="pricesService"></param>
         /// <param name="context"></param>
-        public PricesController(PricesService pricesService, HypixelContext context)
+        /// <param name="itemsApi"></param>
+        /// <param name="logger"></param>
+        public PricesController(PricesService pricesService, HypixelContext context, IItemsApi itemsApi, ILogger<PricesController> logger)
         {
             priceService = pricesService;
             this.context = context;
+            this.itemsApi = itemsApi;
+            this.logger = logger;
         }
         /// <summary>
         /// Aggregated sumary of item prices for the 3 last days
@@ -134,11 +142,30 @@ namespace Coflnet.Hypixel.Controller
         /// <returns></returns>
         [Route("filter/options")]
         [HttpGet]
-        [ResponseCache(Duration = 3600 * 6, Location = ResponseCacheLocation.Any, NoStore = false)]
-        public List<FilterOptions> GetFilterOptions()
+        [ResponseCache(Duration = 3600 * 6, Location = ResponseCacheLocation.Any, NoStore = false, VaryByQueryKeys = new string[] { "itemTag" })]
+        public async Task<List<FilterOptions>> GetFilterOptions(string itemTag = "*")
         {
             var fe = new Sky.Filter.FilterEngine();
-            return fe.AvailableFilters.Select(f => new FilterOptions(f)).ToList();
+            if (itemTag == "*")
+            {
+                return fe.AvailableFilters.Where(f =>
+                {
+                    try
+                    {
+                        var options = f.Options;
+                        return true;
+                    }
+                    catch (System.Exception e)
+                    {
+                        dev.Logger.Instance.Error(e, "retrieving filter options");
+                        return false;
+                    }
+                }).Select(f => new FilterOptions(f)).ToList();
+            }
+            var item = await itemsApi.ItemItemTagGetAsync(itemTag);
+            var filters = fe.FiltersFor(item);
+
+            return filters.Select(f => new FilterOptions(f)).ToList();
         }
 
         /// <summary>
