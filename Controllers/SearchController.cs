@@ -37,7 +37,7 @@ namespace Coflnet.Hypixel.Controller
         }
 
         /// <summary>
-        /// Searches through all items
+        /// Searches through all items, includes the rarity of items
         /// </summary>
         /// <param name="searchVal">The search term to search for</param>
         /// <returns>An array of search results matching the searchValue</returns>
