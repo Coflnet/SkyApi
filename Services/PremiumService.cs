@@ -18,7 +18,6 @@ namespace Coflnet.Sky.Api
                 var client = GoogleJsonWebSignature.ValidateAsync(token);
                 client.Wait();
                 var tokenData = client.Result;
-                Console.WriteLine("google user: " + tokenData.Name);
                 return tokenData;
             }
             catch (Exception e)
