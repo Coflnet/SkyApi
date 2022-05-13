@@ -77,7 +77,7 @@ namespace Coflnet.Hypixel.Controller
         [HttpPost]
         public async Task TrackExternalFlip(string auctionId, string finder, string playerId, int price = -1, long timeStamp = 0)
         {
-            var received =  GetTime(timeStamp);
+            var received = GetTime(timeStamp);
 
             var finderType = finder.ToLower() switch
             {
@@ -121,7 +121,7 @@ namespace Coflnet.Hypixel.Controller
                 Finder = finder.ToLower() == "tfm" ? LowPricedAuction.FinderType.TFM : LowPricedAuction.FinderType.EXTERNAL,
                 TargetPrice = price
             }, time);
-            if(finder.ToLower() == "tfm")
+            if (finder.ToLower() == "tfm")
                 Console.WriteLine($"TFM found {auctionId} at {timeStamp}");
         }
 
