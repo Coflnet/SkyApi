@@ -154,7 +154,7 @@ namespace Coflnet.Hypixel.Controller
 
             var itemId = ItemDetails.Instance.GetItemIdForTag(itemTag);
             var baseSelect = context.Auctions
-                                        .Where(a => a.ItemId == itemId && a.End < DateTime.Now).OrderByDescending(a => a.End);
+                                        .Where(a => a.ItemId == itemId && a.End < DateTime.Now && a.End > DateTime.Now.Subtract(TimeSpan.FromDays(31))).OrderByDescending(a => a.End);
             return await ToPreview(query, itemId, baseSelect);
         }        
         /// <summary>
@@ -202,7 +202,6 @@ namespace Coflnet.Hypixel.Controller
             filter["ItemId"] = itemId.ToString();
             var pageSize = 12;
             var select = fe.AddFilters(baseSelect, filter)
-
                         .Skip(page * pageSize)
                         .Take(pageSize);
 
