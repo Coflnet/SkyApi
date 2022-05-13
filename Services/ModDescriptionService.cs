@@ -71,7 +71,7 @@ namespace Coflnet.Sky.Api.Services
                 var newOne = desc.AsEnumerable().Select((l, i) =>
                 {
                     if (l.StartsWith("§7Ends in"))
-                        return $"line:{i + 1}";
+                        return $"{{line:{i + 1}}}";
                     return l;
                 }).Prepend("{line:0}");
                 if (desc != null)
