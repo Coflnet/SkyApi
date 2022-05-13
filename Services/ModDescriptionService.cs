@@ -68,17 +68,25 @@ namespace Coflnet.Sky.Api.Services
                 var auction = auctionRepresent[i].auction;
                 var price = res[i];
                 var craftPrice = allCrafts?.Where(c => auction != null && c.ItemId == auction.Tag && c.CraftCost > 0)?.FirstOrDefault()?.CraftCost;
+                var newOne = desc.AsEnumerable().Select((l, i) =>
+                {
+                    if (l.StartsWith("§7Ends in"))
+                        return $"line:{i + 1}";
+                    return l;
+                }).Prepend("{line:0}");
                 if (desc != null)
                     span.Log(JsonConvert.SerializeObject(auction, Formatting.Indented) + string.Join('\n', desc) + JsonConvert.SerializeObject(price, Formatting.Indented) + "\ncraft:" + craftPrice);
                 if (desc == null || price == null)
+                {
                     result.Add(null);
+                    continue;
+                }
                 else if (desc.LastOrDefault()?.EndsWith("Click to open!") ?? false)
-                    result.Add(desc.Append("this is the menu").ToArray());
+                    newOne = newOne.Append("this is the menu");
                 else if (price.Volume == 0 && !craftPrice.HasValue)
-                    result.Add(desc.Append("no auction price data").ToArray());
+                    newOne = newOne.Append("no auction price data");
                 else
                 {
-                    var newOne = desc.AsEnumerable();
                     if (price.Lbin.Price > 0)
                         newOne = newOne.Append($"lbin: {FormatNumber(price.Lbin.Price)}");
                     if (price.Lbin.Price > 0)
@@ -88,8 +96,8 @@ namespace Coflnet.Sky.Api.Services
                             newOne = newOne.Append($"craft: unavailable ingredients");
                         else
                             newOne = newOne.Append($"craft: {FormatNumber((long)craftPrice)}");
-                    result.Add(newOne.ToArray());
                 }
+                result.Add(newOne.ToArray());
             }
             return result;
         }
