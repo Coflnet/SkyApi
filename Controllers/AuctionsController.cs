@@ -151,7 +151,7 @@ namespace Coflnet.Hypixel.Controller
         [ResponseCache(Duration = 120, Location = ResponseCacheLocation.Any, NoStore = false, VaryByQueryKeys = new string[] { "*" })]
         public async Task<List<AuctionPreview>> GetRecent(string itemTag, [FromQuery] IDictionary<string, string> query)
         {
-            var minTime = DateTime.Now.Subtract(TimeSpan.FromDays(31));
+            var minTime = DateTime.Now.Subtract(TimeSpan.FromDays(14));
             var itemId = ItemDetails.Instance.GetItemIdForTag(itemTag);
             var baseSelect = context.Auctions
                                         .Where(a => a.ItemId == itemId && a.End < DateTime.Now && a.End > minTime).OrderByDescending(a => a.End);
