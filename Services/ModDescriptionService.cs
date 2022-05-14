@@ -67,21 +67,27 @@ namespace Coflnet.Sky.Api.Services
                 var desc = auctionRepresent[i].desc;
                 var auction = auctionRepresent[i].auction;
                 var price = res[i];
-                var craftPrice = allCrafts?.Where(c => auction != null && c.ItemId == auction.Tag && c.CraftCost > 0)?.FirstOrDefault()?.CraftCost;
-                var newOne = desc.AsEnumerable().Select((l, i) =>
-                {
-                    if (l.StartsWith("§7Ends in"))
-                        return $"{{line:{i + 1}}}";
-                    return l;
-                }).Prepend("{line:0}");
-                if (desc != null)
-                    span.Log(JsonConvert.SerializeObject(auction, Formatting.Indented) + string.Join('\n', desc) + JsonConvert.SerializeObject(price, Formatting.Indented) + "\ncraft:" + craftPrice);
                 if (desc == null || price == null)
                 {
                     result.Add(null);
                     continue;
                 }
-                else if (desc.LastOrDefault()?.EndsWith("Click to open!") ?? false)
+                if (desc.Count() == 0)
+                {
+                    result.Add(new string[] { "{line:0}" });
+                    continue;
+                }
+                var craftPrice = allCrafts?.Where(c => auction != null && c.ItemId == auction.Tag && c.CraftCost > 0)?.FirstOrDefault()?.CraftCost;
+                var newOne = desc.Select((l, i) =>
+                {
+                    if (l.StartsWith("§7Ends in") || l.StartsWith("§7Seller"))
+                        return $"{{line:{i + 1}}}";
+                    return l;
+                }).Prepend("{line:0}");
+                if (desc != null)
+                    span.Log(string.Join('\n', desc) + JsonConvert.SerializeObject(auction, Formatting.Indented) + JsonConvert.SerializeObject(price, Formatting.Indented) + "\ncraft:" + craftPrice);
+
+                if (desc.LastOrDefault()?.EndsWith("Click to open!") ?? false)
                     newOne = newOne.Append("this is the menu");
                 else if (price.Volume == 0 && !craftPrice.HasValue)
                     newOne = newOne.Append("no auction price data");
