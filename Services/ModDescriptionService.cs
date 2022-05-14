@@ -84,8 +84,6 @@ namespace Coflnet.Sky.Api.Services
                         return $"{{line:{i + 1}}}";
                     return l;
                 }).Prepend("{line:0}");
-                if (desc != null)
-                    span.Log(string.Join('\n', desc) + JsonConvert.SerializeObject(auction, Formatting.Indented) + JsonConvert.SerializeObject(price, Formatting.Indented) + "\ncraft:" + craftPrice);
 
                 if (desc.LastOrDefault()?.EndsWith("Click to open!") ?? false)
                     newOne = newOne.Append("this is the menu");
@@ -103,6 +101,8 @@ namespace Coflnet.Sky.Api.Services
                         else
                             newOne = newOne.Append($"craft: {FormatNumber((long)craftPrice)}");
                 }
+                if (desc != null)
+                    span.Log(string.Join('\n', newOne) + JsonConvert.SerializeObject(auction, Formatting.Indented) + JsonConvert.SerializeObject(price, Formatting.Indented) + "\ncraft:" + craftPrice);
                 result.Add(newOne.ToArray());
             }
             return result;
