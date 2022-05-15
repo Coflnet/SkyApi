@@ -43,11 +43,13 @@ namespace Coflnet.Sky.Api.Services
                 var price = res[i];
                 if (desc == null || price == null)
                 {
+                    span.Log(JsonConvert.SerializeObject(price));
                     result.Add(none);
                     continue;
                 }
                 if (desc.Count() == 0)
                 {
+                    span.Log("no desc");
                     result.Add(none);
                     continue;
                 }
@@ -71,7 +73,7 @@ namespace Coflnet.Sky.Api.Services
                             mods.Add(new DescModification($"craft: {FormatNumber((long)craftPrice)}"));
                 }
                 if (desc != null)
-                    span.Log(string.Join('\n', mods) + JsonConvert.SerializeObject(auction, Formatting.Indented) + JsonConvert.SerializeObject(price, Formatting.Indented) + "\ncraft:" + craftPrice);
+                    span.Log(string.Join('\n', mods.Select(m => $"{m.Target} {m.Value}")) + JsonConvert.SerializeObject(auction, Formatting.Indented) + JsonConvert.SerializeObject(price, Formatting.Indented) + "\ncraft:" + craftPrice);
                 result.Add(mods);
             }
 
