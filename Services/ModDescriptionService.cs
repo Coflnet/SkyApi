@@ -6,6 +6,7 @@ using Coflnet.Sky.Core;
 using Coflnet.Sky.Crafts.Client.Api;
 using Coflnet.Sky.Sniper.Client.Api;
 using Newtonsoft.Json;
+using Newtonsoft.Json.Converters;
 using OpenTracing;
 
 namespace Coflnet.Sky.Api.Services
@@ -193,6 +194,7 @@ namespace Coflnet.Sky.Api.Services
             /// What type of modification to make
             /// </summary>
             /// <value></value>
+            [JsonConverter(typeof(StringEnumConverter))]
             public ModType Type { get; set; }
             /// <summary>
             /// Extra field containing index to insert (int), or value to replace (string)
