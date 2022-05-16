@@ -43,7 +43,7 @@ namespace Coflnet.Sky.Api.Services
                 var price = res[i];
                 if (desc == null || price == null)
                 {
-                    span.Log(JsonConvert.SerializeObject(price));
+                    span.Log(JsonConvert.SerializeObject(desc) + JsonConvert.SerializeObject(auction));
                     result.Add(none);
                     continue;
                 }
@@ -57,7 +57,7 @@ namespace Coflnet.Sky.Api.Services
                 var mods = new List<DescModification>();
 
                 if (desc.LastOrDefault()?.EndsWith("Click to open!") ?? false)
-                    mods.Add(new DescModification(DescModification.ModType.REPLACE, "Click to open!", "Open cool menu"));
+                    mods.Add(new DescModification(DescModification.ModType.REPLACE, desc.Count()-1, "Open cool menu :)"));
                 else if (price.Volume == 0 && !craftPrice.HasValue)
                     mods.Add(new DescModification("no auction price data"));
                 else
@@ -73,7 +73,7 @@ namespace Coflnet.Sky.Api.Services
                             mods.Add(new DescModification($"craft: {FormatNumber((long)craftPrice)}"));
                 }
                 if (desc != null)
-                    span.Log(string.Join('\n', mods.Select(m => $"{m.Target} {m.Value}")) + JsonConvert.SerializeObject(auction, Formatting.Indented) + JsonConvert.SerializeObject(price, Formatting.Indented) + "\ncraft:" + craftPrice);
+                    span.Log(string.Join('\n', mods.Select(m => $"{m.Line} {m.Value}")) + JsonConvert.SerializeObject(auction, Formatting.Indented) + JsonConvert.SerializeObject(price, Formatting.Indented) + "\ncraft:" + craftPrice);
                 result.Add(mods);
             }
 
@@ -87,8 +87,8 @@ namespace Coflnet.Sky.Api.Services
             var allCraftsTask = craftsApi.CraftsAllGetAsync();
             List<Sniper.Client.Model.PriceEstimate> res = await GetPrices(auctionRepresent);
             var allCrafts = await allCraftsTask;
-            Console.WriteLine(JsonConvert.SerializeObject(allCrafts));
             var span = tracer.ActiveSpan;
+            span.Log(JsonConvert.SerializeObject(allCrafts));
 
             var result = new List<string[]>();
             for (int i = 0; i < auctionRepresent.Count; i++)
@@ -202,28 +202,30 @@ namespace Coflnet.Sky.Api.Services
             /// Extra field containing index to insert (int), or value to replace (string)
             /// </summary>
             /// <value></value>
-            public string Target { get; set; }
+            public int Line { get; set; }
             /// <summary>
             /// New value to add,insert, or replace something with
             /// </summary>
             /// <value></value>
             public string Value { get; set; }
 
+            [JsonConverter(typeof(StringEnumConverter))]
             public enum ModType
             {
                 NONE,
                 INSERT,
                 REPLACE,
-                APPEND
+                APPEND,
+                DELETE
             }
 
-            public DescModification(ModType type, string target, string value)
+            public DescModification(ModType type, int target, string value)
             {
                 Type = type;
-                Target = target;
+                Line = target;
                 Value = value;
             }
-            public DescModification(string value) : this(ModType.APPEND, null, value)
+            public DescModification(string value) : this(ModType.APPEND, 0, value)
             { }
             public DescModification()
             {
