@@ -56,8 +56,9 @@ namespace Coflnet.Sky.Api.Services
                 var craftPrice = allCrafts?.Where(c => auction != null && c.ItemId == auction.Tag && c.CraftCost > 0)?.FirstOrDefault()?.CraftCost;
                 var mods = new List<DescModification>();
 
+                mods.Add(new DescModification(auction.Tag));
                 if (desc.LastOrDefault()?.EndsWith("Click to open!") ?? false)
-                    mods.Add(new DescModification(DescModification.ModType.REPLACE, desc.Count()-1, "Open cool menu :)"));
+                    mods.Add(new DescModification(DescModification.ModType.REPLACE, desc.Count() - 1, "Open cool menu :)"));
                 else if (price.Volume == 0 && !craftPrice.HasValue)
                     mods.Add(new DescModification("no auction price data"));
                 else
