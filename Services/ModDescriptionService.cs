@@ -59,6 +59,9 @@ namespace Coflnet.Sky.Api.Services
 
                 if (desc.LastOrDefault()?.EndsWith("Click to open!") ?? false)
                     mods.Add(new DescModification(DescModification.ModType.REPLACE, desc.Count() - 1, "Open cool menu :)"));
+                if (auction.Tag == null)
+                { //add nothing for now
+                }
                 else if (price.Volume == 0 && !craftPrice.HasValue)
                     mods.Add(new DescModification("no references found"));
                 else
