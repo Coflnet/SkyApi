@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using Coflnet.Sky.Commands.MC;
 using Coflnet.Sky.Core;
 using Coflnet.Sky.Crafts.Client.Api;
 using Coflnet.Sky.Sniper.Client.Api;
@@ -56,22 +57,21 @@ namespace Coflnet.Sky.Api.Services
                 var craftPrice = allCrafts?.Where(c => auction != null && c.ItemId == auction.Tag && c.CraftCost > 0)?.FirstOrDefault()?.CraftCost;
                 var mods = new List<DescModification>();
 
-                mods.Add(new DescModification(auction.Tag));
                 if (desc.LastOrDefault()?.EndsWith("Click to open!") ?? false)
                     mods.Add(new DescModification(DescModification.ModType.REPLACE, desc.Count() - 1, "Open cool menu :)"));
                 else if (price.Volume == 0 && !craftPrice.HasValue)
-                    mods.Add(new DescModification("no auction price data"));
+                    mods.Add(new DescModification("no references found"));
                 else
                 {
                     if (price.Lbin.Price > 0)
-                        mods.Add(new DescModification($"lbin: {FormatNumber(price.Lbin.Price)}"));
+                        mods.Add(new DescModification($"{McColorCodes.YELLOW}lbin: {FormatNumber(price.Lbin.Price)}"));
                     if (price.Lbin.Price > 0)
-                        mods.Add(new DescModification($"Med: {FormatNumber(price.Median)} Vol: {price.Volume.ToString("0.#")}"));
+                        mods.Add(new DescModification($"{McColorCodes.YELLOW}Med: {FormatNumber(price.Median)} Vol: {price.Volume.ToString("0.#")}"));
                     if (craftPrice != null)
                         if (craftPrice.Value >= int.MaxValue)
                             mods.Add(new DescModification($"craft: unavailable ingredients"));
                         else
-                            mods.Add(new DescModification($"craft: {FormatNumber((long)craftPrice)}"));
+                            mods.Add(new DescModification($"{McColorCodes.YELLOW}craft: {FormatNumber((long)craftPrice)}"));
                 }
                 if (desc != null)
                     span.Log(string.Join('\n', mods.Select(m => $"{m.Line} {m.Value}")) + JsonConvert.SerializeObject(auction, Formatting.Indented) + JsonConvert.SerializeObject(price, Formatting.Indented) + "\ncraft:" + craftPrice);
