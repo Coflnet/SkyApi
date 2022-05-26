@@ -44,7 +44,7 @@ namespace Coflnet.Sky.Api.Services
             var none = new List<DescModification>();
             if (inventory.Settings == null)
                 inventory.Settings = new DescriptionSetting();
-            if (inventory.Settings.Fields.Count == 0)
+            if (inventory.Settings.Fields == null || inventory.Settings.Fields.Count == 0)
             {
                 inventory.Settings.Fields = new List<List<DescriptionField>>() {
                     new() { DescriptionField.LBIN },
