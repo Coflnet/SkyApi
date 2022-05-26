@@ -36,6 +36,8 @@ namespace Coflnet.Sky.Api.Services
             var span = tracer.ActiveSpan;
             var result = new List<List<DescModification>>();
             var none = new List<DescModification>();
+            if(inventory.Settings == null)
+                inventory.Settings = new DescriptionSetting();
             if (inventory.Settings.Fields.Count == 0)
             {
                 inventory.Settings.Fields = new HashSet<DescriptionField>() { DescriptionField.LBIN, DescriptionField.MEDIAN, DescriptionField.VOLUME, DescriptionField.CRAFT_COST };
