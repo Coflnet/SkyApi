@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using Coflnet.Sky.Api.Models.Mod;
 using Coflnet.Sky.Commands.MC;
 using Coflnet.Sky.Core;
 using Coflnet.Sky.Crafts.Client.Api;
@@ -25,6 +26,11 @@ namespace Coflnet.Sky.Api.Services
             this.tracer = tracer;
         }
 
+        /// <summary>
+        /// Get modifications for given inventory
+        /// </summary>
+        /// <param name="inventory"></param>
+        /// <returns></returns>
         public async Task<IEnumerable<IEnumerable<DescModification>>> GetModifications(InventoryData inventory)
         {
             List<(SaveAuction auction, IEnumerable<string> desc)> auctionRepresent = ConvertToAuctions(inventory);
@@ -36,11 +42,14 @@ namespace Coflnet.Sky.Api.Services
             var span = tracer.ActiveSpan;
             var result = new List<List<DescModification>>();
             var none = new List<DescModification>();
-            if(inventory.Settings == null)
+            if (inventory.Settings == null)
                 inventory.Settings = new DescriptionSetting();
             if (inventory.Settings.Fields.Count == 0)
             {
-                inventory.Settings.Fields = new HashSet<DescriptionField>() { DescriptionField.LBIN, DescriptionField.MEDIAN, DescriptionField.VOLUME, DescriptionField.CRAFT_COST };
+                inventory.Settings.Fields = new List<List<DescriptionField>>() {
+                    new() { DescriptionField.LBIN },
+                    new() { DescriptionField.MEDIAN, DescriptionField.VOLUME },
+                    new() { DescriptionField.CRAFT_COST } };
             }
 
             var enabledFields = inventory.Settings.Fields;
@@ -63,34 +72,7 @@ namespace Coflnet.Sky.Api.Services
                     continue;
                 }
                 var craftPrice = allCrafts?.Where(c => auction != null && c.ItemId == auction.Tag && c.CraftCost > 0)?.FirstOrDefault()?.CraftCost;
-                var mods = new List<DescModification>();
-
-                if (desc.LastOrDefault()?.EndsWith("Click to open!") ?? false)
-                    mods.Add(new DescModification(DescModification.ModType.REPLACE, desc.Count() - 1, "Open cool menu :)"));
-                if (auction.Tag == null)
-                { //add nothing for now
-                }
-                else if (price.Volume == 0 && !craftPrice.HasValue)
-                {
-                    if (enabledFields.Contains(DescriptionField.MEDIAN))
-                        mods.Add(new DescModification("no references found"));
-                }
-                else
-                {
-                    if (enabledFields.Contains(DescriptionField.MEDIAN) && price.Lbin.Price > 0)
-                        mods.Add(new DescModification($"{McColorCodes.YELLOW}lbin: {FormatNumber(price.Lbin.Price)}"));
-                    if (enabledFields.Contains(DescriptionField.LBIN) && price.Lbin.Price > 0)
-                        mods.Add(new DescModification($"{McColorCodes.YELLOW}Med: {FormatNumber(price.Median)} Vol: {price.Volume.ToString("0.#")}"));
-                    if (enabledFields.Contains(DescriptionField.CRAFT_COST) && craftPrice != null)
-                        if (craftPrice.Value >= int.MaxValue)
-                            mods.Add(new DescModification($"craft: unavailable ingredients"));
-                        else
-                            mods.Add(new DescModification($"{McColorCodes.YELLOW}craft: {FormatNumber((long)craftPrice)}"));
-                }
-                if (enabledFields.Contains(DescriptionField.LBIN_KEY))
-                    mods.Add(new DescModification("lbin key not available yet"));
-                if (enabledFields.Contains(DescriptionField.TAG))
-                    mods.Add(new DescModification("Tag: " + auction.Tag));
+                List<DescModification> mods = GetModifications(enabledFields, desc, auction, price, craftPrice);
 
                 if (desc != null)
                     span.Log(string.Join('\n', mods.Select(m => $"{m.Line} {m.Value}")) + JsonConvert.SerializeObject(auction, Formatting.Indented) + JsonConvert.SerializeObject(price, Formatting.Indented) + "\ncraft:" + craftPrice);
@@ -98,6 +80,64 @@ namespace Coflnet.Sky.Api.Services
             }
 
             return result;
+        }
+
+        private List<DescModification> GetModifications(List<List<DescriptionField>> enabledFields, IEnumerable<string> desc, SaveAuction auction, Sniper.Client.Model.PriceEstimate price, double? craftPrice)
+        {
+            var mods = new List<DescModification>();
+
+            if (desc.LastOrDefault()?.EndsWith("Click to open!") ?? false)
+                mods.Add(new DescModification(DescModification.ModType.REPLACE, desc.Count() - 1, "Click to open"));
+            if (auction.Tag == null)
+            { //add nothing for now
+            }
+            else if (price.Volume == 0 && !craftPrice.HasValue)
+            {
+                if (enabledFields.Any(f => f.Contains(DescriptionField.MEDIAN)))
+                    mods.Add(new DescModification("no references found"));
+            }
+            else
+            {
+                foreach (var line in enabledFields)
+                {
+                    var content = "";
+                    foreach (var item in line)
+                    {
+                        switch (item)
+                        {
+                            case DescriptionField.LBIN:
+                                content += $"{McColorCodes.YELLOW}lbin: {FormatNumber(price.Lbin.Price)}";
+                                break;
+                            case DescriptionField.LBIN_KEY:
+                                content += $"Lbin-Key: {price.LbinKey}";
+                                break;
+                            case DescriptionField.MEDIAN:
+                                content += $"{McColorCodes.YELLOW}Med: {FormatNumber(price.Median)}";
+                                break;
+                            case DescriptionField.MEDIAN_KEY:
+                                content += $"Med-Key: {price.MedianKey}";
+                                break;
+                            case DescriptionField.VOLUME:
+                                content += $"{McColorCodes.YELLOW}Vol: {price.Volume.ToString("0.#")}";
+                                break;
+                            case DescriptionField.TAG:
+                                content += $"{auction.Tag}";
+                                break;
+                            case DescriptionField.CRAFT_COST:
+                                if (craftPrice.Value >= int.MaxValue)
+                                    content += $"craft: unavailable ingredients";
+                                else
+                                    content += $"{McColorCodes.YELLOW}craft: {FormatNumber((long)craftPrice)}";
+                                break;
+                            default:
+                                throw new ArgumentOutOfRangeException();
+                        }
+                    }
+                    mods.Add(new DescModification(content));
+                }
+            }
+
+            return mods;
         }
 
         public async Task<IEnumerable<string[]>> GetDescriptions(InventoryData inventory)
@@ -201,80 +241,6 @@ namespace Coflnet.Sky.Api.Services
             return string.Format("{0:n0}", price);
         }
 
-        /// <summary>
-        /// Representation of an inventory
-        /// </summary>
-        public class InventoryData
-        {
-            public string ChestName;
-            public string FullInventoryNbt;
-            /// <summary>
-            /// Settings of what modifications to include
-            /// </summary>
-            public DescriptionSetting Settings { get; set; }
-        }
 
-        public class DescModification
-        {
-            /// <summary>
-            /// What type of modification to make
-            /// </summary>
-            /// <value></value>
-            [JsonConverter(typeof(StringEnumConverter))]
-            public ModType Type { get; set; }
-            /// <summary>
-            /// Extra field containing index to insert (int), or value to replace (string)
-            /// </summary>
-            /// <value></value>
-            public int Line { get; set; }
-            /// <summary>
-            /// New value to add,insert, or replace something with
-            /// </summary>
-            /// <value></value>
-            public string Value { get; set; }
-
-
-            [JsonConverter(typeof(StringEnumConverter))]
-            public enum ModType
-            {
-                NONE,
-                INSERT,
-                REPLACE,
-                APPEND,
-                DELETE
-            }
-
-            public DescModification(ModType type, int target, string value)
-            {
-                Type = type;
-                Line = target;
-                Value = value;
-            }
-            public DescModification(string value) : this(ModType.APPEND, 0, value)
-            { }
-            public DescModification()
-            {
-            }
-
-
-        }
-
-        public class DescriptionSetting
-        {
-            public HashSet<DescriptionField> Fields { get; set; }
-        }
-
-        [JsonConverter(typeof(StringEnumConverter))]
-        public enum DescriptionField
-        {
-            NONE,
-            LBIN,
-            LBIN_KEY,
-            MEDIAN,
-            MEDIAN_KEY,
-            VOLUME,
-            TAG,
-            CRAFT_COST
-        }
     }
 }

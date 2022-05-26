@@ -3,6 +3,7 @@ using System.Runtime.Serialization;
 
 namespace Coflnet.Sky.Api.Models.Referral
 {
+#pragma warning disable CS1591
     [DataContract]
     public class OldRefInfo
     {
@@ -17,4 +18,5 @@ namespace Coflnet.Sky.Api.Models.Referral
         [DataMember(Name = "bougthPremium")]
         public int BougthPremium;
     }
+#pragma warning restore CS1591
 }

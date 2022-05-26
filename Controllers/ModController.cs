@@ -12,6 +12,7 @@ using Newtonsoft.Json;
 using Coflnet.Sky.Sniper.Client.Api;
 using Coflnet.Sky.Api.Services;
 using static Coflnet.Sky.Api.Services.ModDescriptionService;
+using Coflnet.Sky.Api.Models.Mod;
 
 namespace Coflnet.Hypixel.Controller
 {
