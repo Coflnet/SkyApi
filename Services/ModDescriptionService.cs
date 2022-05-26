@@ -106,28 +106,28 @@ namespace Coflnet.Sky.Api.Services
                         switch (item)
                         {
                             case DescriptionField.LBIN:
-                                content += $"{McColorCodes.YELLOW}lbin: {FormatNumber(price.Lbin.Price)}";
+                                content += $"{McColorCodes.YELLOW}lbin: {FormatNumber(price.Lbin.Price)} ";
                                 break;
                             case DescriptionField.LBIN_KEY:
-                                content += $"Lbin-Key: {price.LbinKey}";
+                                content += $"Lbin-Key: {price.LbinKey} ";
                                 break;
                             case DescriptionField.MEDIAN:
-                                content += $"{McColorCodes.YELLOW}Med: {FormatNumber(price.Median)}";
+                                content += $"{McColorCodes.YELLOW}Med: {FormatNumber(price.Median)} ";
                                 break;
                             case DescriptionField.MEDIAN_KEY:
                                 content += $"Med-Key: {price.MedianKey}";
                                 break;
                             case DescriptionField.VOLUME:
-                                content += $"{McColorCodes.YELLOW}Vol: {price.Volume.ToString("0.#")}";
+                                content += $"{McColorCodes.YELLOW}Vol: {price.Volume.ToString("0.#")} ";
                                 break;
                             case DescriptionField.TAG:
                                 content += $"{auction.Tag}";
                                 break;
                             case DescriptionField.CRAFT_COST:
                                 if (!craftPrice.HasValue || craftPrice.Value >= int.MaxValue)
-                                    content += $"craft: unavailable ingredients";
+                                    content += $"craft: unavailable ingredients ";
                                 else
-                                    content += $"{McColorCodes.YELLOW}craft: {FormatNumber((long)craftPrice)}";
+                                    content += $"{McColorCodes.YELLOW}craft: {FormatNumber((long)craftPrice)} ";
                                 break;
                             default:
                                 throw new ArgumentOutOfRangeException();
