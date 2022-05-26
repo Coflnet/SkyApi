@@ -72,7 +72,7 @@ namespace Coflnet.Hypixel.Controller
                 info = new RefInfo(new ReferralElement(), new List<ReferralElement>());
             }
             string refedBy = null;
-            if (!string.IsNullOrEmpty(info.Inviter.Inviter))
+            if (!string.IsNullOrEmpty(info?.Inviter?.Inviter))
             {
                 var referrer = UserService.Instance.GetUserById(int.Parse(info.Inviter.Inviter));
                 refedBy = UserService.Instance.AnonymiseEmail(referrer.Email);
