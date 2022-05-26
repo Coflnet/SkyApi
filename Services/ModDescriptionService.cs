@@ -124,7 +124,7 @@ namespace Coflnet.Sky.Api.Services
                                 content += $"{auction.Tag}";
                                 break;
                             case DescriptionField.CRAFT_COST:
-                                if (craftPrice.Value >= int.MaxValue)
+                                if (!craftPrice.HasValue || craftPrice.Value >= int.MaxValue)
                                     content += $"craft: unavailable ingredients";
                                 else
                                     content += $"{McColorCodes.YELLOW}craft: {FormatNumber((long)craftPrice)}";
