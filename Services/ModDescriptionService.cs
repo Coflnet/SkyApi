@@ -262,6 +262,7 @@ namespace Coflnet.Sky.Api.Services
             public HashSet<DescriptionField> Fields { get; set; }
         }
 
+        [JsonConverter(typeof(StringEnumConverter))]
         public enum DescriptionField
         {
             NONE,
