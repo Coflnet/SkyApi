@@ -78,7 +78,8 @@ namespace Coflnet.Hypixel.Controller
         [ResponseCache(Duration = 3, Location = ResponseCacheLocation.Any, NoStore = false)]
         public string getAuctionUid(string auctionUuid)
         {
-            Console.WriteLine(auctionUuid);
+            if(auctionUuid.Length < 30)
+                return auctionService.GetUuid(long.Parse(auctionUuid));
             return auctionService.GetId(auctionUuid).ToString();
         }
 
