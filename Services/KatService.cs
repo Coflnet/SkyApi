@@ -53,7 +53,7 @@ namespace Coflnet.Sky.Api.Services
             foreach (var item in taskList)
             {
                 var flip = await item;
-                if (flip != null)
+                if (flip != null && flip.Volume > 2)
                     result.Add(flip);
             }
             return result.OrderByDescending(r => r.Profit / r.CoreData.Hours);
