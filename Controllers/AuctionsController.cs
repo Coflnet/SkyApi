@@ -57,7 +57,8 @@ namespace Coflnet.Hypixel.Controller
         /// <returns></returns>
         [Route("auction/{auctionUuid}")]
         [HttpGet]
-        [ResponseCache(Duration = 120, Location = ResponseCacheLocation.Any, NoStore = false)]
+        //[ResponseCache(Duration = 120, Location = ResponseCacheLocation.Any, NoStore = false)]
+        [CacheControl(120)]
         public async Task<EnchantColorMapper.ColorSaveAuction> getAuctionDetails(string auctionUuid)
         {
             var result = await auctionService.GetAuctionAsync(auctionUuid, auction => auction
