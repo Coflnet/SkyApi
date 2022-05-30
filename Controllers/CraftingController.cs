@@ -28,6 +28,7 @@ namespace Coflnet.Hypixel.Controller
         /// Creates a new instance of <see cref="CraftingController"/>
         /// </summary>
         /// <param name="config"></param>
+        /// <param name="pricesService"></param>
         public CraftingController(IConfiguration config, PricesService pricesService)
         {
             if (client == null)

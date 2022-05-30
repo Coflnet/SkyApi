@@ -147,6 +147,7 @@ namespace Coflnet.Hypixel.Controller
         /// Gets a preview of recent auctions useful in overviews
         /// </summary>
         /// <param name="itemTag">The itemTag to get auctions for</param>
+        /// <param name="query"></param>
         /// <returns></returns>
         [Route("auctions/tag/{itemTag}/recent/overview")]
         [HttpGet]
@@ -164,6 +165,7 @@ namespace Coflnet.Hypixel.Controller
         /// HIGHEST_PRICE, LOWEST_PRICE (default), ENDING_SOON
         /// </summary>
         /// <param name="itemTag">The itemTag to get auctions for</param>
+        /// <param name="query"></param>
         /// <returns></returns>
         [Route("auctions/tag/{itemTag}/active/overview")]
         [HttpGet]
