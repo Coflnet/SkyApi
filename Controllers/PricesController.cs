@@ -71,7 +71,7 @@ namespace Coflnet.Hypixel.Controller
         }
 
         /// <summary>
-        /// Gets the current (latest known) price for an item and available quantity
+        /// Gets the current (latest known) price for an item and available quantity, supports items from bazaar and ah
         /// </summary>
         /// <param name="itemTag">The tag of the item</param>
         /// <param name="count">How many items to search for (and include in cost)</param>
