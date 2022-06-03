@@ -87,7 +87,7 @@ namespace Coflnet.Hypixel.Controller
         /// <returns>A quickstatus object representing the order book at that time</returns>
         [Route("{itemTag}/snapshot")]
         [HttpGet]
-        [ResponseCache(Duration = 3600, Location = ResponseCacheLocation.Any, NoStore = false, VaryByQueryKeys = new string[] { "timestamp" })]
+        [ResponseCache(Duration = 360, Location = ResponseCacheLocation.Any, NoStore = false, VaryByQueryKeys = new string[] { "timestamp" })]
         public async Task<Sky.Bazaar.Client.Model.StorageQuickStatus> GetSnapshot(string itemTag, DateTime timestamp = default)
         {
             if(timestamp == default)

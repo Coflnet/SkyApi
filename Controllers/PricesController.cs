@@ -146,13 +146,15 @@ namespace Coflnet.Hypixel.Controller
         public async Task<List<FilterOptions>> GetFilterOptions(string itemTag = "*")
         {
             var fe = new Sky.Filter.FilterEngine();
+            var optionsTask = itemsApi.ItemItemTagModifiersAllGetAsync(itemTag);
             if (itemTag == "*")
             {
+                var all = await optionsTask;
                 return fe.AvailableFilters.Where(f =>
                 {
                     try
                     {
-                        var options = f.Options;
+                        var options = f.OptionsGet(new OptionValues(all));
                         return true;
                     }
                     catch (System.Exception e)
@@ -160,12 +162,13 @@ namespace Coflnet.Hypixel.Controller
                         dev.Logger.Instance.Error(e, "retrieving filter options");
                         return false;
                     }
-                }).Select(f => new FilterOptions(f)).ToList();
+                }).Select(f => new FilterOptions(f, all)).ToList();
             }
             var item = await itemsApi.ItemItemTagGetAsync(itemTag);
+            var allOptions = await optionsTask;
             var filters = fe.FiltersFor(item);
 
-            return filters.Select(f => new FilterOptions(f)).ToList();
+            return filters.Select(f => new FilterOptions(f, allOptions)).ToList();
         }
 
         /// <summary>
