@@ -150,25 +150,6 @@ namespace Coflnet.Hypixel.Controller
         }
 
 
-        public class ItemNbtData
-        {
-            public byte Count;
-            public int Id;
-            public ItemTag Tag;
-        }
-
-        public class ItemTag
-        {
-            public Display Display;
-            public Dictionary<string, string> ExtraAttributes;
-        }
-
-        public class Display
-        {
-            public string[] Lore;
-            public string Name;
-        }
-
         private static async Task<long> GetMedian(SaveAuction lastSell)
         {
             var references = await FlipperService.Instance.GetReferences(lastSell.Uuid);
