@@ -16,6 +16,7 @@ using Microsoft.Extensions.Configuration;
 using Coflnet.Sky.Api.Models;
 using Coflnet.Sky.Commands.Shared;
 using static Coflnet.Sky.Core.ItemPrices;
+using Coflnet.Sky.PlayerName;
 
 namespace Coflnet.Hypixel.Controller
 {
@@ -31,6 +32,7 @@ namespace Coflnet.Hypixel.Controller
         ILogger<AuctionsController> logger;
         PricesService pricesService;
         IConfiguration config;
+        PlayerNameService playerNameService;
         static FilterEngine fe = new FilterEngine();
 
         /// <summary>
@@ -41,13 +43,15 @@ namespace Coflnet.Hypixel.Controller
         /// <param name="logger"></param>
         /// <param name="config"></param>
         /// <param name="pricesService"></param>
-        public AuctionsController(AuctionService auctionService, HypixelContext context, ILogger<AuctionsController> logger, IConfiguration config, PricesService pricesService)
+        /// <param name="playerNameService"></param>
+        public AuctionsController(AuctionService auctionService, HypixelContext context, ILogger<AuctionsController> logger, IConfiguration config, PricesService pricesService, PlayerNameService playerNameService)
         {
             this.auctionService = auctionService;
             this.context = context;
             this.logger = logger;
             this.config = config;
             this.pricesService = pricesService;
+            this.playerNameService = playerNameService;
         }
 
         /// <summary>
@@ -61,10 +65,11 @@ namespace Coflnet.Hypixel.Controller
         [CacheControl(120)]
         public async Task<EnchantColorMapper.ColorSaveAuction> getAuctionDetails(string auctionUuid)
         {
-            var result = await auctionService.GetAuctionAsync(auctionUuid, auction => auction
+            var uid = auctionService.GetId(auctionUuid);
+            var result = await context.Auctions.Where(a=>a.UId == uid)
                         .Include(a => a.Enchantments)
                         .Include(a => a.NbtData)
-                        .Include(a => a.Bids));
+                        .Include(a => a.Bids).FirstOrDefaultAsync();
             if (result != null && string.IsNullOrEmpty(result.ItemName))
                 result.ItemName = ItemDetails.TagToName(result.Tag);
             return EnchantColorMapper.Instance.AddColors(result);
@@ -192,7 +197,7 @@ namespace Coflnet.Hypixel.Controller
             return await ToPreview(filter, itemId, orderedSelect);
         }
 
-        private static async Task<List<AuctionPreview>> ToPreview(IDictionary<string, string> query, int itemId, IOrderedQueryable<SaveAuction> baseSelect)
+        private async Task<List<AuctionPreview>> ToPreview(IDictionary<string, string> query, int itemId, IOrderedQueryable<SaveAuction> baseSelect)
         {
             var filter = new Dictionary<string, string>(query);
             int page = 0;
@@ -210,13 +215,14 @@ namespace Coflnet.Hypixel.Controller
                         .Take(pageSize);
 
             var result = await select.ToListAsync();
+            var names = await playerNameService.GetNames(result.Select(a => a.AuctioneerId).ToList());
             return result.Select(async a => new AuctionPreview()
             {
                 End = a.End,
                 Price = a.HighestBidAmount == 0 ? a.StartingBid : a.HighestBidAmount,
                 Seller = a.AuctioneerId,
                 Uuid = a.Uuid,
-                PlayerName = await PlayerSearch.Instance.GetNameWithCacheAsync(a.AuctioneerId)
+                PlayerName = names.GetValueOrDefault(a.AuctioneerId)
             }).Select(a => a.Result).ToList();
         }
 

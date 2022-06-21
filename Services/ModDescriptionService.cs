@@ -1,12 +1,15 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Security.Cryptography;
+using System.Text;
 using System.Threading.Tasks;
 using Coflnet.Sky.Api.Models.Mod;
 using Coflnet.Sky.Commands.MC;
 using Coflnet.Sky.Core;
 using Coflnet.Sky.Crafts.Client.Api;
 using Coflnet.Sky.Sniper.Client.Api;
+using Confluent.Kafka;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Converters;
 using OpenTracing;
@@ -24,6 +27,31 @@ namespace Coflnet.Sky.Api.Services
             this.craftsApi = craftsApi;
             this.sniperApi = sniperApi;
             this.tracer = tracer;
+        }
+
+        private void ProduceInventory(InventoryData modDescription, string playerId)
+        {
+            ProducerConfig producerConfig = new ProducerConfig
+            {
+                BootstrapServers = SimplerConfig.Config.Instance["KAFKA_HOST"],
+                LingerMs = 2
+            };
+            var producer = new ProducerBuilder<string, InventoryData>(producerConfig).SetValueSerializer(SerializerFactory.GetSerializer<InventoryData>()).SetDefaultPartitioner((topic, pcount, key, isNull) =>
+            {
+                if(isNull)
+                    return Random.Shared.Next() % pcount;
+                return new Partition((key[0] * key[1]) % pcount);
+            }).Build();
+            var inventoryhash = SHA256.Create().ComputeHash(Encoding.UTF8.GetBytes(modDescription.FullInventoryNbt));
+            producer.Produce("inventory", new Message<string, InventoryData>
+            {
+                Key = string.IsNullOrEmpty(playerId) ? null : playerId.Substring(0, 4) + Encoding.UTF8.GetString(inventoryhash),
+                Value = new InventoryData
+                {
+                    ChestName = modDescription.ChestName,
+                    FullInventoryNbt = modDescription.FullInventoryNbt
+                }
+            });
         }
 
         /// <summary>
