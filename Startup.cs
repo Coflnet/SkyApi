@@ -26,20 +26,30 @@ using Coflnet.Sky.Api.Services;
 
 namespace Coflnet.Sky.Api
 {
+    /// <summary>
+    /// The asp.net core startup code
+    /// </summary>
     public class Startup
     {
+        /// <summary>
+        /// Creates a new instance of <see cref="Startup"/>
+        /// </summary>
+        /// <param name="configuration"></param>
         public Startup(IConfiguration configuration)
         {
             Configuration = configuration;
         }
-
-        public IConfiguration Configuration { get; }
+        
+        private IConfiguration Configuration { get; }
         private static string CORS_PLICY_NAME = "defaultCorsPolicy";
 
         Prometheus.Counter errorCount = Prometheus.Metrics.CreateCounter("sky_api_error", "Counts the amount of error responses handed out");
         Prometheus.Counter badRequestCount = Prometheus.Metrics.CreateCounter("sky_api_bad_request", "Counts the responses for invalid requests");
 
-        // This method gets called by the runtime. Use this method to add services to the container.
+        /// <summary>
+        /// This method gets called by the runtime. Use this method to add services to the container.
+        /// </summary>
+        /// <param name="services"></param>
         public void ConfigureServices(IServiceCollection services)
         {
             services.AddControllers().AddNewtonsoftJson();
