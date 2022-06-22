@@ -149,8 +149,8 @@ namespace Coflnet.Sky.Api
                         using var span = OpenTracing.Util.GlobalTracer.Instance.BuildSpan("error").StartActive();
                         span.Span.Log(exceptionHandlerPathFeature?.Error?.Message);
                         span.Span.Log(exceptionHandlerPathFeature?.Error?.StackTrace);
-                        var traceId = System.Net.Dns.GetHostName().Replace("commands", "").Trim('-') + "." + span.Span.Context.TraceId;
-                        logger.LogError(exceptionHandlerPathFeature?.Error, "fatal request error " + span.Span.Context.TraceId);
+                        var traceId = System.Net.Dns.GetHostName().Replace("commands", "").Trim('-') + "." + span?.Span?.Context?.TraceId;
+                        logger.LogError(exceptionHandlerPathFeature?.Error, "fatal request error " + traceId);
                         await context.Response.WriteAsync(
                             JsonConvert.SerializeObject(new ErrorResponse
                             {

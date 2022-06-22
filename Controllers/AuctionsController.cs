@@ -184,7 +184,6 @@ namespace Coflnet.Hypixel.Controller
             {
                 Enum.TryParse<ActiveItemSearchQuery.SortOrder>(filter["orderBy"], out order);
                 filter.Remove("orderBy");
-                Console.WriteLine(order);
             }
             var baseSelect = context.Auctions
                                         .Where(a => a.ItemId == itemId && a.End > DateTime.Now);//.OrderByDescending(a => a.End);
