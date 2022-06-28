@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Security.Cryptography;
@@ -6,28 +7,53 @@ using System.Text;
 using System.Threading.Tasks;
 using Coflnet.Sky.Api.Models.Mod;
 using Coflnet.Sky.Commands.MC;
+using Coflnet.Sky.Commands.Shared;
 using Coflnet.Sky.Core;
 using Coflnet.Sky.Crafts.Client.Api;
 using Coflnet.Sky.Sniper.Client.Api;
 using Confluent.Kafka;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Converters;
 using OpenTracing;
 
 namespace Coflnet.Sky.Api.Services
 {
-    public class ModDescriptionService
+    public class ModDescriptionService : IDisposable
     {
         private ICraftsApi craftsApi;
         private ISniperApi sniperApi;
         private ITracer tracer;
+        private SettingsService settingsService;
+        private IdConverter idConverter;
+        private IServiceScopeFactory scopeFactory;
 
-        public ModDescriptionService(ICraftsApi craftsApi, ISniperApi sniperApi, ITracer tracer)
+        /// <summary>
+        /// Initializes a new instance of the <see cref="ModDescriptionService"/> class.
+        /// </summary>
+        /// <param name="craftsApi"></param>
+        /// <param name="sniperApi"></param>
+        /// <param name="tracer"></param>
+        /// <param name="settingsService"></param>
+        /// <param name="idConverter"></param>
+        /// <param name="scopeFactory"></param>
+        public ModDescriptionService(ICraftsApi craftsApi,
+                                     ISniperApi sniperApi,
+                                     ITracer tracer,
+                                     SettingsService settingsService,
+                                     IdConverter idConverter,
+                                     IServiceScopeFactory scopeFactory)
         {
             this.craftsApi = craftsApi;
             this.sniperApi = sniperApi;
             this.tracer = tracer;
+            this.settingsService = settingsService;
+            this.idConverter = idConverter;
+            this.scopeFactory = scopeFactory;
         }
+
+        private ConcurrentDictionary<string, SelfUpdatingValue<DescriptionSetting>> settings = new();
 
         private void ProduceInventory(InventoryData modDescription, string playerId)
         {
@@ -38,7 +64,7 @@ namespace Coflnet.Sky.Api.Services
             };
             var producer = new ProducerBuilder<string, InventoryData>(producerConfig).SetValueSerializer(SerializerFactory.GetSerializer<InventoryData>()).SetDefaultPartitioner((topic, pcount, key, isNull) =>
             {
-                if(isNull)
+                if (isNull)
                     return Random.Shared.Next() % pcount;
                 return new Partition((key[0] * key[1]) % pcount);
             }).Build();
@@ -58,10 +84,13 @@ namespace Coflnet.Sky.Api.Services
         /// Get modifications for given inventory
         /// </summary>
         /// <param name="inventory"></param>
+        /// <param name="mcUuid"></param>
+        /// <param name="sessionId"></param>
         /// <returns></returns>
-        public async Task<IEnumerable<IEnumerable<DescModification>>> GetModifications(InventoryData inventory)
+        public async Task<IEnumerable<IEnumerable<DescModification>>> GetModifications(InventoryData inventory, string mcUuid, string sessionId)
         {
             List<(SaveAuction auction, IEnumerable<string> desc)> auctionRepresent = ConvertToAuctions(inventory);
+            var userSettings = await GetSettingForConid(mcUuid, sessionId);
 
             var allCraftsTask = craftsApi.CraftsAllGetAsync();
             List<Sniper.Client.Model.PriceEstimate> res = await GetPrices(auctionRepresent);
@@ -74,11 +103,25 @@ namespace Coflnet.Sky.Api.Services
                 inventory.Settings = new DescriptionSetting();
             if (inventory.Settings.Fields == null || inventory.Settings.Fields.Count == 0)
             {
-                inventory.Settings.Fields = new List<List<DescriptionField>>() {
-                    new() { DescriptionField.LBIN },
-                    new() { DescriptionField.MEDIAN, DescriptionField.VOLUME },
-                    new() { DescriptionField.CRAFT_COST } };
+                inventory.Settings = userSettings;
             }
+
+            var pricesPaid = new Dictionary<string, long>();
+            if (inventory.Settings.Fields.Any(line => line.Contains(DescriptionField.PRICE_PAID)))
+            {
+                var numericIds = auctionRepresent.Where(a => a.auction != null).Select(a => a.auction.FlatenedNBT.GetValueOrDefault("uid")).Where(v => v != null).ToDictionary(uid => GetUidFromString(uid));
+                var key = NBT.Instance.GetKeyId("uid");
+                using var scope = scopeFactory.CreateScope();
+                using var context = scope.ServiceProvider.GetRequiredService<HypixelContext>();
+                var lastSells = await context.Auctions
+                            .Where(a => a.NBTLookup.Where(l => l.KeyId == key && numericIds.Keys.Contains(l.Value)).Any())
+                            .Where(a => a.HighestBidAmount > 0)
+                            .AsSplitQuery().AsNoTracking()
+                            .Select(a => new { a.HighestBidAmount, uid = a.NBTLookup.Where(l => l.KeyId == key).Select(l => l.Value).FirstOrDefault() })
+                            .ToListAsync();
+                pricesPaid = lastSells.GroupBy(l => l.uid).ToDictionary(g => numericIds[g.Key], g => g.First().HighestBidAmount);
+            }
+
 
             var enabledFields = inventory.Settings.Fields;
 
@@ -100,7 +143,7 @@ namespace Coflnet.Sky.Api.Services
                     continue;
                 }
                 var craftPrice = allCrafts?.Where(c => auction != null && c.ItemId == auction.Tag && c.CraftCost > 0)?.FirstOrDefault()?.CraftCost;
-                List<DescModification> mods = GetModifications(enabledFields, desc, auction, price, craftPrice);
+                List<DescModification> mods = GetModifications(enabledFields, desc, auction, price, craftPrice, pricesPaid);
 
                 if (desc != null)
                     span.Log(string.Join('\n', mods.Select(m => $"{m.Line} {m.Value}")) + JsonConvert.SerializeObject(auction, Formatting.Indented) + JsonConvert.SerializeObject(price, Formatting.Indented) + "\ncraft:" + craftPrice);
@@ -110,7 +153,33 @@ namespace Coflnet.Sky.Api.Services
             return result;
         }
 
-        private List<DescModification> GetModifications(List<List<DescriptionField>> enabledFields, IEnumerable<string> desc, SaveAuction auction, Sniper.Client.Model.PriceEstimate price, double? craftPrice)
+        private static long GetUidFromString(string u)
+        {
+            if (u.Length < 12)
+                throw new CoflnetException("invalid_uuid", "One or more passed uuids are invalid (too short)");
+            return NBT.UidToLong(u.Substring(u.Length - 12));
+        }
+
+        private async Task<DescriptionSetting> GetSettingForConid(string playeruuid, string sessionId)
+        {
+            if (string.IsNullOrEmpty(sessionId))
+                return DescriptionSetting.Default;
+            if (settings.ContainsKey(sessionId))
+                return settings[sessionId].Value;
+            var conId = idConverter.ComputeConnectionId(playeruuid, sessionId).Item2;
+            var userId = await settingsService.GetCurrentValue<string>("mod", conId, () => null);
+            var userSettings = DescriptionSetting.Default;
+            if (userId != null)
+            {
+                var updatingSettings = await SelfUpdatingValue<DescriptionSetting>.Create(userId, "description", () => DescriptionSetting.Default);
+                this.settings.TryAdd(sessionId, updatingSettings);
+                userSettings = updatingSettings.Value;
+            }
+
+            return userSettings;
+        }
+
+        private List<DescModification> GetModifications(List<List<DescriptionField>> enabledFields, IEnumerable<string> desc, SaveAuction auction, Sniper.Client.Model.PriceEstimate price, double? craftPrice, Dictionary<string, long> pricesPaid)
         {
             var mods = new List<DescModification>();
 
@@ -150,6 +219,14 @@ namespace Coflnet.Sky.Api.Services
                                 break;
                             case DescriptionField.TAG:
                                 content += $"{auction.Tag}";
+                                break;
+                            case DescriptionField.PRICE_PAID:
+                                if (auction.FlatenedNBT.ContainsKey("uid"))
+                                {
+                                    var uid = auction.FlatenedNBT["uid"];
+                                    if (pricesPaid.ContainsKey(uid))
+                                        content += $"{McColorCodes.YELLOW}Paid: {FormatNumber(pricesPaid[uid])} ";
+                                }
                                 break;
                             case DescriptionField.CRAFT_COST:
                                 if (!craftPrice.HasValue || craftPrice.Value >= int.MaxValue)
@@ -269,6 +346,16 @@ namespace Coflnet.Sky.Api.Services
             return string.Format("{0:n0}", price);
         }
 
-
+        /// <summary>
+        /// Orderly dispose subscriptions
+        /// </summary>
+        public void Dispose()
+        {
+            foreach (var item in this.settings.ToList())
+            {
+                this.settings.TryRemove(item);
+                item.Value.Dispose();
+            }
+        }
     }
 }

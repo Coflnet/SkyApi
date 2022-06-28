@@ -60,7 +60,10 @@ namespace Coflnet.Hypixel.Controller
                 new CommandListEntry("profit 7","Shows your profit from flips in the last week"),
                 new CommandListEntry("logout","Logs out all connected mods"),
                 new CommandListEntry("set","Sets some setting"),
-                new CommandListEntry("chat {message}","Sends message in chat")
+                new CommandListEntry("chat {message}","Sends message in chat"),
+                new CommandListEntry("backup","Allows you to create and restore settings backups"),
+                new CommandListEntry("blacklist","Allows you to blacklist auctions"),
+                new CommandListEntry("whitelist","Same as blacklist but will always show")
             };
         }
 
@@ -131,7 +134,7 @@ namespace Coflnet.Hypixel.Controller
             [FromHeader] string uuid)
         {
             SetDefaultIfNonePassed(inventory);
-            return await descriptionService.GetModifications(inventory);
+            return await descriptionService.GetModifications(inventory, uuid, conId);
         }
 
 
