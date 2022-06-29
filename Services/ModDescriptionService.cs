@@ -117,9 +117,9 @@ namespace Coflnet.Sky.Api.Services
                             .Where(a => a.NBTLookup.Where(l => l.KeyId == key && numericIds.Keys.Contains(l.Value)).Any())
                             .Where(a => a.HighestBidAmount > 0)
                             .AsSplitQuery().AsNoTracking()
-                            .Select(a => new { a.HighestBidAmount, uid = a.NBTLookup.Where(l => l.KeyId == key).Select(l => l.Value).FirstOrDefault() })
+                            .Select(a => new { a.HighestBidAmount, a.End, uid = a.NBTLookup.Where(l => l.KeyId == key).Select(l => l.Value).FirstOrDefault() })
                             .ToListAsync();
-                pricesPaid = lastSells.GroupBy(l => l.uid).ToDictionary(g => numericIds[g.Key], g => g.First().HighestBidAmount);
+                pricesPaid = lastSells.GroupBy(l => l.uid).ToDictionary(g => numericIds[g.Key], g => g.OrderByDescending(a=>a.End).First().HighestBidAmount);
             }
 
 
