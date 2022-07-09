@@ -52,6 +52,24 @@ namespace Coflnet.Hypixel.Controller
         }
 
         /// <summary>
+        /// A list of all items stored
+        /// </summary>
+        /// <returns></returns>
+        [Route("")]
+        [HttpGet]
+        [ResponseCache(Duration = 3600, Location = ResponseCacheLocation.Any, NoStore = false)]
+        public async Task<IEnumerable<ItemMetadataElement>> GetAllItems()
+        {
+            return (await itemsApi.ItemsGetAsync()).Select(i=>{
+                return new ItemMetadataElement{
+                    Name = i.Name,
+                    Tag = i.Tag,
+                    Flags = i.Flags ?? 0
+                };
+            });
+        }
+
+        /// <summary>
         /// A list of item tags (hypixel ids) that are tradeable on bazaar
         /// This gets updated once every hour
         /// </summary>
