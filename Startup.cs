@@ -56,7 +56,9 @@ namespace Coflnet.Sky.Api
             services.AddSwaggerGenNewtonsoftSupport();
             services.AddSwaggerGen(c =>
             {
-                c.SwaggerDoc("v1", new OpenApiInfo { Title = "SkyApi", Version = "v1", Description = "Notes: PET, RUNE and POTION item tags (somtimes called ids) are expanded to include the type, eg PET_LION" });
+                c.SwaggerDoc("v1", new OpenApiInfo { Title = "SkyApi", Version = "v1", 
+                    Description = "Notes: PET, RUNE and POTION item tags (somtimes called ids) are expanded to include the type, eg PET_LION."
+                                + " All other Tags match with from hypixel and can be found via the search endpoint." });
                 // Set the comments path for the Swagger JSON and UI.
                 var xmlFile = $"{Assembly.GetExecutingAssembly().GetName().Name}.xml";
                 var xmlPath = Path.Combine(AppContext.BaseDirectory, xmlFile);
