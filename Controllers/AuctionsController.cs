@@ -215,14 +215,16 @@ namespace Coflnet.Hypixel.Controller
 
             var result = await select.ToListAsync();
             var names = await playerNameService.GetNames(result.Select(a => a.AuctioneerId).ToList());
-            return result.Select(async a => new AuctionPreview()
+            if(names == null)
+                names = new Dictionary<string, string>();
+            return result.Select( a => new AuctionPreview()
             {
                 End = a.End,
                 Price = a.HighestBidAmount == 0 ? a.StartingBid : a.HighestBidAmount,
                 Seller = a.AuctioneerId,
                 Uuid = a.Uuid,
                 PlayerName = names.GetValueOrDefault(a.AuctioneerId)
-            }).Select(a => a.Result).ToList();
+            }).ToList();
         }
 
         /// <summary>
