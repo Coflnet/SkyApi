@@ -27,6 +27,12 @@ namespace Coflnet.Hypixel.Controller
         private HypixelContext db;
         Hashids hashids = new Hashids("simple salt", 6);
 
+        /// <summary>
+        /// Creates a new intance of <see cref="ReferralController"/>
+        /// </summary>
+        /// <param name="refApi"></param>
+        /// <param name="premiumService"></param>
+        /// <param name="db"></param>
         public ReferralController(IReferralApi refApi, PremiumService premiumService, HypixelContext db)
         {
             this.refApi = refApi;
@@ -52,6 +58,10 @@ namespace Coflnet.Hypixel.Controller
             return Ok();
         }
 
+        /// <summary>
+        /// Returns ReferralCode and refferal satistics for the user
+        /// </summary>
+        /// <returns></returns>
         [Route("info")]
         [HttpGet]
         [ResponseCache(Duration = 0, Location = ResponseCacheLocation.None, NoStore = true)]

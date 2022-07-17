@@ -9,6 +9,9 @@ using Coflnet.Sky.Commands.Shared;
 
 namespace Coflnet.Hypixel.Controller
 {
+    /// <summary>
+    /// The playerController handles all player related endpoints.
+    /// </summary>
     [ApiController]
     [Route("api/player")]
     [ResponseCache(Duration = 60, Location = ResponseCacheLocation.Any, NoStore = false)]
@@ -17,6 +20,10 @@ namespace Coflnet.Hypixel.Controller
         const int pageSize = 10;
         HypixelContext context;
 
+        /// <summary>
+        /// Creates a new instance of <see cref="PlayerController"/>
+        /// </summary>
+        /// <param name="context"></param>
         public PlayerController(HypixelContext context)
         {
             this.context = context;

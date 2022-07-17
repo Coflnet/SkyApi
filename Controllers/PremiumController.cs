@@ -29,6 +29,13 @@ namespace Coflnet.Hypixel.Controller
         private UserApi userApi;
         private PremiumService premiumService;
 
+        /// <summary>
+        /// Creates a new intance of <see cref="PremiumController"/>
+        /// </summary>
+        /// <param name="productsService"></param>
+        /// <param name="topUpApi"></param>
+        /// <param name="userApi"></param>
+        /// <param name="premiumService"></param>
         public PremiumController(ProductsApi productsService, TopUpApi topUpApi, UserApi userApi, PremiumService premiumService)
         {
             this.productsService = productsService;
