@@ -137,7 +137,8 @@ namespace Coflnet.Hypixel.Controller
             var itemId = ItemDetails.Instance.GetItemIdForTag(itemTag);
             if (pageSize < 0 || pageSize > 1000)
                 pageSize = 1000;
-            var startTime = DateTime.Now.RoundDown(TimeSpan.FromHours(1)) - TimeSpan.FromDays(7);
+            var daysToReturn = config["MAX_SELL_LOOKBACK_ENDPOINT_DAYS"] ?? "7";
+            var startTime = DateTime.Now.RoundDown(TimeSpan.FromHours(1)) - TimeSpan.FromDays(int.Parse(daysToReturn));
             var result = await context.Auctions
                         .Where(a => a.ItemId == itemId && a.End > startTime && a.End < DateTime.Now && a.HighestBidAmount > 0)
                         .Include(a => a.Enchantments)
