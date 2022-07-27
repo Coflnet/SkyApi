@@ -124,6 +124,29 @@ namespace Coflnet.Hypixel.Controller
             }
         }
 
+        /// <summary>
+        /// Get adjusted prices
+        /// </summary>
+        /// <returns></returns>
+        [Route("adjusted")]
+        [HttpPost]
+        public async Task<IActionResult> PurchaseService([FromBody] IEnumerable<string> slugs)
+        {
+            if (!TryGetUser(out GoogleUser user))
+                return Unauthorized("no googletoken header");
+            try
+            {
+                var adjusted = await productsService.ProductsUserUserIdGetAsync(user.Id.ToString(), slugs.ToList());
+                if (adjusted == null)
+                    return NotFound();
+                return Ok(adjusted);
+            }
+            catch (Exception e)
+            {
+                throw new CoflnetException("payment_error", e.Message);
+            }
+        }
+
         private bool TryGetUser(out GoogleUser user)
         {
             user = default(GoogleUser);
