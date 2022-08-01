@@ -30,6 +30,7 @@ namespace Coflnet.Hypixel.Controller
         /// Creates a new instance of <see cref="SearchController"/>
         /// </summary>
         /// <param name="itemsApi"></param>
+        /// <param name="tracer"></param>
         public SearchController(IItemsApi itemsApi, ITracer tracer)
         {
             this.itemsApi = itemsApi;

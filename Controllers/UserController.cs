@@ -18,12 +18,21 @@ namespace Coflnet.Hypixel.Controller
         private Sky.Api.PremiumService premiumService;
         private SettingsService settingsService;
 
+        /// <summary>
+        /// Creates a new instance of <see cref="UserController"/>
+        /// </summary>
+        /// <param name="premiumService"></param>
+        /// <param name="settingsService"></param>
         public UserController(Sky.Api.PremiumService premiumService, SettingsService settingsService)
         {
             this.premiumService = premiumService;
             this.settingsService = settingsService;
         }
 
+        /// <summary>
+        /// Get the users privacy settings (requires google token)
+        /// </summary>
+        /// <returns></returns>
         [Route("privacy")]
         [HttpGet]
         public async Task<ActionResult<PrivacySettings>> GetPrivacySettings()
@@ -43,6 +52,11 @@ namespace Coflnet.Hypixel.Controller
             });
         }
 
+        /// <summary>
+        /// Update users privacy settings (requires google token)
+        /// </summary>
+        /// <param name="settings">The new settings</param>
+        /// <returns></returns>
         [Route("privacy")]
         [HttpPost]
         public async Task<ActionResult> SetPrivacySettings(PrivacySettings settings)
