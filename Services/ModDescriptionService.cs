@@ -211,13 +211,15 @@ namespace Coflnet.Sky.Api.Services
                         switch (item)
                         {
                             case DescriptionField.LBIN:
-                                content += $"{McColorCodes.GRAY}lbin: {McColorCodes.YELLOW}{FormatNumber(price.Lbin.Price)} ";
+                                if (price.Lbin.Price != 0)
+                                    content += $"{McColorCodes.GRAY}lbin: {McColorCodes.YELLOW}{FormatNumber(price.Lbin.Price)} ";
                                 break;
                             case DescriptionField.LBIN_KEY:
                                 content += $"Lbin-Key: {price.LbinKey} ";
                                 break;
                             case DescriptionField.MEDIAN:
-                                content += $"{McColorCodes.GRAY}Med: {McColorCodes.AQUA}{FormatNumber(price.Median)} ";
+                                if (price.Median != 0)
+                                    content += $"{McColorCodes.GRAY}Med: {McColorCodes.AQUA}{FormatNumber(price.Median)} ";
                                 break;
                             case DescriptionField.MEDIAN_KEY:
                                 content += $"Med-Key: {price.MedianKey}";
@@ -246,7 +248,7 @@ namespace Coflnet.Sky.Api.Services
                                 break;
                             case DescriptionField.CRAFT_COST:
                                 if (!craftPrice.HasValue || craftPrice.Value >= int.MaxValue)
-                                    content += $"craft: unavailable ingredients ";
+                                    content += $"craft: not possible ";
                                 else
                                     content += $"{McColorCodes.YELLOW}craft: {FormatNumber((long)craftPrice)} ";
                                 break;
