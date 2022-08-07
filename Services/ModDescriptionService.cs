@@ -6,6 +6,7 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Threading.Tasks;
 using Coflnet.Sky.Api.Models.Mod;
+using Coflnet.Sky.Bazaar.Client.Api;
 using Coflnet.Sky.Commands.MC;
 using Coflnet.Sky.Commands.Shared;
 using Coflnet.Sky.Core;
@@ -28,6 +29,7 @@ namespace Coflnet.Sky.Api.Services
         private SettingsService settingsService;
         private IdConverter idConverter;
         private IServiceScopeFactory scopeFactory;
+        private BazaarApi bazaarApi;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="ModDescriptionService"/> class.
@@ -38,12 +40,14 @@ namespace Coflnet.Sky.Api.Services
         /// <param name="settingsService"></param>
         /// <param name="idConverter"></param>
         /// <param name="scopeFactory"></param>
+        /// <param name="bazaarApi"></param>
         public ModDescriptionService(ICraftsApi craftsApi,
                                      ISniperApi sniperApi,
                                      ITracer tracer,
                                      SettingsService settingsService,
                                      IdConverter idConverter,
-                                     IServiceScopeFactory scopeFactory)
+                                     IServiceScopeFactory scopeFactory,
+                                     BazaarApi bazaarApi)
         {
             this.craftsApi = craftsApi;
             this.sniperApi = sniperApi;
@@ -51,6 +55,7 @@ namespace Coflnet.Sky.Api.Services
             this.settingsService = settingsService;
             this.idConverter = idConverter;
             this.scopeFactory = scopeFactory;
+            this.bazaarApi = bazaarApi;
         }
 
         private ConcurrentDictionary<string, SelfUpdatingValue<DescriptionSetting>> settings = new();
@@ -119,8 +124,11 @@ namespace Coflnet.Sky.Api.Services
                             .AsSplitQuery().AsNoTracking()
                             .Select(a => new { a.HighestBidAmount, a.End, uid = a.NBTLookup.Where(l => l.KeyId == key).Select(l => l.Value).FirstOrDefault() })
                             .ToListAsync();
-                pricesPaid = lastSells.GroupBy(l => l.uid).ToDictionary(g => numericIds[g.Key], g => g.OrderByDescending(a=>a.End).First().HighestBidAmount);
+                pricesPaid = lastSells.GroupBy(l => l.uid).ToDictionary(g => numericIds[g.Key], g => g.OrderByDescending(a => a.End).First().HighestBidAmount);
             }
+            var bazaarPrices = new Dictionary<string, Bazaar.Client.Model.ItemPrice>();
+            if (inventory.Settings.Fields.Any(line => line.Contains(DescriptionField.BazaarBuy) || line.Contains(DescriptionField.BazaarSell)))
+                bazaarPrices = (await bazaarApi.ApiBazaarPricesGetAsync()).ToDictionary(p => p.ProductId);
 
 
             var enabledFields = inventory.Settings.Fields;
@@ -143,7 +151,7 @@ namespace Coflnet.Sky.Api.Services
                     continue;
                 }
                 var craftPrice = allCrafts?.Where(c => auction != null && c.ItemId == auction.Tag && c.CraftCost > 0)?.FirstOrDefault()?.CraftCost;
-                List<DescModification> mods = GetModifications(enabledFields, desc, auction, price, craftPrice, pricesPaid);
+                List<DescModification> mods = GetModifications(enabledFields, desc, auction, price, craftPrice, pricesPaid, bazaarPrices);
 
                 if (desc != null)
                     span.Log(string.Join('\n', mods.Select(m => $"{m.Line} {m.Value}")) + JsonConvert.SerializeObject(auction, Formatting.Indented) + JsonConvert.SerializeObject(price, Formatting.Indented) + "\ncraft:" + craftPrice);
@@ -179,7 +187,7 @@ namespace Coflnet.Sky.Api.Services
             return userSettings;
         }
 
-        private List<DescModification> GetModifications(List<List<DescriptionField>> enabledFields, IEnumerable<string> desc, SaveAuction auction, Sniper.Client.Model.PriceEstimate price, double? craftPrice, Dictionary<string, long> pricesPaid)
+        private List<DescModification> GetModifications(List<List<DescriptionField>> enabledFields, IEnumerable<string> desc, SaveAuction auction, Sniper.Client.Model.PriceEstimate price, double? craftPrice, Dictionary<string, long> pricesPaid, Dictionary<string, Bazaar.Client.Model.ItemPrice> bazaarPrices)
         {
             var mods = new List<DescModification>();
 
@@ -188,7 +196,7 @@ namespace Coflnet.Sky.Api.Services
             if (auction.Tag == null)
             { //add nothing for now
             }
-            else if (price.Volume == 0 && !craftPrice.HasValue)
+            else if (price.Volume == 0 && !craftPrice.HasValue && !bazaarPrices.ContainsKey(auction.Tag))
             {
                 if (enabledFields.Any(f => f.Contains(DescriptionField.MEDIAN)))
                     mods.Add(new DescModification("no references found"));
@@ -218,7 +226,15 @@ namespace Coflnet.Sky.Api.Services
                                 content += $"{McColorCodes.YELLOW}Vol: {price.Volume.ToString("0.#")} ";
                                 break;
                             case DescriptionField.TAG:
-                                content += $"{auction.Tag}";
+                                content += $"{auction.Tag} ";
+                                break;
+                            case DescriptionField.BazaarBuy:
+                                if (bazaarPrices.ContainsKey(auction.Tag))
+                                    content += $"{McColorCodes.YELLOW}Buy: {bazaarPrices[auction.Tag].BuyPrice} ";
+                                break;
+                            case DescriptionField.BazaarSell:
+                                if (bazaarPrices.ContainsKey(auction.Tag))
+                                    content += $"{McColorCodes.YELLOW}Sell: {bazaarPrices[auction.Tag].SellPrice} ";
                                 break;
                             case DescriptionField.PRICE_PAID:
                                 if (auction.FlatenedNBT.ContainsKey("uid"))
@@ -341,8 +357,10 @@ namespace Coflnet.Sky.Api.Services
             }).ToList());
         }
 
-        private string FormatNumber(long price)
+        private string FormatNumber(double price)
         {
+            if (price < 100)
+                return string.Format("{0:n1}", price);
             return string.Format("{0:n0}", price);
         }
 
