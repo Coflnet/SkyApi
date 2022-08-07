@@ -211,37 +211,37 @@ namespace Coflnet.Sky.Api.Services
                         switch (item)
                         {
                             case DescriptionField.LBIN:
-                                content += $"{McColorCodes.YELLOW}lbin: {FormatNumber(price.Lbin.Price)} ";
+                                content += $"{McColorCodes.GRAY}lbin: {McColorCodes.YELLOW}{FormatNumber(price.Lbin.Price)} ";
                                 break;
                             case DescriptionField.LBIN_KEY:
                                 content += $"Lbin-Key: {price.LbinKey} ";
                                 break;
                             case DescriptionField.MEDIAN:
-                                content += $"{McColorCodes.YELLOW}Med: {FormatNumber(price.Median)} ";
+                                content += $"{McColorCodes.GRAY}Med: {McColorCodes.AQUA}{FormatNumber(price.Median)} ";
                                 break;
                             case DescriptionField.MEDIAN_KEY:
                                 content += $"Med-Key: {price.MedianKey}";
                                 break;
                             case DescriptionField.VOLUME:
-                                content += $"{McColorCodes.YELLOW}Vol: {price.Volume.ToString("0.#")} ";
+                                content += $"{McColorCodes.GRAY}Vol: {McColorCodes.YELLOW}{price.Volume.ToString("0.#")} ";
                                 break;
                             case DescriptionField.TAG:
                                 content += $"{auction.Tag} ";
                                 break;
                             case DescriptionField.BazaarBuy:
                                 if (bazaarPrices.ContainsKey(auction.Tag))
-                                    content += $"{McColorCodes.YELLOW}Buy: {bazaarPrices[auction.Tag].BuyPrice} ";
+                                    content += $"{McColorCodes.GRAY}Buy: {McColorCodes.YELLOW}{bazaarPrices[auction.Tag].BuyPrice} ";
                                 break;
                             case DescriptionField.BazaarSell:
                                 if (bazaarPrices.ContainsKey(auction.Tag))
-                                    content += $"{McColorCodes.YELLOW}Sell: {bazaarPrices[auction.Tag].SellPrice} ";
+                                    content += $"{McColorCodes.GRAY}Sell: {McColorCodes.YELLOW}{bazaarPrices[auction.Tag].SellPrice} ";
                                 break;
                             case DescriptionField.PRICE_PAID:
                                 if (auction.FlatenedNBT.ContainsKey("uid"))
                                 {
                                     var uid = auction.FlatenedNBT["uid"];
                                     if (pricesPaid.ContainsKey(uid))
-                                        content += $"{McColorCodes.YELLOW}Paid: {FormatNumber(pricesPaid[uid])} ";
+                                        content += $"{McColorCodes.GRAY}Paid: {McColorCodes.YELLOW}{FormatNumber(pricesPaid[uid])} ";
                                 }
                                 break;
                             case DescriptionField.CRAFT_COST:
