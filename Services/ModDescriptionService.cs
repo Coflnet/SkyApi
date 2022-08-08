@@ -247,8 +247,8 @@ namespace Coflnet.Sky.Api.Services
                                 }
                                 break;
                             case DescriptionField.CRAFT_COST:
-                                if(!craftPrice.HasValue)
-                                {}
+                                if (!craftPrice.HasValue)
+                                    continue;
                                 if (craftPrice.Value >= int.MaxValue)
                                     content += $"craft: unavailable ingredients ";
                                 else
@@ -258,7 +258,7 @@ namespace Coflnet.Sky.Api.Services
                                 throw new ArgumentOutOfRangeException();
                         }
                     }
-                    if(content.Length > 0)
+                    if (content.Length > 0)
                         mods.Add(new DescModification(content));
                 }
             }
