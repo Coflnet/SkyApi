@@ -252,7 +252,7 @@ namespace Coflnet.Sky.Api.Services
                                 if (craftPrice.Value >= int.MaxValue)
                                     content += $"craft: unavailable ingredients ";
                                 else
-                                    content += $"{McColorCodes.YELLOW}craft: {FormatNumber((long)craftPrice)} ";
+                                    content += $"{McColorCodes.GRAY}craft: {McColorCodes.YELLOW}{FormatNumber((long)craftPrice)} ";
                                 break;
                             default:
                                 throw new ArgumentOutOfRangeException();
