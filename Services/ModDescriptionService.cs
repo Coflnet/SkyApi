@@ -196,11 +196,6 @@ namespace Coflnet.Sky.Api.Services
             if (auction.Tag == null)
             { //add nothing for now
             }
-            else if (price.Volume == 0 && !craftPrice.HasValue && !bazaarPrices.ContainsKey(auction.Tag))
-            {
-                if (enabledFields.Any(f => f.Contains(DescriptionField.MEDIAN)))
-                    mods.Add(new DescModification("no references found"));
-            }
             else
             {
                 foreach (var line in enabledFields)
