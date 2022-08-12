@@ -71,7 +71,7 @@ namespace Coflnet.Sky.Api.Services
             {
                 if (isNull)
                     return Random.Shared.Next() % pcount;
-                return new Partition((key[0] * key[1]) % pcount);
+                return new Partition((key[0] <<8 + key[1]) % pcount);
             }).Build();
             var inventoryhash = SHA256.Create().ComputeHash(Encoding.UTF8.GetBytes(modDescription.FullInventoryNbt));
             producer.Produce("inventory", new Message<string, InventoryData>
