@@ -228,11 +228,11 @@ namespace Coflnet.Sky.Api.Services
                                 break;
                             case DescriptionField.BazaarBuy:
                                 if (bazaarPrices.ContainsKey(auction.Tag))
-                                    content += $"{McColorCodes.GRAY}Buy: {McColorCodes.YELLOW}{FormatNumber(bazaarPrices[auction.Tag].BuyPrice)} ";
+                                    content += $"{McColorCodes.GRAY}Buy: {McColorCodes.GOLD}{FormatNumber(bazaarPrices[auction.Tag].BuyPrice)} ";
                                 break;
                             case DescriptionField.BazaarSell:
                                 if (bazaarPrices.ContainsKey(auction.Tag))
-                                    content += $"{McColorCodes.GRAY}Sell: {McColorCodes.YELLOW}{FormatNumber(bazaarPrices[auction.Tag].SellPrice)} ";
+                                    content += $"{McColorCodes.GRAY}Sell: {McColorCodes.GOLD}{FormatNumber(bazaarPrices[auction.Tag].SellPrice)} ";
                                 break;
                             case DescriptionField.PRICE_PAID:
                                 if (auction.FlatenedNBT.ContainsKey("uid"))
