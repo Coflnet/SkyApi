@@ -10,6 +10,9 @@ namespace Coflnet.Sky.Api.Models
     [MessagePackObject]
     public class BidResult : AuctionResult
     {
+        /// <summary>
+        /// The highest bid the requesting player has made
+        /// </summary>
         [Key("highestOwn")]
         public long HighestOwnBid;
 
