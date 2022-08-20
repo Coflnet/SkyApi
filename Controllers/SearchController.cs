@@ -92,16 +92,7 @@ namespace Coflnet.Hypixel.Controller
 
             if (result.Count < 5)
             {
-                var span = Tracer.ActiveSpan;
-                var id = span.Context.TraceId.Substring(0, 6);
-                span.SetTag("id", id);
-                return result.Append(new SearchResultItem()
-                {
-                    Name = "Not what I wanted, report " + id,
-                    IconUrl = "https://sky.shiiyu.moe/item/BARRIER",
-                    Type = "error",
-                    Id = span.Context.TraceId
-                });
+                return result;
             }
             Tracer.ActiveSpan.SetTag("search",searchVal.ToLower());
             return result.Take(limit);
