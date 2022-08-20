@@ -94,7 +94,6 @@ namespace Coflnet.Sky.Api.Services
         /// <returns></returns>
         public async Task<IEnumerable<IEnumerable<DescModification>>> GetModifications(InventoryData inventory, string mcUuid, string sessionId)
         {
-            Console.WriteLine("inventory from " + mcUuid);
             List<(SaveAuction auction, IEnumerable<string> desc)> auctionRepresent = ConvertToAuctions(inventory);
             var userSettings = await GetSettingForConid(mcUuid, sessionId);
 
@@ -279,7 +278,6 @@ namespace Coflnet.Sky.Api.Services
                 var enchant = auction.Enchantments.First();
                 tag = "ENCHANTMENT_" + enchant.Type.ToString().ToUpper() + '_' + enchant.Level;
             }
-
             return tag;
         }
 
@@ -381,7 +379,7 @@ namespace Coflnet.Sky.Api.Services
 
         private string FormatNumber(double price)
         {
-            if (price < 100)
+            if (price < 1_000)
                 return string.Format("{0:n1}", price);
             return string.Format("{0:n0}", price);
         }
