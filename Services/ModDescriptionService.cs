@@ -71,7 +71,7 @@ namespace Coflnet.Sky.Api.Services
             {
                 if (isNull)
                     return Random.Shared.Next() % pcount;
-                return new Partition((key[0] <<8 + key[1]) % pcount);
+                return new Partition((key[0] << 8 + key[1]) % pcount);
             }).Build();
             var inventoryhash = SHA256.Create().ComputeHash(Encoding.UTF8.GetBytes(modDescription.FullInventoryNbt));
             producer.Produce("inventory", new Message<string, InventoryData>
@@ -94,6 +94,7 @@ namespace Coflnet.Sky.Api.Services
         /// <returns></returns>
         public async Task<IEnumerable<IEnumerable<DescModification>>> GetModifications(InventoryData inventory, string mcUuid, string sessionId)
         {
+            Console.WriteLine("inventory from " + mcUuid);
             List<(SaveAuction auction, IEnumerable<string> desc)> auctionRepresent = ConvertToAuctions(inventory);
             var userSettings = await GetSettingForConid(mcUuid, sessionId);
 
@@ -187,7 +188,13 @@ namespace Coflnet.Sky.Api.Services
             return userSettings;
         }
 
-        private List<DescModification> GetModifications(List<List<DescriptionField>> enabledFields, IEnumerable<string> desc, SaveAuction auction, Sniper.Client.Model.PriceEstimate price, double? craftPrice, Dictionary<string, long> pricesPaid, Dictionary<string, Bazaar.Client.Model.ItemPrice> bazaarPrices)
+        private List<DescModification> GetModifications(List<List<DescriptionField>> enabledFields,
+                                                        IEnumerable<string> desc,
+                                                        SaveAuction auction,
+                                                        Sniper.Client.Model.PriceEstimate price,
+                                                        double? craftPrice,
+                                                        Dictionary<string, long> pricesPaid,
+                                                        Dictionary<string, Bazaar.Client.Model.ItemPrice> bazaarPrices)
         {
             var mods = new List<DescModification>();
 
@@ -227,12 +234,14 @@ namespace Coflnet.Sky.Api.Services
                                 content += $"{auction.Tag} ";
                                 break;
                             case DescriptionField.BazaarBuy:
-                                if (bazaarPrices.ContainsKey(auction.Tag))
-                                    content += $"{McColorCodes.GRAY}Buy: {McColorCodes.GOLD}{FormatNumber(bazaarPrices[auction.Tag].BuyPrice)} ";
+                                string tag = GetBazaarTag(auction);
+                                if (bazaarPrices.ContainsKey(tag))
+                                    content += $"{McColorCodes.GRAY}Buy: {McColorCodes.GOLD}{FormatNumber(bazaarPrices[tag].BuyPrice)} ";
                                 break;
                             case DescriptionField.BazaarSell:
-                                if (bazaarPrices.ContainsKey(auction.Tag))
-                                    content += $"{McColorCodes.GRAY}Sell: {McColorCodes.GOLD}{FormatNumber(bazaarPrices[auction.Tag].SellPrice)} ";
+                                tag = GetBazaarTag(auction);
+                                if (bazaarPrices.ContainsKey(tag))
+                                    content += $"{McColorCodes.GRAY}Sell: {McColorCodes.GOLD}{FormatNumber(bazaarPrices[tag].SellPrice)} ";
                                 break;
                             case DescriptionField.PRICE_PAID:
                                 if (auction.FlatenedNBT.ContainsKey("uid"))
@@ -260,6 +269,18 @@ namespace Coflnet.Sky.Api.Services
             }
 
             return mods;
+        }
+
+        private static string GetBazaarTag(SaveAuction auction)
+        {
+            var tag = auction.Tag;
+            if (tag == "ENCHANTED_BOOK" && auction.Enchantments.Count == 1)
+            {
+                var enchant = auction.Enchantments.First();
+                tag = "ENCHANTMENT_" + enchant.Type.ToString().ToUpper() + '_' + enchant.Level;
+            }
+
+            return tag;
         }
 
         public async Task<IEnumerable<string[]>> GetDescriptions(InventoryData inventory)
@@ -349,7 +370,7 @@ namespace Coflnet.Sky.Api.Services
                 return new Sky.Sniper.Client.Model.SaveAuction()
                 {
                     Count = a.Count,
-                    Enchantments = a.Enchantments.Select(e => new Sky.Sniper.Client.Model.Enchantment(0, (Sky.Sniper.Client.Model.EnchantmentType?)e.Type, e.Level)).ToList(),
+                    Enchantments = a.Enchantments?.Select(e => new Sky.Sniper.Client.Model.Enchantment(0, (Sky.Sniper.Client.Model.EnchantmentType?)e.Type, e.Level)).ToList() ?? new(),
                     FlatenedNBT = a.FlatenedNBT,
                     Reforge = (Sky.Sniper.Client.Model.Reforge?)a.Reforge,
                     Tier = (Sky.Sniper.Client.Model.Tier?)a.Tier,
