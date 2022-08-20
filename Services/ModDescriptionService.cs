@@ -30,6 +30,7 @@ namespace Coflnet.Sky.Api.Services
         private IdConverter idConverter;
         private IServiceScopeFactory scopeFactory;
         private BazaarApi bazaarApi;
+        private PlayerName.PlayerNameService playerNameService;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="ModDescriptionService"/> class.
@@ -41,13 +42,15 @@ namespace Coflnet.Sky.Api.Services
         /// <param name="idConverter"></param>
         /// <param name="scopeFactory"></param>
         /// <param name="bazaarApi"></param>
+        /// <param name="playerNameService"></param>
         public ModDescriptionService(ICraftsApi craftsApi,
                                      ISniperApi sniperApi,
                                      ITracer tracer,
                                      SettingsService settingsService,
                                      IdConverter idConverter,
                                      IServiceScopeFactory scopeFactory,
-                                     BazaarApi bazaarApi)
+                                     BazaarApi bazaarApi,
+                                     PlayerName.PlayerNameService playerNameService)
         {
             this.craftsApi = craftsApi;
             this.sniperApi = sniperApi;
@@ -56,6 +59,7 @@ namespace Coflnet.Sky.Api.Services
             this.idConverter = idConverter;
             this.scopeFactory = scopeFactory;
             this.bazaarApi = bazaarApi;
+            this.playerNameService = playerNameService;
         }
 
         private ConcurrentDictionary<string, SelfUpdatingValue<DescriptionSetting>> settings = new();
@@ -89,13 +93,13 @@ namespace Coflnet.Sky.Api.Services
         /// Get modifications for given inventory
         /// </summary>
         /// <param name="inventory"></param>
-        /// <param name="mcUuid"></param>
+        /// <param name="mcName"></param>
         /// <param name="sessionId"></param>
         /// <returns></returns>
-        public async Task<IEnumerable<IEnumerable<DescModification>>> GetModifications(InventoryData inventory, string mcUuid, string sessionId)
+        public async Task<IEnumerable<IEnumerable<DescModification>>> GetModifications(InventoryData inventory, string mcName, string sessionId)
         {
             List<(SaveAuction auction, IEnumerable<string> desc)> auctionRepresent = ConvertToAuctions(inventory);
-            var userSettings = await GetSettingForConid(mcUuid, sessionId);
+            var userSettings = await GetSettingForConid(mcName, sessionId);
 
             var allCraftsTask = craftsApi.CraftsAllGetAsync();
             List<Sniper.Client.Model.PriceEstimate> res = await GetPrices(auctionRepresent);
@@ -118,13 +122,15 @@ namespace Coflnet.Sky.Api.Services
                 var key = NBT.Instance.GetKeyId("uid");
                 using var scope = scopeFactory.CreateScope();
                 using var context = scope.ServiceProvider.GetRequiredService<HypixelContext>();
+                var nameRequest = playerNameService.GetUuid(mcName);
                 var lastSells = await context.Auctions
                             .Where(a => a.NBTLookup.Where(l => l.KeyId == key && numericIds.Keys.Contains(l.Value)).Any())
                             .Where(a => a.HighestBidAmount > 0)
                             .AsSplitQuery().AsNoTracking()
-                            .Select(a => new { a.HighestBidAmount, a.End, uid = a.NBTLookup.Where(l => l.KeyId == key).Select(l => l.Value).FirstOrDefault() })
+                            .Select(a => new { a.HighestBidAmount, a.End, a.AuctioneerId, uid = a.NBTLookup.Where(l => l.KeyId == key).Select(l => l.Value).FirstOrDefault() })
                             .ToListAsync();
-                pricesPaid = lastSells.GroupBy(l => l.uid).ToDictionary(g => numericIds[g.Key], g => g.OrderByDescending(a => a.End).First().HighestBidAmount);
+                var uuid = await nameRequest;
+                pricesPaid = lastSells.GroupBy(l => l.uid).ToDictionary(g => numericIds[g.Key], g => g.OrderByDescending(a => a.End).Where(s => s.AuctioneerId != uuid).First().HighestBidAmount);
             }
             var bazaarPrices = new Dictionary<string, Bazaar.Client.Model.ItemPrice>();
             if (inventory.Settings.Fields.Any(line => line.Contains(DescriptionField.BazaarBuy) || line.Contains(DescriptionField.BazaarSell)))
