@@ -145,26 +145,25 @@ namespace Coflnet.Hypixel.Controller
             {
                 throw new CoflnetException("payment_error", e.Message);
             }
-        }        
+        }
         /// <summary>
         /// Get adjusted prices
         /// </summary>
         /// <returns></returns>
         [Route("premium/user/owns")]
         [HttpPost]
-        public async Task<ActionResult<Sky.Api.Models.OwnerShip>> GetOwnerShips([FromBody] List<string> slugsToTest)
+        public async Task<ActionResult<Dictionary<string, Sky.Api.Models.OwnerShip>>> GetOwnerShips([FromBody] List<string> slugsToTest)
         {
             if (!TryGetUser(out GoogleUser user))
                 return Unauthorized("no googletoken header");
             try
             {
-                var owns = await userApi.UserUserIdOwnsPostAsync(user.Id.ToString(), slugsToTest);
+                var owns = await userApi.UserUserIdOwnsUntilPostAsync(user.Id.ToString(), slugsToTest);
                 if (owns == null)
                     return NotFound();
-                return Ok(owns.Where(o => o.Expires > DateTime.Now).Select(o=>new Sky.Api.Models.OwnerShip()
+                return Ok(owns.Where(o => o.Value > DateTime.Now).ToDictionary(o => o.Key, o => new Sky.Api.Models.OwnerShip()
                 {
-                    ProductSlug = o.Product.Slug,
-                    Expires = o.Expires
+                    ExpiresAt = o.Value
                 }));
             }
             catch (Exception e)
