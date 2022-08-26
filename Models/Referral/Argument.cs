@@ -1,7 +1,13 @@
 namespace Coflnet.Sky.Api.Models.Referral
 {
-    public class Argument
+    /// <summary>
+    /// Object containing referral code to give reward to
+    /// </summary>
+    public class ReferredBy
     {
+        /// <summary>
+        /// 
+        /// </summary>
         public string RefCode { get; set; }
     }
 }

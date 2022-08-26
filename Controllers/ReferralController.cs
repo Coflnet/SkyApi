@@ -50,7 +50,7 @@ namespace Coflnet.Hypixel.Controller
         /// <returns></returns>
         [Route("referred/by")]
         [HttpPost]
-        public async Task<IActionResult> TopupOptions([FromBody] Argument args)
+        public async Task<IActionResult> TopupOptions([FromBody] ReferredBy args)
         {
             if (!TryGetUser(out GoogleUser user))
                 return Unauthorized("no googletoken header");
