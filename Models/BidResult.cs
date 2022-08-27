@@ -7,6 +7,9 @@ using System.Linq;
 
 namespace Coflnet.Sky.Api.Models
 {
+    /// <summary>
+    /// Paginated bid result for player overview
+    /// </summary>
     [MessagePackObject]
     public class BidResult : AuctionResult
     {
@@ -16,6 +19,11 @@ namespace Coflnet.Sky.Api.Models
         [Key("highestOwn")]
         public long HighestOwnBid;
 
+        /// <summary>
+        /// Creates a new instance of <see cref="BidResult"/>
+        /// </summary>
+        /// <param name="a"></param>
+        /// <param name="userUuid"></param>
         public BidResult(SaveAuction a, string userUuid)
         {
             var highestOwn = a.Bids?.Where(bid => bid.Bidder == userUuid)
@@ -31,20 +39,9 @@ namespace Coflnet.Sky.Api.Models
             Tag = a.Tag;
         }
 
+        /// <summary>
+        /// Creates a new instance of <see cref="BidResult"/>
+        /// </summary>
         public BidResult() { }
-    }
-
-
-    [MessagePackObject]
-    public class PaginatedRequest
-    {
-        [Key("uuid")]
-        public string Uuid;
-
-        [Key("amount")]
-        public int Amount;
-
-        [Key("offset")]
-        public int Offset;
     }
 }
