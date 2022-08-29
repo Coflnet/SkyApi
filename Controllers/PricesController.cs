@@ -84,7 +84,7 @@ namespace Coflnet.Hypixel.Controller
             return await priceService.GetCurrentPrice(itemTag, count);
         }
         /// <summary>
-        /// Gets the price history for an item
+        /// Gets the price history for an item for the last 24 hours
         /// </summary>
         /// <param name="itemTag">The tag of the item</param>
         /// <param name="query">filter query</param>
@@ -97,7 +97,7 @@ namespace Coflnet.Hypixel.Controller
             return await priceService.GetHistory(itemTag, DateTime.UtcNow - TimeSpan.FromDays(1), DateTime.UtcNow, new Dictionary<string, string>(query));
         }
         /// <summary>
-        /// Gets the price history for an item
+        /// Gets the price history for an item for the last 7 days
         /// </summary>
         /// <param name="itemTag">The tag of the item</param>
         /// <param name="query">filter query</param>
