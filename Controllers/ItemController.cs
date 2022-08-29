@@ -70,7 +70,7 @@ namespace Coflnet.Hypixel.Controller
         }
 
         /// <summary>
-        /// A list of item tags (hypixel ids) that are tradeable on bazaar
+        /// Returns details about a specific item
         /// This gets updated once every hour
         /// </summary>
         /// <returns></returns>
