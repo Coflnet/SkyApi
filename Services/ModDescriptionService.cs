@@ -15,6 +15,7 @@ using Coflnet.Sky.Sniper.Client.Api;
 using Confluent.Kafka;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Converters;
 using OpenTracing;
@@ -31,6 +32,7 @@ namespace Coflnet.Sky.Api.Services
         private IServiceScopeFactory scopeFactory;
         private BazaarApi bazaarApi;
         private PlayerName.PlayerNameService playerNameService;
+        private ILogger<ModDescriptionService> logger;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="ModDescriptionService"/> class.
@@ -50,7 +52,8 @@ namespace Coflnet.Sky.Api.Services
                                      IdConverter idConverter,
                                      IServiceScopeFactory scopeFactory,
                                      BazaarApi bazaarApi,
-                                     PlayerName.PlayerNameService playerNameService)
+                                     PlayerName.PlayerNameService playerNameService,
+                                     ILogger<ModDescriptionService> logger)
         {
             this.craftsApi = craftsApi;
             this.sniperApi = sniperApi;
@@ -60,6 +63,7 @@ namespace Coflnet.Sky.Api.Services
             this.scopeFactory = scopeFactory;
             this.bazaarApi = bazaarApi;
             this.playerNameService = playerNameService;
+            this.logger = logger;
         }
 
         private ConcurrentDictionary<string, SelfUpdatingValue<DescriptionSetting>> settings = new();
@@ -265,7 +269,8 @@ namespace Coflnet.Sky.Api.Services
                                     content += $"{McColorCodes.GRAY}craft: {McColorCodes.YELLOW}{FormatNumber((long)craftPrice)} ";
                                 break;
                             default:
-                                throw new ArgumentOutOfRangeException();
+                                logger.LogError("Invalid description type " + item);
+                                break;
                         }
                     }
                     if (content.Length > 0)
