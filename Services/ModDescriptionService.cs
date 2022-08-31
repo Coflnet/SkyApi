@@ -349,22 +349,31 @@ namespace Coflnet.Sky.Api.Services
             return result;
         }
 
-        private static List<(SaveAuction auction, IEnumerable<string> desc)> ConvertToAuctions(InventoryData inventory)
+        private List<(SaveAuction auction, IEnumerable<string> desc)> ConvertToAuctions(InventoryData inventory)
         {
             var nbt = NBT.File(Convert.FromBase64String(inventory.FullInventoryNbt));
             var auctionRepresent = nbt.RootTag.Get<fNbt.NbtList>("i").Select(t =>
             {
-                var compound = t as fNbt.NbtCompound;
+                try
+                {
 
-                if (compound.Count == 0)
+                    var compound = t as fNbt.NbtCompound;
+
+                    if (compound.Count == 0)
+                        return (null, new string[0]);
+                    var auction = new SaveAuction();
+                    auction.Context = new Dictionary<string, string>();
+                    NBT.FillFromTag(auction, compound, true);
+                    var desc = NBT.GetLore(compound);
+                    //Console.WriteLine(JsonConvert.SerializeObject(auction));
+                    //Console.WriteLine(JsonConvert.SerializeObject(auction.Context));
+                    return (auction, desc);
+                }
+                catch (System.Exception e)
+                {
+                    logger.LogError(e, "parsing nbt to auction");
                     return (null, new string[0]);
-                var auction = new SaveAuction();
-                auction.Context = new Dictionary<string, string>();
-                NBT.FillFromTag(auction, compound, true);
-                var desc = NBT.GetLore(compound);
-                //Console.WriteLine(JsonConvert.SerializeObject(auction));
-                //Console.WriteLine(JsonConvert.SerializeObject(auction.Context));
-                return (auction, desc);
+                }
             }).ToList();
             return auctionRepresent;
         }
