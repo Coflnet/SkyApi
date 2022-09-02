@@ -45,6 +45,7 @@ namespace Coflnet.Sky.Api.Services
         /// <param name="scopeFactory"></param>
         /// <param name="bazaarApi"></param>
         /// <param name="playerNameService"></param>
+        /// <param name="logger"></param>
         public ModDescriptionService(ICraftsApi craftsApi,
                                      ISniperApi sniperApi,
                                      ITracer tracer,
@@ -356,7 +357,6 @@ namespace Coflnet.Sky.Api.Services
             {
                 try
                 {
-
                     var compound = t as fNbt.NbtCompound;
 
                     if (compound.Count == 0)
@@ -365,8 +365,6 @@ namespace Coflnet.Sky.Api.Services
                     auction.Context = new Dictionary<string, string>();
                     NBT.FillFromTag(auction, compound, true);
                     var desc = NBT.GetLore(compound);
-                    //Console.WriteLine(JsonConvert.SerializeObject(auction));
-                    //Console.WriteLine(JsonConvert.SerializeObject(auction.Context));
                     return (auction, desc);
                 }
                 catch (System.Exception e)
