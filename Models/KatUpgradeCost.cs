@@ -3,8 +3,15 @@ using Newtonsoft.Json;
 
 namespace Coflnet.Sky.Api.Models
 {
+    /// <summary>
+    /// Information on requirements to upgrade a pet to another rarity
+    /// </summary>
     public class KatUpgradeCost
     {
+        /// <summary>
+        /// Creates a new instance copying from the crafts service
+        /// </summary>
+        /// <param name="cost"></param>
         public KatUpgradeCost(Coflnet.Sky.Crafts.Client.Model.KatUpgradeCost cost)
         {
             Name = cost.Name;
