@@ -3,8 +3,15 @@ using Coflnet.Sky.Core;
 
 namespace Coflnet.Sky.Api.Models
 {
+    /// <summary>
+    /// Kat pet rarity upgrade flip
+    /// </summary>
     public class KatFlip
     {
+        /// <summary>
+        /// Creates a new instance of <see cref="KatFlip"/>
+        /// </summary>
+        /// <param name="up"></param>
         public KatFlip(Crafts.Client.Model.KatUpgradeResult up)
         {
             this.CoreData = new(up.CoreData);
@@ -17,35 +24,38 @@ namespace Coflnet.Sky.Api.Models
             this.PurchaseCost = up.PurchaseCost;
             this.OriginAuctionName = up.OriginAuctionName;
         }
+        /// <summary>
+        /// The amount of coins the upgrade costs (excluding materials)
+        /// </summary>
         public double UpgradeCost { get; }
-        //
-        // Summary:
-        //     Gets or Sets MaterialCost
+        /// <summary>
+        /// The cost for materials at current bazaar/ah rate
+        /// </summary>
         [DataMember(Name = "materialCost", EmitDefaultValue = false)]
         public double MaterialCost { get; }
-        //
-        // Summary:
-        //     Gets or Sets OriginAuction
+        /// <summary>
+        /// The auction to flip
+        /// </summary>
         [DataMember(Name = "originAuction", EmitDefaultValue = true)]
         public string OriginAuction { get; set; }
-        //
-        // Summary:
-        //     Gets or Sets CoreData
+        /// <summary>
+        /// Static data for upgrading this pet
+        /// </summary>
         [DataMember(Name = "coreData", EmitDefaultValue = false)]
         public KatUpgradeCost CoreData { get; set; }
-        //
-        // Summary:
-        //     Gets or Sets TargetRarity
+        /// <summary>
+        /// The rarity the pet will be upgraded to
+        /// </summary>
         [DataMember(Name = "targetRarity", EmitDefaultValue = false)]
         public Tier? TargetRarity { get; set; }
-        //
-        // Summary:
-        //     Gets or Sets Profit
+        /// <summary>
+        /// The estimated profit the flip will genreate
+        /// </summary>
         [DataMember(Name = "profit", EmitDefaultValue = false)]
         public double Profit { get; }
-        //
-        // Summary:
-        //     Gets or Sets ReferenceAuction
+        /// <summary>
+        /// The reference auction used to estimate the profit (lowest bin of higher rarity)
+        /// </summary>
         [DataMember(Name = "referenceAuction", EmitDefaultValue = true)]
         public string ReferenceAuction { get; set; }
         /// <summary>
