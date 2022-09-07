@@ -236,6 +236,9 @@ namespace Coflnet.Sky.Api.Services
                             case DescriptionField.MEDIAN_KEY:
                                 content += $"Med-Key: {price.MedianKey}";
                                 break;
+                            case DescriptionField.ITEM_KEY:
+                                content += $"Item-Key: {price.ItemKey}";
+                                break;
                             case DescriptionField.VOLUME:
                                 if (price.Median != 0)
                                     content += $"{McColorCodes.GRAY}Vol: {McColorCodes.YELLOW}{price.Volume.ToString("0.#")} ";
