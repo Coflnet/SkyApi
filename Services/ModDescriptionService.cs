@@ -26,6 +26,7 @@ namespace Coflnet.Sky.Api.Services
     {
         private ICraftsApi craftsApi;
         private ISniperApi sniperApi;
+        private RestSharp.RestClient sniperClient;
         private ITracer tracer;
         private SettingsService settingsService;
         private IdConverter idConverter;
@@ -65,6 +66,7 @@ namespace Coflnet.Sky.Api.Services
             this.bazaarApi = bazaarApi;
             this.playerNameService = playerNameService;
             this.logger = logger;
+            sniperClient = new(sniperApi.GetBasePath());
         }
 
         private ConcurrentDictionary<string, SelfUpdatingValue<DescriptionSetting>> settings = new();
@@ -123,7 +125,9 @@ namespace Coflnet.Sky.Api.Services
             var pricesPaid = new Dictionary<string, long>();
             if (inventory.Settings.Fields.Any(line => line.Contains(DescriptionField.PRICE_PAID)))
             {
-                var numericIds = auctionRepresent.Where(a => a.auction != null).Select(a => a.auction.FlatenedNBT.GetValueOrDefault("uid")).Where(v => v != null).ToDictionary(uid => GetUidFromString(uid));
+                var numericIds = auctionRepresent.Where(a => a.auction != null)
+                        .Select(a => a.auction.FlatenedNBT?.GetValueOrDefault("uid")).Where(v => v != null)
+                        .ToDictionary(uid => GetUidFromString(uid));
                 var key = NBT.Instance.GetKeyId("uid");
                 using var scope = scopeFactory.CreateScope();
                 using var context = scope.ServiceProvider.GetRequiredService<HypixelContext>();
@@ -257,7 +261,7 @@ namespace Coflnet.Sky.Api.Services
                                     content += $"{McColorCodes.GRAY}Sell: {McColorCodes.GOLD}{FormatNumber(bazaarPrices[tag].SellPrice)} ";
                                 break;
                             case DescriptionField.PRICE_PAID:
-                                if (auction.FlatenedNBT.ContainsKey("uid"))
+                                if (auction.FlatenedNBT != null && auction.FlatenedNBT.ContainsKey("uid"))
                                 {
                                     var uid = auction.FlatenedNBT["uid"];
                                     if (pricesPaid.ContainsKey(uid))
@@ -273,6 +277,7 @@ namespace Coflnet.Sky.Api.Services
                                     content += $"{McColorCodes.GRAY}craft: {McColorCodes.YELLOW}{FormatNumber((long)craftPrice)} ";
                                 break;
                             default:
+                                if(Random.Shared.Next() % 100 == 0)
                                 logger.LogError("Invalid description type " + item);
                                 break;
                         }
@@ -361,7 +366,6 @@ namespace Coflnet.Sky.Api.Services
                 try
                 {
                     var compound = t as fNbt.NbtCompound;
-
                     if (compound.Count == 0)
                         return (null, new string[0]);
                     var auction = new SaveAuction();
@@ -381,7 +385,12 @@ namespace Coflnet.Sky.Api.Services
 
         private async Task<List<Sniper.Client.Model.PriceEstimate>> GetPrices(List<(SaveAuction auction, IEnumerable<string> desc)> auctionRepresent)
         {
-            return await sniperApi.ApiSniperPricePostAsync(auctionRepresent.Select(el =>
+            var request = new RestSharp.RestRequest("/api/sniper/prices", RestSharp.Method.POST);
+            request.AddJsonBody(Convert.ToBase64String(MessagePack.LZ4MessagePackSerializer.Serialize(auctionRepresent.Select(a => a.auction))));
+
+            var respone = await sniperClient.ExecuteAsync(request);
+            return JsonConvert.DeserializeObject<List<Sniper.Client.Model.PriceEstimate>>(respone.Content);
+            /*return await sniperApi.ApiSniperPricePostAsync(auctionRepresent.Select(el =>
             {
                 var a = el.auction;
                 if (a == null)
@@ -395,7 +404,7 @@ namespace Coflnet.Sky.Api.Services
                     Tier = (Sky.Sniper.Client.Model.Tier?)a.Tier,
                     Tag = a.Tag
                 };
-            }).ToList());
+            }).ToList());*/
         }
 
         private string FormatNumber(double price)
