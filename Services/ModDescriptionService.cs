@@ -152,7 +152,7 @@ namespace Coflnet.Sky.Api.Services
             {
                 var desc = auctionRepresent[i].desc;
                 var auction = auctionRepresent[i].auction;
-                var price = res[i];
+                var price = res?[i];
                 if (desc == null || price == null)
                 {
                     span.Log(JsonConvert.SerializeObject(desc) + JsonConvert.SerializeObject(auction));
@@ -227,14 +227,14 @@ namespace Coflnet.Sky.Api.Services
                         switch (item)
                         {
                             case DescriptionField.LBIN:
-                                if (price.Lbin.Price != 0)
+                                if (price != null && price.Lbin.Price != 0)
                                     content += $"{McColorCodes.GRAY}lbin: {McColorCodes.YELLOW}{FormatNumber(price.Lbin.Price)} ";
                                 break;
                             case DescriptionField.LBIN_KEY:
                                 content += $"Lbin-Key: {price.LbinKey} ";
                                 break;
                             case DescriptionField.MEDIAN:
-                                if (price.Median != 0)
+                                if (price != null && price.Median != 0)
                                     content += $"{McColorCodes.GRAY}Med: {McColorCodes.AQUA}{FormatNumber(price.Median)} ";
                                 break;
                             case DescriptionField.MEDIAN_KEY:
@@ -244,7 +244,7 @@ namespace Coflnet.Sky.Api.Services
                                 content += $"Item-Key: {price.ItemKey}";
                                 break;
                             case DescriptionField.VOLUME:
-                                if (price.Median != 0)
+                                if (price != null && price.Median != 0)
                                     content += $"{McColorCodes.GRAY}Vol: {McColorCodes.YELLOW}{price.Volume.ToString("0.#")} ";
                                 break;
                             case DescriptionField.TAG:
