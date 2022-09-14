@@ -38,7 +38,7 @@ namespace Coflnet.Hypixel.Controller
             this.refApi = refApi;
             this.premiumService = premiumService;
             this.db = db;
-            Console.WriteLine(GetId("ZQWKaQ"));
+            Console.WriteLine(GetId("rpOwlQ"));
             Console.WriteLine(GetId("oD65nQ"));
             Console.WriteLine(GetId("9gKwV9"));
         }

@@ -94,6 +94,10 @@ namespace Coflnet.Sky.Api
             services.AddSingleton<IRateLimitCounterStore, DistributedCacheRateLimitCounterStore>();
             services.AddSingleton<IRateLimitConfiguration, RateLimitConfiguration>();
             services.AddCoflService();
+            services.AddSingleton<Sky.Mayor.Client.Api.IElectionPeriodsApi>(a =>
+            {
+                return new Sky.Mayor.Client.Api.ElectionPeriodsApi(Configuration["MAYOR_BASE_URL"]);
+            });
 
             services.AddSingleton<TfmService>();
             services.AddSingleton<ModDescriptionService>();
