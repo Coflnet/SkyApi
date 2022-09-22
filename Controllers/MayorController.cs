@@ -39,15 +39,17 @@ public class MayorController : ControllerBase
     }
 
     /// <summary>
-    /// Get multiple years
+    /// Gets election data between two unix timestamps (milliseconds)
     /// </summary>
+    /// <param name="from">Start unix timestamp (milliseconds)</param>
+    /// <param name="to">End unix timestamp (milliseconds)</param>
     /// <returns></returns>
     [Route("")]
     [HttpGet]
     [ResponseCache(Duration = 120, Location = ResponseCacheLocation.Any, NoStore = false, VaryByQueryKeys = new string[] { "from", "to" })]
-    public async Task<IEnumerable<ModelElectionPeriod>> GetMultiple(int from, int to)
+    public async Task<IEnumerable<ModelElectionPeriod>> GetMultiple(long from, long to)
     {
-        return await mayorService.ElectionPeriodRangeFromToGetAsync(from, to);
+        return await mayorService.ElectionPeriodRangeGetAsync(from, to);
     }
 }
 

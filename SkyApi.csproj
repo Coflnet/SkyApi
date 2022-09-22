@@ -41,7 +41,7 @@
     <PackageReference Include="prometheus-net.AspNetCore" Version="5.0.2" />
     <PackageReference Include="Swashbuckle.AspNetCore" Version="6.1.5" />
     <PackageReference Include="Swashbuckle.AspNetCore.Newtonsoft" Version="6.2.3" />
-    <PackageReference Include="Coflnet.Sky.Mayor.Client" Version="0.0.1" />
+    <PackageReference Include="Coflnet.Sky.Mayor.Client" Version="0.1.0" />
   </ItemGroup>
 
 </Project>
