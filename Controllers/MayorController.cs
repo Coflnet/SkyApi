@@ -32,7 +32,7 @@ public class MayorController : ControllerBase
     /// <returns></returns>
     [Route("{year}")]
     [HttpGet]
-    [ResponseCache(Duration = 120, Location = ResponseCacheLocation.Any, NoStore = false)]
+    [ResponseCache(Duration = 3600, Location = ResponseCacheLocation.Any, NoStore = false)]
     public async Task<ModelElectionPeriod> GetYear(int year)
     {
         return await mayorService.ElectionPeriodYearGetAsync(year);
@@ -46,7 +46,7 @@ public class MayorController : ControllerBase
     /// <returns></returns>
     [Route("")]
     [HttpGet]
-    [ResponseCache(Duration = 120, Location = ResponseCacheLocation.Any, NoStore = false, VaryByQueryKeys = new string[] { "from", "to" })]
+    [ResponseCache(Duration = 600, Location = ResponseCacheLocation.Any, NoStore = false, VaryByQueryKeys = new string[] { "from", "to" })]
     public async Task<IEnumerable<ModelElectionPeriod>> GetMultiple(long from, long to)
     {
         return await mayorService.ElectionPeriodRangeGetAsync(from, to);
