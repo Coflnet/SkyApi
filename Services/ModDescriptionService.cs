@@ -19,6 +19,7 @@ using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Converters;
 using OpenTracing;
+using RestSharp;
 
 namespace Coflnet.Sky.Api.Services
 {
@@ -385,7 +386,7 @@ namespace Coflnet.Sky.Api.Services
 
         private async Task<List<Sniper.Client.Model.PriceEstimate>> GetPrices(List<(SaveAuction auction, IEnumerable<string> desc)> auctionRepresent)
         {
-            var request = new RestSharp.RestRequest("/api/sniper/prices", RestSharp.Method.POST);
+            var request = new RestRequest("/api/sniper/prices", RestSharp.Method.Post);
             request.AddJsonBody(Convert.ToBase64String(MessagePack.LZ4MessagePackSerializer.Serialize(auctionRepresent.Select(a => a.auction))));
 
             var respone = await sniperClient.ExecuteAsync(request);
