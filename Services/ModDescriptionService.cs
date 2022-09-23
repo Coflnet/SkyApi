@@ -402,7 +402,15 @@ namespace Coflnet.Sky.Api.Services
             request.AddJsonBody(Convert.ToBase64String(MessagePack.LZ4MessagePackSerializer.Serialize(auctionRepresent.Select(a => a.auction))));
 
             var respone = await sniperClient.ExecuteAsync(request);
-            return JsonConvert.DeserializeObject<List<Sniper.Client.Model.PriceEstimate>>(respone.Content);
+            try
+            {
+                return JsonConvert.DeserializeObject<List<Sniper.Client.Model.PriceEstimate>>(respone.Content);
+            }
+            catch (System.Exception)
+            {
+                logger.LogError("responded with " + respone.StatusCode + respone.Content);
+                throw;
+            }
             /*return await sniperApi.ApiSniperPricePostAsync(auctionRepresent.Select(el =>
             {
                 var a = el.auction;
