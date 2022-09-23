@@ -217,76 +217,88 @@ namespace Coflnet.Sky.Api.Services
             //    mods.Add(new DescModification(DescModification.ModType.REPLACE, desc.Count() - 1, "Click to open"));
             if (auction.Tag == null)
             { //add nothing for now
+                return mods;
             }
-            else
+
+            foreach (var line in enabledFields)
             {
-                foreach (var line in enabledFields)
+                var content = "";
+                foreach (var item in line)
                 {
-                    var content = "";
-                    foreach (var item in line)
+                    switch (item)
                     {
-                        switch (item)
-                        {
-                            case DescriptionField.LBIN:
-                                if (price != null && price.Lbin.Price != 0)
-                                    content += $"{McColorCodes.GRAY}lbin: {McColorCodes.YELLOW}{FormatNumber(price.Lbin.Price)} ";
-                                break;
-                            case DescriptionField.LBIN_KEY:
-                                content += $"Lbin-Key: {price.LbinKey} ";
-                                break;
-                            case DescriptionField.MEDIAN:
-                                if (price != null && price.Median != 0)
-                                    content += $"{McColorCodes.GRAY}Med: {McColorCodes.AQUA}{FormatNumber(price.Median)} ";
-                                break;
-                            case DescriptionField.MEDIAN_KEY:
-                                content += $"Med-Key: {price.MedianKey}";
-                                break;
-                            case DescriptionField.ITEM_KEY:
-                                content += $"Item-Key: {price.ItemKey}";
-                                break;
-                            case DescriptionField.VOLUME:
-                                if (price != null && price.Median != 0)
-                                    content += $"{McColorCodes.GRAY}Vol: {McColorCodes.YELLOW}{price.Volume.ToString("0.#")} ";
-                                break;
-                            case DescriptionField.TAG:
-                                content += $"{auction.Tag} ";
-                                break;
-                            case DescriptionField.BazaarBuy:
-                                string tag = GetBazaarTag(auction);
-                                if (bazaarPrices.ContainsKey(tag))
-                                    content += $"{McColorCodes.GRAY}Buy: {McColorCodes.GOLD}{FormatNumber(bazaarPrices[tag].BuyPrice)} ";
-                                break;
-                            case DescriptionField.BazaarSell:
-                                tag = GetBazaarTag(auction);
-                                if (bazaarPrices.ContainsKey(tag))
-                                    content += $"{McColorCodes.GRAY}Sell: {McColorCodes.GOLD}{FormatNumber(bazaarPrices[tag].SellPrice)} ";
-                                break;
-                            case DescriptionField.PRICE_PAID:
-                                if (auction.FlatenedNBT != null && auction.FlatenedNBT.ContainsKey("uid"))
+                        case DescriptionField.LBIN:
+                            if (price != null && price.Lbin.Price != 0)
+                            {
+                                content += $"{McColorCodes.GRAY}lbin: {McColorCodes.YELLOW}{FormatNumber(price.Lbin.Price)} ";
+                                if (auction.Count > 1)
                                 {
-                                    var uid = auction.FlatenedNBT["uid"];
-                                    if (pricesPaid.ContainsKey(uid))
-                                        content += $"{McColorCodes.GRAY}Paid: {McColorCodes.YELLOW}{FormatNumber(pricesPaid[uid])} ";
+                                    content += $"({FormatNumber(price.Lbin.Price / auction.Count)} each)";
                                 }
-                                break;
-                            case DescriptionField.CRAFT_COST:
-                                if (!craftPrice.HasValue)
-                                    continue;
-                                if (craftPrice.Value >= int.MaxValue)
-                                    content += $"craft: unavailable ingredients ";
-                                else
-                                    content += $"{McColorCodes.GRAY}craft: {McColorCodes.YELLOW}{FormatNumber((long)craftPrice)} ";
-                                break;
-                            default:
-                                if(Random.Shared.Next() % 100 == 0)
+                            }
+                            break;
+                        case DescriptionField.LBIN_KEY:
+                            content += $"Lbin-Key: {price.LbinKey} ";
+                            break;
+                        case DescriptionField.MEDIAN:
+                            if (price != null && price.Median != 0)
+                            {
+                                content += $"{McColorCodes.GRAY}Med: {McColorCodes.AQUA}{FormatNumber(price.Median)} ";
+                                if (auction.Count > 1)
+                                {
+                                    content += $"({FormatNumber(price.Median / auction.Count)} each)";
+                                }
+                            }
+                            break;
+                        case DescriptionField.MEDIAN_KEY:
+                            content += $"Med-Key: {price.MedianKey}";
+                            break;
+                        case DescriptionField.ITEM_KEY:
+                            content += $"Item-Key: {price.ItemKey}";
+                            break;
+                        case DescriptionField.VOLUME:
+                            if (price != null && price.Median != 0)
+                                content += $"{McColorCodes.GRAY}Vol: {McColorCodes.YELLOW}{price.Volume.ToString("0.#")} ";
+                            break;
+                        case DescriptionField.TAG:
+                            content += $"{auction.Tag} ";
+                            break;
+                        case DescriptionField.BazaarBuy:
+                            string tag = GetBazaarTag(auction);
+                            if (bazaarPrices.ContainsKey(tag))
+                                content += $"{McColorCodes.GRAY}Buy: {McColorCodes.GOLD}{FormatNumber(bazaarPrices[tag].BuyPrice)} ";
+                            break;
+                        case DescriptionField.BazaarSell:
+                            tag = GetBazaarTag(auction);
+                            if (bazaarPrices.ContainsKey(tag))
+                                content += $"{McColorCodes.GRAY}Sell: {McColorCodes.GOLD}{FormatNumber(bazaarPrices[tag].SellPrice)} ";
+                            break;
+                        case DescriptionField.PRICE_PAID:
+                            if (auction.FlatenedNBT != null && auction.FlatenedNBT.ContainsKey("uid"))
+                            {
+                                var uid = auction.FlatenedNBT["uid"];
+                                if (pricesPaid.ContainsKey(uid))
+                                    content += $"{McColorCodes.GRAY}Paid: {McColorCodes.YELLOW}{FormatNumber(pricesPaid[uid])} ";
+                            }
+                            break;
+                        case DescriptionField.CRAFT_COST:
+                            if (!craftPrice.HasValue)
+                                continue;
+                            if (craftPrice.Value >= int.MaxValue)
+                                content += $"craft: unavailable ingredients ";
+                            else
+                                content += $"{McColorCodes.GRAY}craft: {McColorCodes.YELLOW}{FormatNumber((long)craftPrice)} ";
+                            break;
+                        default:
+                            if (Random.Shared.Next() % 100 == 0)
                                 logger.LogError("Invalid description type " + item);
-                                break;
-                        }
+                            break;
                     }
-                    if (content.Length > 0)
-                        mods.Add(new DescModification(content));
                 }
+                if (content.Length > 0)
+                    mods.Add(new DescModification(content));
             }
+
 
             return mods;
         }
