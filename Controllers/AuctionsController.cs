@@ -163,7 +163,7 @@ namespace Coflnet.Hypixel.Controller
         [Route("auctions/batch")]
         [HttpGet]
         [ResponseCache(Duration = 1800, Location = ResponseCacheLocation.Any, NoStore = false, VaryByQueryKeys = new string[] { "page" })]
-        public async Task GetHistory(int page = 0, string token = "")
+        public async Task GetHistory(string page = "last", string token = "")
         {
             var pageSize = 100_000;
             var baseStart = 400_000_000;
@@ -179,11 +179,17 @@ namespace Coflnet.Hypixel.Controller
             var totalAuctions = await context.Auctions.MaxAsync(a => a.Id);
             if (totalAuctions < 100_000_000)
                 baseStart /= 10;
-            Response.Headers.Add("X-Page-Count", ((totalAuctions - baseStart) / pageSize).ToString());
+            var lastPage = (totalAuctions - baseStart) / pageSize;
+            Response.Headers.Add("X-Page-Count", lastPage.ToString());
             Response.Headers.Add("X-Total-Count", totalAuctions.ToString());
 
+            if (!int.TryParse(page, out int pageNum))
+            {
+                await HttpResponseWritingExtensions.WriteAsync(this.Response, transformer.GetHeader());
+                pageNum = lastPage;
+            }
             foreach (var item in context.Auctions
-                        .Where(a => a.Id >= baseStart + pageSize * page && a.Id < baseStart + pageSize * (page + 1) && a.HighestBidAmount > 0)
+                        .Where(a => a.Id >= baseStart + pageSize * pageNum && a.Id < baseStart + pageSize * (pageNum + 1) && a.HighestBidAmount > 0)
                         .Include(a => a.Enchantments)
                         .Include(a => a.NbtData))
             {

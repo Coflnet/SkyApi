@@ -117,6 +117,11 @@ namespace Coflnet.Sky.Api.Services
             new(){Label="td_attune_mode", Type="numeric"}
         };
 
+        public string GetHeader()
+        {
+            return "uuid,item_id,price," + string.Join(',', Order.Select(o => o.Label));
+        }
+
         public string Transform(SaveAuction auction)
         {
             var itemTag = auction.Tag;
