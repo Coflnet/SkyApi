@@ -17,6 +17,10 @@ using Coflnet.Sky.Api.Models;
 using Coflnet.Sky.Commands.Shared;
 using static Coflnet.Sky.Core.ItemPrices;
 using Coflnet.Sky.PlayerName;
+using Microsoft.AspNetCore.Http;
+using Coflnet.Sky.Api.Services;
+using System.Security.Cryptography;
+using System.Text;
 
 namespace Coflnet.Hypixel.Controller
 {
@@ -148,6 +152,41 @@ namespace Coflnet.Hypixel.Controller
                         .Take(pageSize).ToListAsync();
 
             return result;
+        }
+
+        /// <summary>
+        /// Batch raw item value export (private)
+        /// </summary>
+        /// <param name="page">Page of auctions to get</param>
+        /// <param name="token"></param>
+        /// <returns></returns>
+        [Route("auctions/batch")]
+        [HttpGet]
+        [ResponseCache(Duration = 1800, Location = ResponseCacheLocation.Any, NoStore = false, VaryByQueryKeys = new string[] { "page" })]
+        public async Task GetHistory(int page = 0, string token = "")
+        {
+            var pageSize = 100_000;
+            var baseStart = 300_000_000;
+            var transformer = new AuctionConverter();
+
+            var tokens = config.GetSection("PartnerTokenHashes").Get<string[]>();
+            using (var mySHA256 = SHA256.Create())
+            {
+                var hash = mySHA256.ComputeHash(Encoding.UTF8.GetBytes(token));
+                if(!tokens.Contains(BitConverter.ToString(hash).Replace("-","")))
+                    throw new CoflnetException("invalid_token", "the passed token is not whitelisted");
+            }
+
+            foreach (var item in context.Auctions
+                        .Where(a => a.Id >= baseStart + pageSize * page && a.Id < baseStart + pageSize *( page +1) && a.HighestBidAmount > 0)
+                        .Include(a => a.Enchantments)
+                        .Include(a => a.NbtData))
+            {
+
+                await HttpResponseWritingExtensions.WriteAsync(this.Response, transformer.Transform(item));
+            } 
+
+          //  return result;
         }
         /// <summary>
         /// Gets a preview of recent auctions useful in overviews
