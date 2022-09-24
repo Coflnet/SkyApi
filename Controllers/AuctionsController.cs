@@ -166,7 +166,7 @@ namespace Coflnet.Hypixel.Controller
         public async Task GetHistory(int page = 0, string token = "")
         {
             var pageSize = 100_000;
-            var baseStart = 300_000_000;
+            var baseStart = 400_000_000;
             var transformer = new AuctionConverter();
 
             var tokens = config.GetSection("PartnerTokenHashes").Get<string[]>();
