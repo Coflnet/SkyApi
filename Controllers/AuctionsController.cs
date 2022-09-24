@@ -70,7 +70,7 @@ namespace Coflnet.Hypixel.Controller
         public async Task<EnchantColorMapper.ColorSaveAuction> getAuctionDetails(string auctionUuid)
         {
             var uid = auctionService.GetId(auctionUuid);
-            var result = await context.Auctions.Where(a=>a.UId == uid)
+            var result = await context.Auctions.Where(a => a.UId == uid)
                         .Include(a => a.Enchantments)
                         .Include(a => a.NbtData)
                         .Include(a => a.Bids).FirstOrDefaultAsync();
@@ -88,7 +88,7 @@ namespace Coflnet.Hypixel.Controller
         [ResponseCache(Duration = 3, Location = ResponseCacheLocation.Any, NoStore = false)]
         public string getAuctionUid(string auctionUuid)
         {
-            if(auctionUuid.Length < 30)
+            if (auctionUuid.Length < 30)
                 return auctionService.GetUuid(long.Parse(auctionUuid));
             return auctionService.GetId(auctionUuid).ToString();
         }
@@ -155,10 +155,10 @@ namespace Coflnet.Hypixel.Controller
         }
 
         /// <summary>
-        /// Batch raw item value export (private)
+        /// Batch raw item value export, requires token
         /// </summary>
         /// <param name="page">Page of auctions to get</param>
-        /// <param name="token"></param>
+        /// <param name="token">Secret token to access data</param>
         /// <returns></returns>
         [Route("auctions/batch")]
         [HttpGet]
@@ -173,20 +173,24 @@ namespace Coflnet.Hypixel.Controller
             using (var mySHA256 = SHA256.Create())
             {
                 var hash = mySHA256.ComputeHash(Encoding.UTF8.GetBytes(token));
-                if(!tokens.Contains(BitConverter.ToString(hash).Replace("-","")))
+                if (!tokens.Contains(BitConverter.ToString(hash).Replace("-", "")))
                     throw new CoflnetException("invalid_token", "the passed token is not whitelisted");
             }
+            var totalAuctions = await context.Auctions.MaxAsync(a => a.Id);
+            if (totalAuctions < 100_000_000)
+                baseStart /= 10;
+            Response.Headers.Add("X-Total-Count", totalAuctions.ToString());
 
             foreach (var item in context.Auctions
-                        .Where(a => a.Id >= baseStart + pageSize * page && a.Id < baseStart + pageSize *( page +1) && a.HighestBidAmount > 0)
+                        .Where(a => a.Id >= baseStart + pageSize * page && a.Id < baseStart + pageSize * (page + 1) && a.HighestBidAmount > 0)
                         .Include(a => a.Enchantments)
                         .Include(a => a.NbtData))
             {
 
                 await HttpResponseWritingExtensions.WriteAsync(this.Response, transformer.Transform(item));
-            } 
+            }
 
-          //  return result;
+            //  return result;
         }
         /// <summary>
         /// Gets a preview of recent auctions useful in overviews
@@ -255,9 +259,9 @@ namespace Coflnet.Hypixel.Controller
 
             var result = await select.ToListAsync();
             var names = await playerNameService.GetNames(result.Select(a => a.AuctioneerId).ToList());
-            if(names == null)
+            if (names == null)
                 names = new Dictionary<string, string>();
-            return result.Select( a => new AuctionPreview()
+            return result.Select(a => new AuctionPreview()
             {
                 End = a.End,
                 Price = a.HighestBidAmount == 0 ? a.StartingBid : a.HighestBidAmount,
