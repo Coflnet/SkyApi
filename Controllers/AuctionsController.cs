@@ -179,6 +179,7 @@ namespace Coflnet.Hypixel.Controller
             var totalAuctions = await context.Auctions.MaxAsync(a => a.Id);
             if (totalAuctions < 100_000_000)
                 baseStart /= 10;
+            Response.Headers.Add("X-Page-Count", ((totalAuctions - baseStart) / pageSize).ToString());
             Response.Headers.Add("X-Total-Count", totalAuctions.ToString());
 
             foreach (var item in context.Auctions
