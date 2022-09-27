@@ -105,7 +105,7 @@ namespace Coflnet.Hypixel.Controller
                 if (flip.Volume > 2)
                     result.Add(flip);
             }
-            return result;
+            return result.OrderByDescending(r => r.SellPrice - r.CraftCost);
         }
 
         /// <summary>
