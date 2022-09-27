@@ -230,7 +230,8 @@ namespace Coflnet.Sky.Api.Services
                         case DescriptionField.LBIN:
                             if (price != null && price.Lbin.Price != 0)
                             {
-                                content += $"{McColorCodes.GRAY}lbin: {McColorCodes.YELLOW}{FormatNumber(price.Lbin.Price)} ";
+                                var prefix = price.ItemKey == price.LbinKey ? "" : "~";
+                                content += $"{McColorCodes.GRAY}lbin: {McColorCodes.YELLOW}{prefix}{FormatNumber(price.Lbin.Price)} ";
                                 if (auction.Count > 1)
                                 {
                                     content += $"({FormatNumber(price.Lbin.Price / auction.Count)} each)";
@@ -243,7 +244,8 @@ namespace Coflnet.Sky.Api.Services
                         case DescriptionField.MEDIAN:
                             if (price != null && price.Median != 0)
                             {
-                                content += $"{McColorCodes.GRAY}Med: {McColorCodes.AQUA}{FormatNumber(price.Median)} ";
+                                var prefix = price.ItemKey == price.MedianKey ? "" : "~";
+                                content += $"{McColorCodes.GRAY}Med: {McColorCodes.AQUA}{prefix}{FormatNumber(price.Median)} ";
                                 if (auction.Count > 1)
                                 {
                                     content += $"({FormatNumber(price.Median / auction.Count)} each)";
