@@ -62,7 +62,7 @@ namespace Coflnet.Hypixel.Controller
             }
             catch (Sky.Referral.Client.Client.ApiException e)
             {
-                throw new CoflnetException("referral_error", e.Message.Substring(36).Trim('}', '"'));
+                throw new CoflnetException("referral_error", e.Message.Substring(46).Trim('}', '"'));
             }
         }
 
