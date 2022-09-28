@@ -21,6 +21,7 @@ using Microsoft.AspNetCore.Http;
 using Coflnet.Sky.Api.Services;
 using System.Security.Cryptography;
 using System.Text;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Coflnet.Hypixel.Controller
 {
@@ -37,6 +38,7 @@ namespace Coflnet.Hypixel.Controller
         PricesService pricesService;
         IConfiguration config;
         PlayerNameService playerNameService;
+        IServiceScopeFactory factory;
         static FilterEngine fe = new FilterEngine();
 
         /// <summary>
@@ -48,7 +50,14 @@ namespace Coflnet.Hypixel.Controller
         /// <param name="config"></param>
         /// <param name="pricesService"></param>
         /// <param name="playerNameService"></param>
-        public AuctionsController(AuctionService auctionService, HypixelContext context, ILogger<AuctionsController> logger, IConfiguration config, PricesService pricesService, PlayerNameService playerNameService)
+        /// <param name="factory"></param>
+        public AuctionsController(AuctionService auctionService,
+                                  HypixelContext context,
+                                  ILogger<AuctionsController> logger,
+                                  IConfiguration config,
+                                  PricesService pricesService,
+                                  PlayerNameService playerNameService,
+                                  IServiceScopeFactory factory)
         {
             this.auctionService = auctionService;
             this.context = context;
@@ -56,6 +65,7 @@ namespace Coflnet.Hypixel.Controller
             this.config = config;
             this.pricesService = pricesService;
             this.playerNameService = playerNameService;
+            this.factory = factory;
         }
 
         /// <summary>
@@ -393,9 +403,11 @@ namespace Coflnet.Hypixel.Controller
             var tasks = lowSupply.Where(s => s.Value > 2).Select(
             async item =>
             {
+                using var scope = factory.CreateScope();
+                var tempService = scope.ServiceProvider.GetRequiredService<PricesService>();
                 try
                 {
-                    var data = await pricesService.GetSumaryCache(item.Key);
+                    var data = await tempService.GetSumaryCache(item.Key);
                     if (data.Med < 1_000_000 && data.Volume > 0)
                         return;
 
