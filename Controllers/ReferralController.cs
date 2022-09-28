@@ -54,8 +54,16 @@ namespace Coflnet.Hypixel.Controller
         {
             if (!TryGetUser(out GoogleUser user))
                 return Unauthorized("no googletoken header");
-            await refApi.ReferralUserIdPostAsync(GetId(args.RefCode).ToString(), user.Id.ToString());
-            return Ok();
+            try
+            {
+
+                await refApi.ReferralUserIdPostAsync(GetId(args.RefCode).ToString(), user.Id.ToString());
+                return Ok();
+            }
+            catch (Sky.Referral.Client.Client.ApiException e)
+            {
+                throw new CoflnetException("referral_error", e.Message.Substring(36).Trim('}', '"'));
+            }
         }
 
         /// <summary>
