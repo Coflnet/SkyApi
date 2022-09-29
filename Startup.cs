@@ -43,8 +43,6 @@ namespace Coflnet.Sky.Api
         private IConfiguration Configuration { get; }
         private static string CORS_PLICY_NAME = "defaultCorsPolicy";
 
-        Prometheus.Counter errorCount = Prometheus.Metrics.CreateCounter("sky_api_error", "Counts the amount of error responses handed out");
-        Prometheus.Counter badRequestCount = Prometheus.Metrics.CreateCounter("sky_api_bad_request", "Counts the responses for invalid requests");
 
         /// <summary>
         /// This method gets called by the runtime. Use this method to add services to the container.
@@ -135,38 +133,8 @@ namespace Coflnet.Sky.Api
 
             app.UseExceptionHandler(errorApp =>
             {
-                errorApp.Run(async context =>
-                {
-                    context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
-                    context.Response.ContentType = "text/json";
-
-                    var exceptionHandlerPathFeature =
-                        context.Features.Get<IExceptionHandlerPathFeature>();
-
-                    if (exceptionHandlerPathFeature?.Error is CoflnetException ex)
-                    {
-                        context.Response.StatusCode = (int)HttpStatusCode.BadRequest;
-                        await context.Response.WriteAsync(
-                                        JsonConvert.SerializeObject(new { ex.Slug, ex.Message }));
-                        badRequestCount.Inc();
-                    }
-                    else
-                    {
-                        using var span = OpenTracing.Util.GlobalTracer.Instance.BuildSpan("error").StartActive();
-                        span.Span.Log(exceptionHandlerPathFeature?.Error?.Message);
-                        span.Span.Log(exceptionHandlerPathFeature?.Error?.StackTrace);
-                        var traceId = System.Net.Dns.GetHostName().Replace("commands", "").Trim('-') + "." + span?.Span?.Context?.TraceId;
-                        logger.LogError(exceptionHandlerPathFeature?.Error, "fatal request error " + traceId);
-                        await context.Response.WriteAsync(
-                            JsonConvert.SerializeObject(new ErrorResponse
-                            {
-                                Slug = "internal_error",
-                                Message = "An unexpected internal error occured. Please check that your request is valid. If it is please report he error and include the Trace.",
-                                Trace = traceId
-                            }));
-                        errorCount.Inc();
-                    }
-                });
+                var serviceName = "commands";
+                ErrorHandler.Add(logger, errorApp, serviceName);
             });
 
             app.UseEndpoints(endpoints =>
