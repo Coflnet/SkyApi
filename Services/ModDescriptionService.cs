@@ -144,7 +144,7 @@ namespace Coflnet.Sky.Api.Services
             }
             var bazaarPrices = new Dictionary<string, Bazaar.Client.Model.ItemPrice>();
             if (inventory.Settings.Fields.Any(line => line.Contains(DescriptionField.BazaarBuy) || line.Contains(DescriptionField.BazaarSell)))
-                bazaarPrices = (await bazaarApi.ApiBazaarPricesGetAsync()).ToDictionary(p => p.ProductId);
+                bazaarPrices = (await bazaarApi.ApiBazaarPricesGetAsync())?.ToDictionary(p => p.ProductId);
 
 
             var enabledFields = inventory.Settings.Fields;
@@ -228,7 +228,7 @@ namespace Coflnet.Sky.Api.Services
                     switch (item)
                     {
                         case DescriptionField.LBIN:
-                            if (price != null && price.Lbin.Price != 0)
+                            if (price?.Lbin != null && price.Lbin.Price != 0)
                             {
                                 var prefix = price.ItemKey == price.LbinKey ? "" : "~";
                                 content += $"{McColorCodes.GRAY}lbin: {McColorCodes.YELLOW}{prefix}{FormatNumber(price.Lbin.Price)} ";
@@ -267,12 +267,12 @@ namespace Coflnet.Sky.Api.Services
                             break;
                         case DescriptionField.BazaarBuy:
                             string tag = GetBazaarTag(auction);
-                            if (bazaarPrices.ContainsKey(tag))
+                            if (bazaarPrices?.ContainsKey(tag) ?? false)
                                 content += $"{McColorCodes.GRAY}Buy: {McColorCodes.GOLD}{FormatNumber(bazaarPrices[tag].BuyPrice)} ";
                             break;
                         case DescriptionField.BazaarSell:
                             tag = GetBazaarTag(auction);
-                            if (bazaarPrices.ContainsKey(tag))
+                            if (bazaarPrices?.ContainsKey(tag) ?? false)
                                 content += $"{McColorCodes.GRAY}Sell: {McColorCodes.GOLD}{FormatNumber(bazaarPrices[tag].SellPrice)} ";
                             break;
                         case DescriptionField.PRICE_PAID:
@@ -404,6 +404,11 @@ namespace Coflnet.Sky.Api.Services
             request.AddJsonBody(JsonConvert.SerializeObject(Convert.ToBase64String(MessagePack.LZ4MessagePackSerializer.Serialize(auctionRepresent.Select(a => a.auction)))));
 
             var respone = await sniperClient.ExecuteAsync(request);
+            if(respone.StatusCode == 0)
+            {
+                logger.LogError("sniper service could not be reached");
+                return auctionRepresent.Select(a => new Sniper.Client.Model.PriceEstimate()).ToList();
+            }
             try
             {
                 return JsonConvert.DeserializeObject<List<Sniper.Client.Model.PriceEstimate>>(respone.Content);
