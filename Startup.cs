@@ -133,8 +133,7 @@ namespace Coflnet.Sky.Api
 
             app.UseExceptionHandler(errorApp =>
             {
-                var serviceName = "commands";
-                ErrorHandler.Add(logger, errorApp, serviceName);
+                ErrorHandler.Add(logger, errorApp, "api");
             });
 
             app.UseEndpoints(endpoints =>
