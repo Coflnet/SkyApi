@@ -168,6 +168,7 @@ namespace Coflnet.Hypixel.Controller
         [ResponseCache(Duration = 60, Location = ResponseCacheLocation.Any, NoStore = false)]
         public async Task<FlipSumary> GetHourStats(string playerUuid)
         {
+            Console.WriteLine("called hourly flip profit");
             return await flipService.GetPlayerFlips(playerUuid, TimeSpan.FromHours(1));
         }
 
