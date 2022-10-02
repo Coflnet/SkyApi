@@ -35,6 +35,7 @@ namespace Coflnet.Sky.Api.Services
         private BazaarApi bazaarApi;
         private PlayerName.PlayerNameService playerNameService;
         private ILogger<ModDescriptionService> logger;
+        IProducer<string, InventoryData> producer;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="ModDescriptionService"/> class.
@@ -68,23 +69,24 @@ namespace Coflnet.Sky.Api.Services
             this.playerNameService = playerNameService;
             this.logger = logger;
             sniperClient = new(sniperApi.GetBasePath());
+
+            ProducerConfig producerConfig = new ProducerConfig
+            {
+                BootstrapServers = SimplerConfig.Config.Instance["KAFKA_HOST"],
+                LingerMs = 2
+            };
+            producer = new ProducerBuilder<string, InventoryData>(producerConfig).SetValueSerializer(SerializerFactory.GetSerializer<InventoryData>()).SetDefaultPartitioner((topic, pcount, key, isNull) =>
+            {
+                if (isNull)
+                    return Random.Shared.Next() % pcount;
+                return new Partition((key[0] << 8 + key[1]) % pcount);
+            }).Build();
         }
 
         private ConcurrentDictionary<string, SelfUpdatingValue<DescriptionSetting>> settings = new();
 
         private void ProduceInventory(InventoryData modDescription, string playerId)
         {
-            ProducerConfig producerConfig = new ProducerConfig
-            {
-                BootstrapServers = SimplerConfig.Config.Instance["KAFKA_HOST"],
-                LingerMs = 2
-            };
-            var producer = new ProducerBuilder<string, InventoryData>(producerConfig).SetValueSerializer(SerializerFactory.GetSerializer<InventoryData>()).SetDefaultPartitioner((topic, pcount, key, isNull) =>
-            {
-                if (isNull)
-                    return Random.Shared.Next() % pcount;
-                return new Partition((key[0] << 8 + key[1]) % pcount);
-            }).Build();
             var inventoryhash = SHA256.Create().ComputeHash(Encoding.UTF8.GetBytes(modDescription.FullInventoryNbt));
             producer.Produce("inventory", new Message<string, InventoryData>
             {
