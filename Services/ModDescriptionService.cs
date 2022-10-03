@@ -106,7 +106,8 @@ namespace Coflnet.Sky.Api.Services
                         Items = InventoryToItems(modDescription)
                     },
                     PlayerId = playerId,
-                    SessionId = sessionId
+                    SessionId = sessionId,
+                    ReceivedAt = DateTime.UtcNow
                 }
             });
             Console.WriteLine("produced state update " +playerId);
