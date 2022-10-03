@@ -11,9 +11,11 @@ using Coflnet.Sky.Commands.MC;
 using Coflnet.Sky.Commands.Shared;
 using Coflnet.Sky.Core;
 using Coflnet.Sky.Crafts.Client.Api;
+using Coflnet.Sky.PlayerState.Models;
 using Coflnet.Sky.Sniper.Client.Api;
 using Confluent.Kafka;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
@@ -35,7 +37,8 @@ namespace Coflnet.Sky.Api.Services
         private BazaarApi bazaarApi;
         private PlayerName.PlayerNameService playerNameService;
         private ILogger<ModDescriptionService> logger;
-        IProducer<string, InventoryData> producer;
+        private IConfiguration config;
+        IProducer<string, UpdateMessage> producer;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="ModDescriptionService"/> class.
@@ -57,7 +60,8 @@ namespace Coflnet.Sky.Api.Services
                                      IServiceScopeFactory scopeFactory,
                                      BazaarApi bazaarApi,
                                      PlayerName.PlayerNameService playerNameService,
-                                     ILogger<ModDescriptionService> logger)
+                                     ILogger<ModDescriptionService> logger,
+                                     IConfiguration config)
         {
             this.craftsApi = craftsApi;
             this.sniperApi = sniperApi;
@@ -72,31 +76,69 @@ namespace Coflnet.Sky.Api.Services
 
             ProducerConfig producerConfig = new ProducerConfig
             {
-                BootstrapServers = SimplerConfig.Config.Instance["KAFKA_HOST"],
+                BootstrapServers = config["KAFKA_HOST"],
                 LingerMs = 2
             };
-            producer = new ProducerBuilder<string, InventoryData>(producerConfig).SetValueSerializer(SerializerFactory.GetSerializer<InventoryData>()).SetDefaultPartitioner((topic, pcount, key, isNull) =>
+            producer = new ProducerBuilder<string, UpdateMessage>(producerConfig).SetValueSerializer(SerializerFactory.GetSerializer<UpdateMessage>()).SetDefaultPartitioner((topic, pcount, key, isNull) =>
             {
                 if (isNull)
                     return Random.Shared.Next() % pcount;
                 return new Partition((key[0] << 8 + key[1]) % pcount);
             }).Build();
+            this.config = config;
         }
 
         private ConcurrentDictionary<string, SelfUpdatingValue<DescriptionSetting>> settings = new();
 
-        private void ProduceInventory(InventoryData modDescription, string playerId)
+        private void ProduceInventory(InventoryData modDescription, string playerId, string sessionId)
         {
             var inventoryhash = SHA256.Create().ComputeHash(Encoding.UTF8.GetBytes(modDescription.FullInventoryNbt));
-            producer.Produce("inventory", new Message<string, InventoryData>
+            var nbt = NBT.File(Convert.FromBase64String(modDescription.FullInventoryNbt));
+            producer.Produce(config["TOPICS:STATE_UPDATE"], new Message<string, UpdateMessage>
             {
                 Key = string.IsNullOrEmpty(playerId) ? null : playerId.Substring(0, 4) + Encoding.UTF8.GetString(inventoryhash),
-                Value = new InventoryData
+                Value = new()
                 {
-                    ChestName = modDescription.ChestName,
-                    FullInventoryNbt = modDescription.FullInventoryNbt
+                    Kind = UpdateMessage.UpdateKind.INVENTORY,
+                    Chest = new ChestView
+                    {
+                        Name = modDescription.ChestName,
+                        Items = InventoryToItems(modDescription)
+                    },
+                    PlayerId = playerId,
+                    SessionId = sessionId
                 }
             });
+            Console.WriteLine("produced state update " +playerId);
+        }
+
+        private List<Item> InventoryToItems(InventoryData modDescription)
+        {
+            return NBT.File(Convert.FromBase64String(modDescription.FullInventoryNbt)).RootTag.Get<fNbt.NbtList>("i").Select(t =>
+            {
+                try
+                {
+                    var compound = t as fNbt.NbtCompound;
+                    if (compound.Count == 0)
+                        return new Item();
+                    var item = new Item()
+                    {
+                        Enchantments = NBT.GetEnchants(compound),
+                        Tag = NBT.ItemID(compound),
+                        ItemName = NBT.GetName(compound),
+                        Description = string.Join('\n', NBT.GetLore(compound)),
+                        Color = NBT.GetColor(compound),
+                        ExtraAttributes = NbtData.AsDictonary(NBT.GetReducedExtra(compound))
+                    };
+
+                    return item;
+                }
+                catch (System.Exception e)
+                {
+                    logger.LogError(e, "parsing nbt to item");
+                    return new Item();
+                }
+            }).ToList();
         }
 
         /// <summary>
@@ -110,6 +152,7 @@ namespace Coflnet.Sky.Api.Services
         {
             List<(SaveAuction auction, IEnumerable<string> desc)> auctionRepresent = ConvertToAuctions(inventory);
             var userSettings = await GetSettingForConid(mcName, sessionId);
+            ProduceInventory(inventory, mcName, sessionId);
 
             var allCraftsTask = craftsApi.CraftsAllGetAsync();
             List<Sniper.Client.Model.PriceEstimate> res = await GetPrices(auctionRepresent);
@@ -406,7 +449,7 @@ namespace Coflnet.Sky.Api.Services
             request.AddJsonBody(JsonConvert.SerializeObject(Convert.ToBase64String(MessagePack.LZ4MessagePackSerializer.Serialize(auctionRepresent.Select(a => a.auction)))));
 
             var respone = await sniperClient.ExecuteAsync(request);
-            if(respone.StatusCode == 0)
+            if (respone.StatusCode == 0)
             {
                 logger.LogError("sniper service could not be reached");
                 return auctionRepresent.Select(a => new Sniper.Client.Model.PriceEstimate()).ToList();
