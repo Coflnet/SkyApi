@@ -14,6 +14,7 @@ using Coflnet.Sky.Crafts.Client.Api;
 using Coflnet.Sky.PlayerState.Models;
 using Coflnet.Sky.Sniper.Client.Api;
 using Confluent.Kafka;
+using fNbt;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -110,7 +111,7 @@ namespace Coflnet.Sky.Api.Services
                     ReceivedAt = DateTime.UtcNow
                 }
             });
-            Console.WriteLine("produced state update " +playerId);
+            Console.WriteLine("produced state update " + playerId);
         }
 
         private List<Item> InventoryToItems(InventoryData modDescription)
@@ -122,14 +123,15 @@ namespace Coflnet.Sky.Api.Services
                     var compound = t as fNbt.NbtCompound;
                     if (compound.Count == 0)
                         return new Item();
+
                     var item = new Item()
-                    {
+                    { // order of parsing is important
                         Enchantments = NBT.GetEnchants(compound),
                         Tag = NBT.ItemID(compound),
                         ItemName = NBT.GetName(compound),
                         Description = string.Join('\n', NBT.GetLore(compound)),
                         Color = NBT.GetColor(compound),
-                        ExtraAttributes = NbtData.AsDictonary(NBT.GetReducedExtra(compound))
+                        ExtraAttributes = GetRemainingAttributes(compound)
                     };
 
                     return item;
@@ -140,6 +142,17 @@ namespace Coflnet.Sky.Api.Services
                     return new Item();
                 }
             }).ToList();
+        }
+
+        private static Dictionary<string, object> GetRemainingAttributes(NbtCompound compound)
+        {
+            var extraAttributes = NbtData.AsDictonary(NBT.GetReducedExtra(compound));
+            if (extraAttributes != null && extraAttributes.TryGetValue("petInfo", out var pet) && pet is string petString)
+            {
+                extraAttributes["petInfo"] = JsonConvert.DeserializeObject<Dictionary<string, object>>(petString);
+            }
+
+            return extraAttributes;
         }
 
         /// <summary>
