@@ -111,7 +111,6 @@ namespace Coflnet.Sky.Api.Services
                     ReceivedAt = DateTime.UtcNow
                 }
             });
-            Console.WriteLine("produced state update " + playerId);
         }
 
         private List<Item> InventoryToItems(InventoryData modDescription)
