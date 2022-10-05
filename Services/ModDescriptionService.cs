@@ -111,6 +111,7 @@ namespace Coflnet.Sky.Api.Services
                     ReceivedAt = DateTime.UtcNow
                 }
             });
+            Console.WriteLine("produced state update " + playerId + " " + modDescription.ChestName);
         }
 
         private List<Item> InventoryToItems(InventoryData modDescription)
@@ -165,7 +166,14 @@ namespace Coflnet.Sky.Api.Services
         {
             List<(SaveAuction auction, IEnumerable<string> desc)> auctionRepresent = ConvertToAuctions(inventory);
             var userSettings = await GetSettingForConid(mcName, sessionId);
-            ProduceInventory(inventory, mcName, sessionId);
+            try
+            {
+                ProduceInventory(inventory, mcName, sessionId);
+            }
+            catch (Exception e)
+            {
+                logger.LogError(e, "failed to publish inventory");
+            }
 
             var allCraftsTask = craftsApi.CraftsAllGetAsync();
             List<Sniper.Client.Model.PriceEstimate> res = await GetPrices(auctionRepresent);
