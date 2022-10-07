@@ -13,6 +13,7 @@ using Microsoft.Extensions.Primitives;
 using Coflnet.Payments.Client.Model;
 using Coflnet.Sky.Api;
 using Coflnet.Sky.Api.Models;
+using System.Threading;
 
 namespace Coflnet.Hypixel.Controller
 {
@@ -158,7 +159,8 @@ namespace Coflnet.Hypixel.Controller
                 return Unauthorized("no googletoken header");
             try
             {
-                var owns = await userApi.UserUserIdOwnsUntilPostAsync(user.Id.ToString(), slugsToTest);
+                var cancelationSource = new CancellationTokenSource(10_000);
+                var owns = await userApi.UserUserIdOwnsUntilPostAsync(user.Id.ToString(), slugsToTest, 0,cancelationSource.Token);
                 if (owns == null)
                     return NotFound();
                 return Ok(owns.Where(o => o.Value > DateTime.Now).ToDictionary(o => o.Key, o => new Sky.Api.Models.OwnerShip()
