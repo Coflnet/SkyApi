@@ -35,9 +35,15 @@ namespace Coflnet.Hypixel.Controller
         [ResponseCache(Duration = 10, Location = ResponseCacheLocation.Any, NoStore = false)]
         public async Task<List<Sky.Bazaar.Client.Model.GraphResult>> HistoryGraphHour(string itemTag)
         {
-            var data = await bazaarClient.ApiBazaarItemIdHistoryGetAsync(itemTag, DateTime.UtcNow - TimeSpan.FromHours(1), DateTime.UtcNow - TimeSpan.FromSeconds(1));
+            var data = await bazaarClient.ApiBazaarItemIdHistoryGetAsync(itemTag, Ago(TimeSpan.FromHours(1)), Ago(TimeSpan.FromSeconds(1)));
             return data;
         }
+
+        private static DateTime Ago(TimeSpan ago)
+        {
+            return (DateTime.UtcNow - ago).RoundDown(new TimeSpan(10));
+        }
+
         /// <summary>
         /// Gets the history data for display in a graph for one day ( in intervalls of 5 minutes)
         /// </summary>
@@ -48,7 +54,7 @@ namespace Coflnet.Hypixel.Controller
         [ResponseCache(Duration = 600, Location = ResponseCacheLocation.Any, NoStore = false)]
         public async Task<List<Sky.Bazaar.Client.Model.GraphResult>> HistoryGraphDay(string itemTag)
         {
-            return await bazaarClient.ApiBazaarItemIdHistoryGetAsync(itemTag, DateTime.UtcNow - TimeSpan.FromDays(1), DateTime.UtcNow - TimeSpan.FromMilliseconds(2));
+            return await bazaarClient.ApiBazaarItemIdHistoryGetAsync(itemTag, Ago(TimeSpan.FromDays(1)), Ago(TimeSpan.FromMilliseconds(2)));
         }
         /// <summary>
         /// Gets the history data for display in a graph for one week ( in intervalls of 2 hours)
@@ -60,7 +66,7 @@ namespace Coflnet.Hypixel.Controller
         [ResponseCache(Duration = 3600, Location = ResponseCacheLocation.Any, NoStore = false)]
         public async Task<List<Sky.Bazaar.Client.Model.GraphResult>> HistoryGraphWeek(string itemTag)
         {
-            return await bazaarClient.ApiBazaarItemIdHistoryGetAsync(itemTag, DateTime.UtcNow - TimeSpan.FromDays(7), DateTime.UtcNow - TimeSpan.FromMilliseconds(2));
+            return await bazaarClient.ApiBazaarItemIdHistoryGetAsync(itemTag, Ago(TimeSpan.FromDays(7)), Ago(TimeSpan.FromMilliseconds(2)));
         }
 
 
@@ -76,7 +82,9 @@ namespace Coflnet.Hypixel.Controller
         [ResponseCache(Duration = 3600, Location = ResponseCacheLocation.Any, NoStore = false, VaryByQueryKeys = new string[] { "start", "end" })]
         public async Task<List<Sky.Bazaar.Client.Model.GraphResult>> HistoryGraph(string itemTag, DateTime? start = null, DateTime? end = null)
         {
-            return await bazaarClient.ApiBazaarItemIdHistoryGetAsync(itemTag, start, end);
+            return await bazaarClient.ApiBazaarItemIdHistoryGetAsync(itemTag, 
+                start.HasValue ? start!.Value.RoundDown(TimeSpan.FromMinutes(1)) : null, 
+                end.HasValue ? end!.Value.RoundDown(TimeSpan.FromMinutes(1)) : null);
         }
 
         /// <summary>
@@ -90,9 +98,9 @@ namespace Coflnet.Hypixel.Controller
         [ResponseCache(Duration = 360, Location = ResponseCacheLocation.Any, NoStore = false, VaryByQueryKeys = new string[] { "timestamp" })]
         public async Task<Sky.Bazaar.Client.Model.StorageQuickStatus> GetSnapshot(string itemTag, DateTime timestamp = default)
         {
-            if(timestamp == default)
+            if (timestamp == default)
                 timestamp = DateTime.UtcNow;
-            return await bazaarClient.ApiBazaarItemIdSnapshotGetAsync(itemTag, timestamp);
+            return await bazaarClient.ApiBazaarItemIdSnapshotGetAsync(itemTag, timestamp.RoundDown(TimeSpan.FromSeconds(60)));
         }
     }
 }
