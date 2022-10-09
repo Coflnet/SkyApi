@@ -83,8 +83,8 @@ namespace Coflnet.Sky.Api.Services
             producer = new ProducerBuilder<string, UpdateMessage>(producerConfig).SetValueSerializer(SerializerFactory.GetSerializer<UpdateMessage>()).SetDefaultPartitioner((topic, pcount, key, isNull) =>
             {
                 if (isNull)
-                    return Random.Shared.Next() % pcount;
-                return new Partition((key[0] << 8 + key[1]) % pcount);
+                    return Confluent.Kafka.Partition.Any;
+                return (key[0] << 8 + key[1]) % (pcount - 1);
             }).Build();
             this.config = config;
         }
