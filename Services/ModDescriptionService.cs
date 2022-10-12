@@ -11,7 +11,6 @@ using Coflnet.Sky.Commands.MC;
 using Coflnet.Sky.Commands.Shared;
 using Coflnet.Sky.Core;
 using Coflnet.Sky.Crafts.Client.Api;
-using Coflnet.Sky.PlayerState.Models;
 using Coflnet.Sky.Sniper.Client.Api;
 using Confluent.Kafka;
 using fNbt;
@@ -39,6 +38,7 @@ namespace Coflnet.Sky.Api.Services
         private PlayerName.PlayerNameService playerNameService;
         private ILogger<ModDescriptionService> logger;
         private IConfiguration config;
+        private IStateUpdateService stateService;
         IProducer<string, UpdateMessage> producer;
 
         /// <summary>
@@ -53,6 +53,8 @@ namespace Coflnet.Sky.Api.Services
         /// <param name="bazaarApi"></param>
         /// <param name="playerNameService"></param>
         /// <param name="logger"></param>
+        /// <param name="config"></param>
+        /// <param name="stateService"></param>
         public ModDescriptionService(ICraftsApi craftsApi,
                                      ISniperApi sniperApi,
                                      ITracer tracer,
@@ -62,7 +64,8 @@ namespace Coflnet.Sky.Api.Services
                                      BazaarApi bazaarApi,
                                      PlayerName.PlayerNameService playerNameService,
                                      ILogger<ModDescriptionService> logger,
-                                     IConfiguration config)
+                                     IConfiguration config,
+                                     IStateUpdateService stateService)
         {
             this.craftsApi = craftsApi;
             this.sniperApi = sniperApi;
@@ -89,6 +92,7 @@ namespace Coflnet.Sky.Api.Services
                 return partition;
             }).Build();
             this.config = config;
+            this.stateService = stateService;
         }
 
         private ConcurrentDictionary<string, SelfUpdatingValue<DescriptionSetting>> settings = new();
@@ -97,22 +101,37 @@ namespace Coflnet.Sky.Api.Services
         {
             var inventoryhash = SHA256.Create().ComputeHash(Encoding.UTF8.GetBytes(modDescription.FullInventoryNbt));
             var nbt = NBT.File(Convert.FromBase64String(modDescription.FullInventoryNbt));
-            producer.Produce(config["TOPICS:STATE_UPDATE"], new Message<string, UpdateMessage>
+            try
             {
-                Key = string.IsNullOrEmpty(playerId) ? null : playerId.Truncate(4).PadRight(4) + Encoding.UTF8.GetString(inventoryhash),
-                Value = new()
-                {
-                    Kind = UpdateMessage.UpdateKind.INVENTORY,
-                    Chest = new ChestView
+                stateService.Produce(playerId, new()
                     {
-                        Name = modDescription.ChestName,
-                        Items = InventoryToItems(modDescription)
-                    },
-                    PlayerId = playerId,
-                    SessionId = sessionId,
-                    ReceivedAt = DateTime.UtcNow
+                        Kind = UpdateMessage.UpdateKind.INVENTORY,
+                        Chest = new ChestView
+                        {
+                            Name = modDescription.ChestName,
+                            Items = InventoryToItems(modDescription)
+                        },
+                        SessionId = sessionId,
+                        ReceivedAt = DateTime.UtcNow
+                    }
+                );
+            }
+            catch (System.Exception)
+            {
+                foreach (var item in InventoryToItems(modDescription))
+                {
+                    try
+                    {
+                        MessagePack.MessagePackSerializer.Serialize(item);
+                    }
+                    catch (System.Exception)
+                    {
+                        Console.WriteLine(JsonConvert.SerializeObject(item, Formatting.Indented));
+                    }
                 }
-            });
+                throw;
+            }
+
             Console.WriteLine("produced state update " + playerId + " " + modDescription.ChestName);
         }
 
@@ -133,6 +152,7 @@ namespace Coflnet.Sky.Api.Services
                         ItemName = NBT.GetName(compound),
                         Description = string.Join('\n', NBT.GetLore(compound)),
                         Color = NBT.GetColor(compound),
+                        Count = NBT.Count(compound),
                         ExtraAttributes = GetRemainingAttributes(compound)
                     };
 
@@ -151,7 +171,12 @@ namespace Coflnet.Sky.Api.Services
             var extraAttributes = NbtData.AsDictonary(NBT.GetReducedExtra(compound));
             if (extraAttributes != null && extraAttributes.TryGetValue("petInfo", out var pet) && pet is string petString)
             {
-                extraAttributes["petInfo"] = JsonConvert.DeserializeObject<Dictionary<string, object>>(petString);
+                var info = JsonConvert.DeserializeObject<Dictionary<string, object>>(petString);
+                if(info.TryGetValue("extraData", out var extra) && extra is Newtonsoft.Json.Linq.JObject jobj)
+                {
+                    info["extraData"] = jobj.ToObject < Dictionary<string, object>>();
+                }
+                extraAttributes["petInfo"] = info;
             }
 
             return extraAttributes;
