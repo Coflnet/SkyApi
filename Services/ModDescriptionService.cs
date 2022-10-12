@@ -84,7 +84,7 @@ namespace Coflnet.Sky.Api.Services
             {
                 if (isNull)
                     return Confluent.Kafka.Partition.Any;
-                var partition = Math.Abs((int)key[0] << 8 | key[1] | key[2]) % pcount;
+                var partition = Math.Abs((int)key[0] << 8 | key[1] ^ key[2]) % pcount;
                 Console.WriteLine("producint into:" + partition);
                 return partition;
             }).Build();
@@ -99,7 +99,7 @@ namespace Coflnet.Sky.Api.Services
             var nbt = NBT.File(Convert.FromBase64String(modDescription.FullInventoryNbt));
             producer.Produce(config["TOPICS:STATE_UPDATE"], new Message<string, UpdateMessage>
             {
-                Key = string.IsNullOrEmpty(playerId) ? null : playerId.Substring(0, 4) + Encoding.UTF8.GetString(inventoryhash),
+                Key = string.IsNullOrEmpty(playerId) ? null : playerId.Truncate(4).PadRight(4) + Encoding.UTF8.GetString(inventoryhash),
                 Value = new()
                 {
                     Kind = UpdateMessage.UpdateKind.INVENTORY,
