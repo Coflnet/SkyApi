@@ -84,8 +84,9 @@ namespace Coflnet.Sky.Api.Services
             {
                 if (isNull)
                     return Confluent.Kafka.Partition.Any;
-                Console.WriteLine("producint into:" + ((key[0] << 8 + key[1]) % pcount));
-                return (key[0] << 8 + key[1]) % (pcount);
+                var partition = Math.Abs((int)key[0] << 8 | key[1] | key[2]) % pcount;
+                Console.WriteLine("producint into:" + partition);
+                return partition;
             }).Build();
             this.config = config;
         }
