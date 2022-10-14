@@ -104,16 +104,16 @@ namespace Coflnet.Sky.Api.Services
             try
             {
                 stateService.Produce(playerId, new()
+                {
+                    Kind = UpdateMessage.UpdateKind.INVENTORY,
+                    Chest = new ChestView
                     {
-                        Kind = UpdateMessage.UpdateKind.INVENTORY,
-                        Chest = new ChestView
-                        {
-                            Name = modDescription.ChestName,
-                            Items = InventoryToItems(modDescription)
-                        },
-                        SessionId = sessionId,
-                        ReceivedAt = DateTime.UtcNow
-                    }
+                        Name = modDescription.ChestName,
+                        Items = InventoryToItems(modDescription)
+                    },
+                    SessionId = sessionId,
+                    ReceivedAt = DateTime.UtcNow
+                }
                 );
             }
             catch (System.Exception)
@@ -172,9 +172,9 @@ namespace Coflnet.Sky.Api.Services
             if (extraAttributes != null && extraAttributes.TryGetValue("petInfo", out var pet) && pet is string petString)
             {
                 var info = JsonConvert.DeserializeObject<Dictionary<string, object>>(petString);
-                if(info.TryGetValue("extraData", out var extra) && extra is Newtonsoft.Json.Linq.JObject jobj)
+                if (info.TryGetValue("extraData", out var extra) && extra is Newtonsoft.Json.Linq.JObject jobj)
                 {
-                    info["extraData"] = jobj.ToObject < Dictionary<string, object>>();
+                    info["extraData"] = jobj.ToObject<Dictionary<string, object>>();
                 }
                 extraAttributes["petInfo"] = info;
             }
@@ -216,25 +216,7 @@ namespace Coflnet.Sky.Api.Services
                 inventory.Settings = userSettings;
             }
 
-            var pricesPaid = new Dictionary<string, long>();
-            if (inventory.Settings.Fields.Any(line => line.Contains(DescriptionField.PRICE_PAID)))
-            {
-                var numericIds = auctionRepresent.Where(a => a.auction != null)
-                        .Select(a => a.auction.FlatenedNBT?.GetValueOrDefault("uid")).Where(v => v != null)
-                        .ToDictionary(uid => GetUidFromString(uid));
-                var key = NBT.Instance.GetKeyId("uid");
-                using var scope = scopeFactory.CreateScope();
-                using var context = scope.ServiceProvider.GetRequiredService<HypixelContext>();
-                var nameRequest = playerNameService.GetUuid(mcName);
-                var lastSells = await context.Auctions
-                            .Where(a => a.NBTLookup.Where(l => l.KeyId == key && numericIds.Keys.Contains(l.Value)).Any())
-                            .Where(a => a.HighestBidAmount > 0)
-                            .AsSplitQuery().AsNoTracking()
-                            .Select(a => new { a.HighestBidAmount, a.End, a.AuctioneerId, uid = a.NBTLookup.Where(l => l.KeyId == key).Select(l => l.Value).FirstOrDefault() })
-                            .ToListAsync();
-                var uuid = await nameRequest;
-                pricesPaid = lastSells.GroupBy(l => l.uid).ToDictionary(g => numericIds[g.Key], g => g.OrderByDescending(a => a.End).Where(s => s.AuctioneerId != uuid).First().HighestBidAmount);
-            }
+            var pricesPaid = await GetPricePaidData(inventory, mcName, auctionRepresent);
             var bazaarPrices = new Dictionary<string, Bazaar.Client.Model.ItemPrice>();
             if (inventory.Settings.Fields.Any(line => line.Contains(DescriptionField.BazaarBuy) || line.Contains(DescriptionField.BazaarSell)))
                 bazaarPrices = (await bazaarApi.ApiBazaarPricesGetAsync())?.ToDictionary(p => p.ProductId);
@@ -268,6 +250,27 @@ namespace Coflnet.Sky.Api.Services
             }
 
             return result;
+        }
+
+        private async Task<Dictionary<string, long>> GetPricePaidData(InventoryData inventory, string mcName, List<(SaveAuction auction, IEnumerable<string> desc)> auctionRepresent)
+        {
+            if (!inventory.Settings.Fields.Any(line => line.Contains(DescriptionField.PRICE_PAID)))
+                return new Dictionary<string, long>();
+            var numericIds = auctionRepresent.Where(a => a.auction != null)
+                    .Select(a => a.auction.FlatenedNBT?.GetValueOrDefault("uid")).Where(v => v != null)
+                    .ToDictionary(uid => GetUidFromString(uid));
+            var key = NBT.Instance.GetKeyId("uid");
+            using var scope = scopeFactory.CreateScope();
+            using var context = scope.ServiceProvider.GetRequiredService<HypixelContext>();
+            var nameRequest = playerNameService.GetUuid(mcName);
+            var lastSells = await context.Auctions
+                        .Where(a => a.NBTLookup.Where(l => l.KeyId == key && numericIds.Keys.Contains(l.Value)).Any())
+                        .Where(a => a.HighestBidAmount > 0)
+                        .AsSplitQuery().AsNoTracking()
+                        .Select(a => new { a.HighestBidAmount, a.End, a.AuctioneerId, uid = a.NBTLookup.Where(l => l.KeyId == key).Select(l => l.Value).FirstOrDefault() })
+                        .ToListAsync();
+            var uuid = await nameRequest;
+            return lastSells.GroupBy(l => l.uid).ToDictionary(g => numericIds[g.Key], g => g.OrderByDescending(a => a.End).Where(s => s.AuctioneerId != uuid).First().HighestBidAmount);
         }
 
         private static long GetUidFromString(string u)
