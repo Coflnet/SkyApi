@@ -52,7 +52,7 @@ namespace Coflnet.Hypixel.Controller
         }
 
         /// <summary>
-        /// A list of all items stored
+        /// Get all item tags, names and wherever they are on ah or bazaar
         /// </summary>
         /// <returns></returns>
         [Route("")]
@@ -67,6 +67,19 @@ namespace Coflnet.Hypixel.Controller
                     Flags = i.Flags ?? 0
                 };
             });
+        }
+
+        /// <summary>
+        /// Batch lookup names for item tags
+        /// </summary>
+        /// <returns></returns>
+        [Route("names")]
+        [HttpPost]
+        [ResponseCache(Duration = 3600, Location = ResponseCacheLocation.Any, NoStore = false)]
+        public async Task<Dictionary<string,string>> ItemTags([FromBody] HashSet<string> tags)
+        {
+            var items = await itemsApi.ItemsGetAsync();
+            return items.Where(t => tags.Contains(t.Tag)).ToDictionary(i => i.Tag, i => i.Name);
         }
 
         /// <summary>
