@@ -78,7 +78,7 @@ namespace Coflnet.Hypixel.Controller
         [ResponseCache(Duration = 3600, Location = ResponseCacheLocation.Any, NoStore = false)]
         public async Task<Dictionary<string,string>> ItemTags([FromBody] HashSet<string> tags)
         {
-            var items = await itemsApi.ItemsGetAsync();
+            var items = await itemsApi.ItemNamesGetAsync();
             return items.Where(t => tags.Contains(t.Tag)).ToDictionary(i => i.Tag, i => i.Name);
         }
 
