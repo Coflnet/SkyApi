@@ -6,6 +6,7 @@ using Coflnet.Sky.Api.Models;
 using System.Linq;
 using Microsoft.EntityFrameworkCore;
 using Coflnet.Sky.Commands.Shared;
+using Coflnet.Sky.Filter;
 
 namespace Coflnet.Hypixel.Controller
 {
@@ -19,14 +20,17 @@ namespace Coflnet.Hypixel.Controller
     {
         const int pageSize = 10;
         HypixelContext context;
+        private FilterEngine filterEngine;
 
         /// <summary>
         /// Creates a new instance of <see cref="PlayerController"/>
         /// </summary>
         /// <param name="context"></param>
-        public PlayerController(HypixelContext context)
+        /// <param name="filterEngine"></param>
+        public PlayerController(HypixelContext context, FilterEngine filterEngine)
         {
             this.context = context;
+            this.filterEngine = filterEngine;
         }
 
 
@@ -35,21 +39,27 @@ namespace Coflnet.Hypixel.Controller
         /// </summary>
         /// <param name="playerUuid">The uuid of the player</param>
         /// <param name="page">Page of auctions (another 10)</param>
+        /// <param name="filters"></param>
         /// <returns></returns>
         [Route("{playerUuid}/bids")]
         [HttpGet]
-        [ResponseCache(Duration = 60, Location = ResponseCacheLocation.Any, NoStore = false, VaryByQueryKeys = new string[] { "page" })]
-        public async Task<List<BidResult>> GetPlayerBids(string playerUuid, int page = 0)
+        [ResponseCache(Duration = 60, Location = ResponseCacheLocation.Any, NoStore = false, VaryByQueryKeys = new string[] { "*" })]
+        public async Task<List<BidResult>> GetPlayerBids(string playerUuid, int page = 0, [FromQuery] Dictionary<string,string> filters = null)
         {
             AssertUuid(playerUuid);
             var offset = pageSize * page;
-            var playerBids = await context.Bids.Where(b => b.BidderId == context.Players.Where(p => p.UuId == playerUuid).Select(p => p.Id).FirstOrDefault())
+            var baseSelect =  context.Bids.Where(b => b.BidderId == context.Players.Where(p => p.UuId == playerUuid).Select(p => p.Id).FirstOrDefault())
                     // filtering
-                    .OrderByDescending(auction => auction.Id)
-                        .Skip(offset)
-                        .Take(pageSize)
-                    //.Include (p => p.Auction)
-                    .Select(b => new
+                    ;
+            filters.Remove("page");
+            if(filters != null && filters.Count > 0)
+            {
+                var expression = filterEngine.GetMatchExpression(filters);
+                baseSelect = baseSelect.Select(b => b.Auction).Where(expression).Select(a => a.Bids.FirstOrDefault());
+            }
+            //.Include (p => p.Auction)
+            var playerBids =    await    baseSelect.OrderByDescending(auction => auction.Id).Skip(offset)
+                        .Take(pageSize).Select(b => new
                     {
                         b.Auction.Uuid,
                         b.Auction.ItemName,
@@ -97,16 +107,24 @@ namespace Coflnet.Hypixel.Controller
         /// </summary>
         /// <param name="playerUuid">The uuid of the player</param>
         /// <param name="page">Page of auctions (another 10)</param>
+        /// <param name="filters"></param>
         /// <returns></returns>
         [Route("{playerUuid}/auctions")]
         [HttpGet]
-        [ResponseCache(Duration = 60, Location = ResponseCacheLocation.Any, NoStore = false, VaryByQueryKeys = new string[] { "page" })]
-        public async Task<List<AuctionResult>> GetPlayerAuctions(string playerUuid, int page = 0)
+        [ResponseCache(Duration = 60, Location = ResponseCacheLocation.Any, NoStore = false, VaryByQueryKeys = new string[] { "*" })]
+        public async Task<List<AuctionResult>> GetPlayerAuctions(string playerUuid, int page = 0, [FromQuery] Dictionary<string,string> filters = null)
         {
             AssertUuid(playerUuid);
             var offset = pageSize * page;
-            var batch = await context.Auctions
-                        .Where(a => a.SellerId == context.Players.Where(p => p.UuId == playerUuid).Select(p => p.Id).FirstOrDefault())
+            filters.Remove("page");
+            var baseSelect = context.Auctions
+                        .Where(a => a.SellerId == context.Players.Where(p => p.UuId == playerUuid).Select(p => p.Id).FirstOrDefault());
+            if(filters != null && filters.Count > 0)
+            {
+                var expression = filterEngine.GetMatchExpression(filters);
+                baseSelect = baseSelect.Where(expression);
+            }
+            var batch = await baseSelect
                         .OrderByDescending(a => a.Id)
                         .Skip(offset)
                         .Take(pageSize)

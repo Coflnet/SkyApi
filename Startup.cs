@@ -23,6 +23,7 @@ using StackExchange.Redis;
 using AspNetCoreRateLimit;
 using AspNetCoreRateLimit.Redis;
 using Coflnet.Sky.Api.Services;
+using Coflnet.Sky.Filter;
 
 namespace Coflnet.Sky.Api
 {
@@ -99,6 +100,7 @@ namespace Coflnet.Sky.Api
 
             services.AddSingleton<TfmService>();
             services.AddSingleton<ModDescriptionService>();
+            services.AddSingleton<FilterEngine>();
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
