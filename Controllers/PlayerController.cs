@@ -44,33 +44,36 @@ namespace Coflnet.Hypixel.Controller
         [Route("{playerUuid}/bids")]
         [HttpGet]
         [ResponseCache(Duration = 60, Location = ResponseCacheLocation.Any, NoStore = false, VaryByQueryKeys = new string[] { "*" })]
-        public async Task<List<BidResult>> GetPlayerBids(string playerUuid, int page = 0, [FromQuery] Dictionary<string,string> filters = null)
+        public async Task<List<BidResult>> GetPlayerBids(string playerUuid, int page = 0, [FromQuery] Dictionary<string, string> filters = null)
         {
             AssertUuid(playerUuid);
             var offset = pageSize * page;
-            var baseSelect =  context.Bids.Where(b => b.BidderId == context.Players.Where(p => p.UuId == playerUuid).Select(p => p.Id).FirstOrDefault())
-                    // filtering
-                    ;
+            var baseSelect = context.Bids.Where(b => b.BidderId == context.Players.Where(p => p.UuId == playerUuid).Select(p => p.Id).FirstOrDefault());
             filters.Remove("page");
-            if(filters != null && filters.Count > 0)
+            if (filters.TryGetValue("tag", out string itemTag))
+            {
+                int itemId = ExtractItemIdFromFilter(filters, itemTag);
+                baseSelect = baseSelect.Where(b => b.Auction.ItemId == itemId);
+            }
+            if (filters != null && filters.Count > 0)
             {
                 var expression = filterEngine.GetMatchExpression(filters);
                 baseSelect = baseSelect.Select(b => b.Auction).Where(expression).Select(a => a.Bids.FirstOrDefault());
             }
             //.Include (p => p.Auction)
-            var playerBids =    await    baseSelect.OrderByDescending(auction => auction.Id).Skip(offset)
+            var playerBids = await baseSelect.OrderByDescending(auction => auction.Id).Skip(offset)
                         .Take(pageSize).Select(b => new
-                    {
-                        b.Auction.Uuid,
-                        b.Auction.ItemName,
-                        b.Auction.Tag,
-                        b.Auction.HighestBidAmount,
-                        b.Auction.End,
-                        b.Amount,
-                        b.Auction.StartingBid,
-                        b.Auction.Bin
+                        {
+                            b.Auction.Uuid,
+                            b.Auction.ItemName,
+                            b.Auction.Tag,
+                            b.Auction.HighestBidAmount,
+                            b.Auction.End,
+                            b.Amount,
+                            b.Auction.StartingBid,
+                            b.Auction.Bin
 
-                    }).GroupBy(b => b.Uuid)
+                        }).GroupBy(b => b.Uuid)
                     .Select(bid => new
                     {
                         bid.Key,
@@ -112,14 +115,19 @@ namespace Coflnet.Hypixel.Controller
         [Route("{playerUuid}/auctions")]
         [HttpGet]
         [ResponseCache(Duration = 60, Location = ResponseCacheLocation.Any, NoStore = false, VaryByQueryKeys = new string[] { "*" })]
-        public async Task<List<AuctionResult>> GetPlayerAuctions(string playerUuid, int page = 0, [FromQuery] Dictionary<string,string> filters = null)
+        public async Task<List<AuctionResult>> GetPlayerAuctions(string playerUuid, int page = 0, [FromQuery] Dictionary<string, string> filters = null)
         {
             AssertUuid(playerUuid);
             var offset = pageSize * page;
             filters.Remove("page");
             var baseSelect = context.Auctions
                         .Where(a => a.SellerId == context.Players.Where(p => p.UuId == playerUuid).Select(p => p.Id).FirstOrDefault());
-            if(filters != null && filters.Count > 0)
+            if (filters.TryGetValue("tag", out string itemTag))
+            {
+                int itemId = ExtractItemIdFromFilter(filters, itemTag);
+                baseSelect = baseSelect.Where(a => a.ItemId == itemId);
+            }
+            if (filters != null && filters.Count > 0)
             {
                 var expression = filterEngine.GetMatchExpression(filters);
                 baseSelect = baseSelect.Where(expression);
@@ -133,6 +141,14 @@ namespace Coflnet.Hypixel.Controller
             return batch.OrderByDescending(a => a.End)
                     .Select(a => new AuctionResult(a))
                     .ToList();
+        }
+
+        private static int ExtractItemIdFromFilter(Dictionary<string, string> filters, string itemTag)
+        {
+            var itemId = ItemDetails.Instance.GetItemIdForTag(itemTag);
+            filters["ItemId"] = itemId.ToString();
+            filters.Remove("tag");
+            return itemId;
         }
 
         /// <summary>
