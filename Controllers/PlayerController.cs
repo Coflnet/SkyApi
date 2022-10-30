@@ -57,7 +57,7 @@ namespace Coflnet.Hypixel.Controller
             }
             if (filters != null && filters.Count > 0)
             {
-                var expression = filterEngine.GetMatchExpression(filters);
+                var expression = filterEngine.GetMatchExpression(filters, true);
                 baseSelect = baseSelect.Select(b => b.Auction).Where(expression).Select(a => a.Bids.FirstOrDefault());
             }
             //.Include (p => p.Auction)
@@ -129,7 +129,7 @@ namespace Coflnet.Hypixel.Controller
             }
             if (filters != null && filters.Count > 0)
             {
-                var expression = filterEngine.GetMatchExpression(filters);
+                var expression = filterEngine.GetMatchExpression(filters, true);
                 baseSelect = baseSelect.Where(expression);
             }
             var batch = await baseSelect
