@@ -15,7 +15,7 @@ namespace Coflnet.Sky.Api.Models
         public KatUpgradeCost(Coflnet.Sky.Crafts.Client.Model.KatUpgradeCost cost)
         {
             Name = cost.Name;
-            BaseRarity = (Tier)cost.BaseRarity;
+            BaseRarity = (Tier)cost.BaseRarity-1;
             Hours = cost.Hours;
             Cost = cost.Cost;
             Material = cost.Material;
