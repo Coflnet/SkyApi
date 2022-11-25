@@ -11,7 +11,6 @@ namespace Coflnet.Sky.Api.Services
     public class AuctionConverter
     {
         List<Element> Order = new(){
-            new(){Label="stars", Type="numeric0"},
             new(){Label="wood_singularity_count", Type="numeric0"},
             new(){Label="tuned_transmission", Type="numeric0"},
             new(){Label="stars", Type="numeric"},
