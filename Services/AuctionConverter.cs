@@ -119,7 +119,7 @@ namespace Coflnet.Sky.Api.Services
 
         public string GetHeader()
         {
-            return "uuid,item_id,price," + string.Join(',', Order.Select(o => o.Label));
+            return "uuid,item_id,price," + string.Join(',', Order.Select(o => o.Label)) + "\n";
         }
 
         public string Transform(SaveAuction auction)
@@ -197,7 +197,7 @@ namespace Coflnet.Sky.Api.Services
         }
         private static string NbtString(SaveAuction auction, string key, string defaultString = "")
         {
-            return auction.FlatenedNBT.Where(f => f.Key == key).Select(f=>f.Value).FirstOrDefault(defaultString);
+            return auction.FlatenedNBT.Where(f => f.Key == key).Select(f => f.Value).FirstOrDefault(defaultString);
         }
 
         private static string Necromancer(SaveAuction auction)
