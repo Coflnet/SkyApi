@@ -156,7 +156,7 @@ namespace Coflnet.Sky.Api.Services
                     "necromancer_souls" => Necromancer(auction),
                     "attributes" => PrintNbt(auction, "attributes"),
                     "hpc" => NbtString(auction, "hpc", "0"),
-                    _ => throw new CoflnetException("transform", "unkown type " + item.Type)
+                    _ => throw new CoflnetException("transform", "unknown type " + item.Type)
                 };
 
             });

@@ -162,7 +162,7 @@ namespace Coflnet.Hypixel.Controller
         public async Task<string> GetPlayerName(string playerUuid)
         {
             AssertUuid(playerUuid);
-            return (await PlayerService.Instance.GetPlayer(playerUuid))?.Name ?? "unkown";
+            return (await PlayerService.Instance.GetPlayer(playerUuid))?.Name ?? "unknown";
         }
 
 
