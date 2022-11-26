@@ -170,14 +170,20 @@ namespace Coflnet.Sky.Api.Services
         private static string SerializeGems(SaveAuction auction)
         {
             if (auction.NbtData.Data.TryGetValue("gems", out object gems))
-                return JsonConvert.SerializeObject(gems);
+                return JsonSerialize(gems);
             return "";
         }
+
+        private static string JsonSerialize(object gems)
+        {
+            return "\"" + JsonConvert.SerializeObject(gems).Replace("\"", "\"\"") + "\"";
+        }
+
         private static string SerializeAbilityScroll(SaveAuction auction)
         {
             if (auction.NbtData.Data.TryGetValue("ability_scroll", out object gems))
-                return JsonConvert.SerializeObject(gems);
-            return "[]";
+                return JsonSerialize(gems);
+            return "\"[]\"";
         }
         private static string PrintEnchants(SaveAuction auction)
         {
@@ -186,13 +192,13 @@ namespace Coflnet.Sky.Api.Services
             {
                 dict[item.Type.ToString()] = item.Level;
             }
-            return JsonConvert.SerializeObject(dict);
+            return JsonSerialize(dict);
         }
         private static string PrintNbt(SaveAuction auction, string key)
         {
             if (auction.NbtData.Data.TryGetValue(key, out object runes))
-                return JsonConvert.SerializeObject(runes);
-            return "{}";
+                return JsonSerialize(runes);
+            return "\"{}\"";
         }
         private static string NbtString(SaveAuction auction, string key, string defaultString = "")
         {
@@ -208,10 +214,10 @@ namespace Coflnet.Sky.Api.Services
                 {
                     list.Add(item["mob_id"].ToString());
                 }
-                return JsonConvert.SerializeObject(list);
+                return JsonSerialize(list);
             }
 
-            return "[]";
+            return "\"[]\"";
         }
 
         private static void Add(StringBuilder builder, string val)
