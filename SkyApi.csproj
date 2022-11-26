@@ -25,6 +25,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <PackageReference Include="AspNetCoreRateLimit" Version="4.0.2" />
     <PackageReference Include="Confluent.Kafka" Version="1.7.0" />
     <PackageReference Include="Google.Apis.Auth" Version="1.50.0" />
     <PackageReference Include="Jaeger.Core" Version="1.0.3" />

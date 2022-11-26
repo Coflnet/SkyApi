@@ -327,8 +327,9 @@ namespace Coflnet.Hypixel.Controller
         [ResponseCache(Duration = 600, Location = ResponseCacheLocation.Any, NoStore = false)]
         public async Task<Dictionary<string, IEnumerable<ItemSell>>> GetUidsHistory([FromBody] InventoryBatchLookup request)
         {
-            if (request.Uuids.Length > 35)
-                throw new CoflnetException("to_many_uuid", "Please do batch lookups on no more than 35 uuids at a time");
+            var limit = 120;
+            if (request.Uuids.Length > limit)
+                throw new CoflnetException("to_many_uuid", $"Please do batch lookups on no more than {limit} uuids at a time");
             var numericIds = request.Uuids.GroupBy(id => id).Select(ids => ids.First()).ToDictionary(uid => GetUidFromString(uid));
             var key = NBT.Instance.GetKeyId("uid");
             var result = await context.Auctions
