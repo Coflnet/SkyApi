@@ -180,7 +180,7 @@ namespace Coflnet.Hypixel.Controller
         [ResponseCache(Duration = 1800, Location = ResponseCacheLocation.Any, NoStore = false, VaryByQueryKeys = new string[] { "page" })]
         public async Task GetHistory(string page = "last", string token = "")
         {
-            var pageSize = 100_000;
+            var pageSize = 25_000;
             var baseStart = 400_000_000;
             var transformer = new AuctionConverter();
             var itemsRequest = itemsClient.ItemItemTagModifiersAllGetAsync("*");
