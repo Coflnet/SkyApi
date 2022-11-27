@@ -106,6 +106,10 @@ namespace Coflnet.Sky.Api
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
         public void Configure(IApplicationBuilder app, IWebHostEnvironment env, ILogger<Startup> logger)
         {
+            app.UseExceptionHandler(errorApp =>
+            {
+                ErrorHandler.Add(logger, errorApp, "api");
+            });
             if (env.IsDevelopment())
             {
                 app.UseDeveloperExceptionPage();
@@ -133,10 +137,6 @@ namespace Coflnet.Sky.Api
             app.UseIpRateLimiting();
 
 
-            app.UseExceptionHandler(errorApp =>
-            {
-                ErrorHandler.Add(logger, errorApp, "api");
-            });
 
             app.UseEndpoints(endpoints =>
             {
