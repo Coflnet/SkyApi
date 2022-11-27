@@ -116,14 +116,20 @@ namespace Coflnet.Sky.Api.Services
             new(){Label="td_attune_mode", Type="numeric"}
         };
 
-        public string GetHeader()
+        public string GetHeader(IEnumerable<string> keys)
         {
-            return "uuid,item_id,price," + string.Join(',', Order.Select(o => o.Label)) + "\n";
+            return string.Join(',', ColumnKeys(keys.Select(k => k.StartsWith("!ench") ? k.Substring(5) : k))) + "\n";
         }
 
-        public string Transform(SaveAuction auction)
+        public IEnumerable<string> ColumnKeys(IEnumerable<string> datakeys)
+        {
+            return new string[] { "uuid", "item_id", "sold_for", "count", }.Concat(datakeys.Where(k=> !new string[]{ "118", "119", "120", "121" }.Contains(k))).ToList();
+        }
+
+        public string Transform(SaveAuction auction, IEnumerable<string> pkeys)
         {
             var itemTag = auction.Tag;
+            var keys = ColumnKeys(pkeys);
             if (Regex.IsMatch(itemTag, @"^PET_(?!ITEM)(?!SKIN)\w+"))
             {
                 itemTag = "PET";
@@ -136,33 +142,31 @@ namespace Coflnet.Sky.Api.Services
             {
                 itemTag = "POTION";
             }
-            var values = Order.Select(item =>
+            var values = keys.Select(item =>
             {
-                if (auction.FlatenedNBT.TryGetValue(item.Label, out string value) && (item.Type.StartsWith("numeric") || item.Type == "string"))
+                if (auction.FlatenedNBT.TryGetValue(item, out string value))
                 {
                     return value;
                 }
-                return item.Type switch
+                if (item.StartsWith("!ench"))
                 {
-                    "numeric" => "-1",
-                    "numeric0" => "0",
-                    "string" => "",
+                    if (!Enum.TryParse<Enchantment.EnchantmentType>(item.Substring(5), true, out var ench))
+                        return string.Empty;
+                    return auction.Enchantments.Where(e => e.Type == ench).Select(e => e.Level).FirstOrDefault().ToString();
+                }
+                return item switch
+                {
                     "reforge" => auction.Reforge.ToString(),
                     "count" => auction.Count.ToString(),
-                    "gems" => SerializeGems(auction),
-                    "ability_scroll" => SerializeAbilityScroll(auction),
-                    "enchantments" => PrintEnchants(auction),
-                    "runes" => PrintNbt(auction, "runes"),
-                    "necromancer_souls" => Necromancer(auction),
-                    "attributes" => PrintNbt(auction, "attributes"),
-                    "hpc" => NbtString(auction, "hpc", "0"),
-                    _ => throw new CoflnetException("transform", "unknown type " + item.Type)
+                    "item_id" => itemTag,
+                    "uuid" => auction.Uuid,
+                    "sold_for" => auction.HighestBidAmount.ToString(),
+                    _ => string.Empty
                 };
 
             });
-            var builder = new StringBuilder(100);
-            builder.AppendJoin(',', auction.Uuid, itemTag, auction.HighestBidAmount);
-            builder.Append(',').AppendJoin(',', values);
+            var builder = new StringBuilder(1000);
+            builder.AppendJoin(',', values);
             builder.AppendLine();
             return builder.ToString();
         }

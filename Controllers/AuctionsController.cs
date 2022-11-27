@@ -21,6 +21,7 @@ using Microsoft.AspNetCore.Http;
 using Coflnet.Sky.Api.Services;
 using System.Security.Cryptography;
 using System.Text;
+using Coflnet.Sky.Items.Client.Api;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Coflnet.Hypixel.Controller
@@ -39,6 +40,7 @@ namespace Coflnet.Hypixel.Controller
         IConfiguration config;
         PlayerNameService playerNameService;
         IServiceScopeFactory factory;
+        IItemsApi itemsClient;
         static FilterEngine fe = new FilterEngine();
 
         /// <summary>
@@ -51,13 +53,15 @@ namespace Coflnet.Hypixel.Controller
         /// <param name="pricesService"></param>
         /// <param name="playerNameService"></param>
         /// <param name="factory"></param>
+        /// <param name="itemsClient"></param>
         public AuctionsController(AuctionService auctionService,
                                   HypixelContext context,
                                   ILogger<AuctionsController> logger,
                                   IConfiguration config,
                                   PricesService pricesService,
                                   PlayerNameService playerNameService,
-                                  IServiceScopeFactory factory)
+                                  IServiceScopeFactory factory,
+                                  Sky.Items.Client.Api.IItemsApi itemsClient)
         {
             this.auctionService = auctionService;
             this.context = context;
@@ -66,6 +70,7 @@ namespace Coflnet.Hypixel.Controller
             this.pricesService = pricesService;
             this.playerNameService = playerNameService;
             this.factory = factory;
+            this.itemsClient = itemsClient;
         }
 
         /// <summary>
@@ -178,6 +183,7 @@ namespace Coflnet.Hypixel.Controller
             var pageSize = 100_000;
             var baseStart = 400_000_000;
             var transformer = new AuctionConverter();
+            var itemsRequest = itemsClient.ItemItemTagModifiersAllGetAsync("*");
 
             var tokens = config.GetSection("PartnerTokenHashes").Get<string[]>();
             using (var mySHA256 = SHA256.Create())
@@ -193,9 +199,11 @@ namespace Coflnet.Hypixel.Controller
             Response.Headers.Add("X-Page-Count", lastPage.ToString());
             Response.Headers.Add("X-Total-Count", totalAuctions.ToString());
 
+            var itemModifiers = await itemsRequest;
+            var columns = itemModifiers.Keys;
             if (!int.TryParse(page, out int pageNum))
             {
-                await HttpResponseWritingExtensions.WriteAsync(this.Response, transformer.GetHeader());
+                await HttpResponseWritingExtensions.WriteAsync(this.Response, transformer.GetHeader(columns));
                 pageNum = lastPage;
             }
             foreach (var item in context.Auctions
@@ -204,7 +212,7 @@ namespace Coflnet.Hypixel.Controller
                         .Include(a => a.NbtData))
             {
 
-                await HttpResponseWritingExtensions.WriteAsync(this.Response, transformer.Transform(item));
+                await HttpResponseWritingExtensions.WriteAsync(this.Response, transformer.Transform(item, columns));
             }
 
             //  return result;

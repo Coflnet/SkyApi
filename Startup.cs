@@ -76,6 +76,7 @@ namespace Coflnet.Sky.Api
             services.AddTransient<KatService>();
 
             services.AddResponseCaching();
+            services.AddResponseCompression();
             var redisOptions = ConfigurationOptions.Parse(Configuration["REDIS_HOST"]);
 
             services.AddStackExchangeRedisCache(options =>
@@ -125,6 +126,7 @@ namespace Coflnet.Sky.Api
                 c.RoutePrefix = "api";
             });
 
+            app.UseResponseCompression();
             app.UseHttpsRedirection();
 
             app.UseRouting();
