@@ -1,7 +1,7 @@
 ## Sky API
 
 ## Deploying
-This project should be deployed within a container. 
+This project should be deployed within a fancy container. 
 
 ### Configuration
 See appsettings.json  
