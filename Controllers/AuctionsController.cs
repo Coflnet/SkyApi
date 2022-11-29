@@ -206,13 +206,14 @@ namespace Coflnet.Hypixel.Controller
                 await HttpResponseWritingExtensions.WriteAsync(this.Response, transformer.GetHeader(columns));
                 pageNum = lastPage;
             }
+            var keys = transformer.ColumnKeys(columns);
             foreach (var item in context.Auctions
                         .Where(a => a.Id >= baseStart + pageSize * pageNum && a.Id < baseStart + pageSize * (pageNum + 1) && a.HighestBidAmount > 0)
                         .Include(a => a.Enchantments)
                         .Include(a => a.NbtData))
             {
 
-                await HttpResponseWritingExtensions.WriteAsync(this.Response, transformer.Transform(item, columns));
+                await HttpResponseWritingExtensions.WriteAsync(this.Response, transformer.Transform(item, keys));
             }
 
             //  return result;

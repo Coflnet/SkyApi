@@ -115,7 +115,15 @@ namespace Coflnet.Sky.Api.Services
             new(){Label="magma_cube_absorber", Type="numeric"},
             new(){Label="td_attune_mode", Type="numeric"}
         };
+        Dictionary<string, Enchantment.EnchantmentType> EnchantLookup = new();
 
+        public AuctionConverter()
+        {
+            foreach (var item in Enum.GetValues<Enchantment.EnchantmentType>())
+            {
+                EnchantLookup["!ench" + item.ToString().ToLower()] = item;
+            }
+        }
         public string GetHeader(IEnumerable<string> keys)
         {
             return string.Join(',', ColumnKeys(keys.Select(k => k.StartsWith("!ench") ? k.Substring(5) : k))) + "\n";
@@ -126,10 +134,9 @@ namespace Coflnet.Sky.Api.Services
             return new string[] { "uuid", "item_id", "sold_for", "count", }.Concat(datakeys.Where(k=> !new string[]{ "118", "119", "120", "121" }.Contains(k))).ToList();
         }
 
-        public string Transform(SaveAuction auction, IEnumerable<string> pkeys)
+        public string Transform(SaveAuction auction, IEnumerable<string> keys)
         {
             var itemTag = auction.Tag;
-            var keys = ColumnKeys(pkeys);
             if (Regex.IsMatch(itemTag, @"^PET_(?!ITEM)(?!SKIN)\w+"))
             {
                 itemTag = "PET";
@@ -142,17 +149,22 @@ namespace Coflnet.Sky.Api.Services
             {
                 itemTag = "POTION";
             }
+            var flattened = auction.FlatenedNBT;
+            var enchants = auction.Enchantments.ToDictionary(e=>e.Type, e=>e.Level);
             var values = keys.Select(item =>
             {
-                if (auction.FlatenedNBT.TryGetValue(item, out string value))
+                if (flattened.TryGetValue(item, out string value))
                 {
+                    value = value.Replace("\n", "");
+                    if(value.Contains('"') || value.Contains(','))
+                        return "\"" + value.Replace("\"", "\"\"") + "\"";
                     return value;
                 }
                 if (item.StartsWith("!ench"))
                 {
-                    if (!Enum.TryParse<Enchantment.EnchantmentType>(item.Substring(5), true, out var ench))
+                    if (!EnchantLookup.TryGetValue(item.ToLower(), out var ench))
                         return string.Empty;
-                    return auction.Enchantments.Where(e => e.Type == ench).Select(e => e.Level).FirstOrDefault().ToString();
+                    return enchants.GetValueOrDefault(ench).ToString();
                 }
                 return item switch
                 {
@@ -163,7 +175,6 @@ namespace Coflnet.Sky.Api.Services
                     "sold_for" => auction.HighestBidAmount.ToString(),
                     _ => string.Empty
                 };
-
             });
             var builder = new StringBuilder(1000);
             builder.AppendJoin(',', values);

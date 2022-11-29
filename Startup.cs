@@ -126,7 +126,6 @@ namespace Coflnet.Sky.Api
                 c.RoutePrefix = "api";
             });
 
-            app.UseResponseCompression();
             app.UseHttpsRedirection();
 
             app.UseRouting();
@@ -136,6 +135,7 @@ namespace Coflnet.Sky.Api
             app.UseAuthorization();
 
             app.UseResponseCaching();
+            app.UseResponseCompression();
             app.UseIpRateLimiting();
 
 
