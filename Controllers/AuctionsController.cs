@@ -198,6 +198,7 @@ namespace Coflnet.Hypixel.Controller
             var lastPage = (totalAuctions - baseStart) / pageSize;
             Response.Headers.Add("X-Page-Count", lastPage.ToString());
             Response.Headers.Add("X-Total-Count", totalAuctions.ToString());
+            Response.Headers.Add("Content-Type", "application/json; charset=utf-8");
 
             var itemModifiers = await itemsRequest;
             var columns = itemModifiers.Keys;
