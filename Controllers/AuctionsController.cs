@@ -216,9 +216,8 @@ namespace Coflnet.Hypixel.Controller
 
                 await HttpResponseWritingExtensions.WriteAsync(this.Response, transformer.Transform(item, keys));
             }
-
-            //  return result;
         }
+
         /// <summary>
         /// Gets a preview of recent auctions useful in overviews
         /// </summary>
