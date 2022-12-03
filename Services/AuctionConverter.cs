@@ -131,7 +131,7 @@ namespace Coflnet.Sky.Api.Services
 
         public IEnumerable<string> ColumnKeys(IEnumerable<string> datakeys)
         {
-            return new string[] { "uuid", "item_id", "sold_for", "count", }.Concat(datakeys.Where(k=> !new string[]{ "118", "119", "120", "121" }.Contains(k))).ToList();
+            return new string[] { "uuid", "item_id", "sold_for", "count", }.Concat(datakeys.Where(k => !new string[] { "118", "119", "120", "121" }.Contains(k) || k.EndsWith(".uuid"))).ToList();
         }
 
         public string Transform(SaveAuction auction, IEnumerable<string> keys)
@@ -150,13 +150,17 @@ namespace Coflnet.Sky.Api.Services
                 itemTag = "POTION";
             }
             var flattened = auction.FlatenedNBT;
-            var enchants = auction.Enchantments.ToDictionary(e=>e.Type, e=>e.Level);
+            var enchants = auction.Enchantments.ToDictionary(e => e.Type, e => e.Level);
             var values = keys.Select(item =>
             {
                 if (flattened.TryGetValue(item, out string value))
                 {
                     value = value.Replace("\n", "");
-                    if(value.Contains('"') || value.Contains(','))
+                    if (value.Contains(","))
+                    {
+                        value = "[\"" + value.Replace(",", "\",\"") + "\"]";
+                    }
+                    if (value.Contains('"'))
                         return "\"" + value.Replace("\"", "\"\"") + "\"";
                     return value;
                 }
