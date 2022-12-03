@@ -131,7 +131,12 @@ namespace Coflnet.Sky.Api.Services
 
         public IEnumerable<string> ColumnKeys(IEnumerable<string> datakeys)
         {
-            return new string[] { "uuid", "item_id", "sold_for", "count", }.Concat(datakeys.Where(k => !new string[] { "118", "119", "120", "121" }.Contains(k) || k.EndsWith(".uuid"))).ToList();
+            return (new string[] { "uuid", "item_id", "sold_for", "count", }).Concat(datakeys.Where(k => IncludeColumn(k))).ToList();
+        }
+
+        private static bool IncludeColumn(string k)
+        {
+            return !new string[] { "118", "119", "120", "121" }.Contains(k) && !k.EndsWith(".uuid");
         }
 
         public string Transform(SaveAuction auction, IEnumerable<string> keys)
