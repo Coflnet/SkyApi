@@ -27,7 +27,7 @@ namespace Coflnet.Sky.Api.Services
         /// <returns></returns>
         public string GetHeader(IEnumerable<string> keys)
         {
-            return string.Join(',', ColumnKeys(keys.Select(k => k.StartsWith("!ench") ? k.Substring(5) : k))) + "\n";
+            return string.Join(',', ColumnKeys(keys)) + "\n";
         }
 
         /// <summary>
@@ -42,7 +42,7 @@ namespace Coflnet.Sky.Api.Services
 
         private static bool IncludeColumn(string k)
         {
-            return !new string[] { "118", "119", "120", "121" }.Contains(k) && !k.EndsWith(".uuid");
+            return !new string[] { "!ench113", "!ench115", "!ench116", "!ench119", "!ench120", "!ench121" }.Contains(k) && !k.EndsWith(".uuid");
         }
 
         /// <summary>
