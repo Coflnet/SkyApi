@@ -124,11 +124,22 @@ namespace Coflnet.Sky.Api.Services
                 EnchantLookup["!ench" + item.ToString().ToLower()] = item;
             }
         }
+
+        /// <summary>
+        /// Returns the header for the CSV file
+        /// </summary>
+        /// <param name="keys"></param>
+        /// <returns></returns>
         public string GetHeader(IEnumerable<string> keys)
         {
             return string.Join(',', ColumnKeys(keys.Select(k => k.StartsWith("!ench") ? k.Substring(5) : k))) + "\n";
         }
 
+        /// <summary>
+        /// filters the keys to only include the ones we care about
+        /// </summary>
+        /// <param name="datakeys"></param>
+        /// <returns></returns>
         public IEnumerable<string> ColumnKeys(IEnumerable<string> datakeys)
         {
             return (new string[] { "uuid", "item_id", "sold_for", "count", }).Concat(datakeys.Where(k => IncludeColumn(k))).ToList();
@@ -139,6 +150,12 @@ namespace Coflnet.Sky.Api.Services
             return !new string[] { "118", "119", "120", "121" }.Contains(k) && !k.EndsWith(".uuid");
         }
 
+        /// <summary>
+        /// Converts a single auction to a csv line
+        /// </summary>
+        /// <param name="auction"></param>
+        /// <param name="keys"></param>
+        /// <returns></returns>
         public string Transform(SaveAuction auction, IEnumerable<string> keys)
         {
             var itemTag = auction.Tag;
