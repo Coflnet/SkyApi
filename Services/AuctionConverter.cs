@@ -60,12 +60,13 @@ namespace Coflnet.Sky.Api.Services
                 if (flattened.TryGetValue(item, out string value))
                 {
                     value = value.Replace("\n", "");
+                    if (value.Contains('"'))
+                        value = "\"" + value.Replace("\"", "\"\"") + "\"";
                     if (value.Contains(","))
                     {
-                        value = "[\"" + value.Replace(",", "\",\"") + "\"]";
+                        value = "\"[" + value + "]\"";
                     }
-                    if (value.Contains('"'))
-                        return "\"" + value.Replace("\"", "\"\"") + "\"";
+
                     return value;
                 }
                 if (item.StartsWith("!ench"))
