@@ -37,13 +37,12 @@ namespace Coflnet.Sky.Api.Services
         /// <returns></returns>
         public IEnumerable<string> ColumnKeys(IEnumerable<string> datakeys)
         {
-            datakeys = datakeys.Select(k => k.StartsWith("!ench") ? k.Substring(5) : k)
             return (new string[] { "uuid", "item_id", "sold_for", "count", }).Concat(datakeys.Where(k => IncludeColumn(k))).ToList();
         }
 
         private static bool IncludeColumn(string k)
         {
-            return !new string[] { "113", "115", "116", "119", "120", "121" }.Contains(k) && !k.EndsWith(".uuid");
+            return !new string[] { "!ench113", "!ench115", "!ench116", "!ench119", "!ench120", "!ench121" }.Contains(k) && !k.EndsWith(".uuid");
         }
 
         /// <summary>
