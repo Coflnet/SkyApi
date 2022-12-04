@@ -53,19 +53,6 @@ namespace Coflnet.Sky.Api.Services
         /// <returns></returns>
         public string Transform(SaveAuction auction, IEnumerable<string> keys)
         {
-            var itemTag = auction.Tag;
-            if (Regex.IsMatch(itemTag, @"^PET_(?!ITEM)(?!SKIN)\w+"))
-            {
-                itemTag = "PET";
-            }
-            else if (itemTag.StartsWith("RUNE_"))
-            {
-                itemTag = "RUNE";
-            }
-            else if (itemTag.StartsWith("POTION_"))
-            {
-                itemTag = "POTION";
-            }
             var flattened = auction.FlatenedNBT;
             var enchants = auction.Enchantments.ToDictionary(e => e.Type, e => e.Level);
             var values = keys.Select(item =>
@@ -91,7 +78,7 @@ namespace Coflnet.Sky.Api.Services
                 {
                     "reforge" => auction.Reforge.ToString(),
                     "count" => auction.Count.ToString(),
-                    "item_id" => itemTag,
+                    "item_id" => auction.Tag,
                     "uuid" => auction.Uuid,
                     "sold_for" => auction.HighestBidAmount.ToString(),
                     _ => string.Empty
