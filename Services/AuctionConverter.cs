@@ -42,7 +42,7 @@ namespace Coflnet.Sky.Api.Services
 
         private static bool IncludeColumn(string k)
         {
-            return !new string[] { "!ench113", "!ench115", "!ench116", "!ench119", "!ench120", "!ench121" }.Contains(k) && !k.EndsWith(".uuid");
+            return !new string[] { "!ench113", "!ench115", "!ench116", "!ench119", "!ench120", "!ench121", "!ench122", "!ench123" }.Contains(k) && !k.EndsWith(".uuid");
         }
 
         /// <summary>
