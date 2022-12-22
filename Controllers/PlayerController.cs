@@ -91,7 +91,7 @@ namespace Coflnet.Hypixel.Controller
             var aggregatedBids = playerBids
                         .Select(b => new BidResult()
                         {
-                            HighestBid = b.HighestBid,
+                            HighestBid = b.HighestBid == 0 && b.Bin ? b.HighestOwnBid : b.HighestBid,
                             AuctionId = b.Key,
                             End = b.End,
                             HighestOwnBid = b.HighestOwnBid,
