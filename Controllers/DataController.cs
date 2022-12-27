@@ -62,7 +62,7 @@ public class DataController : ControllerBase
     {
         namesCheckAttempts.Inc();
         var uuid = await playerNameService.GetUuid(name);
-        var auctionsRequest = new RestRequest($"Proxy/hypixel/ah/player/{uuid}?maxAgeSeconds=1", Method.Get);
+        var auctionsRequest = new RestRequest($"Proxy/hypixel/ah/player/{uuid}?maxAgeSeconds=1209600", Method.Get);
         var response = await proxyClient.ExecuteAsync(auctionsRequest);
         if (response.StatusCode != System.Net.HttpStatusCode.OK)
         {
@@ -96,6 +96,6 @@ public class DataController : ControllerBase
     [HttpPost]
     public async Task<IEnumerable<(int auctions, long profit)>> UploadProxied([FromBody] IEnumerable<string> name)
     {
-        return await Task.WhenAll(name.Select(UploadProxied).Take(24));
+        return await Task.WhenAll(name.Select(UploadProxied).Distinct().Take(24));
     }
 }
