@@ -66,9 +66,10 @@ public class DataController : ControllerBase
         var response = await proxyClient.ExecuteAsync(auctionsRequest);
         if (response.StatusCode != System.Net.HttpStatusCode.OK)
         {
-            throw new Exception($"Failed to get auctions for {uuid} got {response.StatusCode} {response.Content}");
+            throw new Exception($"Failed to get auctions for {uuid}({name}) got {response.StatusCode} {response.Content}");
         }
-        var auctions = JsonConvert.DeserializeObject<SaveAuction[]>(response.Content).Where(a => a.Start > DateTime.Now.AddSeconds(-40)).ToList();
+        var allAuctions = JsonConvert.DeserializeObject<SaveAuction[]>(response.Content);
+        var auctions = allAuctions.Where(a => a.Start > DateTime.UtcNow.AddSeconds(-40)).ToList();
         var prices = await modDescriptionService.GetPrices(auctions);
         var profitSum = 0L;
         for (int i = 0; i < auctions.Count; i++)
@@ -84,6 +85,7 @@ public class DataController : ControllerBase
             newAuctionsFound.Inc();
         }
         namesChecked.Inc();
+        Console.WriteLine($"Found {auctions.Count} new auctions for {name}({uuid}) with a total profit of {profitSum}");
         return (auctions.Count, profitSum);
     }
     /// <summary>
