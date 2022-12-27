@@ -8,7 +8,7 @@ using Microsoft.EntityFrameworkCore;
 using Coflnet.Sky.Commands.Shared;
 using Coflnet.Sky.Filter;
 
-namespace Coflnet.Hypixel.Controller
+namespace Coflnet.Sky.Api.Controller
 {
     /// <summary>
     /// The playerController handles all player related endpoints.

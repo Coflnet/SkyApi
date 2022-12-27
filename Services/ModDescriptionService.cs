@@ -28,7 +28,6 @@ namespace Coflnet.Sky.Api.Services
     public class ModDescriptionService : IDisposable
     {
         private ICraftsApi craftsApi;
-        private ISniperApi sniperApi;
         private RestSharp.RestClient sniperClient;
         private ITracer tracer;
         private SettingsService settingsService;
@@ -68,7 +67,6 @@ namespace Coflnet.Sky.Api.Services
                                      IStateUpdateService stateService)
         {
             this.craftsApi = craftsApi;
-            this.sniperApi = sniperApi;
             this.tracer = tracer;
             this.settingsService = settingsService;
             this.idConverter = idConverter;
@@ -203,7 +201,7 @@ namespace Coflnet.Sky.Api.Services
             }
 
             var allCraftsTask = craftsApi.CraftsAllGetAsync();
-            List<Sniper.Client.Model.PriceEstimate> res = await GetPrices(auctionRepresent);
+            List<Sniper.Client.Model.PriceEstimate> res = await GetPrices(auctionRepresent.Select(a => a.auction));
             var allCrafts = await allCraftsTask;
 
             var span = tracer.ActiveSpan;
@@ -417,7 +415,7 @@ namespace Coflnet.Sky.Api.Services
             List<(SaveAuction auction, IEnumerable<string> desc)> auctionRepresent = ConvertToAuctions(inventory);
 
             var allCraftsTask = craftsApi.CraftsAllGetAsync();
-            List<Sniper.Client.Model.PriceEstimate> res = await GetPrices(auctionRepresent);
+            List<Sniper.Client.Model.PriceEstimate> res = await GetPrices(auctionRepresent.Select(a => a.auction));
             var allCrafts = await allCraftsTask;
             var span = tracer.ActiveSpan;
             span.Log(JsonConvert.SerializeObject(allCrafts));
@@ -494,10 +492,10 @@ namespace Coflnet.Sky.Api.Services
             return auctionRepresent;
         }
 
-        private async Task<List<Sniper.Client.Model.PriceEstimate>> GetPrices(List<(SaveAuction auction, IEnumerable<string> desc)> auctionRepresent)
+        public async Task<List<Sniper.Client.Model.PriceEstimate>> GetPrices(IEnumerable<SaveAuction> auctionRepresent)
         {
             var request = new RestRequest("/api/sniper/prices", RestSharp.Method.Post);
-            request.AddJsonBody(JsonConvert.SerializeObject(Convert.ToBase64String(MessagePack.LZ4MessagePackSerializer.Serialize(auctionRepresent.Select(a => a.auction)))));
+            request.AddJsonBody(JsonConvert.SerializeObject(Convert.ToBase64String(MessagePack.LZ4MessagePackSerializer.Serialize(auctionRepresent))));
 
             var respone = await sniperClient.ExecuteAsync(request);
             if (respone.StatusCode == 0)

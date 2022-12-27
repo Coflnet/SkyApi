@@ -14,7 +14,7 @@ using Coflnet.Sky.Api.Services;
 using static Coflnet.Sky.Api.Services.ModDescriptionService;
 using Coflnet.Sky.Api.Models.Mod;
 
-namespace Coflnet.Hypixel.Controller
+namespace Coflnet.Sky.Api.Controller
 {
     /// <summary>
     /// Special endpoints for mods.

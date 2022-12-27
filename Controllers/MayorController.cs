@@ -8,7 +8,7 @@ using Coflnet.Sky.Mayor.Client.Model;
 using System;
 using Coflnet.Sky.Core;
 
-namespace Coflnet.Hypixel.Controller;
+namespace Coflnet.Sky.Api.Controller;
 
 /// <summary>
 /// Endpoints for mayor history data

@@ -15,7 +15,7 @@ using Coflnet.Sky.Api;
 using Coflnet.Sky.Api.Models;
 using System.Threading;
 
-namespace Coflnet.Hypixel.Controller
+namespace Coflnet.Sky.Api.Controller
 {
     /// <summary>
     /// Endpoints for related to paid services

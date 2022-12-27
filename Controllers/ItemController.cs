@@ -11,7 +11,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 
-namespace Coflnet.Hypixel.Controller
+namespace Coflnet.Sky.Api.Controller
 {
     /// <summary>
     /// Endpoints about items

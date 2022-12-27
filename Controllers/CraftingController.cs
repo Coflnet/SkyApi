@@ -10,7 +10,7 @@ using Newtonsoft.Json;
 using Coflnet.Sky.Api.Models;
 using Coflnet.Sky.Commands.Shared;
 
-namespace Coflnet.Hypixel.Controller
+namespace Coflnet.Sky.Api.Controller
 {
     /// <summary>
     /// Endpoints for crafting related data

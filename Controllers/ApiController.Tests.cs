@@ -1,6 +1,6 @@
 using NUnit.Framework;
 
-namespace Coflnet.Hypixel.Controller
+namespace Coflnet.Sky.Api.Controller
 {
     /// <summary>
     /// Tests for <see cref="SearchController"/>

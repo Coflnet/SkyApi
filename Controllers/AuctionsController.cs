@@ -24,7 +24,7 @@ using System.Text;
 using Coflnet.Sky.Items.Client.Api;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace Coflnet.Hypixel.Controller
+namespace Coflnet.Sky.Api.Controller
 {
     /// <summary>
     /// Endpoints for retrieving information about auctions

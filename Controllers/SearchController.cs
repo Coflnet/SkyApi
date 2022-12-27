@@ -12,7 +12,7 @@ using Coflnet.Sky.Commands.Shared;
 using Coflnet.Sky.Items.Client.Api;
 using OpenTracing;
 
-namespace Coflnet.Hypixel.Controller
+namespace Coflnet.Sky.Api.Controller
 {
     /// <summary>
     /// Main API endpoints

@@ -12,7 +12,7 @@ using Coflnet.Sky.Api.Models;
 using Microsoft.Extensions.Logging;
 using Coflnet.Sky.Items.Client.Api;
 
-namespace Coflnet.Hypixel.Controller
+namespace Coflnet.Sky.Api.Controller
 {
     /// <summary>
     /// Endpoints for retrieving prices
