@@ -60,6 +60,10 @@ public class DataController : ControllerBase
         var uuid = await playerNameService.GetUuid(name);
         var auctionsRequest = new RestRequest($"Proxy/hypixel/ah/player/{uuid}?maxAgeSeconds=1", Method.Get);
         var response = await proxyClient.ExecuteAsync(auctionsRequest);
+        if(response.StatusCode != System.Net.HttpStatusCode.OK)
+        {
+            throw new Exception($"Failed to get auctions for {uuid} got {response.StatusCode} {response.Content}");
+        }
         var auctions = JsonConvert.DeserializeObject<SaveAuction[]>(response.Content).Where(a => a.Start > DateTime.Now.AddSeconds(-20)).ToList();
         var prices = await modDescriptionService.GetPrices(auctions);
         var profitSum = 0L;
