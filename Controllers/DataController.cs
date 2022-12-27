@@ -69,7 +69,7 @@ public class DataController : ControllerBase
             throw new Exception($"Failed to get auctions for {uuid}({name}) got {response.StatusCode} {response.Content}");
         }
         var allAuctions = JsonConvert.DeserializeObject<SaveAuction[]>(response.Content);
-        var auctions = allAuctions.Where(a => a.Start > DateTime.UtcNow.AddSeconds(-40)).ToList();
+        var auctions = allAuctions.Where(a => a.Start > DateTime.UtcNow.AddSeconds(-60)).ToList();
         var prices = await modDescriptionService.GetPrices(auctions);
         var profitSum = 0L;
         for (int i = 0; i < auctions.Count; i++)
@@ -85,7 +85,7 @@ public class DataController : ControllerBase
             newAuctionsFound.Inc();
         }
         namesChecked.Inc();
-        Console.WriteLine($"Found {auctions.Count} new auctions for {name}({uuid}) with a total profit of {profitSum}");
+        Console.WriteLine($"Found {auctions.Count} new auctions for {name}({uuid}) with a total profit of {profitSum} {allAuctions.Length} auctions in total");
         return (auctions.Count, profitSum);
     }
     /// <summary>
