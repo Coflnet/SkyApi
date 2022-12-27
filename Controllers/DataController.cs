@@ -74,7 +74,7 @@ public class DataController : ControllerBase
         var profitSum = 0L;
         for (int i = 0; i < auctions.Count; i++)
         {
-            var profit = prices[i].Lbin.Price - auctions[i].StartingBid;
+            var profit = Math.Min(prices[i].Lbin.Price, prices[i].Median) - auctions[i].StartingBid;
             Console.WriteLine($"Auction {auctions[i].Uuid} has a median price of {prices[i].Median} lbin {prices[i].Lbin.Price}, cost {auctions[i].StartingBid} profit {profit}");
             if (profit > 0)
             {
