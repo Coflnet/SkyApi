@@ -88,8 +88,6 @@ public class DataController : ControllerBase
     [HttpPost]
     public async Task<IEnumerable<(int auctions, long profit)>> UploadProxied([FromBody] IEnumerable<string> name)
     {
-        if(name.Count() > 24)
-            throw new CoflnetException("to_many", "Too many names at once, max 24");
-        return await Task.WhenAll(name.Select(UploadProxied));
+        return await Task.WhenAll(name.Select(UploadProxied).Take(24));
     }
 }
