@@ -69,7 +69,7 @@ public class DataController : ControllerBase
             throw new Exception($"Failed to get auctions for {uuid}({name}) got {response.StatusCode} {response.Content}");
         }
         var allAuctions = JsonConvert.DeserializeObject<SaveAuction[]>(response.Content);
-        var auctions = allAuctions.Where(a => a.Start > DateTime.UtcNow.AddSeconds(-60)).ToList();
+        var auctions = allAuctions.Where(a => a.Start > DateTime.UtcNow.AddSeconds(-19)).ToList();
         var prices = await modDescriptionService.GetPrices(auctions);
         var profitSum = 0L;
         for (int i = 0; i < auctions.Count; i++)
