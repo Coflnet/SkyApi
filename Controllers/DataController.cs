@@ -11,6 +11,7 @@ using Newtonsoft.Json;
 using Coflnet.Sky.Core;
 using Coflnet.Sky.Api.Services;
 using Prometheus;
+using Coflnet.Sky.Commands;
 
 namespace Coflnet.Sky.Api.Controller;
 /// <summary>
@@ -25,6 +26,7 @@ public class DataController : ControllerBase
     ISniperApi sniperApi;
     RestClient proxyClient;
     PlayerNameService playerNameService;
+    FlipTrackingService ft;
     ModDescriptionService modDescriptionService;
     static Counter profitFound = Metrics.CreateCounter("sky_api_pf_profit_found", "How much coins of profit were found");
     static Counter flipsFound = Metrics.CreateCounter("sky_api_pf_flips_found", "How many flips were found");
@@ -32,13 +34,14 @@ public class DataController : ControllerBase
     static Counter namesCheckAttempts = Metrics.CreateCounter("sky_api_pf_names_check_attempts", "How many names were checked");
     static Counter newAuctionsFound = Metrics.CreateCounter("sky_api_pf_new_auctions_found", "How many new auctions were found");
 
-    public DataController(IConfiguration config, ISniperApi sniperApi, PlayerNameService playerNameService, ModDescriptionService modDescriptionService)
+    public DataController(IConfiguration config, ISniperApi sniperApi, PlayerNameService playerNameService, ModDescriptionService modDescriptionService, FlipTrackingService ft)
     {
         this.config = config;
         this.sniperApi = sniperApi;
         this.proxyClient = new RestClient(config["Proxy_Base_Url"]);
         this.playerNameService = playerNameService;
         this.modDescriptionService = modDescriptionService;
+        this.ft = ft;
     }
 
     /// <summary>
@@ -74,15 +77,23 @@ public class DataController : ControllerBase
         var profitSum = 0L;
         for (int i = 0; i < auctions.Count; i++)
         {
-            var profit = Math.Min(prices[i].Lbin.Price, prices[i].Median) - auctions[i].StartingBid;
+            var target = Math.Min(prices[i].Lbin.Price, prices[i].Median);
+            var profit = target - auctions[i].StartingBid;
             Console.WriteLine($"Auction {auctions[i].Uuid} has a median price of {prices[i].Median} lbin {prices[i].Lbin.Price}, cost {auctions[i].StartingBid} profit {profit}");
             if (profit > 0)
             {
                 profitFound.Inc(profit);
                 flipsFound.Inc();
                 profitSum += profit;
+                await ft.NewFlip(new LowPricedAuction()
+                {
+                    Auction = auctions[i],
+                    Finder = LowPricedAuction.FinderType.STONKS,
+                    TargetPrice = target
+                }, DateTime.UtcNow);
             }
             newAuctionsFound.Inc();
+
         }
         namesChecked.Inc();
         Console.WriteLine($"Found {auctions.Count} new auctions for {name}({uuid}) with a total profit of {profitSum} {allAuctions.Length} auctions in total");
