@@ -94,7 +94,9 @@ namespace Coflnet.Sky.Api.Controller
             var session = await topUpApi.TopUpPaypalPostAsync(user.Id.ToString(), productSlug, new TopUpOptions()
             {
                 UserEmail = user.Email,
-                TopUpAmount = args.CoinAmount
+                TopUpAmount = args.CoinAmount,
+                SuccessUrl = args.SuccessUrl,
+                CancelUrl = args.CancelUrl
             });
             return Ok(session);
         }
