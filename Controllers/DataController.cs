@@ -39,13 +39,6 @@ public class DataController : ControllerBase
     }
 
     /// <summary>
-    /// Creates a new instance of <see cref="DataController"/>
-    /// </summary>
-    public DataController()
-    {
-    }
-
-    /// <summary>
     /// Endpoint to upload proxied data
     /// </summary>
     /// <returns></returns>
@@ -62,13 +55,14 @@ public class DataController : ControllerBase
     /// <returns></returns>
     [Route("playerName")]
     [HttpPost]
-    public async Task UploadProxied(string name)
+    public async Task<(int,long)> UploadProxied(string name)
     {
         var uuid = await playerNameService.GetUuid(name);
-        var auctionsRequest = new RestRequest($"proxy/hypixel/ah/player/{uuid}?maxAgeSeconds=1", Method.Get);
+        var auctionsRequest = new RestRequest($"Proxy/hypixel/ah/player/{uuid}?maxAgeSeconds=1", Method.Get);
         var response = await proxyClient.ExecuteAsync(auctionsRequest);
         var auctions = JsonConvert.DeserializeObject<SaveAuction[]>(response.Content).Where(a => a.Start > DateTime.Now.AddSeconds(-20)).ToList();
         var prices = await modDescriptionService.GetPrices(auctions);
+        var profitSum = 0L;
         for (int i = 0; i < auctions.Count; i++)
         {
             var profit = prices[i].Lbin.Price - auctions[i].StartingBid;
@@ -77,7 +71,9 @@ public class DataController : ControllerBase
             {
                 profitFound.Inc(profit);
                 flipsFound.Inc();
+                profitSum += profit;
             }
         }
+        return (auctions.Count, profitSum);
     }
 }
