@@ -1,5 +1,7 @@
+global using System.Collections.Generic;
+using System;
+using System.Linq;
 using System.Threading.Tasks;
-using Coflnet.Sky.Api;
 using Microsoft.AspNetCore.Mvc;
 using RestSharp;
 using Coflnet.Sky.Sniper.Client.Api;
@@ -7,9 +9,7 @@ using Microsoft.Extensions.Configuration;
 using Coflnet.Sky.PlayerName;
 using Newtonsoft.Json;
 using Coflnet.Sky.Core;
-using System.Linq;
 using Coflnet.Sky.Api.Services;
-using System;
 using Prometheus;
 
 namespace Coflnet.Sky.Api.Controller;
@@ -55,12 +55,12 @@ public class DataController : ControllerBase
     /// <returns></returns>
     [Route("playerName")]
     [HttpPost]
-    public async Task<(int,long)> UploadProxied(string name)
+    public async Task<(int, long)> UploadProxied(string name)
     {
         var uuid = await playerNameService.GetUuid(name);
         var auctionsRequest = new RestRequest($"Proxy/hypixel/ah/player/{uuid}?maxAgeSeconds=1", Method.Get);
         var response = await proxyClient.ExecuteAsync(auctionsRequest);
-        if(response.StatusCode != System.Net.HttpStatusCode.OK)
+        if (response.StatusCode != System.Net.HttpStatusCode.OK)
         {
             throw new Exception($"Failed to get auctions for {uuid} got {response.StatusCode} {response.Content}");
         }
@@ -79,5 +79,17 @@ public class DataController : ControllerBase
             }
         }
         return (auctions.Count, profitSum);
+    }
+    /// <summary>
+    /// Accepts player name based auction hints
+    /// </summary>
+    /// <returns></returns>
+    [Route("playerNames")]
+    [HttpPost]
+    public async Task<IEnumerable<(int auctions, long profit)>> UploadProxied([FromBody] IEnumerable<string> name)
+    {
+        if(name.Count() > 10)
+            throw new CoflnetException("to_many", "Too many names at once, max 10");
+        return await Task.WhenAll(name.Select(UploadProxied));
     }
 }
