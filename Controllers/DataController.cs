@@ -26,8 +26,11 @@ public class DataController : ControllerBase
     RestClient proxyClient;
     PlayerNameService playerNameService;
     ModDescriptionService modDescriptionService;
-    static Counter profitFound = Metrics.CreateCounter("sky_api_profit_found", "How much coins of profit were found");
-    static Counter flipsFound = Metrics.CreateCounter("sky_api_flips_found", "How many flips were found");
+    static Counter profitFound = Metrics.CreateCounter("sky_api_pf_profit_found", "How much coins of profit were found");
+    static Counter flipsFound = Metrics.CreateCounter("sky_api_pf_flips_found", "How many flips were found");
+    static Counter namesChecked = Metrics.CreateCounter("sky_api_pf_names_checked", "How many names were checked");
+    static Counter namesCheckAttempts = Metrics.CreateCounter("sky_api_pf_names_check_attempts", "How many names were checked");
+    static Counter newAuctionsFound = Metrics.CreateCounter("sky_api_pf_new_auctions_found", "How many new auctions were found");
 
     public DataController(IConfiguration config, ISniperApi sniperApi, PlayerNameService playerNameService, ModDescriptionService modDescriptionService)
     {
@@ -57,6 +60,7 @@ public class DataController : ControllerBase
     [HttpPost]
     public async Task<(int, long)> UploadProxied(string name)
     {
+        namesCheckAttempts.Inc();
         var uuid = await playerNameService.GetUuid(name);
         var auctionsRequest = new RestRequest($"Proxy/hypixel/ah/player/{uuid}?maxAgeSeconds=1", Method.Get);
         var response = await proxyClient.ExecuteAsync(auctionsRequest);
@@ -64,7 +68,7 @@ public class DataController : ControllerBase
         {
             throw new Exception($"Failed to get auctions for {uuid} got {response.StatusCode} {response.Content}");
         }
-        var auctions = JsonConvert.DeserializeObject<SaveAuction[]>(response.Content).Where(a => a.Start > DateTime.Now.AddSeconds(-20)).ToList();
+        var auctions = JsonConvert.DeserializeObject<SaveAuction[]>(response.Content).Where(a => a.Start > DateTime.Now.AddSeconds(-40)).ToList();
         var prices = await modDescriptionService.GetPrices(auctions);
         var profitSum = 0L;
         for (int i = 0; i < auctions.Count; i++)
@@ -77,7 +81,9 @@ public class DataController : ControllerBase
                 flipsFound.Inc();
                 profitSum += profit;
             }
+            newAuctionsFound.Inc();
         }
+        namesChecked.Inc();
         return (auctions.Count, profitSum);
     }
     /// <summary>
