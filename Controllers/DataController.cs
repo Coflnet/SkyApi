@@ -61,7 +61,7 @@ public class DataController : ControllerBase
     /// <returns></returns>
     [Route("playerName")]
     [HttpPost]
-    public async Task<(int, long)> UploadProxied(string name)
+    public async Task<(int, long)> LoadPlayerAuctions(string name)
     {
         namesCheckAttempts.Inc();
         var uuid = await playerNameService.GetUuid(name);
@@ -105,8 +105,8 @@ public class DataController : ControllerBase
     /// <returns></returns>
     [Route("playerNames")]
     [HttpPost]
-    public async Task<IEnumerable<(int auctions, long profit)>> UploadProxied([FromBody] IEnumerable<string> name)
+    public async Task<IEnumerable<(int auctions, long profit)>> LoadPlayerAuctions([FromBody] IEnumerable<string> name)
     {
-        return await Task.WhenAll(name.Select(UploadProxied).Distinct().Take(24));
+        return await Task.WhenAll(name.Select(LoadPlayerAuctions).Distinct().Take(24));
     }
 }
