@@ -80,7 +80,7 @@ public class DataController : ControllerBase
             var target = Math.Min(prices[i].Lbin.Price, prices[i].Median);
             var profit = target - auctions[i].StartingBid;
             Console.WriteLine($"Auction {auctions[i].Uuid} has a median price of {prices[i].Median} lbin {prices[i].Lbin.Price}, cost {auctions[i].StartingBid} profit {profit}");
-            if (profit > 0)
+            if (profit > 200_000)
             {
                 profitFound.Inc(profit);
                 flipsFound.Inc();
