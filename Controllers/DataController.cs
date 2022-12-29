@@ -64,7 +64,16 @@ public class DataController : ControllerBase
     public async Task<(int, long)> LoadPlayerAuctions(string name)
     {
         namesCheckAttempts.Inc();
-        var uuid = await playerNameService.GetUuid(name);
+        string uuid = null;
+        try
+        {
+            uuid = await playerNameService.GetUuid(name);
+        }
+        catch (Exception e)
+        {
+            Console.WriteLine($"Failed to get uuid for {name} {e}");
+            return (0, 0);
+        }
         var auctionsRequest = new RestRequest($"Proxy/hypixel/ah/player/{uuid}?maxAgeSeconds=1209600", Method.Get);
         var response = await proxyClient.ExecuteAsync(auctionsRequest);
         if (response.StatusCode != System.Net.HttpStatusCode.OK)
