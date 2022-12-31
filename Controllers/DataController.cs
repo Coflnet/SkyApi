@@ -34,6 +34,9 @@ public class DataController : ControllerBase
     static Counter namesCheckAttempts = Metrics.CreateCounter("sky_api_pf_names_check_attempts", "How many names were checked");
     static Counter newAuctionsFound = Metrics.CreateCounter("sky_api_pf_new_auctions_found", "How many new auctions were found");
 
+    /// <summary>
+    /// Creates a new instance of <see cref="DataController"/>
+    /// </summary>
     public DataController(IConfiguration config, ISniperApi sniperApi, PlayerNameService playerNameService, ModDescriptionService modDescriptionService, FlipTrackingService ft)
     {
         this.config = config;
