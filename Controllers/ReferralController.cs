@@ -60,7 +60,7 @@ namespace Coflnet.Sky.Api.Controller
             }
             catch (Sky.Referral.Client.Client.ApiException e)
             {
-                throw new CoflnetException("referral_error", e.Message.Substring(46).Trim('}', '"'));
+                throw new CoflnetException("referral_error", e.Message.Substring(63).Trim('}', '"'));
             }
         }
 
