@@ -75,7 +75,7 @@ namespace Coflnet.Sky.Api.Controller
         /// </summary>
         /// <param name="itemTag">The tag of the item</param>
         /// <param name="count">How many items to search for (and include in cost)</param>
-        /// <returns></returns>
+        /// <returns>The current buy and cost (for how much given count could be sold) and how many items are available for purchase</returns>
         [Route("item/price/{itemTag}/current")]
         [HttpGet]
         [ResponseCache(Duration = 180, Location = ResponseCacheLocation.Any, NoStore = false, VaryByQueryKeys = new string[] { "count" })]
