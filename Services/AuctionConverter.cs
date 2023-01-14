@@ -59,15 +59,7 @@ namespace Coflnet.Sky.Api.Services
             {
                 if (flattened.TryGetValue(item, out string value))
                 {
-                    value = value.Replace("\n", "");
-                    if (value.Contains('"'))
-                        value = "\"" + value.Replace("\"", "\"\"") + "\"";
-                    if (value.Contains(","))
-                    {
-                        value = "\"[" + value + "]\"";
-                    }
-
-                    return value;
+                    return QuoteJson(value);
                 }
                 if (item.StartsWith("!ench"))
                 {
@@ -89,6 +81,41 @@ namespace Coflnet.Sky.Api.Services
             builder.AppendJoin(',', values);
             builder.AppendLine();
             return builder.ToString();
+        }
+
+        private static string QuoteJson(string value)
+        {
+            value = value.Replace("\n", "");
+            if (value.Contains('"'))
+                value = "\"" + value.Replace("\"", "\"\"") + "\"";
+            if (value.Contains(","))
+            {
+                value = "\"[" + value + "]\"";
+            }
+
+            return value;
+        }
+
+        public string MakeSample(int i, string itemId, string[] keys, Dictionary<string, List<string>> values)
+        {
+            var builder = new StringBuilder(1000);
+            builder.AppendJoin(',', keys.Select(k => k switch
+            {
+                "item_id" => itemId,
+                "sold_for" => "0",
+                _ => GetValue(values, k, i)
+            }));
+            builder.AppendLine();
+            return builder.ToString();
+        }
+
+        private string GetValue(Dictionary<string, List<string>> values, string k, int i)
+        {
+            if (values.TryGetValue(k, out var list))
+            {
+                return QuoteJson(list[i % list.Count]);
+            }
+            return string.Empty;
         }
     }
 }

@@ -180,7 +180,7 @@ namespace Coflnet.Sky.Api.Controller
         [ResponseCache(Duration = 1800, Location = ResponseCacheLocation.Any, NoStore = false, VaryByQueryKeys = new string[] { "page" })]
         public async Task GetHistory(string page = "last", string token = "")
         {
-            var pageSize = 25_000;
+            var pageSize = 50_000;
             var baseStart = 400_000_000;
             var transformer = new AuctionConverter();
             var itemsRequest = itemsClient.ItemItemTagModifiersAllGetAsync("*");
@@ -207,7 +207,12 @@ namespace Coflnet.Sky.Api.Controller
                 await HttpResponseWritingExtensions.WriteAsync(this.Response, transformer.GetHeader(columns));
                 pageNum = lastPage;
             }
-            var keys = transformer.ColumnKeys(columns);
+            var keys = transformer.ColumnKeys(columns).ToArray();
+            var itemids = ItemDetails.Instance.TagLookup.Keys.ToArray();
+            for (int i = 0; i < itemids.Length; i++)
+            {
+                await HttpResponseWritingExtensions.WriteAsync(this.Response, transformer.MakeSample(i, itemids[i], keys, itemModifiers));
+            }
             foreach (var item in context.Auctions
                         .Where(a => a.Id >= baseStart + pageSize * pageNum && a.Id < baseStart + pageSize * (pageNum + 1) && a.HighestBidAmount > 0)
                         .Include(a => a.Enchantments)
