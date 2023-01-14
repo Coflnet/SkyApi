@@ -7,6 +7,7 @@ using System.Text;
 using System.Threading.Tasks;
 using Coflnet.Sky.Api.Models.Mod;
 using Coflnet.Sky.Bazaar.Client.Api;
+using Coflnet.Sky.Bazaar.Client.Model;
 using Coflnet.Sky.Commands.MC;
 using Coflnet.Sky.Commands.Shared;
 using Coflnet.Sky.Core;
@@ -241,6 +242,10 @@ namespace Coflnet.Sky.Api.Services
                 }
                 var craftPrice = allCrafts?.Where(c => auction != null && c.ItemId == auction.Tag && c.CraftCost > 0)?.FirstOrDefault()?.CraftCost;
                 List<DescModification> mods = GetModifications(enabledFields, desc, auction, price, craftPrice, pricesPaid, bazaarPrices);
+                if (auction.Tag == "SKYBLOCK_MENU")
+                {
+                    AddSummaryToMenu(inventory, auctionRepresent, res, bazaarPrices, mods);
+                }
 
                 if (desc != null)
                     span.Log(string.Join('\n', mods.Select(m => $"{m.Line} {m.Value}")) + JsonConvert.SerializeObject(auction, Formatting.Indented) + JsonConvert.SerializeObject(price, Formatting.Indented) + "\ncraft:" + craftPrice);
@@ -248,6 +253,34 @@ namespace Coflnet.Sky.Api.Services
             }
 
             return result;
+        }
+
+        private void AddSummaryToMenu(InventoryData inventory, List<(SaveAuction auction, IEnumerable<string> desc)> auctionRepresent, List<Sniper.Client.Model.PriceEstimate> res, Dictionary<string, ItemPrice> bazaarPrices, List<DescModification> mods)
+        {
+            var take = 45;
+            if (auctionRepresent.Count > take)
+            {
+                // container of some sort, only display whats in the container by taking the top
+                take = auctionRepresent.Count - 36;
+                mods.Add(new($"Chest Value Summary:"));
+            }
+            else
+                mods.Add(new($"Inventory Value Summary:"));
+            if (inventory.Settings.Fields.Any(line => line.Contains(DescriptionField.MEDIAN)))
+            {
+                mods.Add(new($"Med sumary: {McColorCodes.AQUA}{FormatNumber(res.Take(take).Sum(r => r?.Median ?? 0))}"));
+            }
+            if (inventory.Settings.Fields.Any(line => line.Contains(DescriptionField.LBIN)))
+            {
+                mods.Add(new($"Lbin sumary: {McColorCodes.YELLOW}{FormatNumber(res.Take(take).Sum(r => r?.Lbin.Price ?? 0))}"));
+            }
+            if (inventory.Settings.Fields.Any(line => line.Contains(DescriptionField.BazaarSell)))
+            {
+                var bazaarSellValue = auctionRepresent.Take(take).Select(a => a.auction).Where(a => a != null)
+                        .Where(t => bazaarPrices.ContainsKey(GetBazaarTag(t)))
+                        .Sum(t => bazaarPrices[t.Tag].SellPrice * (t.Count > 1 ? t.Count : 1));
+                mods.Add(new($"Bazaar sell: {McColorCodes.GOLD}{FormatNumber(bazaarSellValue)}"));
+            }
         }
 
         private async Task<Dictionary<string, long>> GetPricePaidData(InventoryData inventory, string mcName, List<(SaveAuction auction, IEnumerable<string> desc)> auctionRepresent)
@@ -407,6 +440,8 @@ namespace Coflnet.Sky.Api.Services
                 var enchant = auction.Enchantments.First();
                 tag = "ENCHANTMENT_" + enchant.Type.ToString().ToUpper() + '_' + enchant.Level;
             }
+            if (tag == null)
+                return string.Empty;
             return tag;
         }
 
