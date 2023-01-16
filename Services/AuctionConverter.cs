@@ -103,6 +103,7 @@ namespace Coflnet.Sky.Api.Services
             {
                 "item_id" => itemId,
                 "sold_for" => "0",
+                "count" => "0",
                 _ => GetValue(values, k, i)
             }));
             builder.AppendLine();
