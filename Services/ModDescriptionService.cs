@@ -387,6 +387,8 @@ namespace Coflnet.Sky.Api.Services
                             break;
                         case DescriptionField.VOLUME:
                             if (price != null && price.Median != 0)
+                                if(float.IsInfinity(price.Volume))
+                                    logger.LogInformation($"Volume is infinity for {price.ItemKey}");
                                 content += $"{McColorCodes.GRAY}Vol: {McColorCodes.YELLOW}{price.Volume.ToString("0.#")} ";
                             break;
                         case DescriptionField.TAG:
