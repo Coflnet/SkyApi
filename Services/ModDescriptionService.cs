@@ -278,7 +278,7 @@ namespace Coflnet.Sky.Api.Services
             {
                 var bazaarSellValue = auctionRepresent.Take(take).Select(a => a.auction).Where(a => a != null)
                         .Where(t => bazaarPrices.ContainsKey(GetBazaarTag(t)))
-                        .Sum(t => bazaarPrices[t.Tag].SellPrice * (t.Count > 1 ? t.Count : 1));
+                        .Sum(t => bazaarPrices[GetBazaarTag(t)].SellPrice * (t.Count > 1 ? t.Count : 1));
                 mods.Add(new($"Bazaar sell: {McColorCodes.GOLD}{FormatNumber(bazaarSellValue)}"));
             }
         }
