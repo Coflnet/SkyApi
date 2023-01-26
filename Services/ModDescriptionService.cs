@@ -504,7 +504,12 @@ namespace Coflnet.Sky.Api.Services
             return result;
         }
 
-        private List<(SaveAuction auction, IEnumerable<string> desc)> ConvertToAuctions(InventoryData inventory)
+        /// <summary>
+        /// Parses nbt data from inventory to auctions
+        /// </summary>
+        /// <param name="inventory"></param>
+        /// <returns></returns>
+        public List<(SaveAuction auction, IEnumerable<string> desc)> ConvertToAuctions(InventoryData inventory)
         {
             var nbt = NBT.File(Convert.FromBase64String(inventory.FullInventoryNbt));
             var auctionRepresent = nbt.RootTag.Get<fNbt.NbtList>("i").Select(t =>
