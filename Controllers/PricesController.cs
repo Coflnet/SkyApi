@@ -178,7 +178,8 @@ public class PricesController : ControllerBase
     }
 
     /// <summary>
-    /// Returns price estimations for nbt data (for in game mods)
+    /// Returns price estimations for nbt data (for in game mods) 
+    /// NOTE: THIS WILL BE A PAID FEATURE IN THE FUTURE
     /// </summary>
     /// <returns></returns>
     [Route("price/nbt")]
