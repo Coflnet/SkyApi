@@ -22,4 +22,12 @@ public class PriceEstimate
     /// Suggested price for selling withing 5 minutes
     /// </summary>
     public long FastSell { get; set; }
+    /// <summary>
+    /// The key of the median price
+    /// </summary>
+    public string MedianKey { get; set; }
+    /// <summary>
+    /// The key of the 
+    /// </summary>
+    public string ItemKey { get; set; }
 }

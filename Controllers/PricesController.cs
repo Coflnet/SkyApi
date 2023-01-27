@@ -196,6 +196,8 @@ public class PricesController : ControllerBase
             Median = d.Median,
             Volume = d.Volume,
             FastSell = Math.Min(d.Lbin.Price, d.Median) * 85 / 100,
+            MedianKey = d.MedianKey,
+            ItemKey = d.ItemKey
         });
     }
 
