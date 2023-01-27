@@ -184,10 +184,9 @@ public class PricesController : ControllerBase
     /// <returns></returns>
     [Route("price/nbt")]
     [HttpPost]
-    [ResponseCache(Duration = 20, Location = ResponseCacheLocation.Any, NoStore = false)]
     public async Task<IEnumerable<PriceEstimate>> GetFromNbt(InventoryData inventoryData)
     {
-        var auctions = modDescriptionSerice.ConvertToAuctions(inventoryData).Select(a => a.auction);
+        var auctions = modDescriptionSerice.ConvertToAuctions(inventoryData).Select(a => a.auction).Take(30);
         var data = await modDescriptionSerice.GetPrices(auctions);
         return data.Select(d => new PriceEstimate()
         {
