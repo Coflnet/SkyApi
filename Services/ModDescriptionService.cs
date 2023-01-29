@@ -244,7 +244,14 @@ namespace Coflnet.Sky.Api.Services
                 List<DescModification> mods = GetModifications(enabledFields, desc, auction, price, craftPrice, pricesPaid, bazaarPrices);
                 if (auction.Tag == "SKYBLOCK_MENU")
                 {
-                    AddSummaryToMenu(inventory, auctionRepresent, res, bazaarPrices, mods);
+                    try
+                    {
+                        AddSummaryToMenu(inventory, auctionRepresent, res, bazaarPrices, mods);
+                    }
+                    catch (Exception e)
+                    {
+                        logger.LogError(e, "failed to add summary");
+                    }
                 }
 
                 if (desc != null)
@@ -387,9 +394,9 @@ namespace Coflnet.Sky.Api.Services
                             break;
                         case DescriptionField.VOLUME:
                             if (price != null && price.Median != 0)
-                                if(float.IsInfinity(price.Volume))
+                                if (float.IsInfinity(price.Volume))
                                     logger.LogInformation($"Volume is infinity for {auction.Tag} {price.ItemKey}");
-                                content += $"{McColorCodes.GRAY}Vol: {McColorCodes.YELLOW}{price.Volume.ToString("0.#")} ";
+                            content += $"{McColorCodes.GRAY}Vol: {McColorCodes.YELLOW}{price.Volume.ToString("0.#")} ";
                             break;
                         case DescriptionField.TAG:
                             content += $"{auction.Tag} ";
