@@ -70,6 +70,10 @@ namespace Coflnet.Sky.Api.Controller
             {
                 Console.WriteLine(item.Key + ": " + String.Join(", ", item.Value));
             }
+            var fingerprint = GetBrowserFingerprint();
+            Console.WriteLine("Fingerprint: " + fingerprint);
+            var realIp = Request.Headers["X-Real-IP"].ToString();
+            Console.WriteLine("RealIp: " + realIp);
             if (!TryGetUser(out GoogleUser user))
                 return Unauthorized("no googletoken header");
 
@@ -99,6 +103,20 @@ namespace Coflnet.Sky.Api.Controller
                 CancelUrl = args.CancelUrl
             });
             return Ok(session);
+        }
+
+        private string GetBrowserFingerprint()
+        {
+            var userAgent = this.Request.Headers["User-Agent"].ToString();
+            var acceptLanguage = this.Request.Headers["Accept-Language"].ToString();
+            var acceptEncoding = this.Request.Headers["Accept-Encoding"].ToString();
+            var accept = this.Request.Headers["Accept"].ToString();
+            var referer = this.Request.Headers["Referer"].ToString();
+            var host = this.Request.Headers["Host"].ToString();
+            var connection = this.Request.Headers["Connection"].ToString();
+            var md5hash = System.Security.Cryptography.MD5.Create().ComputeHash(System.Text.Encoding.UTF8.GetBytes(userAgent + acceptLanguage + acceptEncoding + accept + referer + host + connection));
+            var hash = BitConverter.ToString(md5hash).Replace("-", "").ToLowerInvariant();
+            return hash;
         }
 
 
