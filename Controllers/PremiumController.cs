@@ -72,7 +72,8 @@ namespace Coflnet.Sky.Api.Controller
             }
             var fingerprint = GetBrowserFingerprint();
             Console.WriteLine("Fingerprint: " + fingerprint);
-            var realIp = Request.Headers["X-Real-IP"].ToString();
+            // get ip from cloudflare header 
+            var realIp = (Request.Headers.Where(h => h.Key.ToLower() == "x-original-forwarded-for" || h.Key.ToUpper() == "CF-Connecting-IP").First()).ToString();
             Console.WriteLine("RealIp: " + realIp);
             if (!TryGetUser(out GoogleUser user))
                 return Unauthorized("no googletoken header");
@@ -180,7 +181,7 @@ namespace Coflnet.Sky.Api.Controller
             try
             {
                 var cancelationSource = new CancellationTokenSource(10_000);
-                var owns = await userApi.UserUserIdOwnsUntilPostAsync(user.Id.ToString(), slugsToTest, 0,cancelationSource.Token);
+                var owns = await userApi.UserUserIdOwnsUntilPostAsync(user.Id.ToString(), slugsToTest, 0, cancelationSource.Token);
                 if (owns == null)
                     return NotFound();
                 return Ok(owns.Where(o => o.Value > DateTime.Now).ToDictionary(o => o.Key, o => new Sky.Api.Models.OwnerShip()
