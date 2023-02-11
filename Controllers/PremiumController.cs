@@ -72,19 +72,41 @@ namespace Coflnet.Sky.Api.Controller
             }
             var fingerprint = GetBrowserFingerprint();
             Console.WriteLine("Fingerprint: " + fingerprint);
-            // get ip from cloudflare header 
-            var realIp = (Request.Headers.Where(h => h.Key.ToLower() == "x-original-forwarded-for" || h.Key.ToUpper() == "CF-Connecting-IP").First()).ToString();
-            Console.WriteLine("RealIp: " + realIp);
+
+
             if (!TryGetUser(out GoogleUser user))
                 return Unauthorized("no googletoken header");
 
-            var session = await topUpApi.TopUpStripePostAsync(user.Id.ToString(), productSlug, new TopUpOptions()
-            {
-                UserEmail = user.Email,
-                TopUpAmount = args.CoinAmount
-            });
+            TopUpOptions options = GetOptions(args, fingerprint, user);
+
+            var session = await topUpApi.TopUpStripePostAsync(user.Id.ToString(), productSlug, options);
             return Ok(session);
         }
+
+        private TopUpOptions GetOptions(TopUpArguments args, string fingerprint, GoogleUser user)
+        {
+            var realIp = (Request.Headers.Where(h => h.Key.ToLower() == "x-original-forwarded-for" || h.Key.ToUpper() == "CF-Connecting-IP").Select(h => h.Value).First()).ToString();
+            Console.WriteLine("RealIp: " + realIp);
+            var locale = "de-DE";
+            if (Request.Headers.TryGetValue("cf-ipcountry", out StringValues country))
+            {
+                locale = country.ToString();
+            }
+            else if (Request.Headers.TryGetValue("accept-language", out StringValues acceptLanguage))
+            {
+                locale = acceptLanguage.First().ToString();
+            }
+            var options = new TopUpOptions()
+            {
+                UserEmail = user.Email,
+                TopUpAmount = args.CoinAmount,
+                UserIp = realIp,
+                Fingerprint = fingerprint,
+                Locale = locale
+            };
+            return options;
+        }
+
         /// <summary>
         /// Start a new topup session with paypal
         /// </summary>
