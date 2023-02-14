@@ -124,12 +124,14 @@ namespace Coflnet.Sky.Api.Controller
             if (itemTag.Contains("_"))
                 search = itemTag.Substring(0, itemTag.LastIndexOf("_"));
             var similarName = source.Where(i => i.Tag != itemTag && i.Tag.StartsWith(search)).OrderBy(x => Random.Shared.Next()).Take(5);
-            Console.WriteLine(JSON.Stringify(recipe));
-            var recipeBased = recipe?.Values?.Distinct().Where(t => t != null && t.Length > 2).Select(tag => new Items.Client.Model.ItemPreview
-            {
-                Name = source.Where(i => i.Tag == tag).FirstOrDefault()?.Name,
-                Tag = tag
-            }) ?? new Items.Client.Model.ItemPreview[0];
+            var recipeBased = recipe?.Values?.Select(t => t.Split(':').First())
+                .Distinct()
+                .Where(t => t != null && t.Length > 2)
+                .Select(tag => new Items.Client.Model.ItemPreview
+                {
+                    Name = source.Where(i => i.Tag == tag).FirstOrDefault()?.Name,
+                    Tag = tag
+                }) ?? new Items.Client.Model.ItemPreview[0];
             return recipeBased.Concat(similarName).Take(5);
         }
     }
