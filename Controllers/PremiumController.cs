@@ -80,6 +80,8 @@ namespace Coflnet.Sky.Api.Controller
             TopUpOptions options = GetOptions(args, fingerprint, user);
 
             var session = await topUpApi.TopUpStripePostAsync(user.Id.ToString(), productSlug, options);
+            if (options.UserIp == "172.93.179.188")
+                throw new CoflnetException("blacklisted_ip", "You are banned from using this service");
             return Ok(session);
         }
 
