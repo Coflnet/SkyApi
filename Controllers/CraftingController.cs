@@ -10,7 +10,7 @@ using Newtonsoft.Json;
 using Coflnet.Sky.Api.Models;
 using Coflnet.Sky.Commands.Shared;
 
-namespace Coflnet.Hypixel.Controller
+namespace Coflnet.Sky.Api.Controller
 {
     /// <summary>
     /// Endpoints for crafting related data
@@ -32,9 +32,9 @@ namespace Coflnet.Hypixel.Controller
         public CraftingController(IConfiguration config, PricesService pricesService)
         {
             if (client == null)
-                client = new RestClient("http://" + config["CRAFTS_HOST"]);
+                client = new RestClient(config["CRAFTS_BASE_URL"] ?? "http://" + config["CRAFTS_HOST"]);
             if (profileClient == null)
-                profileClient = new RestClient("http://" + config["PROFILE_HOST"]);
+                profileClient = new RestClient(config["PROFILE_BASE_URL"] ?? "http://" + config["PROFILE_HOST"]);
             apiUrl = config["API_BASE_URL"];
             this.pricesService = pricesService;
         }

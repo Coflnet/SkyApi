@@ -12,7 +12,7 @@ using Coflnet.Sky.Commands.Shared;
 using Coflnet.Sky.Items.Client.Api;
 using OpenTracing;
 
-namespace Coflnet.Hypixel.Controller
+namespace Coflnet.Sky.Api.Controller
 {
     /// <summary>
     /// Main API endpoints
@@ -55,7 +55,8 @@ namespace Coflnet.Hypixel.Controller
                         : i.Flags.Value.HasFlag(Sky.Items.Client.Model.ItemFlags.AUCTION) ? "" : " - not on ah"),
                 Tag = i.Tag,
                 IconUrl = "https://sky.coflnet.com/static/icon/" + i.Tag,
-                HitCount = i.Flags.Value.HasFlag(Sky.Items.Client.Model.ItemFlags.AUCTION) ? 50 : 0
+                HitCount = i.Flags.Value.HasFlag(Sky.Items.Client.Model.ItemFlags.AUCTION) ? 50 : 0,
+                Tier = (Coflnet.Sky.Core.Tier)i.Tier - 1
 
             })).Take(5).ToList();
         }
@@ -94,7 +95,7 @@ namespace Coflnet.Hypixel.Controller
             {
                 return result;
             }
-            Tracer.ActiveSpan.SetTag("search",searchVal.ToLower());
+            Tracer.ActiveSpan.SetTag("search", searchVal.ToLower());
             return result.Take(limit);
         }
 

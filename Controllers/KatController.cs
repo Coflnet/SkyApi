@@ -4,7 +4,7 @@ using Microsoft.AspNetCore.Mvc;
 using Coflnet.Sky.Api.Models;
 using Coflnet.Sky.Api.Services;
 
-namespace Coflnet.Hypixel.Controller;
+namespace Coflnet.Sky.Api.Controller;
 /// <summary>
 /// Endpoints for best pet to put into kat
 /// </summary>

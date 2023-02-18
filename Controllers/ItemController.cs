@@ -11,7 +11,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 
-namespace Coflnet.Hypixel.Controller
+namespace Coflnet.Sky.Api.Controller
 {
     /// <summary>
     /// Endpoints about items
@@ -24,6 +24,7 @@ namespace Coflnet.Hypixel.Controller
         private IConfiguration config;
         private HypixelContext db;
         private Sky.Items.Client.Api.IItemsApi itemsApi;
+        private Sky.Crafts.Client.Api.ICraftsApi craftsApi;
 
         /// <summary>
         /// Creates a new instance of <see cref="FlipController"/>
@@ -31,11 +32,12 @@ namespace Coflnet.Hypixel.Controller
         /// <param name="config"></param>
         /// <param name="context"></param>
         /// <param name="itemsApi"></param>
-        public ItemController(IConfiguration config, HypixelContext context, Sky.Items.Client.Api.IItemsApi itemsApi)
+        public ItemController(IConfiguration config, HypixelContext context, Sky.Items.Client.Api.IItemsApi itemsApi, Crafts.Client.Api.ICraftsApi craftsApi)
         {
             this.config = config;
             this.db = context;
             this.itemsApi = itemsApi;
+            this.craftsApi = craftsApi;
         }
 
         /// <summary>
@@ -60,8 +62,10 @@ namespace Coflnet.Hypixel.Controller
         [ResponseCache(Duration = 3600, Location = ResponseCacheLocation.Any, NoStore = false)]
         public async Task<IEnumerable<ItemMetadataElement>> GetAllItems()
         {
-            return (await itemsApi.ItemsGetAsync()).Select(i=>{
-                return new ItemMetadataElement{
+            return (await itemsApi.ItemsGetAsync()).Select(i =>
+            {
+                return new ItemMetadataElement
+                {
                     Name = i.Name,
                     Tag = i.Tag,
                     Flags = i.Flags ?? 0
@@ -76,7 +80,7 @@ namespace Coflnet.Hypixel.Controller
         [Route("names")]
         [HttpPost]
         [ResponseCache(Duration = 3600, Location = ResponseCacheLocation.Any, NoStore = false)]
-        public async Task<Dictionary<string,string>> ItemTags([FromBody] HashSet<string> tags)
+        public async Task<Dictionary<string, string>> ItemTags([FromBody] HashSet<string> tags)
         {
             var items = await itemsApi.ItemNamesGetAsync();
             return items.Where(t => tags.Contains(t.Tag)).ToDictionary(i => i.Tag, i => i.Name);
@@ -92,7 +96,7 @@ namespace Coflnet.Hypixel.Controller
         [ResponseCache(Duration = 3600, Location = ResponseCacheLocation.Any, NoStore = false)]
         public async Task<SkyblockItem> GetItemDetails(string itemTag)
         {
-            var source =  await itemsApi.ItemItemTagGetAsync(itemTag);
+            var source = await itemsApi.ItemItemTagGetAsync(itemTag);
             return new SkyblockItem()
             {
                 Category = source.Category,
@@ -103,6 +107,32 @@ namespace Coflnet.Hypixel.Controller
                 Tier = (Tier?)source.Tier,
                 NpcSellPrice = source.NpcSellPrice,
             };
+        }
+
+        /// <summary>
+        /// Other items related to some tag
+        /// </summary>
+        /// <returns></returns>
+        [Route("/api/item/{itemTag}/similar")]
+        [HttpGet]
+        [ResponseCache(Duration = 3600 * 12, Location = ResponseCacheLocation.Any, NoStore = false)]
+        public async Task<IEnumerable<Items.Client.Model.ItemPreview>> GetSimilar(string itemTag)
+        {
+            var source = await itemsApi.ItemNamesGetAsync();
+            var recipe = await craftsApi.CraftsRecipeItemTagGetAsync(itemTag);
+            var search = itemTag.Truncate(10);
+            if (itemTag.Contains("_"))
+                search = itemTag.Substring(0, itemTag.LastIndexOf("_"));
+            var similarName = source.Where(i => i.Tag != itemTag && i.Tag.StartsWith(search)).OrderBy(x => Random.Shared.Next()).Take(5);
+            var recipeBased = recipe?.Values?.Select(t => t.Split(':').First())
+                .Distinct()
+                .Where(t => t != null && t.Length > 2)
+                .Select(tag => new Items.Client.Model.ItemPreview
+                {
+                    Name = source.Where(i => i.Tag == tag).FirstOrDefault()?.Name,
+                    Tag = tag
+                }) ?? new Items.Client.Model.ItemPreview[0];
+            return recipeBased.Concat(similarName).Take(5);
         }
     }
 }

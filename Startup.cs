@@ -56,7 +56,7 @@ namespace Coflnet.Sky.Api
             services.AddSwaggerGen(c =>
             {
                 c.SwaggerDoc("v1", new OpenApiInfo { Title = "SkyApi", Version = "v1", 
-                    Description = "Notes: PET, RUNE and POTION item tags (somtimes called ids) are expanded to include the type, eg PET_LION."
+                    Description = "Notes: PET, RUNE and POTION item tags (somtimes called ids) are expanded to include the type, eg PET_LION.<br>"
                                 + " All other Tags match with from hypixel and can be found via the search endpoint." });
                 // Set the comments path for the Swagger JSON and UI.
                 var xmlFile = $"{Assembly.GetExecutingAssembly().GetName().Name}.xml";
@@ -68,7 +68,7 @@ namespace Coflnet.Sky.Api
                 o.AddPolicy(CORS_PLICY_NAME, p => p.AllowAnyHeader().AllowAnyMethod().AllowAnyOrigin());
             });
 
-            services.AddJaeger(0.001, 60);
+            services.AddJaeger(Configuration, 0.001, 60);
             services.AddScoped<PricesService>();
             services.AddSingleton<PremiumService>();
             services.AddSingleton<AuctionService>();
@@ -76,6 +76,7 @@ namespace Coflnet.Sky.Api
             services.AddTransient<KatService>();
 
             services.AddResponseCaching();
+            services.AddResponseCompression();
             var redisOptions = ConfigurationOptions.Parse(Configuration["REDIS_HOST"]);
 
             services.AddStackExchangeRedisCache(options =>
@@ -103,9 +104,15 @@ namespace Coflnet.Sky.Api
             services.AddSingleton<FilterEngine>();
         }
 
-        // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
+        /// <summary>
+        /// This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
+        /// </summary>
         public void Configure(IApplicationBuilder app, IWebHostEnvironment env, ILogger<Startup> logger)
         {
+            app.UseExceptionHandler(errorApp =>
+            {
+                ErrorHandler.Add(logger, errorApp, "api");
+            });
             if (env.IsDevelopment())
             {
                 app.UseDeveloperExceptionPage();
@@ -130,13 +137,10 @@ namespace Coflnet.Sky.Api
             app.UseAuthorization();
 
             app.UseResponseCaching();
+            app.UseResponseCompression();
             app.UseIpRateLimiting();
 
 
-            app.UseExceptionHandler(errorApp =>
-            {
-                ErrorHandler.Add(logger, errorApp, "api");
-            });
 
             app.UseEndpoints(endpoints =>
             {

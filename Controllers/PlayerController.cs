@@ -8,7 +8,7 @@ using Microsoft.EntityFrameworkCore;
 using Coflnet.Sky.Commands.Shared;
 using Coflnet.Sky.Filter;
 
-namespace Coflnet.Hypixel.Controller
+namespace Coflnet.Sky.Api.Controller
 {
     /// <summary>
     /// The playerController handles all player related endpoints.
@@ -91,7 +91,7 @@ namespace Coflnet.Hypixel.Controller
             var aggregatedBids = playerBids
                         .Select(b => new BidResult()
                         {
-                            HighestBid = b.HighestBid,
+                            HighestBid = b.HighestBid == 0 && b.Bin ? b.HighestOwnBid : b.HighestBid,
                             AuctionId = b.Key,
                             End = b.End,
                             HighestOwnBid = b.HighestOwnBid,
@@ -162,7 +162,7 @@ namespace Coflnet.Hypixel.Controller
         public async Task<string> GetPlayerName(string playerUuid)
         {
             AssertUuid(playerUuid);
-            return (await PlayerService.Instance.GetPlayer(playerUuid))?.Name ?? "unkown";
+            return (await PlayerService.Instance.GetPlayer(playerUuid))?.Name ?? "unknown";
         }
 
 

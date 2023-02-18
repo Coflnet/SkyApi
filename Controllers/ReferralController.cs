@@ -12,7 +12,7 @@ using Coflnet.Sky.Api.Models.Referral;
 using Microsoft.EntityFrameworkCore;
 using Coflnet.Sky.Referral.Client.Model;
 
-namespace Coflnet.Hypixel.Controller
+namespace Coflnet.Sky.Api.Controller
 {
     /// <summary>
     /// Endpoints for related to paid services
@@ -38,9 +38,7 @@ namespace Coflnet.Hypixel.Controller
             this.refApi = refApi;
             this.premiumService = premiumService;
             this.db = db;
-            Console.WriteLine(GetId("rpOwlQ"));
-            Console.WriteLine(GetId("oD65nQ"));
-            Console.WriteLine(GetId("9gKwV9"));
+            Console.WriteLine(GetId("QYMeyQ"));
         }
 
 
@@ -62,7 +60,7 @@ namespace Coflnet.Hypixel.Controller
             }
             catch (Sky.Referral.Client.Client.ApiException e)
             {
-                throw new CoflnetException("referral_error", e.Message.Substring(46).Trim('}', '"'));
+                throw new CoflnetException("referral_error", e.Message.Substring(63).Trim('}', '"'));
             }
         }
 

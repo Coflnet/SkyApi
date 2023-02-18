@@ -7,6 +7,7 @@ using System.Text;
 using System.Threading.Tasks;
 using Coflnet.Sky.Api.Models.Mod;
 using Coflnet.Sky.Bazaar.Client.Api;
+using Coflnet.Sky.Bazaar.Client.Model;
 using Coflnet.Sky.Commands.MC;
 using Coflnet.Sky.Commands.Shared;
 using Coflnet.Sky.Core;
@@ -28,7 +29,6 @@ namespace Coflnet.Sky.Api.Services
     public class ModDescriptionService : IDisposable
     {
         private ICraftsApi craftsApi;
-        private ISniperApi sniperApi;
         private RestSharp.RestClient sniperClient;
         private ITracer tracer;
         private SettingsService settingsService;
@@ -68,7 +68,6 @@ namespace Coflnet.Sky.Api.Services
                                      IStateUpdateService stateService)
         {
             this.craftsApi = craftsApi;
-            this.sniperApi = sniperApi;
             this.tracer = tracer;
             this.settingsService = settingsService;
             this.idConverter = idConverter;
@@ -203,7 +202,7 @@ namespace Coflnet.Sky.Api.Services
             }
 
             var allCraftsTask = craftsApi.CraftsAllGetAsync();
-            List<Sniper.Client.Model.PriceEstimate> res = await GetPrices(auctionRepresent);
+            List<Sniper.Client.Model.PriceEstimate> res = await GetPrices(auctionRepresent.Select(a => a.auction));
             var allCrafts = await allCraftsTask;
 
             var span = tracer.ActiveSpan;
@@ -243,6 +242,17 @@ namespace Coflnet.Sky.Api.Services
                 }
                 var craftPrice = allCrafts?.Where(c => auction != null && c.ItemId == auction.Tag && c.CraftCost > 0)?.FirstOrDefault()?.CraftCost;
                 List<DescModification> mods = GetModifications(enabledFields, desc, auction, price, craftPrice, pricesPaid, bazaarPrices);
+                if (auction.Tag == "SKYBLOCK_MENU")
+                {
+                    try
+                    {
+                        AddSummaryToMenu(inventory, auctionRepresent, res, bazaarPrices, mods);
+                    }
+                    catch (Exception e)
+                    {
+                        logger.LogError(e, "failed to add summary");
+                    }
+                }
 
                 if (desc != null)
                     span.Log(string.Join('\n', mods.Select(m => $"{m.Line} {m.Value}")) + JsonConvert.SerializeObject(auction, Formatting.Indented) + JsonConvert.SerializeObject(price, Formatting.Indented) + "\ncraft:" + craftPrice);
@@ -250,6 +260,34 @@ namespace Coflnet.Sky.Api.Services
             }
 
             return result;
+        }
+
+        private void AddSummaryToMenu(InventoryData inventory, List<(SaveAuction auction, IEnumerable<string> desc)> auctionRepresent, List<Sniper.Client.Model.PriceEstimate> res, Dictionary<string, ItemPrice> bazaarPrices, List<DescModification> mods)
+        {
+            var take = 45;
+            if (auctionRepresent.Count > take)
+            {
+                // container of some sort, only display whats in the container by taking the top
+                take = auctionRepresent.Count - 36;
+                mods.Add(new($"Chest Value Summary:"));
+            }
+            else
+                mods.Add(new($"Inventory Value Summary:"));
+            if (inventory.Settings.Fields.Any(line => line.Contains(DescriptionField.MEDIAN)))
+            {
+                mods.Add(new($"Med sumary: {McColorCodes.AQUA}{FormatNumber(res.Take(take).Sum(r => r?.Median ?? 0))}"));
+            }
+            if (inventory.Settings.Fields.Any(line => line.Contains(DescriptionField.LBIN)))
+            {
+                mods.Add(new($"Lbin sumary: {McColorCodes.YELLOW}{FormatNumber(res.Take(take).Sum(r => r?.Lbin.Price ?? 0))}"));
+            }
+            if (inventory.Settings.Fields.Any(line => line.Contains(DescriptionField.BazaarSell)))
+            {
+                var bazaarSellValue = auctionRepresent.Take(take).Select(a => a.auction).Where(a => a != null)
+                        .Where(t => bazaarPrices.ContainsKey(GetBazaarTag(t)))
+                        .Sum(t => bazaarPrices[GetBazaarTag(t)].SellPrice * (t.Count > 1 ? t.Count : 1));
+                mods.Add(new($"Bazaar sell: {McColorCodes.GOLD}{FormatNumber(bazaarSellValue)}"));
+            }
         }
 
         private async Task<Dictionary<string, long>> GetPricePaidData(InventoryData inventory, string mcName, List<(SaveAuction auction, IEnumerable<string> desc)> auctionRepresent)
@@ -356,7 +394,9 @@ namespace Coflnet.Sky.Api.Services
                             break;
                         case DescriptionField.VOLUME:
                             if (price != null && price.Median != 0)
-                                content += $"{McColorCodes.GRAY}Vol: {McColorCodes.YELLOW}{price.Volume.ToString("0.#")} ";
+                                if (float.IsInfinity(price.Volume))
+                                    logger.LogInformation($"Volume is infinity for {auction.Tag} {price.ItemKey}");
+                            content += $"{McColorCodes.GRAY}Vol: {McColorCodes.YELLOW}{price.Volume.ToString("0.#")} ";
                             break;
                         case DescriptionField.TAG:
                             content += $"{auction.Tag} ";
@@ -409,6 +449,8 @@ namespace Coflnet.Sky.Api.Services
                 var enchant = auction.Enchantments.First();
                 tag = "ENCHANTMENT_" + enchant.Type.ToString().ToUpper() + '_' + enchant.Level;
             }
+            if (tag == null)
+                return string.Empty;
             return tag;
         }
 
@@ -417,7 +459,7 @@ namespace Coflnet.Sky.Api.Services
             List<(SaveAuction auction, IEnumerable<string> desc)> auctionRepresent = ConvertToAuctions(inventory);
 
             var allCraftsTask = craftsApi.CraftsAllGetAsync();
-            List<Sniper.Client.Model.PriceEstimate> res = await GetPrices(auctionRepresent);
+            List<Sniper.Client.Model.PriceEstimate> res = await GetPrices(auctionRepresent.Select(a => a.auction));
             var allCrafts = await allCraftsTask;
             var span = tracer.ActiveSpan;
             span.Log(JsonConvert.SerializeObject(allCrafts));
@@ -469,7 +511,12 @@ namespace Coflnet.Sky.Api.Services
             return result;
         }
 
-        private List<(SaveAuction auction, IEnumerable<string> desc)> ConvertToAuctions(InventoryData inventory)
+        /// <summary>
+        /// Parses nbt data from inventory to auctions
+        /// </summary>
+        /// <param name="inventory"></param>
+        /// <returns></returns>
+        public List<(SaveAuction auction, IEnumerable<string> desc)> ConvertToAuctions(InventoryData inventory)
         {
             var nbt = NBT.File(Convert.FromBase64String(inventory.FullInventoryNbt));
             var auctionRepresent = nbt.RootTag.Get<fNbt.NbtList>("i").Select(t =>
@@ -494,10 +541,10 @@ namespace Coflnet.Sky.Api.Services
             return auctionRepresent;
         }
 
-        private async Task<List<Sniper.Client.Model.PriceEstimate>> GetPrices(List<(SaveAuction auction, IEnumerable<string> desc)> auctionRepresent)
+        public async Task<List<Sniper.Client.Model.PriceEstimate>> GetPrices(IEnumerable<SaveAuction> auctionRepresent)
         {
             var request = new RestRequest("/api/sniper/prices", RestSharp.Method.Post);
-            request.AddJsonBody(JsonConvert.SerializeObject(Convert.ToBase64String(MessagePack.LZ4MessagePackSerializer.Serialize(auctionRepresent.Select(a => a.auction)))));
+            request.AddJsonBody(JsonConvert.SerializeObject(Convert.ToBase64String(MessagePack.LZ4MessagePackSerializer.Serialize(auctionRepresent))));
 
             var respone = await sniperClient.ExecuteAsync(request);
             if (respone.StatusCode == 0)

@@ -1,14 +1,20 @@
-namespace Coflnet.Sky.Api.Models
+namespace Coflnet.Sky.Api.Models;
+/// <summary>
+/// Additional arguments for a topup
+/// </summary>
+public class TopUpArguments
 {
     /// <summary>
-    /// Additional arguments for a topup
+    /// A specific amount of coins to topup
     /// </summary>
-    public class TopUpArguments
-    {
-        /// <summary>
-        /// A specific amount of coins to topup
-        /// </summary>
-        /// <value></value>
-        public int CoinAmount { get; set; }
-    }
+    /// <value></value>
+    public int CoinAmount { get; set; }
+    /// <summary>
+    /// The url to redirect to after successful payment
+    /// </summary>
+    public string SuccessUrl { get; set; }
+    /// <summary>
+    /// The url to redirect to when user aborts payment
+    /// </summary>
+    public string CancelUrl { get; set; }
 }

@@ -16,7 +16,7 @@ namespace Coflnet.Sky.Api.Services
         PricesService pricesService;
         public KatService(IConfiguration config, PricesService pricesService)
         {
-            katApi = new("http://" + config["CRAFTS_HOST"]);
+            katApi = new(config["CRAFTS_BASE_URL"]);
             this.pricesService = pricesService;
         }
 
