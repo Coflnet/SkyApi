@@ -11,8 +11,8 @@ namespace Coflnet.Sky.Api.Services
     public class AuctionConverter
     {
         Dictionary<string, Enchantment.EnchantmentType> EnchantLookup = new();
-        static string[] ignoreColumns = new string[] {
-            "!ench113", "!ench115", "!ench116", "!ench119", "!ench120", "!ench121", "!ench122", "!ench123",
+        public static string[] ignoreColumns = new string[] {
+            "!ench113", "!ench115", "!ench116", "!ench118", "!ench119", "!ench120", "!ench121", "!ench122", "!ench123",
             "builder's_wand_data", "frosty_the_snow_blaster_data", "frosty_the_snow_cannon_data", "greater_backpack_data", "jumbo_backpack_data", "large_backpack_data", "medium_backpack_data", "new_year_cake_bag_data"
          };
 

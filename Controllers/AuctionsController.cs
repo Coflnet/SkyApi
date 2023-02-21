@@ -205,11 +205,19 @@ namespace Coflnet.Sky.Api.Controller
             var keys = transformer.ColumnKeys(columns).ToArray();
             if (!int.TryParse(page, out int pageNum))
             {
-                await HttpResponseWritingExtensions.WriteAsync(this.Response, transformer.GetHeader(columns));
+                //await HttpResponseWritingExtensions.WriteAsync(this.Response, transformer.GetHeader(columns));
                 if (ItemDetails.Instance.TagLookup.Count == 0)
                     await ItemDetails.Instance.LoadLookup();
                 var itemids = ItemDetails.Instance.TagLookup.Keys.ToArray();
                 logger.LogInformation("Exporting " + itemids.Length + " items");
+                itemModifiers["item_id"] = itemids.ToList();
+                itemModifiers["headers"] = transformer.ColumnKeys(columns).ToList();
+                foreach (var item in AuctionConverter.ignoreColumns.Concat(itemModifiers.Keys.Where(k=>k.EndsWith(".uuid")).ToList()))
+                {
+                    itemModifiers.Remove(item);
+                }
+                await HttpResponseWritingExtensions.WriteAsync(this.Response, JsonConvert.SerializeObject(itemModifiers));
+                return;
                 for (int i = 0; i < itemids.Length; i++)
                 {
                     await HttpResponseWritingExtensions.WriteAsync(this.Response, transformer.MakeSample(i, itemids[i], keys, itemModifiers));

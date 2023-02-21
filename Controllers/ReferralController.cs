@@ -65,7 +65,7 @@ namespace Coflnet.Sky.Api.Controller
         }
 
         /// <summary>
-        /// Returns ReferralCode and refferal satistics for the user
+        /// Returns ReferralCode and statistics for the user
         /// </summary>
         /// <returns></returns>
         [Route("info")]
