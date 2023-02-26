@@ -202,8 +202,7 @@ namespace Coflnet.Sky.Api.Services
             }
 
             var allCraftsTask = craftsApi.CraftsAllGetAsync();
-            List<Sniper.Client.Model.PriceEstimate> res = await GetPrices(auctionRepresent.Select(a => a.auction));
-            var allCrafts = await allCraftsTask;
+            var pricesTask = GetPrices(auctionRepresent.Select(a => a.auction));
 
             var span = tracer.ActiveSpan;
             var result = new List<List<DescModification>>();
@@ -215,12 +214,14 @@ namespace Coflnet.Sky.Api.Services
                 inventory.Settings = userSettings;
             }
 
-            var pricesPaid = await GetPricePaidData(inventory, mcName, auctionRepresent);
+            var pricesPaidTask = GetPricePaidData(inventory, mcName, auctionRepresent);
             var bazaarPrices = new Dictionary<string, Bazaar.Client.Model.ItemPrice>();
             if (inventory.Settings.Fields.Any(line => line.Contains(DescriptionField.BazaarBuy) || line.Contains(DescriptionField.BazaarSell)))
                 bazaarPrices = (await bazaarApi.ApiBazaarPricesGetAsync())?.ToDictionary(p => p.ProductId);
 
-
+            var pricesPaid = await pricesPaidTask;
+            var res = await pricesTask;
+            var allCrafts = await allCraftsTask;
             var enabledFields = inventory.Settings.Fields;
 
             for (int i = 0; i < auctionRepresent.Count; i++)
@@ -546,7 +547,7 @@ namespace Coflnet.Sky.Api.Services
             var request = new RestRequest("/api/sniper/prices", RestSharp.Method.Post);
             request.AddJsonBody(JsonConvert.SerializeObject(Convert.ToBase64String(MessagePack.LZ4MessagePackSerializer.Serialize(auctionRepresent))));
 
-            var respone = await sniperClient.ExecuteAsync(request);
+            var respone = await sniperClient.ExecuteAsync(request).ConfigureAwait(false);
             if (respone.StatusCode == 0)
             {
                 logger.LogError("sniper service could not be reached");
