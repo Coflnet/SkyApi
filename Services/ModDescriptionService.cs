@@ -280,7 +280,7 @@ namespace Coflnet.Sky.Api.Services
             }
             if (inventory.Settings.Fields.Any(line => line.Contains(DescriptionField.LBIN)))
             {
-                mods.Add(new($"Lbin sumary: {McColorCodes.YELLOW}{FormatNumber(res.Take(take).Sum(r => r?.Lbin.Price ?? 0))}"));
+                mods.Add(new($"Lbin sumary: {McColorCodes.YELLOW}{FormatNumber(res?.Take(take).Sum(r => r?.Lbin.Price ?? 0) ?? -1)}"));
             }
             if (inventory.Settings.Fields.Any(line => line.Contains(DescriptionField.BazaarSell)))
             {

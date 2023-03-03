@@ -72,8 +72,8 @@ public class PricesController : ControllerBase
     [ResponseCache(Duration = 120, Location = ResponseCacheLocation.Any, NoStore = false, VaryByQueryKeys = new string[] { "*" })]
     public async Task<ActionResult<BinResponse>> GetLowestBin(string itemTag, [FromQuery] IDictionary<string, string> query)
     {
-        var result = await ItemPrices.GetLowestBin(itemTag, new Dictionary<string, string>(query));
-        return Ok(new BinResponse(result.FirstOrDefault()?.Price ?? 0, result.FirstOrDefault()?.Uuid, result.LastOrDefault()?.Price ?? 0));
+        var result = await priceService.GetLowestBinData(itemTag, new Dictionary<string, string>(query));
+        return Ok(new BinResponse(result.cost, result.uuid, result.slbin));
     }
 
     /// <summary>
