@@ -297,6 +297,7 @@ namespace Coflnet.Sky.Api.Services
                 return new Dictionary<string, long>();
             var numericIds = auctionRepresent.Where(a => a.auction != null)
                     .Select(a => a.auction.FlatenedNBT?.GetValueOrDefault("uid")).Where(v => v != null)
+                    .Distinct()
                     .ToDictionary(uid => GetUidFromString(uid));
             var key = NBT.Instance.GetKeyId("uid");
             using var scope = scopeFactory.CreateScope();
