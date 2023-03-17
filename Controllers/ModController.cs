@@ -107,7 +107,7 @@ namespace Coflnet.Sky.Api.Controller
         [ProducesResponseType(typeof(ErrorResponse), 400)]
         [ProducesResponseType(typeof(ErrorResponse), 500)]
         public async Task<IEnumerable<string[]>> ItemDescription(
-            [FromBody] InventoryData inventory,
+            [FromBody] InventoryDataWithSettings inventory,
             [FromHeader] string conId,
             [FromHeader] string uuid)
         {
@@ -129,7 +129,7 @@ namespace Coflnet.Sky.Api.Controller
         [ProducesResponseType(typeof(ErrorResponse), 400)]
         [ProducesResponseType(typeof(ErrorResponse), 500)]
         public async Task<IEnumerable<IEnumerable<DescModification>>> ItemDescriptionModifications(
-            [FromBody] InventoryData inventory,
+            [FromBody] InventoryDataWithSettings inventory,
             [FromHeader] string conId,
             [FromHeader] string uuid)
         {

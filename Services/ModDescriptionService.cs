@@ -188,7 +188,7 @@ namespace Coflnet.Sky.Api.Services
         /// <param name="mcName"></param>
         /// <param name="sessionId"></param>
         /// <returns></returns>
-        public async Task<IEnumerable<IEnumerable<DescModification>>> GetModifications(InventoryData inventory, string mcName, string sessionId)
+        public async Task<IEnumerable<IEnumerable<DescModification>>> GetModifications(InventoryDataWithSettings inventory, string mcName, string sessionId)
         {
             List<(SaveAuction auction, IEnumerable<string> desc)> auctionRepresent = ConvertToAuctions(inventory);
             var userSettings = await GetSettingForConid(mcName, sessionId);
@@ -263,7 +263,7 @@ namespace Coflnet.Sky.Api.Services
             return result;
         }
 
-        private void AddSummaryToMenu(InventoryData inventory, List<(SaveAuction auction, IEnumerable<string> desc)> auctionRepresent, List<Sniper.Client.Model.PriceEstimate> res, Dictionary<string, ItemPrice> bazaarPrices, List<DescModification> mods)
+        private void AddSummaryToMenu(InventoryDataWithSettings inventory, List<(SaveAuction auction, IEnumerable<string> desc)> auctionRepresent, List<Sniper.Client.Model.PriceEstimate> res, Dictionary<string, ItemPrice> bazaarPrices, List<DescModification> mods)
         {
             var take = 45;
             if (auctionRepresent.Count > take)
@@ -291,7 +291,7 @@ namespace Coflnet.Sky.Api.Services
             }
         }
 
-        private async Task<Dictionary<string, long>> GetPricePaidData(InventoryData inventory, string mcName, List<(SaveAuction auction, IEnumerable<string> desc)> auctionRepresent)
+        private async Task<Dictionary<string, long>> GetPricePaidData(InventoryDataWithSettings inventory, string mcName, List<(SaveAuction auction, IEnumerable<string> desc)> auctionRepresent)
         {
             if (!inventory.Settings.Fields.Any(line => line.Contains(DescriptionField.PRICE_PAID)))
                 return new Dictionary<string, long>();
@@ -456,7 +456,7 @@ namespace Coflnet.Sky.Api.Services
             return tag;
         }
 
-        public async Task<IEnumerable<string[]>> GetDescriptions(InventoryData inventory)
+        public async Task<IEnumerable<string[]>> GetDescriptions(InventoryDataWithSettings inventory)
         {
             List<(SaveAuction auction, IEnumerable<string> desc)> auctionRepresent = ConvertToAuctions(inventory);
 
@@ -520,6 +520,10 @@ namespace Coflnet.Sky.Api.Services
         /// <returns></returns>
         public List<(SaveAuction auction, IEnumerable<string> desc)> ConvertToAuctions(InventoryData inventory)
         {
+            if(inventory.JsonNbt != null)
+            {
+                return new InventoryParser().Parse(inventory.JsonNbt).Select(a=> (a, new string[0].AsEnumerable())).ToList();
+            }
             var nbt = NBT.File(Convert.FromBase64String(inventory.FullInventoryNbt));
             var auctionRepresent = nbt.RootTag.Get<fNbt.NbtList>("i").Select(t =>
             {

@@ -14,6 +14,17 @@ public class InventoryData
     /// </summary>
     public string FullInventoryNbt;
     /// <summary>
+    /// Nbt formatted as json like mineflayer does it
+    /// </summary>
+    public string JsonNbt;
+}
+
+/// <summary>
+/// Representation of an inventory with settings
+/// </summary>
+public class InventoryDataWithSettings : InventoryData
+{
+    /// <summary>
     /// Settings of what modifications to include
     /// </summary>
     public DescriptionSetting Settings { get; set; }
