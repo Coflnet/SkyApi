@@ -29,7 +29,7 @@ namespace Coflnet.Sky.Api.Services
     public class ModDescriptionService : IDisposable
     {
         private ICraftsApi craftsApi;
-        private RestSharp.RestClient sniperClient;
+        private ISniperClient sniperClient;
         private ITracer tracer;
         private SettingsService settingsService;
         private IdConverter idConverter;
@@ -45,7 +45,6 @@ namespace Coflnet.Sky.Api.Services
         /// Initializes a new instance of the <see cref="ModDescriptionService"/> class.
         /// </summary>
         /// <param name="craftsApi"></param>
-        /// <param name="sniperApi"></param>
         /// <param name="tracer"></param>
         /// <param name="settingsService"></param>
         /// <param name="idConverter"></param>
@@ -55,8 +54,8 @@ namespace Coflnet.Sky.Api.Services
         /// <param name="logger"></param>
         /// <param name="config"></param>
         /// <param name="stateService"></param>
+        /// <param name="sniperClient"></param>
         public ModDescriptionService(ICraftsApi craftsApi,
-                                     ISniperApi sniperApi,
                                      ITracer tracer,
                                      SettingsService settingsService,
                                      IdConverter idConverter,
@@ -65,7 +64,8 @@ namespace Coflnet.Sky.Api.Services
                                      PlayerName.PlayerNameService playerNameService,
                                      ILogger<ModDescriptionService> logger,
                                      IConfiguration config,
-                                     IStateUpdateService stateService)
+                                     IStateUpdateService stateService,
+                                     ISniperClient sniperClient)
         {
             this.craftsApi = craftsApi;
             this.tracer = tracer;
@@ -75,7 +75,6 @@ namespace Coflnet.Sky.Api.Services
             this.bazaarApi = bazaarApi;
             this.playerNameService = playerNameService;
             this.logger = logger;
-            sniperClient = new(sniperApi.GetBasePath());
 
             ProducerConfig producerConfig = new ProducerConfig
             {
@@ -92,6 +91,7 @@ namespace Coflnet.Sky.Api.Services
             }).Build();
             this.config = config;
             this.stateService = stateService;
+            this.sniperClient = sniperClient;
         }
 
         private ConcurrentDictionary<string, SelfUpdatingValue<DescriptionSetting>> settings = new();
@@ -549,39 +549,7 @@ namespace Coflnet.Sky.Api.Services
 
         public async Task<List<Sniper.Client.Model.PriceEstimate>> GetPrices(IEnumerable<SaveAuction> auctionRepresent)
         {
-            var request = new RestRequest("/api/sniper/prices", RestSharp.Method.Post);
-            request.AddJsonBody(JsonConvert.SerializeObject(Convert.ToBase64String(MessagePack.LZ4MessagePackSerializer.Serialize(auctionRepresent))));
-
-            var respone = await sniperClient.ExecuteAsync(request).ConfigureAwait(false);
-            if (respone.StatusCode == 0)
-            {
-                logger.LogError("sniper service could not be reached");
-                return auctionRepresent.Select(a => new Sniper.Client.Model.PriceEstimate()).ToList();
-            }
-            try
-            {
-                return JsonConvert.DeserializeObject<List<Sniper.Client.Model.PriceEstimate>>(respone.Content);
-            }
-            catch (System.Exception)
-            {
-                logger.LogError("responded with " + respone.StatusCode + respone.Content);
-                throw;
-            }
-            /*return await sniperApi.ApiSniperPricePostAsync(auctionRepresent.Select(el =>
-            {
-                var a = el.auction;
-                if (a == null)
-                    return null;
-                return new Sky.Sniper.Client.Model.SaveAuction()
-                {
-                    Count = a.Count,
-                    Enchantments = a.Enchantments?.Select(e => new Sky.Sniper.Client.Model.Enchantment(0, (Sky.Sniper.Client.Model.EnchantmentType?)e.Type, e.Level)).ToList() ?? new(),
-                    FlatenedNBT = a.FlatenedNBT,
-                    Reforge = (Sky.Sniper.Client.Model.Reforge?)a.Reforge,
-                    Tier = (Sky.Sniper.Client.Model.Tier?)a.Tier,
-                    Tag = a.Tag
-                };
-            }).ToList());*/
+            return await sniperClient.GetPrices(auctionRepresent);
         }
 
         private string FormatNumber(double price)
