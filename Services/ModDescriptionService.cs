@@ -79,7 +79,7 @@ namespace Coflnet.Sky.Api.Services
             ProducerConfig producerConfig = new ProducerConfig
             {
                 BootstrapServers = config["KAFKA_HOST"],
-                LingerMs = 2
+                LingerMs = 20
             };
             producer = new ProducerBuilder<string, UpdateMessage>(producerConfig).SetValueSerializer(SerializerFactory.GetSerializer<UpdateMessage>()).SetDefaultPartitioner((topic, pcount, key, isNull) =>
             {
@@ -102,18 +102,8 @@ namespace Coflnet.Sky.Api.Services
             var nbt = NBT.File(Convert.FromBase64String(modDescription.FullInventoryNbt));
             try
             {
-                stateService.Produce(playerId, new()
-                {
-                    Kind = UpdateMessage.UpdateKind.INVENTORY,
-                    Chest = new ChestView
-                    {
-                        Name = modDescription.ChestName,
-                        Items = InventoryToItems(modDescription)
-                    },
-                    SessionId = sessionId,
-                    ReceivedAt = DateTime.UtcNow
-                }
-                );
+                var items = InventoryToItems(modDescription);
+                ProduceInventory(modDescription.ChestName, playerId, sessionId, items);
             }
             catch (System.Exception)
             {
@@ -131,7 +121,22 @@ namespace Coflnet.Sky.Api.Services
                 throw;
             }
 
-            Console.WriteLine("produced state update " + playerId + " " + modDescription.ChestName);
+        }
+
+        public void ProduceInventory(string chestName, string playerId, string sessionId, List<Item> items)
+        {
+            stateService.Produce(playerId, new()
+            {
+                Kind = UpdateMessage.UpdateKind.INVENTORY,
+                Chest = new ChestView
+                {
+                    Name = chestName,
+                    Items = items
+                },
+                SessionId = sessionId,
+                ReceivedAt = DateTime.UtcNow
+            });
+            Console.WriteLine("produced state update " + playerId + " " + chestName);
         }
 
         private List<Item> InventoryToItems(InventoryData modDescription)
@@ -520,9 +525,9 @@ namespace Coflnet.Sky.Api.Services
         /// <returns></returns>
         public List<(SaveAuction auction, IEnumerable<string> desc)> ConvertToAuctions(InventoryData inventory)
         {
-            if(inventory.JsonNbt != null)
+            if (inventory.JsonNbt != null)
             {
-                return new InventoryParser().Parse(inventory.JsonNbt).Select(a=> (a, new string[0].AsEnumerable())).ToList();
+                return new InventoryParser().Parse(inventory.JsonNbt).Select(a => (a, new string[0].AsEnumerable())).ToList();
             }
             var nbt = NBT.File(Convert.FromBase64String(inventory.FullInventoryNbt));
             var auctionRepresent = nbt.RootTag.Get<fNbt.NbtList>("i").Select(t =>
