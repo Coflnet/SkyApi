@@ -79,7 +79,7 @@ namespace Coflnet.Sky.Api.Services
             ProducerConfig producerConfig = new ProducerConfig
             {
                 BootstrapServers = config["KAFKA_HOST"],
-                LingerMs = 20
+                LingerMs = 200
             };
             producer = new ProducerBuilder<string, UpdateMessage>(producerConfig).SetValueSerializer(SerializerFactory.GetSerializer<UpdateMessage>()).SetDefaultPartitioner((topic, pcount, key, isNull) =>
             {
