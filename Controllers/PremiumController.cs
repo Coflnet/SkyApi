@@ -28,7 +28,7 @@ namespace Coflnet.Sky.Api.Controller
         private ProductsApi productsService;
         private TopUpApi topUpApi;
         private UserApi userApi;
-        private PremiumService premiumService;
+        private GoogletokenService tokenService;
 
         /// <summary>
         /// Creates a new intance of <see cref="PremiumController"/>
@@ -37,12 +37,12 @@ namespace Coflnet.Sky.Api.Controller
         /// <param name="topUpApi"></param>
         /// <param name="userApi"></param>
         /// <param name="premiumService"></param>
-        public PremiumController(ProductsApi productsService, TopUpApi topUpApi, UserApi userApi, PremiumService premiumService)
+        public PremiumController(ProductsApi productsService, TopUpApi topUpApi, UserApi userApi, GoogletokenService premiumService)
         {
             this.productsService = productsService;
             this.topUpApi = topUpApi;
             this.userApi = userApi;
-            this.premiumService = premiumService;
+            this.tokenService = premiumService;
         }
 
         /// <summary>
@@ -224,7 +224,7 @@ namespace Coflnet.Sky.Api.Controller
             user = default(GoogleUser);
             if (!Request.Headers.TryGetValue("GoogleToken", out StringValues value))
                 return false;
-            user = premiumService.GetUserWithToken(value);
+            user = tokenService.GetUserWithToken(value);
             return true;
         }
     }

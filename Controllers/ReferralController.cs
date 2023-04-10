@@ -23,7 +23,7 @@ namespace Coflnet.Sky.Api.Controller
     public class ReferralController : ControllerBase
     {
         private IReferralApi refApi;
-        private PremiumService premiumService;
+        private GoogletokenService tokenService;
         private HypixelContext db;
         Hashids hashids = new Hashids("simple salt", 6);
 
@@ -33,10 +33,10 @@ namespace Coflnet.Sky.Api.Controller
         /// <param name="refApi"></param>
         /// <param name="premiumService"></param>
         /// <param name="db"></param>
-        public ReferralController(IReferralApi refApi, PremiumService premiumService, HypixelContext db)
+        public ReferralController(IReferralApi refApi, GoogletokenService premiumService, HypixelContext db)
         {
             this.refApi = refApi;
-            this.premiumService = premiumService;
+            this.tokenService = premiumService;
             this.db = db;
             Console.WriteLine(GetId("QYMeyQ"));
         }
@@ -130,7 +130,7 @@ namespace Coflnet.Sky.Api.Controller
             user = default(GoogleUser);
             if (!Request.Headers.TryGetValue("GoogleToken", out StringValues value))
                 return false;
-            user = premiumService.GetUserWithToken(value);
+            user = tokenService.GetUserWithToken(value);
             return true;
         }
     }

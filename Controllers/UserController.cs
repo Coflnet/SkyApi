@@ -15,7 +15,7 @@ namespace Coflnet.Sky.Api.Controller
     [ResponseCache(Duration = 0, Location = ResponseCacheLocation.None, NoStore = true)]
     public class UserController : ControllerBase
     {
-        private Sky.Api.PremiumService premiumService;
+        private Sky.Api.GoogletokenService tokenService;
         private SettingsService settingsService;
 
         /// <summary>
@@ -23,9 +23,9 @@ namespace Coflnet.Sky.Api.Controller
         /// </summary>
         /// <param name="premiumService"></param>
         /// <param name="settingsService"></param>
-        public UserController(Sky.Api.PremiumService premiumService, SettingsService settingsService)
+        public UserController(Sky.Api.GoogletokenService premiumService, SettingsService settingsService)
         {
-            this.premiumService = premiumService;
+            this.tokenService = premiumService;
             this.settingsService = settingsService;
         }
 
@@ -72,7 +72,7 @@ namespace Coflnet.Sky.Api.Controller
             user = default(GoogleUser);
             if (!Request.Headers.TryGetValue("GoogleToken", out StringValues value))
                 return false;
-            user = premiumService.GetUserWithToken(value);
+            user = tokenService.GetUserWithToken(value);
             return true;
         }
     }

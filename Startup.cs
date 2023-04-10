@@ -70,7 +70,7 @@ namespace Coflnet.Sky.Api
 
             services.AddJaeger(Configuration, 0.001, 60);
             services.AddScoped<PricesService>();
-            services.AddSingleton<PremiumService>();
+            services.AddSingleton<GoogletokenService>();
             services.AddSingleton<AuctionService>();
             services.AddDbContext<HypixelContext>();
             services.AddTransient<KatService>();
