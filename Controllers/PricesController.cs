@@ -10,6 +10,7 @@ using Coflnet.Sky.Api.Models;
 using Microsoft.Extensions.Logging;
 using Coflnet.Sky.Items.Client.Api;
 using Coflnet.Sky.Api.Models.Mod;
+using Prometheus;
 
 namespace Coflnet.Sky.Api.Controller;
 /// <summary>
@@ -25,6 +26,7 @@ public class PricesController : ControllerBase
     private IItemsApi itemsApi;
     private ILogger<PricesController> logger;
     private ModDescriptionService modDescriptionSerice;
+    Counter counter = Metrics.CreateCounter("sky_api_nbt", "Counts requests to /api/item/price/nbt");
 
     /// <summary>
     /// Creates a new intance of <see cref="PricesController"/>
@@ -188,6 +190,7 @@ public class PricesController : ControllerBase
     {
         var auctions = modDescriptionSerice.ConvertToAuctions(inventoryData).Select(a => a.auction).Take(45);
         var data = await modDescriptionSerice.GetPrices(auctions);
+        counter.Inc();
         return data.Select(d => new PriceEstimate()
         {
             Lbin = d.Lbin.Price,
