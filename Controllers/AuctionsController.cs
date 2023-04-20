@@ -82,7 +82,7 @@ namespace Coflnet.Sky.Api.Controller
         [HttpGet]
         //[ResponseCache(Duration = 120, Location = ResponseCacheLocation.Any, NoStore = false)]
         [CacheControl(120)]
-        public async Task<EnchantColorMapper.ColorSaveAuction> GetAuctionDetails(string auctionUuid)
+        public async Task<EnchantColorMapper.ColorSaveAuction> getAuctionDetails(string auctionUuid)
         {
             var uid = auctionService.GetId(auctionUuid);
             var result = await context.Auctions.Where(a => a.UId == uid)
