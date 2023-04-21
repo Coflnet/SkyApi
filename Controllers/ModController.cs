@@ -29,20 +29,23 @@ namespace Coflnet.Sky.Api.Controller
         private PricesService priceService;
         private PlayerNameApi playerNamService;
         private ModDescriptionService descriptionService;
+        private FlipperService flipperService;
 
         /// <summary>
         /// Creates a new instance of <see cref="ModController"/>
         /// </summary>
         /// <param name="db"></param>
         /// <param name="pricesService"></param>
+        /// <param name="flipperService"></param>
         /// <param name="playerName"></param>
         /// <param name="sniperApi"></param>
-        public ModController(HypixelContext db, PricesService pricesService, PlayerNameApi playerName = null, ModDescriptionService sniperApi = null)
+        public ModController(HypixelContext db, PricesService pricesService, FlipperService flipperService, PlayerNameApi playerName = null, ModDescriptionService sniperApi = null)
         {
             this.db = db;
             priceService = pricesService;
             this.playerNamService = playerName;
             this.descriptionService = sniperApi;
+            this.flipperService = flipperService;
         }
 
         /// <summary>
@@ -153,9 +156,9 @@ namespace Coflnet.Sky.Api.Controller
         }
 
 
-        private static async Task<long> GetMedian(SaveAuction lastSell)
+        private async Task<long> GetMedian(SaveAuction lastSell)
         {
-            var references = await FlipperService.Instance.GetReferences(lastSell.Uuid);
+            var references = await flipperService.GetReferences(lastSell.Uuid);
             var med = references.OrderByDescending(r => r.HighestBidAmount).Skip(references.Count / 2).FirstOrDefault()?.HighestBidAmount ?? 0;
             return med;
         }

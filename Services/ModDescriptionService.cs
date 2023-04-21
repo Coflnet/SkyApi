@@ -5,6 +5,7 @@ using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
 using System.Threading.Tasks;
+using Coflnet.Kafka;
 using Coflnet.Sky.Api.Models.Mod;
 using Coflnet.Sky.Bazaar.Client.Api;
 using Coflnet.Sky.Bazaar.Client.Model;
@@ -55,6 +56,7 @@ namespace Coflnet.Sky.Api.Services
         /// <param name="config"></param>
         /// <param name="stateService"></param>
         /// <param name="sniperClient"></param>
+        /// <param name="kafkaCreator"></param>
         public ModDescriptionService(ICraftsApi craftsApi,
                                      ITracer tracer,
                                      SettingsService settingsService,
@@ -65,7 +67,8 @@ namespace Coflnet.Sky.Api.Services
                                      ILogger<ModDescriptionService> logger,
                                      IConfiguration config,
                                      IStateUpdateService stateService,
-                                     ISniperClient sniperClient)
+                                     ISniperClient sniperClient, 
+                                     KafkaCreator kafkaCreator)
         {
             this.craftsApi = craftsApi;
             this.tracer = tracer;
@@ -81,14 +84,13 @@ namespace Coflnet.Sky.Api.Services
                 BootstrapServers = config["KAFKA_HOST"],
                 LingerMs = 200
             };
-            producer = new ProducerBuilder<string, UpdateMessage>(producerConfig).SetValueSerializer(SerializerFactory.GetSerializer<UpdateMessage>()).SetDefaultPartitioner((topic, pcount, key, isNull) =>
+            producer = kafkaCreator.BuildProducer<string, UpdateMessage>(true, b=>b.SetDefaultPartitioner((topic, pcount, key, isNull) =>
             {
                 if (isNull)
-                    return Confluent.Kafka.Partition.Any;
-                var partition = Math.Abs((int)key[0] << 8 | key[1] ^ key[2]) % pcount;
-                Console.WriteLine("producint into:" + partition);
+                    return Random.Shared.Next() % pcount;
+                int partition = Math.Abs((int)key[0] << 8 | key[1] ^ key[2]) % pcount;
                 return partition;
-            }).Build();
+            }));
             this.config = config;
             this.stateService = stateService;
             this.sniperClient = sniperClient;
@@ -541,6 +543,8 @@ namespace Coflnet.Sky.Api.Services
                     auction.Context = new Dictionary<string, string>();
                     NBT.FillFromTag(auction, compound, true);
                     var desc = NBT.GetLore(compound);
+                    if(auction.ItemName.Contains("Bloo"))
+                        logger.LogInformation(JSON.Stringify(auction));
                     return (auction, desc);
                 }
                 catch (System.Exception e)
