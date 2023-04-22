@@ -287,12 +287,12 @@ namespace Coflnet.Sky.Api.Services
             }
             if (inventory.Settings.Fields.Any(line => line.Contains(DescriptionField.LBIN)))
             {
-                mods.Add(new($"Lbin sumary: {McColorCodes.YELLOW}{FormatNumber(res?.Take(take).Sum(r => r?.Lbin.Price ?? 0) ?? -1)}"));
+                mods.Add(new($"Lbin sumary: {McColorCodes.YELLOW}{FormatNumber(res?.Take(take)?.Sum(r => r?.Lbin?.Price ?? 0) ?? -1)}"));
             }
             if (inventory.Settings.Fields.Any(line => line.Contains(DescriptionField.BazaarSell)))
             {
                 var bazaarSellValue = auctionRepresent.Take(take).Select(a => a.auction).Where(a => a != null)
-                        .Where(t => bazaarPrices.ContainsKey(GetBazaarTag(t)))
+                        .Where(t => bazaarPrices?.ContainsKey(GetBazaarTag(t)) ?? false)
                         .Sum(t => bazaarPrices[GetBazaarTag(t)].SellPrice * (t.Count > 1 ? t.Count : 1));
                 mods.Add(new($"Bazaar sell: {McColorCodes.GOLD}{FormatNumber(bazaarSellValue)}"));
             }
