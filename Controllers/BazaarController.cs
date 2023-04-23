@@ -4,6 +4,7 @@ using Coflnet.Sky.Core;
 using Microsoft.AspNetCore.Mvc;
 using Coflnet.Sky.Bazaar.Client.Api;
 using System;
+using Coflnet.Sky.PlayerState.Client.Api;
 
 namespace Coflnet.Sky.Api.Controller
 {
@@ -16,13 +17,15 @@ namespace Coflnet.Sky.Api.Controller
     public class BazaarController : ControllerBase
     {
         private BazaarApi bazaarClient;
+        private IPlayerStateApi playerStateApi;
         /// <summary>
         /// Creates a new instance of <see cref="BazaarApi"/>
         /// </summary>
         /// <param name="bazaarClient"></param>
-        public BazaarController(BazaarApi bazaarClient)
+        public BazaarController(BazaarApi bazaarClient, IPlayerStateApi playerStateApi)
         {
             this.bazaarClient = bazaarClient;
+            this.playerStateApi = playerStateApi;
         }
 
         /// <summary>
@@ -101,6 +104,18 @@ namespace Coflnet.Sky.Api.Controller
             if (timestamp == default)
                 timestamp = DateTime.UtcNow;
             return await bazaarClient.ApiBazaarItemIdSnapshotGetAsync(itemTag, timestamp.RoundDown(TimeSpan.FromSeconds(60)));
+        }
+
+        /// <summary>
+        /// Returns the last know bazaar orders of a player (identifier with current mod version is player name)
+        /// </summary>
+        /// <param name="playerId"></param>
+        /// <returns></returns>
+        [Route("player/{playerId}/orders")]
+        [HttpGet]
+        public async Task<List<PlayerState.Client.Model.Offer>> GetPlayerOrders(string playerId)
+        {
+            return await playerStateApi.PlayerStatePlayerIdBazaarGetAsync(playerId);
         }
     }
 }
