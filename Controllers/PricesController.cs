@@ -193,7 +193,7 @@ public class PricesController : ControllerBase
         counter.Inc();
         return data.Select(d =>
         {
-            if(d == null)
+            if(d == null || d.MedianKey == null && d.LbinKey == null)
                 return null;
             try
             {
