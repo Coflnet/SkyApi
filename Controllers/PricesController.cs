@@ -191,15 +191,28 @@ public class PricesController : ControllerBase
         var auctions = modDescriptionSerice.ConvertToAuctions(inventoryData).Select(a => a.auction).Take(45);
         var data = await modDescriptionSerice.GetPrices(auctions);
         counter.Inc();
-        return data.Select(d => new PriceEstimate()
+        return data.Select(d =>
         {
-            Lbin = d.Lbin.Price,
-            LbinLink = "https://sky.coflnet.com/a/" + AuctionService.Instance.GetUuid(d.Lbin.AuctionId),
-            Median = d.Median,
-            Volume = d.Volume,
-            FastSell = Math.Min(d.Lbin.Price, d.Median) * 85 / 100,
-            MedianKey = d.MedianKey,
-            ItemKey = d.ItemKey
+            if(d == null)
+                return null;
+            try
+            {
+                return new PriceEstimate()
+                {
+                    Lbin = d.Lbin.Price,
+                    LbinLink = "https://sky.coflnet.com/a/" + AuctionService.Instance.GetUuid(d.Lbin.AuctionId),
+                    Median = d.Median,
+                    Volume = d.Volume,
+                    FastSell = Math.Min(d.Lbin.Price, d.Median) * 85 / 100,
+                    MedianKey = d.MedianKey,
+                    ItemKey = d.ItemKey
+                };
+            }
+            catch (System.Exception e)
+            {
+                dev.Logger.Instance.Error(e, "converting price estimate\n" + JSON.Stringify(d));
+                return null;
+            }
         });
     }
 
