@@ -125,6 +125,13 @@ namespace Coflnet.Sky.Api.Services
 
         }
 
+        /// <summary>
+        /// Produce an inventory update for the given player
+        /// </summary>
+        /// <param name="chestName"></param>
+        /// <param name="playerId"></param>
+        /// <param name="sessionId"></param>
+        /// <param name="items"></param>
         public void ProduceInventory(string chestName, string playerId, string sessionId, List<Item> items)
         {
             stateService.Produce(playerId, new()
