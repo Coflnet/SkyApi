@@ -100,6 +100,7 @@ namespace Coflnet.Sky.Api.Controller
                 ReferedCount = info.Invited.Count,
                 ValidatedMinecraft = info.Invited.Where(i => i.Flags.Value.HasFlag(ReferralFlags.NUMBER_1)).Count(),
                 PurchasedCoins = info.Invited.Where(i => i.Flags.Value.HasFlag(ReferralFlags.NUMBER_2)).Count(),
+                PurchasedCoinAmount = info.Invited.Sum(i => i.PurchaseAmount)
             });
         }
 
