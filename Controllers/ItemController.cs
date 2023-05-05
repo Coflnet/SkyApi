@@ -99,13 +99,13 @@ namespace Coflnet.Sky.Api.Controller
             var source = await itemsApi.ItemItemTagGetAsync(itemTag);
             return new SkyblockItem()
             {
-                Category = source.Category,
-                Flags = source.Flags,
-                IconUrl = source.IconUrl,
-                Name = source.Name,
-                Tag = source.Tag,
-                Tier = (Tier?)source.Tier,
-                NpcSellPrice = source.NpcSellPrice,
+                Category = source?.Category,
+                Flags = source?.Flags,
+                IconUrl = source?.IconUrl,
+                Name = source?.Name,
+                Tag = source?.Tag ?? itemTag,
+                Tier = (Tier?)source?.Tier,
+                NpcSellPrice = source?.NpcSellPrice ?? -1,
             };
         }
 
