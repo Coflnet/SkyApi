@@ -78,11 +78,24 @@ namespace Coflnet.Sky.Api.Controller
                 return Unauthorized("no googletoken header");
 
             TopUpOptions options = GetOptions(args, fingerprint, user);
+            try
+            {
+                var session = await topUpApi.TopUpStripePostAsync(user.Id.ToString(), productSlug, options);
+                if (options.UserIp == "172.93.179.188")
+                    throw new CoflnetException("blacklisted_ip", "You are banned from using this service");
+                return Ok(session);
+            }
+            catch (Exception ex)
+            {
+                ForwardPaymentErrors(ex);
+                throw;
+            }
+        }
 
-            var session = await topUpApi.TopUpStripePostAsync(user.Id.ToString(), productSlug, options);
-            if (options.UserIp == "172.93.179.188")
-                throw new CoflnetException("blacklisted_ip", "You are banned from using this service");
-            return Ok(session);
+        private static void ForwardPaymentErrors(Exception ex)
+        {
+            if (ex.Message.Contains("Message"))
+                throw new CoflnetException("üayment_error", ex.Message.Substring(44).TrimEnd('}'));
         }
 
         private TopUpOptions GetOptions(TopUpArguments args, string fingerprint, GoogleUser user)
@@ -120,14 +133,22 @@ namespace Coflnet.Sky.Api.Controller
             if (!TryGetUser(out GoogleUser user))
                 return Unauthorized("no googletoken header");
 
-            var session = await topUpApi.TopUpPaypalPostAsync(user.Id.ToString(), productSlug, new TopUpOptions()
+            try
             {
-                UserEmail = user.Email,
-                TopUpAmount = args.CoinAmount,
-                SuccessUrl = args.SuccessUrl,
-                CancelUrl = args.CancelUrl
-            });
-            return Ok(session);
+                var session = await topUpApi.TopUpPaypalPostAsync(user.Id.ToString(), productSlug, new TopUpOptions()
+                {
+                    UserEmail = user.Email,
+                    TopUpAmount = args.CoinAmount,
+                    SuccessUrl = args.SuccessUrl,
+                    CancelUrl = args.CancelUrl
+                });
+                return Ok(session);
+            }
+            catch (System.Exception ex)
+            {
+                ForwardPaymentErrors(ex);
+                throw;
+            }
         }
 
         private string GetBrowserFingerprint()
