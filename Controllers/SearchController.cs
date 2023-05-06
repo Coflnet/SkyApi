@@ -48,8 +48,8 @@ namespace Coflnet.Sky.Api.Controller
         public async Task<List<SearchResultItem>> SearchItem(string searchVal)
         {
             //var itemSearch = await ItemDetails.Instance.Search(RemoveInvalidChars(searchVal), 5);
-            var itemsResult = await itemsApi.ItemsSearchTermGetAsync(searchVal, 5);
-            return itemsResult?.Select(i => new SearchResultItem(new ItemDetails.ItemSearchResult()
+            var itemsResult = await itemsApi.ItemsSearchTermGetAsync(searchVal, 10);
+            var results = itemsResult?.Select(i => new SearchResultItem(new ItemDetails.ItemSearchResult()
             {
                 Name = i.Text + (i.Flags.Value.HasFlag(Sky.Items.Client.Model.ItemFlags.BAZAAR) ? " - bazaar"
                         : i.Flags.Value.HasFlag(Sky.Items.Client.Model.ItemFlags.AUCTION) ? "" : " - not on ah"),
@@ -58,7 +58,17 @@ namespace Coflnet.Sky.Api.Controller
                 HitCount = i.Flags.Value.HasFlag(Sky.Items.Client.Model.ItemFlags.AUCTION) ? 50 : 0,
                 Tier = (Coflnet.Sky.Core.Tier)i.Tier - 1
 
-            })).Take(5).ToList();
+            })).ToList();
+            // return 5 except if they all have the same text
+            if (results.Select(r => r.Name).Take(5).Distinct().Count() == 1)
+            {
+                return results.Select(i =>
+                {
+                    i.Name = i.Name + " - " + i.Id.Split('_').First().Truncate(10);
+                    return i;
+                }).ToList();
+            }
+            return results.Take(5).ToList();
         }
 
 
