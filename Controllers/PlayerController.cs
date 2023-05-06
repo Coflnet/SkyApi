@@ -1,4 +1,3 @@
-using System.Collections.Generic;
 using System.Threading.Tasks;
 using Coflnet.Sky.Core;
 using Microsoft.AspNetCore.Mvc;
@@ -7,6 +6,7 @@ using System.Linq;
 using Microsoft.EntityFrameworkCore;
 using Coflnet.Sky.Commands.Shared;
 using Coflnet.Sky.Filter;
+using Coflnet.Sky.PlayerName;
 
 namespace Coflnet.Sky.Api.Controller
 {
@@ -21,16 +21,19 @@ namespace Coflnet.Sky.Api.Controller
         const int pageSize = 10;
         HypixelContext context;
         private FilterEngine filterEngine;
+        private PlayerNameService playerNameApi;
 
         /// <summary>
         /// Creates a new instance of <see cref="PlayerController"/>
         /// </summary>
         /// <param name="context"></param>
         /// <param name="filterEngine"></param>
-        public PlayerController(HypixelContext context, FilterEngine filterEngine)
+        /// <param name="playerNameApi"></param>
+        public PlayerController(HypixelContext context, FilterEngine filterEngine, PlayerNameService playerNameApi)
         {
             this.context = context;
             this.filterEngine = filterEngine;
+            this.playerNameApi = playerNameApi;
         }
 
 
@@ -162,7 +165,7 @@ namespace Coflnet.Sky.Api.Controller
         public async Task<string> GetPlayerName(string playerUuid)
         {
             AssertUuid(playerUuid);
-            return (await PlayerService.Instance.GetPlayer(playerUuid))?.Name ?? "unknown";
+            return await playerNameApi.GetName(playerUuid) ?? "unkown!";
         }
 
 
