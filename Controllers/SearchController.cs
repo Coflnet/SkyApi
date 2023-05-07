@@ -60,6 +60,11 @@ namespace Coflnet.Sky.Api.Controller
 
             })).ToList();
             // return 5 except if they all have the same text
+            return ExtendIfSame(results);
+        }
+
+        private static List<SearchResultItem> ExtendIfSame(List<SearchResultItem> results, int limit = 5)
+        {
             if (results.Select(r => r.Name).Take(5).Distinct().Count() == 1)
             {
                 return results.Select(i =>
@@ -68,7 +73,7 @@ namespace Coflnet.Sky.Api.Controller
                     return i;
                 }).ToList();
             }
-            return results.Take(5).ToList();
+            return results.Take(limit).ToList();
         }
 
 
@@ -106,7 +111,7 @@ namespace Coflnet.Sky.Api.Controller
                 return result;
             }
             Tracer.ActiveSpan.SetTag("search", searchVal.ToLower());
-            return result.Take(limit);
+            return ExtendIfSame(result, limit);
         }
 
         private async Task<ConcurrentQueue<SearchResultItem>> ExecuteSearch(string searchVal, int timeout = 3000)
