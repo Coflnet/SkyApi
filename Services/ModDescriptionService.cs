@@ -261,7 +261,7 @@ namespace Coflnet.Sky.Api.Services
                 {
                     try
                     {
-                        AddSummaryToMenu(inventory, auctionRepresent, res, bazaarPrices, mods);
+                        AddSummaryToMenu(inventory, auctionRepresent, res, bazaarPrices, mods, pricesPaid);
                     }
                     catch (Exception e)
                     {
@@ -277,7 +277,7 @@ namespace Coflnet.Sky.Api.Services
             return result;
         }
 
-        private void AddSummaryToMenu(InventoryDataWithSettings inventory, List<(SaveAuction auction, IEnumerable<string> desc)> auctionRepresent, List<Sniper.Client.Model.PriceEstimate> res, Dictionary<string, ItemPrice> bazaarPrices, List<DescModification> mods)
+        private void AddSummaryToMenu(InventoryDataWithSettings inventory, List<(SaveAuction auction, IEnumerable<string> desc)> auctionRepresent, List<Sniper.Client.Model.PriceEstimate> res, Dictionary<string, ItemPrice> bazaarPrices, List<DescModification> mods, Dictionary<string, long> pricesPaid)
         {
             var take = 45;
             if (auctionRepresent.Count > take)
@@ -290,11 +290,15 @@ namespace Coflnet.Sky.Api.Services
                 mods.Add(new($"Inventory Value Summary:"));
             if (inventory.Settings.Fields.Any(line => line.Contains(DescriptionField.MEDIAN)))
             {
-                mods.Add(new($"Med sumary: {McColorCodes.AQUA}{FormatNumber(res.Take(take).Sum(r => r?.Median ?? 0))}"));
+                mods.Add(new($"Med summary: {McColorCodes.AQUA}{FormatNumber(res.Take(take).Sum(r => r?.Median ?? 0))}"));
             }
             if (inventory.Settings.Fields.Any(line => line.Contains(DescriptionField.LBIN)))
             {
-                mods.Add(new($"Lbin sumary: {McColorCodes.YELLOW}{FormatNumber(res?.Take(take)?.Sum(r => r?.Lbin?.Price ?? 0) ?? -1)}"));
+                mods.Add(new($"Lbin summary: {McColorCodes.YELLOW}{FormatNumber(res?.Take(take)?.Sum(r => r?.Lbin?.Price ?? 0) ?? -1)}"));
+            }
+            if (inventory.Settings.Fields.Any(line => line.Contains(DescriptionField.PRICE_PAID)))
+            {
+                mods.Add(new($"Total Price Paid: {McColorCodes.YELLOW}{FormatNumber(pricesPaid?.Sum(p => p.Value) ?? 0)}"));
             }
             if (inventory.Settings.Fields.Any(line => line.Contains(DescriptionField.BazaarSell)))
             {
