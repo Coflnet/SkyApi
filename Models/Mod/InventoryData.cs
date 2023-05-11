@@ -16,7 +16,7 @@ public class InventoryData
     /// <summary>
     /// Nbt formatted as json like mineflayer does it
     /// </summary>
-    public string JsonNbt;
+    public dynamic JsonNbt;
 }
 
 /// <summary>
