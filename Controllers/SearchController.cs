@@ -65,7 +65,7 @@ namespace Coflnet.Sky.Api.Controller
 
         private static List<SearchResultItem> ExtendIfSame(List<SearchResultItem> results, int limit = 5)
         {
-            if (results.Select(r => r.Name).Take(5).Distinct().Count() == 1)
+            if (results.Select(r => r.Name).Take(5).Distinct().Count() == 1 && results.Count > 1)
             {
                 return results.Select(i =>
                 {
