@@ -83,6 +83,7 @@ namespace Coflnet.Sky.Api.Controller
             {
                 "tfm" => LowPricedAuction.FinderType.TFM,
                 "stonks" => LowPricedAuction.FinderType.STONKS,
+                "binmaster" => LowPricedAuction.FinderType.BINMASTER,
                 _ => LowPricedAuction.FinderType.EXTERNAL,
             };
 
