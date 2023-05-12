@@ -540,7 +540,8 @@ namespace Coflnet.Sky.Api.Services
         {
             if (inventory.JsonNbt != null)
             {
-                return new InventoryParser().Parse(inventory.JsonNbt).Select(a => (a, new string[0].AsEnumerable())).ToList();
+                return (new InventoryParser().Parse(inventory.JsonNbt) as IEnumerable<SaveAuction>)
+                        .Select(a => (a, new string[0].AsEnumerable())).ToList();
             }
             var nbt = NBT.File(Convert.FromBase64String(inventory.FullInventoryNbt));
             var auctionRepresent = nbt.RootTag.Get<fNbt.NbtList>("i").Select(t =>
