@@ -134,8 +134,8 @@ namespace Coflnet.Sky.Api.Controller
                 time = (new DateTime(1970, 1, 1)).AddMilliseconds(timeStamp);
                 if (time > DateTime.UtcNow)
                     throw new CoflnetException("invalid_time", "Flips can't be found in the future");
-                if (time < DateTime.UtcNow - TimeSpan.FromSeconds(30))
-                    throw new CoflnetException("invalid_time", "Provided timestamp is more than 30 seconds in the past. Make sure you are providing timestamp as miliseconds");
+                if (time < DateTime.UtcNow - TimeSpan.FromSeconds(10))
+                    throw new CoflnetException("invalid_time", "Provided timestamp is more than 10 seconds in the past. Make sure you are providing timestamp as miliseconds");
             }
             return time;
         }
@@ -177,7 +177,7 @@ namespace Coflnet.Sky.Api.Controller
         /// <summary>
         /// Get flips stats for one type of flip finder
         /// </summary>
-        /// <param name="finderName">Uuid of player to get stats for</param>
+        /// <param name="finderName">Name of finder to get stats for, eg SNIPER,FLIPPER or STONKS</param>
         /// <param name="start">The start time of flips to get (inclusive)</param>
         /// <param name="end">The end time of flips to get (exclusive)</param>
         /// <returns></returns>
