@@ -67,7 +67,7 @@ namespace Coflnet.Sky.Api.Services
                                      ILogger<ModDescriptionService> logger,
                                      IConfiguration config,
                                      IStateUpdateService stateService,
-                                     ISniperClient sniperClient, 
+                                     ISniperClient sniperClient,
                                      KafkaCreator kafkaCreator)
         {
             this.craftsApi = craftsApi;
@@ -84,7 +84,7 @@ namespace Coflnet.Sky.Api.Services
                 BootstrapServers = config["KAFKA_HOST"],
                 LingerMs = 200
             };
-            producer = kafkaCreator.BuildProducer<string, UpdateMessage>(true, b=>b.SetDefaultPartitioner((topic, pcount, key, isNull) =>
+            producer = kafkaCreator.BuildProducer<string, UpdateMessage>(true, b => b.SetDefaultPartitioner((topic, pcount, key, isNull) =>
             {
                 if (isNull)
                     return Random.Shared.Next() % pcount;
@@ -374,78 +374,48 @@ namespace Coflnet.Sky.Api.Services
                 return mods;
             }
 
+            var builder = new StringBuilder(40);
             foreach (var line in enabledFields)
             {
-                var content = "";
                 foreach (var item in line)
                 {
                     switch (item)
                     {
                         case DescriptionField.LBIN:
-                            if (price?.Lbin != null && price.Lbin.Price != 0)
-                            {
-                                var prefix = price.ItemKey == price.LbinKey ? "" : "~";
-                                content += $"{McColorCodes.GRAY}lbin: {McColorCodes.YELLOW}{prefix}{FormatNumber(price.Lbin.Price)} ";
-                                if (auction.Count > 1)
-                                {
-                                    content += $"({FormatNumber(price.Lbin.Price / auction.Count)} each)";
-                                }
-                            }
+                            AddLbin(auction, price, builder);
                             break;
                         case DescriptionField.LBIN_KEY:
-                            content += $"Lbin-Key: {price.LbinKey} ";
+                            builder.Append($"Lbin-Key: {price.LbinKey} ");
                             break;
                         case DescriptionField.MEDIAN:
-                            if (price != null && price.Median != 0)
-                            {
-                                var prefix = price.ItemKey == price.MedianKey ? "" : "~";
-                                content += $"{McColorCodes.GRAY}Med: {McColorCodes.AQUA}{prefix}{FormatNumber(price.Median)} ";
-                                if (auction.Count > 1)
-                                {
-                                    content += $"({FormatNumber(price.Median / auction.Count)} each)";
-                                }
-                            }
+                            AddMedian(auction, price, builder);
                             break;
                         case DescriptionField.MEDIAN_KEY:
-                            content += $"Med-Key: {price.MedianKey}";
+                            builder.Append($"Med-Key: {price.MedianKey}");
                             break;
                         case DescriptionField.ITEM_KEY:
-                            content += $"Item-Key: {price.ItemKey}";
+                            builder.Append($"Item-Key: {price.ItemKey}");
                             break;
                         case DescriptionField.VOLUME:
-                            if (price != null && price.Median != 0)
-                                if (float.IsInfinity(price.Volume))
-                                    logger.LogInformation($"Volume is infinity for {auction.Tag} {price.ItemKey}");
-                            content += $"{McColorCodes.GRAY}Vol: {McColorCodes.YELLOW}{price.Volume.ToString("0.#")} ";
+                            AddVolume(auction, price, builder);
                             break;
                         case DescriptionField.TAG:
-                            content += $"{auction.Tag} ";
+                            builder.Append($"{auction.Tag} ");
                             break;
                         case DescriptionField.BazaarBuy:
-                            string tag = GetBazaarTag(auction);
-                            if (bazaarPrices?.ContainsKey(tag) ?? false)
-                                content += $"{McColorCodes.GRAY}Buy: {McColorCodes.GOLD}{FormatNumber(bazaarPrices[tag].BuyPrice)} ";
+                            AddBazaarBuy(auction, bazaarPrices, builder);
                             break;
                         case DescriptionField.BazaarSell:
-                            tag = GetBazaarTag(auction);
-                            if (bazaarPrices?.ContainsKey(tag) ?? false)
-                                content += $"{McColorCodes.GRAY}Sell: {McColorCodes.GOLD}{FormatNumber(bazaarPrices[tag].SellPrice)} ";
+                            AddBazaarSell(auction, bazaarPrices, builder);
+                            break;
+                        case DescriptionField.EnchantCost:
+                            AddEnchantCost(auction, builder, bazaarPrices);
                             break;
                         case DescriptionField.PRICE_PAID:
-                            if (auction.FlatenedNBT != null && auction.FlatenedNBT.ContainsKey("uid"))
-                            {
-                                var uid = auction.FlatenedNBT["uid"];
-                                if (pricesPaid.ContainsKey(uid))
-                                    content += $"{McColorCodes.GRAY}Paid: {McColorCodes.YELLOW}{FormatNumber(pricesPaid[uid])} ";
-                            }
+                            AddPricePaid(auction, pricesPaid, builder);
                             break;
                         case DescriptionField.CRAFT_COST:
-                            if (!craftPrice.HasValue)
-                                continue;
-                            if (craftPrice.Value >= int.MaxValue)
-                                content += $"craft: unavailable ingredients ";
-                            else
-                                content += $"{McColorCodes.GRAY}craft: {McColorCodes.YELLOW}{FormatNumber((long)craftPrice)} ";
+                            AddCraftcost(craftPrice, builder);
                             break;
                         default:
                             if (Random.Shared.Next() % 100 == 0)
@@ -453,12 +423,97 @@ namespace Coflnet.Sky.Api.Services
                             break;
                     }
                 }
-                if (content.Length > 0)
-                    mods.Add(new DescModification(content));
+                if (builder.Length > 0)
+                    mods.Add(new DescModification(builder.ToString()));
+                builder.Clear();
             }
 
 
             return mods;
+        }
+
+        private void AddEnchantCost(SaveAuction auction, StringBuilder builder, Dictionary<string, ItemPrice> bazaarPrices)
+        {
+            var enchants = auction.Enchantments;
+            if (enchants == null || enchants.Count <= 0)
+                return;
+            var enchantCost = 0L;
+            foreach (var enchant in enchants)
+            {
+                var key = $"ENCHANTMENT_{enchant.Type.ToString().ToUpper()}_{enchant.Level}";
+                if (bazaarPrices.ContainsKey(key))
+                    enchantCost += (long)(bazaarPrices[key].BuyPrice);
+            }
+            builder.Append($"{McColorCodes.GRAY}Enchants: {McColorCodes.YELLOW}{FormatNumber(enchantCost)} ");
+        }
+
+        private void AddCraftcost(double? craftPrice, StringBuilder builder)
+        {
+            if (craftPrice.HasValue)
+            {
+                if (craftPrice.Value >= int.MaxValue)
+                    builder.Append($"craft: unavailable ingredients ");
+                else
+                    builder.Append($"{McColorCodes.GRAY}craft: {McColorCodes.YELLOW}{FormatNumber((long)craftPrice)} ");
+            }
+        }
+
+        private void AddPricePaid(SaveAuction auction, Dictionary<string, long> pricesPaid, StringBuilder builder)
+        {
+            if (auction.FlatenedNBT != null && auction.FlatenedNBT.ContainsKey("uid"))
+            {
+                var uid = auction.FlatenedNBT["uid"];
+                if (pricesPaid.ContainsKey(uid))
+                    builder.Append($"{McColorCodes.GRAY}Paid: {McColorCodes.YELLOW}{FormatNumber(pricesPaid[uid])} ");
+            }
+        }
+
+        private void AddBazaarBuy(SaveAuction auction, Dictionary<string, ItemPrice> bazaarPrices, StringBuilder builder)
+        {
+            string tag = GetBazaarTag(auction);
+            if (bazaarPrices?.ContainsKey(tag) ?? false)
+                builder.Append($"{McColorCodes.GRAY}Buy: {McColorCodes.GOLD}{FormatNumber(bazaarPrices[tag].BuyPrice)} ");
+        }
+
+        private void AddBazaarSell(SaveAuction auction, Dictionary<string, ItemPrice> bazaarPrices, StringBuilder builder)
+        {
+            var tag = GetBazaarTag(auction);
+            if (bazaarPrices?.ContainsKey(tag) ?? false)
+                builder.Append($"{McColorCodes.GRAY}Sell: {McColorCodes.GOLD}{FormatNumber(bazaarPrices[tag].SellPrice)} ");
+        }
+
+        private void AddVolume(SaveAuction auction, Sniper.Client.Model.PriceEstimate price, StringBuilder builder)
+        {
+            if (price != null && price.Median != 0)
+                if (float.IsInfinity(price.Volume))
+                    logger.LogInformation($"Volume is infinity for {auction.Tag} {price.ItemKey}");
+            builder.Append($"{McColorCodes.GRAY}Vol: {McColorCodes.YELLOW}{price.Volume.ToString("0.#")} ");
+        }
+
+        private void AddMedian(SaveAuction auction, Sniper.Client.Model.PriceEstimate price, StringBuilder builder)
+        {
+            if (price != null && price.Median != 0)
+            {
+                var prefix = price.ItemKey == price.MedianKey ? "" : "~";
+                builder.Append($"{McColorCodes.GRAY}Med: {McColorCodes.AQUA}{prefix}{FormatNumber(price.Median)} ");
+                if (auction.Count > 1)
+                {
+                    builder.Append($"({FormatNumber(price.Median / auction.Count)} each)");
+                }
+            }
+        }
+
+        private void AddLbin(SaveAuction auction, Sniper.Client.Model.PriceEstimate price, StringBuilder builder)
+        {
+            if (price?.Lbin != null && price.Lbin.Price != 0)
+            {
+                var prefix = price.ItemKey == price.LbinKey ? "" : "~";
+                builder.Append($"{McColorCodes.GRAY}lbin: {McColorCodes.YELLOW}{prefix}{FormatNumber(price.Lbin.Price)} ");
+                if (auction.Count > 1)
+                {
+                    builder.Append($"({FormatNumber(price.Lbin.Price / auction.Count)} each)");
+                }
+            }
         }
 
         private static string GetBazaarTag(SaveAuction auction)
@@ -555,7 +610,7 @@ namespace Coflnet.Sky.Api.Services
                     auction.Context = new Dictionary<string, string>();
                     NBT.FillFromTag(auction, compound, true);
                     var desc = NBT.GetLore(compound);
-                    if(auction.ItemName.Contains("Bloo"))
+                    if (auction.ItemName.Contains("Bloo"))
                         logger.LogInformation(JSON.Stringify(auction));
                     return (auction, desc);
                 }
