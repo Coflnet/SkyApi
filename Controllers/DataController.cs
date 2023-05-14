@@ -64,7 +64,7 @@ public class DataController : ControllerBase
     /// <returns></returns>
     [Route("playerName")]
     [HttpPost]
-    public async Task<(int, long)> LoadPlayerAuctions(string name)
+    public async Task<(int, long)> LoadPlayerAuctions(string name, string source = "anonym")
     {
         namesCheckAttempts.Inc();
         string uuid = null;
@@ -77,39 +77,15 @@ public class DataController : ControllerBase
             Console.WriteLine($"Failed to get uuid for {name} {e}");
             return (0, 0);
         }
-        var auctionsRequest = new RestRequest($"Proxy/hypixel/ah/player/{uuid}?maxAgeSeconds=1209600", Method.Get);
+        var auctionsRequest = new RestRequest($"Base/ah/{uuid}?hintSource={source}", Method.Get);
         var response = await proxyClient.ExecuteAsync(auctionsRequest);
         if (response.StatusCode != System.Net.HttpStatusCode.OK)
         {
             throw new Exception($"Failed to get auctions for {uuid}({name}) got {response.StatusCode} {response.Content}");
         }
-        var allAuctions = JsonConvert.DeserializeObject<SaveAuction[]>(response.Content);
-        var auctions = allAuctions.Where(a => a.Start > DateTime.UtcNow.AddSeconds(-19)).ToList();
-        var prices = await modDescriptionService.GetPrices(auctions);
-        var profitSum = 0L;
-        for (int i = 0; i < auctions.Count; i++)
-        {
-            var target = Math.Min(prices[i].Lbin.Price, prices[i].Median);
-            var profit = target - auctions[i].StartingBid;
-            Console.WriteLine($"Auction {auctions[i].Uuid} has a median price of {prices[i].Median} lbin {prices[i].Lbin.Price}, cost {auctions[i].StartingBid} profit {profit}");
-            if (profit > 200_000)
-            {
-                profitFound.Inc(profit);
-                flipsFound.Inc();
-                profitSum += profit;
-                await ft.NewFlip(new LowPricedAuction()
-                {
-                    Auction = auctions[i],
-                    Finder = LowPricedAuction.FinderType.STONKS,
-                    TargetPrice = target
-                }, DateTime.UtcNow);
-            }
-            newAuctionsFound.Inc();
-
-        }
         namesChecked.Inc();
-        Console.WriteLine($"Found {auctions.Count} new auctions for {name}({uuid}) with a total profit of {profitSum} {allAuctions.Length} auctions in total");
-        return (auctions.Count, profitSum);
+        Console.WriteLine($"Checking new auctions for {name}({uuid})");
+        return (1, Random.Shared.Next(1000));
     }
     /// <summary>
     /// Accepts player name based auction hints
@@ -117,8 +93,8 @@ public class DataController : ControllerBase
     /// <returns></returns>
     [Route("playerNames")]
     [HttpPost]
-    public async Task<IEnumerable<(int auctions, long profit)>> LoadPlayerAuctions([FromBody] IEnumerable<string> name)
+    public async Task<IEnumerable<(int auctions, long profit)>> LoadPlayerAuctions([FromBody] IEnumerable<string> name, string source = "anonym")
     {
-        return await Task.WhenAll(name.Select(LoadPlayerAuctions).Distinct().Take(24));
+        return await Task.WhenAll(name.Distinct().Select(n => LoadPlayerAuctions(n, source)).Take(24));
     }
 }
