@@ -77,7 +77,7 @@ public class DataController : ControllerBase
             Console.WriteLine($"Failed to get uuid for {name} {e}");
             return (0, 0);
         }
-        var auctionsRequest = new RestRequest($"Base/ah/{uuid}?hintSource={source}", Method.Get);
+        var auctionsRequest = new RestRequest($"Base/ah/{uuid}?hintSource={source}", Method.Post);
         var response = await proxyClient.ExecuteAsync(auctionsRequest);
         if (response.StatusCode != System.Net.HttpStatusCode.OK)
         {
