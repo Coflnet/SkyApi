@@ -1,0 +1,18 @@
+using Coflnet.Sky.Api.Models.Mod;
+using Coflnet.Sky.Bazaar.Client.Model;
+using Coflnet.Sky.Commands.Shared;
+using Coflnet.Sky.Core;
+
+namespace Coflnet.Sky.Api.Services.Description;
+public class DataContainer
+{
+    InventoryDataWithSettings inventory;
+    public List<(SaveAuction auction, IEnumerable<string> desc)> auctionRepresent;
+    public List<Sniper.Client.Model.PriceEstimate> res;
+    public Dictionary<string, ItemPrice> bazaarPrices;
+    public List<List<DescModification>> mods;
+    public Dictionary<string, long> pricesPaid;
+    internal ModDescriptionService modService;
+
+    public List<Item> Items { get; internal set; }
+}
