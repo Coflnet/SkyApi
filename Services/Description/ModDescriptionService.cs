@@ -231,7 +231,7 @@ public class ModDescriptionService : IDisposable
             if (desc == null || price == null)
             {
                 span.Log(JsonConvert.SerializeObject(desc) + JsonConvert.SerializeObject(auction));
-                result.Add(none);
+                result.Add(new());
                 continue;
             }
             if (desc.Count() == 0)
@@ -370,7 +370,7 @@ public class ModDescriptionService : IDisposable
         //    mods.Add(new DescModification(DescModification.ModType.REPLACE, desc.Count() - 1, "Click to open"));
         if (auction.Tag == null)
         { //add nothing for now
-            return mods;
+            return new();
         }
 
         var builder = new StringBuilder(40);

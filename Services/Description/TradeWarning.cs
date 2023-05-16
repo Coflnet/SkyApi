@@ -34,7 +34,7 @@ public class TradeWarning : CustomModifier
                 receiveSum += value;
         }
         Console.WriteLine($"trade warning send: {sendSum} receive: {receiveSum}");
-        Console.WriteLine(JsonConvert.SerializeObject(data.auctionRepresent[48]));
+        Console.WriteLine(JsonConvert.SerializeObject(data.Items[48]));
         data.mods[48].Insert(0, new DescModification($"Send value: {data.modService.FormatNumber(sendSum)}"));
         data.mods[48].Insert(0, new DescModification($"Receive value: {data.modService.FormatNumber(receiveSum)}"));
     }
