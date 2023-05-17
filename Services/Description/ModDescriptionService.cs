@@ -263,16 +263,23 @@ public class ModDescriptionService : IDisposable
         {
             if (!inventory.ChestName?.StartsWith(item.Key) ?? true)
                 continue;
-            item.Value.Apply(new DataContainer
+            try
             {
-                auctionRepresent = auctionRepresent,
-                bazaarPrices = bazaarPrices,
-                mods = result,
-                pricesPaid = pricesPaid,
-                res = res,
-                modService = this,
-                Items = items
-            });
+                item.Value.Apply(new DataContainer
+                {
+                    auctionRepresent = auctionRepresent,
+                    bazaarPrices = bazaarPrices,
+                    mods = result,
+                    pricesPaid = pricesPaid,
+                    res = res,
+                    modService = this,
+                    Items = items
+                });
+            }
+            catch (System.Exception e)
+            {
+                logger.LogError(e, "failed to apply custom modifier " + item.Key);
+            }
         }
         return result;
     }
