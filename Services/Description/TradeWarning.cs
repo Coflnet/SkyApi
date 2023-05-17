@@ -35,8 +35,8 @@ public class TradeWarning : CustomModifier
         }
         Console.WriteLine($"trade warning send: {sendSum} receive: {receiveSum}");
         Console.WriteLine(JsonConvert.SerializeObject(data.Items[48]));
-        data.mods[48].Insert(0, new DescModification($"Send value: {data.modService.FormatNumber(sendSum)}"));
-        data.mods[48].Insert(0, new DescModification($"Receive value: {data.modService.FormatNumber(receiveSum)}"));
+        data.mods[39].Insert(0, new DescModification($"Send value: {data.modService.FormatNumber(sendSum)}"));
+        data.mods[39].Insert(0, new DescModification($"Receive value: {data.modService.FormatNumber(receiveSum)}"));
     }
 
     private static long ParseCoinAmount(string stringAmount)

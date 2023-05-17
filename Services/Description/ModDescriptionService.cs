@@ -190,6 +190,12 @@ public class ModDescriptionService : IDisposable
     public async Task<IEnumerable<IEnumerable<DescModification>>> GetModifications(InventoryDataWithSettings inventory, string mcName, string sessionId)
     {
         List<(SaveAuction auction, IEnumerable<string> desc)> auctionRepresent = ConvertToAuctions(inventory);
+        var menuItemName = auctionRepresent.Last().auction?.ItemName;
+        if (inventory.ChestName == "Game Menu" || menuItemName != "§8Quiver Arrow" && !menuItemName.Contains("SkyBlock"))
+        {
+            logger.LogInformation("Skipping game menu " + menuItemName);
+            return new List<List<DescModification>>(auctionRepresent.Count).Select(_ => new List<DescModification>());
+        }
         var userSettings = await GetSettingForConid(mcName, sessionId);
         List<Item> items = new();
         try
@@ -638,7 +644,7 @@ public class ModDescriptionService : IDisposable
     public string FormatNumber(double price)
     {
         if (price < 1_000)
-            return string.Format(CultureInfo.InvariantCulture,"{0:n1}", price);
+            return string.Format(CultureInfo.InvariantCulture, "{0:n1}", price);
         return string.Format(CultureInfo.InvariantCulture, "{0:n0}", price);
     }
 
