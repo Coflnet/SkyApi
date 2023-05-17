@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using System.Globalization;
 using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
@@ -630,8 +631,8 @@ public class ModDescriptionService : IDisposable
     public string FormatNumber(double price)
     {
         if (price < 1_000)
-            return string.Format("{0:n1}", price);
-        return string.Format("{0:n0}", price);
+            return string.Format(CultureInfo.InvariantCulture,"{0:n1}", price);
+        return string.Format(CultureInfo.InvariantCulture, "{0:n0}", price);
     }
 
     /// <summary>
