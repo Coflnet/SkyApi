@@ -1,5 +1,6 @@
 using System.Globalization;
 using Coflnet.Sky.Api.Models.Mod;
+using Coflnet.Sky.Commands.MC;
 using Newtonsoft.Json;
 
 namespace Coflnet.Sky.Api.Services.Description;
@@ -35,8 +36,14 @@ public class TradeWarning : CustomModifier
         }
         Console.WriteLine($"trade warning send: {sendSum} receive: {receiveSum}");
         Console.WriteLine(JsonConvert.SerializeObject(data.Items[48]));
+        data.mods[39].Insert(0, new DescModification($"CoflMod estimate, please report issues"));
         data.mods[39].Insert(0, new DescModification($"Send value: {data.modService.FormatNumber(sendSum)}"));
         data.mods[39].Insert(0, new DescModification($"Receive value: {data.modService.FormatNumber(receiveSum)}"));
+        if (receiveSum < sendSum / 2)
+        {
+            data.mods[39].Insert(0, new DescModification(DescModification.ModType.REPLACE, 0, $"{McColorCodes.RED}You are sending way more coins"));
+            data.mods[39].Insert(0, new DescModification(DescModification.ModType.INSERT, 1, $"{McColorCodes.RED}than you are receiving! {McColorCodes.OBFUSCATED}A"));
+        }
     }
 
     private static long ParseCoinAmount(string stringAmount)
