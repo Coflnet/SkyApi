@@ -454,8 +454,17 @@ public class ModDescriptionService : IDisposable
         foreach (var enchant in enchants)
         {
             var key = $"ENCHANTMENT_{enchant.Type.ToString().ToUpper()}_{enchant.Level}";
-            if (bazaarPrices.ContainsKey(key))
+
+            if (bazaarPrices.ContainsKey(key) && bazaarPrices[key].BuyPrice > 0)
                 enchantCost += (long)(bazaarPrices[key].BuyPrice);
+            else 
+            {
+                // from lvl 1 ench
+                key = $"ENCHANTMENT_{enchant.Type.ToString().ToUpper()}_1";
+                if (bazaarPrices.ContainsKey(key) && bazaarPrices[key].BuyPrice > 0)
+                    enchantCost += (long)(bazaarPrices[key].BuyPrice * Math.Pow(2, enchant.Level - 1));
+            }
+            
         }
         builder.Append($"{McColorCodes.GRAY}Enchants: {McColorCodes.YELLOW}{FormatNumber(enchantCost)} ");
     }
