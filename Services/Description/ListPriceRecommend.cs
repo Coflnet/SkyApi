@@ -16,7 +16,10 @@ public class ListPriceRecommend : CustomModifier
                 deduct = 0.15;
             if (pricing.Median > 150_000_000)
                 deduct = 0.08;
-            var target = Math.Max(pricing.Median * (1 - deduct), pricing.Lbin.Price * (1 - deduct - 0.08));
+            var fromMed = pricing.Median * (1 - deduct);
+            var target = Math.Max(fromMed, pricing.Lbin.Price * (1 - deduct - 0.08));
+            if(pricing.ItemKey != pricing.LbinKey)
+                target = fromMed;
 
             var formattedPrice = data.modService.FormatNumber(target);
             text = $"{McColorCodes.GREEN}Instasell: {McColorCodes.DARK_GREEN}{formattedPrice} {McColorCodes.WHITE}based on Coflnet data";
