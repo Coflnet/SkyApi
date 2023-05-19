@@ -457,14 +457,14 @@ public class ModDescriptionService : IDisposable
 
             if (bazaarPrices.ContainsKey(key) && bazaarPrices[key].BuyPrice > 0)
                 enchantCost += (long)(bazaarPrices[key].BuyPrice);
-            else 
+            else
             {
                 // from lvl 1 ench
                 key = $"ENCHANTMENT_{enchant.Type.ToString().ToUpper()}_1";
                 if (bazaarPrices.ContainsKey(key) && bazaarPrices[key].BuyPrice > 0)
                     enchantCost += (long)(bazaarPrices[key].BuyPrice * Math.Pow(2, enchant.Level - 1));
             }
-            
+
         }
         builder.Append($"{McColorCodes.GRAY}Enchants: {McColorCodes.YELLOW}{FormatNumber(enchantCost)} ");
     }
@@ -631,9 +631,13 @@ public class ModDescriptionService : IDisposable
                 var auction = new SaveAuction();
                 auction.Context = new Dictionary<string, string>();
                 NBT.FillFromTag(auction, compound, true);
+                if (auction.Tier == Tier.UNKNOWN && (auction.Tag?.StartsWith("PET_") ?? false))
+                {
+                    var tier = auction.FlatenedNBT.Where(kv => kv.Key == "tier").Select(kv => kv.Value).FirstOrDefault();
+                    if (tier != default && Enum.TryParse<Tier>(tier, true, out var parsedTier))
+                        auction.Tier = parsedTier;
+                }
                 var desc = NBT.GetLore(compound);
-                if (auction.ItemName.Contains("Bloo"))
-                    logger.LogInformation(JSON.Stringify(auction));
                 return (auction, desc);
             }
             catch (System.Exception e)
