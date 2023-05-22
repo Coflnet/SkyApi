@@ -82,7 +82,7 @@ public class ModDescriptionService : IDisposable
 
     private ConcurrentDictionary<string, SelfUpdatingValue<DescriptionSetting>> settings = new();
 
-    private List<Item> ProduceInventory(InventoryData modDescription, string playerId, string sessionId)
+    public List<Item> ProduceInventory(InventoryData modDescription, string playerId, string sessionId)
     {
         var inventoryhash = SHA256.Create().ComputeHash(Encoding.UTF8.GetBytes(modDescription.FullInventoryNbt));
         var nbt = NBT.File(Convert.FromBase64String(modDescription.FullInventoryNbt));

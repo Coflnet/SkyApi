@@ -189,6 +189,15 @@ public class PricesController : ControllerBase
     public async Task<IEnumerable<PriceEstimate>> GetFromNbt(InventoryData inventoryData)
     {
         var auctions = modDescriptionSerice.ConvertToAuctions(inventoryData).Select(a => a.auction).Take(45);
+        var priceTask = modDescriptionSerice.GetPrices(auctions);
+        try
+        {
+            modDescriptionSerice.ProduceInventory(inventoryData, "!anonym", "");
+        }
+        catch (Exception e)
+        {
+            logger.LogError(e, "failed to publish inventory nbt");
+        }
         var data = await modDescriptionSerice.GetPrices(auctions);
         counter.Inc();
         return data.Select(d =>
