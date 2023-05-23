@@ -147,16 +147,19 @@ namespace Coflnet.Sky.Api.Controller
         /// <param name="itemTag">The itemTag to get auctions for</param>
         /// <param name="page">Page of auctions to get</param>
         /// <param name="pageSize">how many auctions to get per page 1-1000</param>
+        /// <param name="token">Partner token to get more data</param>
         /// <returns></returns>
         [Route("auctions/tag/{itemTag}/sold")]
         [HttpGet]
         [ResponseCache(Duration = 1800, Location = ResponseCacheLocation.Any, NoStore = false, VaryByQueryKeys = new string[] { "page" })]
-        public async Task<List<SaveAuction>> GetHistory(string itemTag, int page = 0, int pageSize = 1000)
+        public async Task<List<SaveAuction>> GetHistory(string itemTag, int page = 0, int pageSize = 1000, string token = null)
         {
             var itemId = ItemDetails.Instance.GetItemIdForTag(itemTag);
             if (pageSize < 0 || pageSize > 1000)
                 pageSize = 1000;
             var daysToReturn = config["MAX_SELL_LOOKBACK_ENDPOINT_DAYS"] ?? "7";
+            if (!string.IsNullOrEmpty(token) && IsValidPartner(token))
+                daysToReturn = config["MAX_SELL_LOOKBACK_PARTNER_DAYS"] ?? "30";
             var startTime = DateTime.Now.RoundDown(TimeSpan.FromHours(1)) - TimeSpan.FromDays(int.Parse(daysToReturn));
             var result = await context.Auctions
                         .Where(a => a.ItemId == itemId && a.End > startTime && a.End < DateTime.Now && a.HighestBidAmount > 0)
@@ -184,14 +187,7 @@ namespace Coflnet.Sky.Api.Controller
             var baseStart = 400_000_000;
             var transformer = new AuctionConverter();
             var itemsRequest = itemsClient.ItemItemTagModifiersAllGetAsync("*");
-
-            var tokens = config.GetSection("PartnerTokenHashes").Get<string[]>();
-            using (var mySHA256 = SHA256.Create())
-            {
-                var hash = mySHA256.ComputeHash(Encoding.UTF8.GetBytes(token));
-                if (!tokens.Contains(BitConverter.ToString(hash).Replace("-", "")))
-                    throw new CoflnetException("invalid_token", "the passed token is not whitelisted");
-            }
+            AssertAccessToken(token);
             var totalAuctions = await context.Auctions.MaxAsync(a => a.Id);
             if (totalAuctions < 100_000_000)
                 baseStart /= 10;
@@ -212,7 +208,7 @@ namespace Coflnet.Sky.Api.Controller
                 logger.LogInformation("Exporting " + itemids.Length + " items");
                 itemModifiers["item_id"] = itemids.ToList();
                 itemModifiers["headers"] = transformer.ColumnKeys(columns).ToList();
-                foreach (var item in AuctionConverter.ignoreColumns.Concat(itemModifiers.Keys.Where(k=>k.EndsWith(".uuid")).ToList()))
+                foreach (var item in AuctionConverter.ignoreColumns.Concat(itemModifiers.Keys.Where(k => k.EndsWith(".uuid")).ToList()))
                 {
                     itemModifiers.Remove(item);
                 }
@@ -232,6 +228,26 @@ namespace Coflnet.Sky.Api.Controller
 
                 await HttpResponseWritingExtensions.WriteAsync(this.Response, transformer.Transform(item, keys));
             }
+        }
+
+        private void AssertAccessToken(string token)
+        {
+            bool isPartner = IsValidPartner(token);
+            if (!isPartner)
+                throw new CoflnetException("invalid_token", "the passed token is not whitelisted");
+        }
+
+        private bool IsValidPartner(string token)
+        {
+            var isPartner = false;
+            var tokens = config.GetSection("PartnerTokenHashes").Get<string[]>();
+            using (var mySHA256 = SHA256.Create())
+            {
+                var hash = mySHA256.ComputeHash(Encoding.UTF8.GetBytes(token));
+                isPartner = tokens.Contains(BitConverter.ToString(hash).Replace("-", "").ToUpper());
+            }
+
+            return isPartner;
         }
 
         /// <summary>
