@@ -445,6 +445,14 @@ public class ModDescriptionService : IDisposable
         return mods;
     }
 
+
+    private static Dictionary<Enchantment.EnchantmentType, string> EnchantToAttribute = new(){
+       { Enchantment.EnchantmentType.cultivating, "farmed_cultivating"},
+       { Enchantment.EnchantmentType.champion, "champion_combat_xp"},
+       { Enchantment.EnchantmentType.compact, "compact_blocks"},
+       { Enchantment.EnchantmentType.hecatomb, "hecatomb_s_runs"}
+    };
+
     private void AddEnchantCost(SaveAuction auction, StringBuilder builder, Dictionary<string, ItemPrice> bazaarPrices)
     {
         var enchants = auction.Enchantments;
@@ -462,7 +470,10 @@ public class ModDescriptionService : IDisposable
                 // from lvl 1 ench
                 key = $"ENCHANTMENT_{enchant.Type.ToString().ToUpper()}_1";
                 if (bazaarPrices.ContainsKey(key) && bazaarPrices[key].BuyPrice > 0)
-                    enchantCost += (long)(bazaarPrices[key].BuyPrice * Math.Pow(2, enchant.Level - 1));
+                    if (EnchantToAttribute.TryGetValue(enchant.Type, out var attrName))
+                        enchantCost += (long)(bazaarPrices[key].BuyPrice + float.Parse(auction.FlatenedNBT.GetValueOrDefault(attrName) ?? "0"));
+                    else
+                        enchantCost += (long)(bazaarPrices[key].BuyPrice * Math.Pow(2, enchant.Level - 1));
             }
 
         }
