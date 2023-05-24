@@ -11,6 +11,9 @@ using Coflnet.Sky.Core;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Configuration;
 using RestSharp;
+using Coflnet.Leaderboard.Client.Api;
+using Coflnet.Leaderboard.Client.Model;
+using Microsoft.Extensions.Logging;
 
 namespace Coflnet.Sky.Api.Controller
 {
@@ -25,6 +28,8 @@ namespace Coflnet.Sky.Api.Controller
         private IConfiguration config;
         private TfmService tfm;
         private FlipTrackingService flipService;
+        private IScoresApi scoresApi;
+        private ILogger<FlipController> logger;
 
         /// <summary>
         /// Creates a new instance of <see cref="FlipController"/>
@@ -32,11 +37,15 @@ namespace Coflnet.Sky.Api.Controller
         /// <param name="config"></param>
         /// <param name="tfm"></param>
         /// <param name="flipService"></param>
-        public FlipController(IConfiguration config, TfmService tfm, FlipTrackingService flipService)
+        /// <param name="scoresApi"></param>
+        /// <param name="logger"></param>
+        public FlipController(IConfiguration config, TfmService tfm, FlipTrackingService flipService, IScoresApi scoresApi, ILogger<FlipController> logger)
         {
             this.config = config;
             this.tfm = tfm;
             this.flipService = flipService;
+            this.scoresApi = scoresApi;
+            this.logger = logger;
         }
 
         /// <summary>
@@ -156,7 +165,21 @@ namespace Coflnet.Sky.Api.Controller
                 throw new CoflnetException("invalid_time", "Sorry but this is currently limited to one week");
             if (days < 0)
                 throw new CoflnetException("invalid_time", "You can't request flips in the future");
-            return await flipService.GetPlayerFlips(playerUuid, TimeSpan.FromDays(days));
+            var result = await flipService.GetPlayerFlips(playerUuid, TimeSpan.FromDays(days));
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    // postfix week
+                    var boardSlug = $"sky-flippers-{DateTime.UtcNow.AddDays(-7).ToString("yyyy-MM-dd")}";
+                    await scoresApi.ScoresLeaderboardSlugPostAsync(boardSlug, new ScoreCreate(playerUuid, result.TotalProfit, 100));
+                }
+                catch (Exception e)
+                {
+                    logger.LogError(e, "Failed to post flip score");
+                }
+            });
+            return result;
         }
 
         /// <summary>
