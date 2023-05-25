@@ -171,7 +171,7 @@ namespace Coflnet.Sky.Api.Controller
                 try
                 {
                     // postfix week
-                    var boardSlug = $"sky-flippers-{DateTime.UtcNow.AddDays(-7).ToString("yyyy-MM-dd")}";
+                    var boardSlug = $"sky-flippers-{DateTime.UtcNow.RoundDown(TimeSpan.FromDays(7)).ToString("yyyy-MM-dd")}";
                     await scoresApi.ScoresLeaderboardSlugPostAsync(boardSlug, new ScoreCreate(playerUuid, result.TotalProfit, 100));
                 }
                 catch (Exception e)
