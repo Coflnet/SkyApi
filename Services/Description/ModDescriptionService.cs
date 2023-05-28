@@ -465,6 +465,11 @@ public class ModDescriptionService : IDisposable
 
             if (bazaarPrices.ContainsKey(key) && bazaarPrices[key].BuyPrice > 0)
                 enchantCost += (long)(bazaarPrices[key].BuyPrice);
+            else if(enchant.Type == Enchantment.EnchantmentType.efficiency && enchant.Level >= 6)
+            {
+                var singleLevelPrice = bazaarPrices.GetValueOrDefault("SIL_EX", new ItemPrice()).BuyPrice;
+                enchantCost += (long)(singleLevelPrice * (enchant.Level - 5));
+            }
             else
             {
                 // from lvl 1 ench
