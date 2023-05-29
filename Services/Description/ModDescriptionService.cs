@@ -92,8 +92,9 @@ public class ModDescriptionService : IDisposable
             ProduceInventory(modDescription.ChestName, playerId, sessionId, items);
             return items;
         }
-        catch (System.Exception)
+        catch (System.Exception e)
         {
+            logger.LogError(e, "failed to parse inventory");
             foreach (var item in InventoryToItems(modDescription))
             {
                 try
@@ -465,7 +466,7 @@ public class ModDescriptionService : IDisposable
 
             if (bazaarPrices.ContainsKey(key) && bazaarPrices[key].BuyPrice > 0)
                 enchantCost += (long)(bazaarPrices[key].BuyPrice);
-            else if(enchant.Type == Enchantment.EnchantmentType.efficiency && enchant.Level >= 6)
+            else if (enchant.Type == Enchantment.EnchantmentType.efficiency && enchant.Level >= 6)
             {
                 var singleLevelPrice = bazaarPrices.GetValueOrDefault("SIL_EX", new ItemPrice()).BuyPrice;
                 enchantCost += (long)(singleLevelPrice * (enchant.Level - 5));

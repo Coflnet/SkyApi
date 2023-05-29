@@ -17,8 +17,8 @@ public class ListPriceRecommend : CustomModifier
             if (pricing.Median > 150_000_000)
                 deduct = 0.08;
             var fromMed = pricing.Median * (1 - deduct);
-            var target = Math.Max(fromMed, pricing.Lbin.Price * (1 - deduct - 0.08));
-            if(pricing.ItemKey != pricing.LbinKey)
+            var target = Math.Max(fromMed, Math.Min(pricing.Lbin.Price * (1 - deduct - 0.08), fromMed * 1.2));
+            if (pricing.ItemKey != pricing.LbinKey)
                 target = fromMed;
 
             var formattedPrice = data.modService.FormatNumber(target);
