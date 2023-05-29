@@ -36,6 +36,7 @@ public class ModDescriptionService : IDisposable
     private IConfiguration config;
     private IStateUpdateService stateService;
     private ClassNameDictonary<CustomModifier> customModifiers = new();
+    private PropertyMapper mapper = new();
 
     /// <summary>
     /// Initializes a new instance of the <see cref="ModDescriptionService"/> class.
@@ -431,6 +432,9 @@ public class ModDescriptionService : IDisposable
                     case DescriptionField.CRAFT_COST:
                         AddCraftcost(craftPrice, builder);
                         break;
+                    case DescriptionField.GemValue:
+                        AddGemValue(auction, builder, bazaarPrices);
+                        break;
                     default:
                         if (Random.Shared.Next() % 100 == 0)
                             logger.LogError("Invalid description type " + item);
@@ -446,6 +450,21 @@ public class ModDescriptionService : IDisposable
         return mods;
     }
 
+    private void AddGemValue(SaveAuction auction, StringBuilder builder, Dictionary<string, ItemPrice> bazaarPrices)
+    {
+        var sum = 0L;
+        foreach (var prop in auction.FlatenedNBT)
+        {
+            if (prop.Value != "PERFECT" && prop.Value != "FLAWLESS" && prop.Value != "FINE")
+                continue;
+            var key = mapper.GetItemKeyForGem(prop, auction.FlatenedNBT);
+            if (bazaarPrices.ContainsKey(key))
+                sum += (long)bazaarPrices[key].BuyPrice;
+        }
+        if (sum == 0)
+            return;
+        builder.Append($"{McColorCodes.GRAY}Gems: {McColorCodes.YELLOW}{FormatNumber(sum)} ");
+    }
 
     private static Dictionary<Enchantment.EnchantmentType, string> EnchantToAttribute = new(){
        { Enchantment.EnchantmentType.cultivating, "farmed_cultivating"},
