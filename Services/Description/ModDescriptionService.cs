@@ -459,7 +459,7 @@ public class ModDescriptionService : IDisposable
                 continue;
             var key = mapper.GetItemKeyForGem(prop, auction.FlatenedNBT);
             if (bazaarPrices.ContainsKey(key))
-                sum += (long)bazaarPrices[key].BuyPrice;
+                sum += (long)bazaarPrices[key].SellPrice;
         }
         if (sum == 0)
             return;
