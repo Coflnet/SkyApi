@@ -159,7 +159,7 @@ namespace Coflnet.Sky.Api.Controller
                 pageSize = 1000;
             var daysToReturn = config["MAX_SELL_LOOKBACK_ENDPOINT_DAYS"] ?? "7";
             if (!string.IsNullOrEmpty(token) && IsValidPartner(token))
-                daysToReturn = config["MAX_SELL_LOOKBACK_PARTNER_DAYS"] ?? "30";
+                daysToReturn = "30";
             var startTime = DateTime.Now.RoundDown(TimeSpan.FromHours(1)) - TimeSpan.FromDays(int.Parse(daysToReturn));
             var result = await context.Auctions
                         .Where(a => a.ItemId == itemId && a.End > startTime && a.End < DateTime.Now && a.HighestBidAmount > 0)
