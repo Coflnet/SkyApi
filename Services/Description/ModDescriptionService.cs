@@ -503,7 +503,6 @@ public class ModDescriptionService : IDisposable
                     else
                         enchantCost += (long)(bazaarPrices[key].BuyPrice * Math.Pow(2, enchant.Level - 1));
             }
-
         }
         builder.Append($"{McColorCodes.GRAY}Enchants: {McColorCodes.YELLOW}{FormatNumber(enchantCost)} ");
     }
