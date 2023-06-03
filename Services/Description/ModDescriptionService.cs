@@ -155,6 +155,14 @@ public class ModDescriptionService : IDisposable
                     Count = NBT.Count(compound),
                     ExtraAttributes = GetRemainingAttributes(compound)
                 };
+                if (!item.ExtraAttributes?.TryGetValue("tier", out _) ?? false)
+                {
+                    foreach (var line in NBT.GetLore(compound).Reverse())
+                    {
+                        if (NBT.TryFindTierInString(line, out Tier tier))
+                            item.ExtraAttributes["tier"] = tier;
+                    }
+                }
 
                 return item;
             }
