@@ -40,7 +40,7 @@ namespace Coflnet.Sky.Api
         {
             Configuration = configuration;
         }
-        
+
         private IConfiguration Configuration { get; }
         private static string CORS_PLICY_NAME = "defaultCorsPolicy";
 
@@ -55,9 +55,13 @@ namespace Coflnet.Sky.Api
             services.AddSwaggerGenNewtonsoftSupport();
             services.AddSwaggerGen(c =>
             {
-                c.SwaggerDoc("v1", new OpenApiInfo { Title = "SkyApi", Version = "v1", 
+                c.SwaggerDoc("v1", new OpenApiInfo
+                {
+                    Title = "SkyApi",
+                    Version = "v1",
                     Description = "Notes: PET, RUNE and POTION item tags (somtimes called ids) are expanded to include the type, eg PET_LION.<br>"
-                                + " All other Tags match with from hypixel and can be found via the search endpoint." });
+                                + " All other Tags match with from hypixel and can be found via the search endpoint."
+                });
                 // Set the comments path for the Swagger JSON and UI.
                 var xmlFile = $"{Assembly.GetExecutingAssembly().GetName().Name}.xml";
                 var xmlPath = Path.Combine(AppContext.BaseDirectory, xmlFile);
@@ -78,6 +82,8 @@ namespace Coflnet.Sky.Api
             services.AddResponseCaching();
             services.AddResponseCompression();
             var redisOptions = ConfigurationOptions.Parse(Configuration["REDIS_HOST"]);
+            if (redisOptions.SyncTimeout < 2000)
+                redisOptions.SyncTimeout = 2000;
 
             services.AddStackExchangeRedisCache(options =>
             {
