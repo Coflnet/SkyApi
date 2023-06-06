@@ -46,7 +46,7 @@ namespace Coflnet.Sky.Api.Controller
         /// <returns></returns>
         [Route("{playerUuid}/bids")]
         [HttpGet]
-        [ResponseCache(Duration = 60, Location = ResponseCacheLocation.Any, NoStore = false, VaryByQueryKeys = new string[] { "*" })]
+        [ResponseCache(Duration = 10, Location = ResponseCacheLocation.Any, NoStore = false, VaryByQueryKeys = new string[] { "*" })]
         public async Task<List<BidResult>> GetPlayerBids(string playerUuid, int page = 0, [FromQuery] Dictionary<string, string> filters = null)
         {
             AssertUuid(playerUuid);
@@ -117,7 +117,7 @@ namespace Coflnet.Sky.Api.Controller
         /// <returns></returns>
         [Route("{playerUuid}/auctions")]
         [HttpGet]
-        [ResponseCache(Duration = 60, Location = ResponseCacheLocation.Any, NoStore = false, VaryByQueryKeys = new string[] { "*" })]
+        [ResponseCache(Duration = 10, Location = ResponseCacheLocation.Any, NoStore = false, VaryByQueryKeys = new string[] { "*" })]
         public async Task<List<AuctionResult>> GetPlayerAuctions(string playerUuid, int page = 0, [FromQuery] Dictionary<string, string> filters = null)
         {
             AssertUuid(playerUuid);
