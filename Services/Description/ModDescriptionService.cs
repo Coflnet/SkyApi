@@ -13,6 +13,7 @@ using Coflnet.Sky.Commands.MC;
 using Coflnet.Sky.Commands.Shared;
 using Coflnet.Sky.Core;
 using Coflnet.Sky.Crafts.Client.Api;
+using Coflnet.Sky.Items.Client.Api;
 using fNbt;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -22,6 +23,8 @@ using Newtonsoft.Json;
 using OpenTracing;
 
 namespace Coflnet.Sky.Api.Services;
+
+
 public class ModDescriptionService : IDisposable
 {
     private ICraftsApi craftsApi;
@@ -35,6 +38,7 @@ public class ModDescriptionService : IDisposable
     private ILogger<ModDescriptionService> logger;
     private IConfiguration config;
     private IStateUpdateService stateService;
+    private ItemSkinHandler itemSkinHandler;
     private ClassNameDictonary<CustomModifier> customModifiers = new();
     private PropertyMapper mapper = new();
 
@@ -53,6 +57,7 @@ public class ModDescriptionService : IDisposable
     /// <param name="stateService"></param>
     /// <param name="sniperClient"></param>
     /// <param name="kafkaCreator"></param>
+    /// <param name="itemSkinHandler"></param>
     public ModDescriptionService(ICraftsApi craftsApi,
                                  ITracer tracer,
                                  SettingsService settingsService,
@@ -64,7 +69,8 @@ public class ModDescriptionService : IDisposable
                                  IConfiguration config,
                                  IStateUpdateService stateService,
                                  ISniperClient sniperClient,
-                                 KafkaCreator kafkaCreator)
+                                 KafkaCreator kafkaCreator,
+                                 ItemSkinHandler itemSkinHandler)
     {
         this.craftsApi = craftsApi;
         this.tracer = tracer;
@@ -79,6 +85,7 @@ public class ModDescriptionService : IDisposable
         this.sniperClient = sniperClient;
         customModifiers.Add("You    ", new TradeWarning());
         customModifiers.Add("Create BIN", new ListPriceRecommend());
+        this.itemSkinHandler = itemSkinHandler;
     }
 
     private ConcurrentDictionary<string, SelfUpdatingValue<DescriptionSetting>> settings = new();
@@ -163,6 +170,7 @@ public class ModDescriptionService : IDisposable
                             item.ExtraAttributes["tier"] = tier;
                     }
                 }
+                itemSkinHandler.StoreIfNeeded(item.Tag, compound);
 
                 return item;
             }

@@ -79,6 +79,8 @@ namespace Coflnet.Sky.Api
             services.AddDbContext<HypixelContext>();
             services.AddTransient<KatService>();
 
+            services.AddSingleton<ItemSkinHandler>();
+            services.AddHostedService<ItemSkinHandler>(di => di.GetService<ItemSkinHandler>());
             services.AddResponseCaching();
             services.AddResponseCompression();
             var redisOptions = ConfigurationOptions.Parse(Configuration["REDIS_HOST"]);
