@@ -53,7 +53,7 @@ namespace Coflnet.Sky.Api.Controller
             var response = await client.ExecuteAsync(new RestRequest("Crafts/profit"));
             var crafts = JsonConvert.DeserializeObject<List<ProfitableCraft>>(response.Content);
             if (profile == null)
-                return await AddSaleData(crafts);
+                return crafts;
             var slayersJsonTask = profileClient.ExecuteAsync(new RestRequest($"/api/profile/{player}/{profile}/data/slayers"));
             var collectionJson = await profileClient.ExecuteAsync(new RestRequest($"/api/profile/{player}/{profile}/data/collections"));
             var slayersJson = await slayersJsonTask;
@@ -78,17 +78,18 @@ namespace Coflnet.Sky.Api.Controller
                 else
                     Console.WriteLine("Blocked " + item.ItemId + " " + item.ReqCollection.Name);
             }
-            return await AddSaleData(list);
+            return list;
         }
 
         private async Task<IEnumerable<ProfitableCraft>> AddSaleData(List<ProfitableCraft> list)
         {
-            var taskList = list.Select((async i =>
+            var result = new List<ProfitableCraft>();
+            await Parallel.ForEachAsync(list,async (i,t) =>
             {
                 try
                 {
                     i.Median = -1;
-                    var sumary = await pricesService.GetSumaryCache(i.ItemId);
+                    var sumary = await pricesService.GetSumaryCache(i.ItemId).ConfigureAwait(false);
                     i.Volume = sumary.Volume;
                     i.Median = sumary.Med;
                 }
@@ -96,15 +97,10 @@ namespace Coflnet.Sky.Api.Controller
                 {
                     dev.Logger.Instance.Error(e, "getting price summary for crafts");
                 }
-                return i;
-            })).Select(t => t.ConfigureAwait(false));
-            var result = new List<ProfitableCraft>();
-            foreach (var item in taskList)
-            {
-                var flip = await item;
-                if (flip.Volume > 2)
-                    result.Add(flip);
-            }
+                
+                if (i.Volume > 2)
+                    result.Add(i);
+            });
             return result.OrderByDescending(r => r.SellPrice - r.CraftCost);
         }
 
