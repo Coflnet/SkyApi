@@ -30,6 +30,7 @@ namespace Coflnet.Sky.Api.Controller
         private FlipTrackingService flipService;
         private IScoresApi scoresApi;
         private ILogger<FlipController> logger;
+        private PremiumTierService premiumTierService;
 
         /// <summary>
         /// Creates a new instance of <see cref="FlipController"/>
@@ -39,13 +40,20 @@ namespace Coflnet.Sky.Api.Controller
         /// <param name="flipService"></param>
         /// <param name="scoresApi"></param>
         /// <param name="logger"></param>
-        public FlipController(IConfiguration config, TfmService tfm, FlipTrackingService flipService, IScoresApi scoresApi, ILogger<FlipController> logger)
+        /// <param name="premiumTierService"></param>
+        public FlipController(IConfiguration config,
+                              TfmService tfm,
+                              FlipTrackingService flipService,
+                              IScoresApi scoresApi,
+                              ILogger<FlipController> logger,
+                              PremiumTierService premiumTierService)
         {
             this.config = config;
             this.tfm = tfm;
             this.flipService = flipService;
             this.scoresApi = scoresApi;
             this.logger = logger;
+            this.premiumTierService = premiumTierService;
         }
 
         /// <summary>
@@ -155,17 +163,21 @@ namespace Coflnet.Sky.Api.Controller
         /// </summary>
         /// <param name="playerUuid">Uuid of player to get stats for</param>
         /// <param name="days"></param>
+        /// <param name="offset"></param>
         /// <returns></returns>
         [Route("stats/player/{playerUuid}")]
         [HttpGet]
-        [ResponseCache(Duration = 600, Location = ResponseCacheLocation.Any, NoStore = false, VaryByQueryKeys = new string[] { "days" })]
-        public async Task<FlipSumary> GetStats(string playerUuid, float days = 7)
+        [ResponseCache(Duration = 600, Location = ResponseCacheLocation.Any, NoStore = false, VaryByQueryKeys = new string[] { "days","offset" })]
+        public async Task<FlipSumary> GetStats(string playerUuid, float days = 7, int offset = 0)
         {
-            if (days > 7)
-                throw new CoflnetException("invalid_time", "Sorry but this is currently limited to one week");
+            if (days + offset > 7)
+                if (!premiumTierService.HasPremium(this))
+                    throw new CoflnetException("invalid_time", "Sorry but this is currently limited to one week for non premium users. Please provide a google token as Authorization header");
             if (days < 0)
                 throw new CoflnetException("invalid_time", "You can't request flips in the future");
-            var result = await flipService.GetPlayerFlips(playerUuid, TimeSpan.FromDays(days));
+            if (days > 7)
+                throw new CoflnetException("invalid_time", "You can only request one week at once");
+            var result = await flipService.GetPlayerFlips(playerUuid, TimeSpan.FromDays(days), DateTime.UtcNow.AddDays(-offset));
             _ = Task.Run(async () =>
             {
                 try

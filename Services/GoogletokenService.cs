@@ -21,7 +21,7 @@ public class GoogletokenService
     {
         return UserService.Instance.GetOrCreateUser(ValidateToken(token).Subject);
     }
-    
+
     /// <summary>
     /// Validates and extracts the token content
     /// </summary>

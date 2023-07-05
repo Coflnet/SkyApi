@@ -78,6 +78,7 @@ namespace Coflnet.Sky.Api
             services.AddSingleton<AuctionService>();
             services.AddDbContext<HypixelContext>();
             services.AddTransient<KatService>();
+            services.AddSingleton<PremiumTierService>();
 
             services.AddSingleton<ItemSkinHandler>();
             services.AddHostedService<ItemSkinHandler>(di => di.GetService<ItemSkinHandler>());
