@@ -172,7 +172,9 @@ namespace Coflnet.Sky.Api.Controller
         {
             if (days + offset > 7)
                 if (!premiumTierService.HasPremium(this))
-                    throw new CoflnetException("invalid_time", "Sorry but this is currently limited to one week for non premium users. Please provide a google token as Authorization header");
+                    throw new CoflnetException("invalid_time", 
+                        "Sorry but this is currently limited to one week for non premium users. "
+                        +"Please provide a google token as Authorization header to get further history");
             if (days < 0)
                 throw new CoflnetException("invalid_time", "You can't request flips in the future");
             if (days > 7)
