@@ -546,16 +546,25 @@ public class ModDescriptionService : IDisposable
 
     private void AddBazaarBuy(SaveAuction auction, Dictionary<string, ItemPrice> bazaarPrices, StringBuilder builder)
     {
-        string tag = GetBazaarTag(auction);
-        if (bazaarPrices?.ContainsKey(tag) ?? false)
-            builder.Append($"{McColorCodes.GRAY}Buy: {McColorCodes.GOLD}{FormatNumber(bazaarPrices[tag].BuyPrice)} ");
+        AddBazaar(auction, bazaarPrices, builder, "Buy", (ItemPrice p) => p.BuyPrice);
     }
 
     private void AddBazaarSell(SaveAuction auction, Dictionary<string, ItemPrice> bazaarPrices, StringBuilder builder)
     {
+        AddBazaar(auction, bazaarPrices, builder, "Sell", (ItemPrice p) => p.SellPrice);
+    }
+
+    private void AddBazaar(SaveAuction auction, Dictionary<string, ItemPrice> bazaarPrices, StringBuilder builder, string word, Func<ItemPrice, double> priceGet)
+    {
         var tag = GetBazaarTag(auction);
         if (bazaarPrices?.ContainsKey(tag) ?? false)
-            builder.Append($"{McColorCodes.GRAY}Sell: {McColorCodes.GOLD}{FormatNumber(bazaarPrices[tag].SellPrice)} ");
+        {
+            var price = priceGet(bazaarPrices[tag]);
+            if (auction.Count > 1)
+                builder.Append($"{McColorCodes.GRAY}{word}: {McColorCodes.GOLD}{FormatNumber(price * auction.Count)} ({FormatNumber(price)} each)");
+            else
+                builder.Append($"{McColorCodes.GRAY}{word}: {McColorCodes.GOLD}{FormatNumber(price)} ");
+        }
     }
 
     private void AddVolume(SaveAuction auction, Sniper.Client.Model.PriceEstimate price, StringBuilder builder)
