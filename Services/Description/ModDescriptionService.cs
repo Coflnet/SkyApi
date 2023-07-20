@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using System.Diagnostics;
 using System.Globalization;
 using System.Linq;
 using System.Security.Cryptography;
@@ -198,6 +199,7 @@ public class ModDescriptionService : IDisposable
         return extraAttributes;
     }
 
+#nullable enable
     /// <summary>
     /// Get modifications for given inventory
     /// </summary>
@@ -209,7 +211,7 @@ public class ModDescriptionService : IDisposable
     {
         List<(SaveAuction auction, IEnumerable<string> desc)> auctionRepresent = ConvertToAuctions(inventory);
         var menuItemName = auctionRepresent.Last().auction?.ItemName;
-        if (inventory.ChestName == "Game Menu" || menuItemName != "§8Quiver Arrow" && !menuItemName.Contains("SkyBlock"))
+        if (inventory.ChestName == "Game Menu" || menuItemName != "§8Quiver Arrow" && (!menuItemName?.Contains("SkyBlock") ?? true))
         {
             logger.LogInformation("Skipping game menu " + menuItemName);
             return new List<List<DescModification>>(auctionRepresent.Count).Select(_ => new List<DescModification>());
@@ -228,7 +230,7 @@ public class ModDescriptionService : IDisposable
         var allCraftsTask = craftsApi.CraftsAllGetAsync();
         var pricesTask = GetPrices(auctionRepresent.Select(a => a.auction));
 
-        var span = tracer.ActiveSpan;
+        var span = Activity.Current;
         var result = new List<List<DescModification>>();
         var none = new List<DescModification>();
         if (inventory.Settings == null)
@@ -307,6 +309,7 @@ public class ModDescriptionService : IDisposable
         }
         return result;
     }
+#nullable disable
 
     private void AddSummaryToMenu(InventoryDataWithSettings inventory, List<(SaveAuction auction, IEnumerable<string> desc)> auctionRepresent, List<Sniper.Client.Model.PriceEstimate> res, Dictionary<string, ItemPrice> bazaarPrices, List<DescModification> mods, Dictionary<string, long> pricesPaid)
     {
