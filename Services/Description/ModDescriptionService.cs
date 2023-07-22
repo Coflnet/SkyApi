@@ -216,6 +216,22 @@ public class ModDescriptionService : IDisposable
             logger.LogInformation("Skipping game menu " + menuItemName);
             return new List<List<DescModification>>(auctionRepresent.Count).Select(_ => new List<DescModification>());
         }
+
+        var result = new List<List<DescModification>>();
+        try
+        {
+            // compute descriptions and return everything computed on error
+            await ComputeDescriptions(inventory, mcName, sessionId, auctionRepresent, result);
+        }
+        catch (System.Exception e)
+        {
+            logger.LogError(e, "failed to compute descriptions");
+        }
+        return result;
+    }
+
+    private async Task ComputeDescriptions(InventoryDataWithSettings inventory, string mcName, string sessionId, List<(SaveAuction auction, IEnumerable<string> desc)> auctionRepresent, List<List<DescModification>> result)
+    {
         var userSettings = await GetSettingForConid(mcName, sessionId);
         List<Item> items = new();
         try
@@ -231,7 +247,6 @@ public class ModDescriptionService : IDisposable
         var pricesTask = GetPrices(auctionRepresent.Select(a => a.auction));
 
         var span = Activity.Current;
-        var result = new List<List<DescModification>>();
         var none = new List<DescModification>();
         if (inventory.Settings == null)
             inventory.Settings = new DescriptionSetting();
@@ -307,7 +322,6 @@ public class ModDescriptionService : IDisposable
                 logger.LogError(e, "failed to apply custom modifier " + item.Key);
             }
         }
-        return result;
     }
 #nullable disable
 
