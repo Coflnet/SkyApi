@@ -202,7 +202,7 @@ public class PricesController : ControllerBase
         counter.Inc();
         return data.Select(d =>
         {
-            if(d == null || d.MedianKey == null && d.LbinKey == null)
+            if (d == null || d.MedianKey == null && d.LbinKey == null)
                 return null;
             try
             {
@@ -223,6 +223,40 @@ public class PricesController : ControllerBase
                 return null;
             }
         });
+    }
+
+    [Route("price/attributes")]
+    [HttpGet]
+    [ResponseCache(Duration = 3600, Location = ResponseCacheLocation.Any, NoStore = false)]
+    public async Task<Dictionary<string, Dictionary<string, long>>> GetAttributePrices()
+    {
+        var tags = new HashSet<string>(){"FERVOR_HELMET",
+                "FERVOR_CHESTPLATE", "FERVOR_LEGGINGS", "FERVOR_BOOTS",
+                "HOLLOW_HELMET",  "HOLLOW_CHESTPLATE",  "HOLLOW_LEGGINGS",  "HOLLOW_BOOTS",
+                "AURORA_HELMET",  "AURORA_CHESTPLATE",  "AURORA_LEGGINGS",  "AURORA_BOOTS",
+                "TERROR_HELMET",  "TERROR_CHESTPLATE",  "TERROR_LEGGINGS",  "TERROR_BOOTS",
+                "CRIMSON_HELMET",  "CRIMSON_CHESTPLATE",  "CRIMSON_LEGGINGS",  "CRIMSON_BOOTS",
+                "IMPLOSION_BELT",  "GAUNTLET_OF_CONTAGION",
+                "MOLTEN_BELT",  "MOLTEN_NECKLACE",  "MOLTEN_CLOAK",  "MOLTEN_BRACELET",
+                "ATTRIBUTE_SHARD"};
+        var reverseAttributeMap = new Dictionary<int, string>();
+        var ids = tags.Select(t => ItemDetails.Instance.GetItemIdForTag(t, true)).ToList();
+        var attributeIds = await Task.WhenAll(Constants.AttributeKeys.Select(a =>
+        {
+            var id = NBT.GetLookupKey(a);
+            reverseAttributeMap[id] = a;
+            return Task.FromResult(id);
+        }));
+        var ignoreIds = await Task.WhenAll(new HashSet<string>() { "boss_tier", "id" }.Select(a => Task.FromResult(NBT.GetLookupKey(a))));
+        var oldestTime = DateTime.UtcNow.AddDays(3);
+        ignoreIds = ignoreIds.Concat(attributeIds).ToArray();
+        var prices = await context.Auctions.Where(a => ids.Contains(a.ItemId) && !a.NBTLookup.Any(l => !ignoreIds.Contains(l.KeyId)) && a.End > oldestTime && a.HighestBidAmount > 0 && a.End < DateTime.UtcNow)
+            .Select(a => new { k1 = a.NBTLookup.Where(l => attributeIds.Contains(l.KeyId)).OrderBy(l => l.KeyId).First(), k2 = a.NBTLookup.Where(l => attributeIds.Contains(l.KeyId)).OrderBy(l => l.KeyId).Last(), a.HighestBidAmount, a.Tag })
+            .ToListAsync();
+        logger.LogInformation("found {count} auctions", prices.Count);
+        return prices.GroupBy(p => p.Tag).ToDictionary(g => g.Key, g => g.Where(a => a.k1 != null && a.k2 != null).GroupBy(a => new { a.Tag, a.k1.KeyId, k1Val = a.k1.Value, k2Id = a.k2.KeyId, k2Val = a.k2.Value })
+            .Select(g => new { g.First().Tag, g.Key.KeyId, g.Key.k1Val, g.Key.k2Id, g.Key.k2Val, sum = g.Average(a => a.HighestBidAmount) })
+            .ToDictionary(p => $"{reverseAttributeMap[p.KeyId]}:{p.k1Val}&{reverseAttributeMap[p.k2Id]}:{p.k2Val}", p => (long)p.sum));
     }
 
     /// <summary>
