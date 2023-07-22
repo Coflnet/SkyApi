@@ -248,7 +248,7 @@ public class PricesController : ControllerBase
             return Task.FromResult(id);
         }));
         var ignoreIds = await Task.WhenAll(new HashSet<string>() { "boss_tier", "id" }.Select(a => Task.FromResult(NBT.GetLookupKey(a))));
-        var oldestTime = DateTime.UtcNow.AddDays(3);
+        var oldestTime = DateTime.UtcNow.AddDays(-3);
         ignoreIds = ignoreIds.Concat(attributeIds).ToArray();
         var prices = await context.Auctions.Where(a => ids.Contains(a.ItemId) && !a.NBTLookup.Any(l => !ignoreIds.Contains(l.KeyId)) && a.End > oldestTime && a.HighestBidAmount > 0 && a.End < DateTime.UtcNow)
             .Select(a => new { k1 = a.NBTLookup.Where(l => attributeIds.Contains(l.KeyId)).OrderBy(l => l.KeyId).First(), k2 = a.NBTLookup.Where(l => attributeIds.Contains(l.KeyId)).OrderBy(l => l.KeyId).Last(), a.HighestBidAmount, a.Tag })
