@@ -11,7 +11,7 @@ public class DataContainer
     public List<Sniper.Client.Model.PriceEstimate> res;
     public Dictionary<string, ItemPrice> bazaarPrices;
     public List<List<DescModification>> mods;
-    public Dictionary<string, long> pricesPaid;
+    public Dictionary<string, (long,DateTime)> pricesPaid;
     internal ModDescriptionService modService;
 
     public List<Item> Items { get; internal set; }

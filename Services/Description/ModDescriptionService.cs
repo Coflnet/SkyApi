@@ -325,7 +325,13 @@ public class ModDescriptionService : IDisposable
     }
 #nullable disable
 
-    private void AddSummaryToMenu(InventoryDataWithSettings inventory, List<(SaveAuction auction, IEnumerable<string> desc)> auctionRepresent, List<Sniper.Client.Model.PriceEstimate> res, Dictionary<string, ItemPrice> bazaarPrices, List<DescModification> mods, Dictionary<string, long> pricesPaid)
+    private void AddSummaryToMenu(
+        InventoryDataWithSettings inventory,
+        List<(SaveAuction auction, IEnumerable<string> desc)> auctionRepresent,
+        List<Sniper.Client.Model.PriceEstimate> res,
+        Dictionary<string, ItemPrice> bazaarPrices,
+        List<DescModification> mods,
+        Dictionary<string, (long, DateTime)> pricesPaid)
     {
         var take = 45;
         if (auctionRepresent.Count > take)
@@ -346,7 +352,7 @@ public class ModDescriptionService : IDisposable
         }
         if (inventory.Settings.Fields.Any(line => line.Contains(DescriptionField.PRICE_PAID)))
         {
-            mods.Add(new($"Total Price Paid: {McColorCodes.YELLOW}{FormatNumber(pricesPaid?.Sum(p => p.Value) ?? 0)}"));
+            mods.Add(new($"Total Price Paid: {McColorCodes.YELLOW}{FormatNumber(pricesPaid?.Sum(p => p.Value.Item1) ?? 0)}"));
         }
         if (inventory.Settings.Fields.Any(line => line.Contains(DescriptionField.BazaarSell)))
         {
@@ -357,10 +363,10 @@ public class ModDescriptionService : IDisposable
         }
     }
 
-    private async Task<Dictionary<string, long>> GetPricePaidData(InventoryDataWithSettings inventory, string mcName, List<(SaveAuction auction, IEnumerable<string> desc)> auctionRepresent)
+    private async Task<Dictionary<string, (long, DateTime)>> GetPricePaidData(InventoryDataWithSettings inventory, string mcName, List<(SaveAuction auction, IEnumerable<string> desc)> auctionRepresent)
     {
         if (!inventory.Settings.Fields.Any(line => line.Contains(DescriptionField.PRICE_PAID)))
-            return new Dictionary<string, long>();
+            return new();
         var numericIds = auctionRepresent.Where(a => a.auction != null)
                 .Select(a => a.auction.FlatenedNBT?.GetValueOrDefault("uid")).Where(v => v != null)
                 .Distinct()
@@ -376,7 +382,11 @@ public class ModDescriptionService : IDisposable
                     .Select(a => new { a.HighestBidAmount, a.End, a.AuctioneerId, uid = a.NBTLookup.Where(l => l.KeyId == key).Select(l => l.Value).FirstOrDefault() })
                     .ToListAsync();
         var uuid = await nameRequest;
-        return lastSells.GroupBy(l => l.uid).ToDictionary(g => numericIds[g.Key], g => g.OrderByDescending(a => a.End).Where(s => s.AuctioneerId != uuid).First().HighestBidAmount);
+        return lastSells.GroupBy(l => l.uid).ToDictionary(g => numericIds[g.Key], g =>
+        {
+            var sell = g.OrderByDescending(a => a.End).Where(s => s.AuctioneerId != uuid).First();
+            return (sell.HighestBidAmount, sell.End);
+        });
     }
 
     private static long GetUidFromString(string u)
@@ -410,7 +420,7 @@ public class ModDescriptionService : IDisposable
                                                     SaveAuction auction,
                                                     Sniper.Client.Model.PriceEstimate price,
                                                     double? craftPrice,
-                                                    Dictionary<string, long> pricesPaid,
+                                                    Dictionary<string, (long, DateTime)> pricesPaid,
                                                     Dictionary<string, Bazaar.Client.Model.ItemPrice> bazaarPrices)
     {
         var mods = new List<DescModification>();
@@ -551,14 +561,25 @@ public class ModDescriptionService : IDisposable
         }
     }
 
-    private void AddPricePaid(SaveAuction auction, Dictionary<string, long> pricesPaid, StringBuilder builder)
+    private void AddPricePaid(SaveAuction auction, Dictionary<string, (long, DateTime)> pricesPaid, StringBuilder builder)
     {
         if (auction.FlatenedNBT != null && auction.FlatenedNBT.ContainsKey("uid"))
         {
             var uid = auction.FlatenedNBT["uid"];
             if (pricesPaid.ContainsKey(uid))
-                builder.Append($"{McColorCodes.GRAY}Paid: {McColorCodes.YELLOW}{FormatNumber(pricesPaid[uid])} ");
+                builder.Append($"{McColorCodes.GRAY}Paid: {McColorCodes.YELLOW}{FormatNumber(pricesPaid[uid].Item1)} {FormatTime(DateTime.UtcNow - pricesPaid[uid].Item2)} ago");
         }
+    }
+
+    private string FormatTime(TimeSpan timeSpan)
+    {
+        if (timeSpan.TotalDays > 1.05)
+            return $"{timeSpan.TotalDays.ToString("0.#")}d";
+        if (timeSpan.TotalHours > 1)
+            return $"{timeSpan.TotalHours.ToString("0.#")}h";
+        if (timeSpan.TotalMinutes > 1)
+            return $"{timeSpan.TotalMinutes.ToString("0.#")}m";
+        return $"{timeSpan.TotalSeconds.ToString("0.#")}s";
     }
 
     private void AddBazaarBuy(SaveAuction auction, Dictionary<string, ItemPrice> bazaarPrices, StringBuilder builder)
