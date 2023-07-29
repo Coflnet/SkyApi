@@ -567,7 +567,7 @@ public class ModDescriptionService : IDisposable
         {
             var uid = auction.FlatenedNBT["uid"];
             if (pricesPaid.ContainsKey(uid))
-                builder.Append($"{McColorCodes.GRAY}Paid: {McColorCodes.YELLOW}{FormatNumber(pricesPaid[uid].Item1)} {FormatTime(DateTime.UtcNow - pricesPaid[uid].Item2)} ago");
+                builder.Append($"{McColorCodes.GRAY}Paid: {McColorCodes.YELLOW}{FormatNumber(pricesPaid[uid].Item1)} {McColorCodes.GRAY}{FormatTime(DateTime.UtcNow - pricesPaid[uid].Item2)} ago");
         }
     }
 
