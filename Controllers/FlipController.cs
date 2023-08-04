@@ -185,8 +185,9 @@ namespace Coflnet.Sky.Api.Controller
                 try
                 {
                     // postfix week
-                    var boardSlug = $"sky-flippers-{DateTime.UtcNow.RoundDown(TimeSpan.FromDays(7)).ToString("yyyy-MM-dd")}";
-                    var looserBoard = $"sky-flippers-loosers-{DateTime.UtcNow.RoundDown(TimeSpan.FromDays(7)).ToString("yyyy-MM-dd")}";
+                    var weekStartDate = DateTime.UtcNow.RoundDown(TimeSpan.FromDays(7)).ToString("yyyy-MM-dd");
+                    var boardSlug = $"sky-flippers-{weekStartDate}";
+                    var looserBoard = $"sky-flippers-loosers-{weekStartDate}";
                     await scoresApi.ScoresLeaderboardSlugPostAsync(boardSlug, new ScoreCreate(playerUuid, result.TotalProfit, 100));
                     await scoresApi.ScoresLeaderboardSlugPostAsync(looserBoard, new ScoreCreate(playerUuid, -result.TotalProfit, 100));
                 }
