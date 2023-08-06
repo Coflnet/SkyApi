@@ -1,4 +1,3 @@
-using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Coflnet.Sky.Core;
@@ -7,11 +6,7 @@ using Microsoft.EntityFrameworkCore;
 using Coflnet.Sky.PlayerName.Client.Api;
 using Coflnet.Sky.Commands.Shared;
 using Coflnet.Sky.Api.Models;
-using System;
-using Newtonsoft.Json;
-using Coflnet.Sky.Sniper.Client.Api;
 using Coflnet.Sky.Api.Services;
-using static Coflnet.Sky.Api.Services.ModDescriptionService;
 using Coflnet.Sky.Api.Models.Mod;
 
 namespace Coflnet.Sky.Api.Controller
