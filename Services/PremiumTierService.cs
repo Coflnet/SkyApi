@@ -14,6 +14,10 @@ public class PremiumTierService
         this.tokenService = tokenService;
         this.userApi = userApi;
     }
+    /// <summary>
+    /// The name of the header being checked for the token
+    /// </summary>
+    public readonly string HeaderName = "GoogleToken";
 
     public bool HasPremium(ControllerBase controllerInstance)
     {
@@ -28,7 +32,7 @@ public class PremiumTierService
 
     private bool OwnsProduct(ControllerBase controllerInstance, string name)
     {
-        if (!controllerInstance.Request.Headers.TryGetValue("GoogleToken", out StringValues value))
+        if (!controllerInstance.Request.Headers.TryGetValue(HeaderName, out StringValues value))
             return false;
         var user = tokenService.GetUserWithToken(value);
         return userApi.UserUserIdOwnsUntilPostAsync(user.Id.ToString(), new List<string>() { name }, 0).Result.TryGetValue(name, out var time) && time > DateTime.Now;

@@ -162,15 +162,15 @@ namespace Coflnet.Sky.Api.Controller
         /// <returns></returns>
         [Route("stats/player/{playerUuid}")]
         [HttpGet]
-        [ResponseCache(Duration = 600, Location = ResponseCacheLocation.Any, NoStore = false, VaryByQueryKeys = new string[] { "days","offset" })]
+        [ResponseCache(Duration = 600, Location = ResponseCacheLocation.Any, NoStore = false, VaryByQueryKeys = new string[] { "days", "offset" })]
         public async Task<FlipSumary> GetStats(string playerUuid, float days = 7, int offset = 0)
         {
             if (days + offset > 7)
                 if (!premiumTierService.HasPremium(this))
-                    throw new CoflnetException("invalid_time", 
+                    throw new CoflnetException("invalid_time",
                         "Sorry but this is currently limited to one week for non premium users. "
-                        +"Please provide a google token as Authorization header to get further history");
-            if (days < 0)
+                        + $"Please provide a google token as `{premiumTierService.HeaderName}` header to get further history");
+            if (days <= 0)
                 throw new CoflnetException("invalid_time", "You can't request flips in the future");
             if (days > 7)
                 throw new CoflnetException("invalid_time", "You can only request one week at once");
