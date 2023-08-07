@@ -373,8 +373,9 @@ namespace Coflnet.Sky.Api.Controller
                 throw new CoflnetException("to_many_uuid", $"Please do batch lookups on no more than {limit} uuids at a time");
             var numericIds = request.Uuids.GroupBy(id => id).Select(ids => ids.First()).ToDictionary(uid => GetUidFromString(uid));
             var key = NBT.Instance.GetKeyId("uid");
+            var maxEnd = DateTime.UtcNow + TimeSpan.FromMinutes(2);
             var result = await context.Auctions
-                        .Where(a => a.NBTLookup.Where(l => l.KeyId == key && numericIds.Keys.Contains(l.Value)).Any())
+                        .Where(a => a.NBTLookup.Where(l => l.KeyId == key && numericIds.Keys.Contains(l.Value)).Any() && a.End < maxEnd)
                         .Where(a => a.HighestBidAmount > 0)
                         .Select(a => new
                         {
