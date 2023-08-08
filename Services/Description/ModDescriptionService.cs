@@ -4,6 +4,7 @@ using System.Globalization;
 using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using Coflnet.Kafka;
 using Coflnet.Sky.Api.Models.Mod;
@@ -14,7 +15,6 @@ using Coflnet.Sky.Commands.MC;
 using Coflnet.Sky.Commands.Shared;
 using Coflnet.Sky.Core;
 using Coflnet.Sky.Crafts.Client.Api;
-using Coflnet.Sky.Items.Client.Api;
 using fNbt;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -28,6 +28,8 @@ namespace Coflnet.Sky.Api.Services;
 
 public class ModDescriptionService : IDisposable
 {
+    private static string BitsRegexPattern = @".*?(\d*\.?\d+|\d{1,3}(,\d{3})*(\.\d+)?) Bits.*";
+
     private ICraftsApi craftsApi;
     private ISniperClient sniperClient;
     private ITracer tracer;
@@ -478,6 +480,9 @@ public class ModDescriptionService : IDisposable
                     case DescriptionField.GemValue:
                         AddGemValue(auction, builder, bazaarPrices);
                         break;
+                    case DescriptionField.CoinsPerBit:
+                        AddCoinsPerBitValue(auction, price, builder, desc);
+                        break;
                     default:
                         if (Random.Shared.Next() % 100 == 0)
                             logger.LogError("Invalid description type " + item);
@@ -507,6 +512,34 @@ public class ModDescriptionService : IDisposable
         if (sum == 0)
             return;
         builder.Append($"{McColorCodes.GRAY}Gems: {McColorCodes.YELLOW}{FormatNumber(sum)} ");
+    }
+
+    private void AddCoinsPerBitValue(SaveAuction auction, Sniper.Client.Model.PriceEstimate price, StringBuilder builder, IEnumerable<string> description)
+    {
+        if (price != null && price.Median != 0 && hasBitsValue(description, out int bits))
+        {
+            var prefix = price.ItemKey == price.MedianKey ? "" : "~";
+            builder.Append($"{McColorCodes.GRAY}Coins per bit: {McColorCodes.AQUA}{prefix}{FormatNumber(price.Median/bits)} ");
+        }
+
+        bool hasBitsValue(IEnumerable<string> description, out int bits)
+        {
+            bits = 1;
+            foreach(string descLine in description)
+            {
+                Match match = Regex.Match(descLine, BitsRegexPattern);
+
+                if (match.Success && match.Groups.Count > 1)
+                {
+                    string commaSanitizedMatch = match.Groups[1].Value.Replace(",", "");
+                    if (int.TryParse(commaSanitizedMatch, out bits))
+                    {
+                        return true;
+                    }
+                }
+            }
+            return false;
+        }
     }
 
     private static Dictionary<Enchantment.EnchantmentType, (string, double, int)> EnchantToAttribute = new(){
