@@ -71,7 +71,7 @@ namespace SkyApi.Services.Description
 
         InventoryDataWithSettings GetMockInventory()
         {
-            string mockInventoryFile = File.ReadAllText(@".\MockObjects\CommunityShop_InventoryDataWithSettings.json");
+            string mockInventoryFile = File.ReadAllText(@"./MockObjects/CommunityShop_InventoryDataWithSettings.json");
             return JsonConvert.DeserializeObject<InventoryDataWithSettings>(mockInventoryFile);
         }
     }
