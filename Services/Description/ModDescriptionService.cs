@@ -4,6 +4,7 @@ using System.Globalization;
 using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using Coflnet.Kafka;
 using Coflnet.Sky.Api.Models.Mod;
@@ -14,7 +15,6 @@ using Coflnet.Sky.Commands.MC;
 using Coflnet.Sky.Commands.Shared;
 using Coflnet.Sky.Core;
 using Coflnet.Sky.Crafts.Client.Api;
-using Coflnet.Sky.Items.Client.Api;
 using fNbt;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -22,12 +22,15 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
 using OpenTracing;
+using SkyApi.Services.Description;
 
 namespace Coflnet.Sky.Api.Services;
 
 
 public class ModDescriptionService : IDisposable
 {
+    private static string BitsRegexPattern = @".*?(\d*\.?\d+|\d{1,3}(,\d{3})*(\.\d+)?) Bits.*";
+
     private ICraftsApi craftsApi;
     private ISniperClient sniperClient;
     private ITracer tracer;
@@ -86,6 +89,7 @@ public class ModDescriptionService : IDisposable
         this.sniperClient = sniperClient;
         customModifiers.Add("You    ", new TradeWarning());
         customModifiers.Add("Create BIN", new ListPriceRecommend());
+        customModifiers.Add("Community Shop", new BitsCoinValue());
         this.itemSkinHandler = itemSkinHandler;
     }
 
