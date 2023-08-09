@@ -1,13 +1,7 @@
 ﻿using Coflnet.Sky.Api.Models.Mod;
 using Coflnet.Sky.Api.Services.Description;
 using Coflnet.Sky.Commands.MC;
-using Coflnet.Sky.Items.Client.Model;
-using Moq;
-using Newtonsoft.Json;
 using System.Linq;
-using System.Text.RegularExpressions;
-using System.Xml.Linq;
-using static System.Net.Mime.MediaTypeNames;
 
 namespace SkyApi.Services.Description
 {
