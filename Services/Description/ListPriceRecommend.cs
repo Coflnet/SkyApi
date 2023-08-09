@@ -11,11 +11,11 @@ public class ListPriceRecommend : CustomModifier
         if (data?.res[13]?.Median > 5_000_000)
         {
             var pricing = data.res[13];
-            var deduct = 0.10;
+            var deduct = 0.12;
             if (pricing.Median < 15_000_000)
-                deduct = 0.15;
+                deduct = 0.18;
             if (pricing.Median > 150_000_000)
-                deduct = 0.08;
+                deduct = 0.10;
             var fromMed = pricing.Median * (1 - deduct);
             var target = Math.Max(fromMed, Math.Min(pricing.Lbin.Price * (1 - deduct - 0.08), fromMed * 1.2));
             if (pricing.ItemKey != pricing.LbinKey)
