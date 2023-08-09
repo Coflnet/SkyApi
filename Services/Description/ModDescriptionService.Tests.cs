@@ -19,6 +19,8 @@ using Coflnet.Sky.PlayerName.Client.Client;
 using Coflnet.Sky.Items.Client.Api;
 using Coflnet.Sky.Core;
 using System.Linq;
+using FluentAssertions;
+using System.Threading;
 
 namespace SkyApi.Services.Description
 {
@@ -32,8 +34,10 @@ namespace SkyApi.Services.Description
             // Arrange
 
             IConfiguration configuration = new Mock<IConfiguration>().Object;
-            ISettingsApi settingsApi = new Mock<ISettingsApi>().Object;
-            SettingsService settingsService = new(configuration, Mock.Of<ILogger<SettingsService>>(), settingsApi);
+            var settingsApi = new Mock<ISettingsApi>();
+            settingsApi.Setup(api => api.SettingsUserIdSettingKeyGetWithHttpInfoAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<int>(), It.IsAny<CancellationToken>()))
+                .Returns(Task.FromResult(new Coflnet.Sky.Settings.Client.Client.ApiResponse<string>(System.Net.HttpStatusCode.NoContent, null)));
+            SettingsService settingsService = new(configuration, Mock.Of<ILogger<SettingsService>>(), settingsApi.Object);
 
             ISynchronousClient synchronousClient = new Mock<ISynchronousClient>().Object;
             IAsynchronousClient asynchronousClient = new Mock<IAsynchronousClient>().Object;
@@ -59,10 +63,10 @@ namespace SkyApi.Services.Description
             var result = res.ToList();
 
             // Assert
-            var expectedResult = $"§7Coins per bit: §b~740.0 ";
+            var expectedResult = $"*Coins per bit: *740.0*";
 
             //At element 20 we have "KISMET_FEATHER" worth 1350 bits, expected value should be 100000/1350 = 740
-            Assert.AreEqual(expectedResult, result[20].ElementAt(1).Value);
+            result[20].ElementAt(0).Value.Should().Match(expectedResult);
         }
 
         InventoryDataWithSettings GetMockInventory()

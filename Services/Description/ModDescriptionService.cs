@@ -22,6 +22,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
 using OpenTracing;
+using SkyApi.Services.Description;
 
 namespace Coflnet.Sky.Api.Services;
 
@@ -88,6 +89,7 @@ public class ModDescriptionService : IDisposable
         this.sniperClient = sniperClient;
         customModifiers.Add("You    ", new TradeWarning());
         customModifiers.Add("Create BIN", new ListPriceRecommend());
+        customModifiers.Add("Community Shop", new BitsCoinValue());
         this.itemSkinHandler = itemSkinHandler;
     }
 
@@ -480,9 +482,6 @@ public class ModDescriptionService : IDisposable
                     case DescriptionField.GemValue:
                         AddGemValue(auction, builder, bazaarPrices);
                         break;
-                    case DescriptionField.CoinsPerBit:
-                        AddCoinsPerBitValue(auction, price, builder, desc);
-                        break;
                     default:
                         if (Random.Shared.Next() % 100 == 0)
                             logger.LogError("Invalid description type " + item);
@@ -512,34 +511,6 @@ public class ModDescriptionService : IDisposable
         if (sum == 0)
             return;
         builder.Append($"{McColorCodes.GRAY}Gems: {McColorCodes.YELLOW}{FormatNumber(sum)} ");
-    }
-
-    private void AddCoinsPerBitValue(SaveAuction auction, Sniper.Client.Model.PriceEstimate price, StringBuilder builder, IEnumerable<string> description)
-    {
-        if (price != null && price.Median != 0 && hasBitsValue(description, out int bits))
-        {
-            var prefix = price.ItemKey == price.MedianKey ? "" : "~";
-            builder.Append($"{McColorCodes.GRAY}Coins per bit: {McColorCodes.AQUA}{prefix}{FormatNumber(price.Median/bits)} ");
-        }
-
-        bool hasBitsValue(IEnumerable<string> description, out int bits)
-        {
-            bits = 1;
-            foreach(string descLine in description)
-            {
-                Match match = Regex.Match(descLine, BitsRegexPattern);
-
-                if (match.Success && match.Groups.Count > 1)
-                {
-                    string commaSanitizedMatch = match.Groups[1].Value.Replace(",", "");
-                    if (int.TryParse(commaSanitizedMatch, out bits))
-                    {
-                        return true;
-                    }
-                }
-            }
-            return false;
-        }
     }
 
     private static Dictionary<Enchantment.EnchantmentType, (string, double, int)> EnchantToAttribute = new(){
