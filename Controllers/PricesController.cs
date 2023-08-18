@@ -188,7 +188,7 @@ public class PricesController : ControllerBase
     [HttpPost]
     public async Task<IEnumerable<PriceEstimate>> GetFromNbt(InventoryData inventoryData)
     {
-        var auctions = modDescriptionSerice.ConvertToAuctions(inventoryData).Select(a => a.auction).Take(45);
+        var auctions = modDescriptionSerice.ConvertToAuctions(inventoryData).Select(a => a.auction).Take(90);
         var priceTask = modDescriptionSerice.GetPrices(auctions);
         try
         {
