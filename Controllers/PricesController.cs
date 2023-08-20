@@ -209,7 +209,7 @@ public class PricesController : ControllerBase
                 return new PriceEstimate()
                 {
                     Lbin = d.Lbin.Price,
-                    LbinLink = "https://sky.coflnet.com/a/" + AuctionService.Instance.GetUuid(d.Lbin.AuctionId),
+                    LbinLink = d.Lbin.Price == 0 ? null : "https://sky.coflnet.com/a/" + AuctionService.Instance.GetUuid(d.Lbin.AuctionId),
                     Median = d.Median,
                     Volume = d.Volume,
                     FastSell = Math.Min(d.Lbin.Price, d.Median) * 85 / 100,
