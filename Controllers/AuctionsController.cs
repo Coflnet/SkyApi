@@ -214,11 +214,6 @@ namespace Coflnet.Sky.Api.Controller
                 }
                 await HttpResponseWritingExtensions.WriteAsync(this.Response, JsonConvert.SerializeObject(itemModifiers));
                 return;
-                for (int i = 0; i < itemids.Length; i++)
-                {
-                    await HttpResponseWritingExtensions.WriteAsync(this.Response, transformer.MakeSample(i, itemids[i], keys, itemModifiers));
-                }
-                return;
             }
             foreach (var item in context.Auctions
                         .Where(a => a.Id >= baseStart + pageSize * pageNum && a.Id < baseStart + pageSize * (pageNum + 1) && a.HighestBidAmount > 0)
