@@ -256,12 +256,22 @@ namespace Coflnet.Sky.Api.Controller
         [ResponseCache(Duration = 120, Location = ResponseCacheLocation.Any, NoStore = false, VaryByQueryKeys = new string[] { "*" })]
         public async Task<List<AuctionPreview>> GetRecent(string itemTag, [FromQuery] IDictionary<string, string> query)
         {
-            var minTime = DateTime.Now.Subtract(TimeSpan.FromDays(14));
+            List<AuctionPreview> preview = await GetRecentFor(itemTag, query, 1);
+            if (preview.Count >= 12)
+                return preview;
+            return await GetRecentFor(itemTag, query, 14);
+        }
+
+        private async Task<List<AuctionPreview>> GetRecentFor(string itemTag, IDictionary<string, string> query, int days)
+        {
+            var minTime = DateTime.Now.Subtract(TimeSpan.FromDays(days));
             var itemId = ItemDetails.Instance.GetItemIdForTag(itemTag);
             var baseSelect = context.Auctions
                                         .Where(a => a.ItemId == itemId && a.End < DateTime.Now && a.End > minTime).OrderByDescending(a => a.End);
-            return await ToPreview(query, itemId, baseSelect);
+            var preview = await ToPreview(query, itemId, baseSelect);
+            return preview;
         }
+
         /// <summary>
         /// Gets a preview of active auctions useful in overviews, available orderBy options 
         /// HIGHEST_PRICE, LOWEST_PRICE (default), ENDING_SOON
