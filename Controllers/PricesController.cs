@@ -192,7 +192,7 @@ public class PricesController : ControllerBase
         var priceTask = modDescriptionSerice.GetPrices(auctions);
         try
         {
-            modDescriptionSerice.ProduceInventory(inventoryData, "!anonym", "");
+            modDescriptionSerice.ProduceInventory(inventoryData, null, "");
         }
         catch (Exception e)
         {

@@ -104,6 +104,9 @@ public class ModDescriptionService : IDisposable
         try
         {
             var items = InventoryToItems(modDescription);
+            // anonymous player only ineresting if ah contains seller
+            if (playerId == null && !items.Any(i => i?.Description?.Contains("Seller") ?? false))
+                return items;
             ProduceInventory(modDescription.ChestName, playerId, sessionId, items);
             return items;
         }
