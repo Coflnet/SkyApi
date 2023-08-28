@@ -11,23 +11,28 @@ public class TradeWarning : CustomModifier
         var index = 0;
         long sendSum = 0L;
         long receiveSum = 0L;
-        foreach (var item in data.res)
+        foreach (var sniperPrice in data.res)
         {
             var i = index++;
             if (i >= 36)
                 break;
             var column = i % 9;
             long value = 0;
-            if (data.Items[i].ItemName?.EndsWith(" coins") ?? false)
+            var item = data.Items[i];
+            if (item.ItemName?.EndsWith(" coins") ?? false)
             {
-                var name = data.Items[i].ItemName;
+                var name = item.ItemName;
                 Console.WriteLine("value string: " + name);
                 value = ParseCoinAmount(name.Substring(2, name.Length - 8));
                 Console.WriteLine("value parsed: " + value);
             }
-            else if (item != null)
+            else if (sniperPrice != null && sniperPrice.Median != 0)
             {
-                value = item.Median;
+                value = sniperPrice.Median;
+            } else if(data.bazaarPrices.ContainsKey(item.Tag))
+            {
+                var price = data.bazaarPrices[item.ItemName];
+                value = (long)price.SellPrice * item.Count;
             }
             if (column < 4)
                 sendSum += value;
