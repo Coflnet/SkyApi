@@ -52,37 +52,45 @@ namespace Coflnet.Sky.Api.Controller
             var crafts = JsonConvert.DeserializeObject<List<ProfitableCraft>>(response.Content);
             if (profile == null)
                 return crafts;
-            var slayersJsonTask = profileClient.ExecuteAsync(new RestRequest($"/api/profile/{player}/{profile}/data/slayers"));
-            var collectionJson = await profileClient.ExecuteAsync(new RestRequest($"/api/profile/{player}/{profile}/data/collections"));
-            var slayersJson = await slayersJsonTask;
-            var collection = JsonConvert.DeserializeObject<Dictionary<string, CollectionElem>>(collectionJson.Content);
-            var slayers = JsonConvert.DeserializeObject<Dictionary<string, SlayerElem>>(slayersJson.Content);
-            var list = new List<ProfitableCraft>();
-            foreach (var item in crafts)
+            try
             {
-                if (item == null)
-                    continue;
-
-                if (item.ReqCollection == null
-                || collection.TryGetValue(item.ReqCollection.Name, out CollectionElem elem)
-                        && elem.tier >= item.ReqCollection.Level)
+                var slayersJsonTask = profileClient.ExecuteAsync(new RestRequest($"/api/profile/{player}/{profile}/data/slayers"));
+                var collectionJson = await profileClient.ExecuteAsync(new RestRequest($"/api/profile/{player}/{profile}/data/collections"));
+                var slayersJson = await slayersJsonTask;
+                var collection = JsonConvert.DeserializeObject<Dictionary<string, CollectionElem>>(collectionJson.Content);
+                var slayers = JsonConvert.DeserializeObject<Dictionary<string, SlayerElem>>(slayersJson.Content);
+                var list = new List<ProfitableCraft>();
+                foreach (var item in crafts)
                 {
-                    list.Add(item);
+                    if (item == null)
+                        continue;
+
+                    if (item.ReqCollection == null
+                    || collection.TryGetValue(item.ReqCollection.Name, out CollectionElem elem)
+                            && elem.tier >= item.ReqCollection.Level)
+                    {
+                        list.Add(item);
+                    }
+                    else if (item.ReqSlayer == null
+                        || slayers.TryGetValue(item.ReqSlayer.Name.ToLower(), out SlayerElem slayerElem)
+                          && slayerElem.Level.currentLevel >= item.ReqSlayer.Level)
+                        list.Add(item);
+                    else
+                        Console.WriteLine("Blocked " + item.ItemId + " " + item.ReqCollection.Name);
                 }
-                else if (item.ReqSlayer == null
-                    || slayers.TryGetValue(item.ReqSlayer.Name.ToLower(), out SlayerElem slayerElem)
-                      && slayerElem.Level.currentLevel >= item.ReqSlayer.Level)
-                    list.Add(item);
-                else
-                    Console.WriteLine("Blocked " + item.ItemId + " " + item.ReqCollection.Name);
+                return list;
             }
-            return list;
+            catch (System.Exception e)
+            {
+                dev.Logger.Instance.Error(e, "getting profile data for crafts");
+                return crafts;
+            }
         }
 
         private async Task<IEnumerable<ProfitableCraft>> AddSaleData(List<ProfitableCraft> list)
         {
             var result = new List<ProfitableCraft>();
-            await Parallel.ForEachAsync(list,async (i,t) =>
+            await Parallel.ForEachAsync(list, async (i, t) =>
             {
                 try
                 {
@@ -95,7 +103,7 @@ namespace Coflnet.Sky.Api.Controller
                 {
                     dev.Logger.Instance.Error(e, "getting price summary for crafts");
                 }
-                
+
                 if (i.Volume > 2)
                     result.Add(i);
             });
