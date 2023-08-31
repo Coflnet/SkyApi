@@ -89,6 +89,7 @@ public class ModDescriptionService : IDisposable
         this.sniperClient = sniperClient;
         customModifiers.Add("You    ", new TradeWarning());
         customModifiers.Add("Create BIN", new ListPriceRecommend());
+        customModifiers.Add("Manage Auctions", new AuctionValueSummary());
         var bitsToCoins = new BitsCoinValue();
         customModifiers.Add("Community Shop", bitsToCoins);
         customModifiers.Add("Bits Shop", bitsToCoins);
