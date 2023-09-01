@@ -9,11 +9,19 @@ public class AuctionValueSummary : CustomModifier
     public void Apply(DataContainer data)
     {
         var sum = 0L;
-        foreach (var item in data.Items)
+        foreach (var item in data.Items.Take(27))
         {
-            var regexParsedPrice = Regex.Match(item.ItemName, @"([\d,]+) coins").Groups[1];
-            sum += long.Parse(regexParsedPrice.Value) * 98 / 100;
+            if (item?.Description == null)
+                continue;
+            var regexParsedPrice = Regex.Match(item.Description, @"Buy it now: §\d([\d,]+) coins");
+            if (!regexParsedPrice.Success)
+                continue;
+            var value = long.Parse(regexParsedPrice.Groups[1].Value);
+            if (value > 1_000_000)
+                sum += value * 99 / 100;
+            else
+                sum += value;
         }
-        data.mods.Last().Insert(0, new DescModification($"Auctions value: {data.modService.FormatNumber(sum)}"));
+        data.mods.Last().Insert(0, new DescModification(DescModification.ModType.REPLACE, 0, $"Auctions value: §6{data.modService.FormatNumber(sum)}"));
     }
 }
