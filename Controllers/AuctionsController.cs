@@ -165,8 +165,8 @@ namespace Coflnet.Sky.Api.Controller
                         .Where(a => a.ItemId == itemId && a.End > startTime && a.End < DateTime.Now && a.HighestBidAmount > 0)
                         .Include(a => a.Enchantments)
                         .Include(a => a.NbtData)
-                        .Skip(page * pageSize)
                         .OrderByDescending(a => a.End)
+                        .Skip(page * pageSize)
                         .Take(pageSize).ToListAsync();
 
             return result;
