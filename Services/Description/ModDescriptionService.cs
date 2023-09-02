@@ -519,12 +519,7 @@ public class ModDescriptionService : IDisposable
         builder.Append($"{McColorCodes.GRAY}Gems: {McColorCodes.YELLOW}{FormatNumber(sum)} ");
     }
 
-    private static Dictionary<Enchantment.EnchantmentType, (string, double, int)> EnchantToAttribute = new(){
-       { Enchantment.EnchantmentType.cultivating, ("farmed_cultivating",0.1, 100_000_000)},
-       { Enchantment.EnchantmentType.champion, ("champion_combat_xp",1,3_000_000)},
-       { Enchantment.EnchantmentType.compact, ("compact_blocks", 2, 1_000_000)},
-       { Enchantment.EnchantmentType.hecatomb, ("hecatomb_s_runs", 20_000, 100)}
-    };
+  
 
     private void AddEnchantCost(SaveAuction auction, StringBuilder builder, Dictionary<string, ItemPrice> bazaarPrices)
     {
@@ -532,30 +527,10 @@ public class ModDescriptionService : IDisposable
         if (enchants == null || enchants.Count <= 0 || bazaarPrices == null)
             return;
         var enchantCost = 0L;
+        var lookup = bazaarPrices.ToDictionary(a =>a.Key, a => a.Value.BuyPrice);
         foreach (var enchant in enchants)
         {
-            var key = $"ENCHANTMENT_{enchant.Type.ToString().ToUpper()}_{enchant.Level}";
-
-            if (bazaarPrices.ContainsKey(key) && bazaarPrices[key].BuyPrice > 0)
-                enchantCost += (long)(bazaarPrices[key].BuyPrice);
-            else if (enchant.Type == Enchantment.EnchantmentType.efficiency && enchant.Level >= 6)
-            {
-                var singleLevelPrice = bazaarPrices.GetValueOrDefault("SIL_EX", new ItemPrice()).BuyPrice;
-                enchantCost += (long)(singleLevelPrice * (enchant.Level - 5));
-            }
-            else
-            {
-                // from lvl 1 ench
-                key = $"ENCHANTMENT_{enchant.Type.ToString().ToUpper()}_1";
-                if (bazaarPrices.ContainsKey(key) && bazaarPrices[key].BuyPrice > 0)
-                    if (EnchantToAttribute.TryGetValue(enchant.Type, out (string attrName, double factor, int max) attrData))
-                    {
-                        var stringValue = auction.FlatenedNBT.GetValueOrDefault(attrData.attrName) ?? "0";
-                        enchantCost += (long)(bazaarPrices[key].BuyPrice + Math.Min(float.Parse(stringValue), attrData.max) * attrData.factor);
-                    }
-                    else
-                        enchantCost += (long)(bazaarPrices[key].BuyPrice * Math.Pow(2, enchant.Level - 1));
-            }
+            enchantCost += mapper.EnchantValue(enchant, auction.FlatenedNBT, lookup);
         }
         builder.Append($"{McColorCodes.GRAY}Enchants: {McColorCodes.YELLOW}{FormatNumber(enchantCost)} ");
     }
