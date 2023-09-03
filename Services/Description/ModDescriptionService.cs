@@ -101,7 +101,6 @@ public class ModDescriptionService : IDisposable
     public List<Item> ProduceInventory(InventoryData modDescription, string playerId, string sessionId)
     {
         var inventoryhash = SHA256.Create().ComputeHash(Encoding.UTF8.GetBytes(modDescription.FullInventoryNbt));
-        var nbt = NBT.File(Convert.FromBase64String(modDescription.FullInventoryNbt));
         try
         {
             var items = InventoryToItems(modDescription);
@@ -714,6 +713,8 @@ public class ModDescriptionService : IDisposable
                 var compound = t as fNbt.NbtCompound;
                 if (compound.Count == 0)
                     return (null, new string[0]);
+                if(NBT.ItemID(compound) == null)
+                    return (null, new string[0]); // skip all items without id
                 var auction = new SaveAuction();
                 auction.Context = new Dictionary<string, string>();
                 NBT.FillFromTag(auction, compound, true);
