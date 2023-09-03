@@ -16,7 +16,7 @@ public class AuctionValueSummary : CustomModifier
             var regexParsedPrice = Regex.Match(item.Description, @"Buy it now: §\d([\d,]+) coins");
             if (!regexParsedPrice.Success)
                 continue;
-            var value = long.Parse(regexParsedPrice.Groups[1].Value, System.Globalization.NumberStyles.AllowThousands);
+            var value = long.Parse(regexParsedPrice.Groups[1].Value, System.Globalization.NumberStyles.AllowThousands, System.Globalization.CultureInfo.InvariantCulture);
             if (value > 1_000_000)
                 sum += value * 99 / 100;
             else
