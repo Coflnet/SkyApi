@@ -26,6 +26,14 @@ using SkyApi.Services.Description;
 
 namespace Coflnet.Sky.Api.Services;
 
+// wrapper for the deserialized cache
+public class DeserializedCache
+{
+    public Dictionary<string, Crafts.Client.Model.ProfitableCraft> Crafts = new();
+    public Dictionary<string, Bazaar.Client.Model.ItemPrice> BazaarItems = new();
+    public DateTime LastUpdate = DateTime.MinValue;
+    public bool IsUpdating = false;
+}
 
 public class ModDescriptionService : IDisposable
 {
@@ -44,6 +52,7 @@ public class ModDescriptionService : IDisposable
     private IStateUpdateService stateService;
     private ItemSkinHandler itemSkinHandler;
     private ClassNameDictonary<CustomModifier> customModifiers = new();
+    private DeserializedCache deserializedCache = new();
     private PropertyMapper mapper = new();
 
     /// <summary>
@@ -241,6 +250,27 @@ public class ModDescriptionService : IDisposable
 
     private async Task ComputeDescriptions(InventoryDataWithSettings inventory, string mcName, string sessionId, List<(SaveAuction auction, IEnumerable<string> desc)> auctionRepresent, List<List<DescModification>> result)
     {
+        var pricesTask = GetPrices(auctionRepresent.Select(a => a.auction));
+        if (deserializedCache.LastUpdate < DateTime.UtcNow.AddMinutes(-2) && !deserializedCache.IsUpdating)
+        {
+            deserializedCache.IsUpdating = true;
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    var allCrafts = await craftsApi.CraftsAllGetAsync();
+                    deserializedCache.Crafts = allCrafts.Where(c=>c.CraftCost > 0).ToDictionary(c => c.ItemId, c => c);
+                    deserializedCache.BazaarItems = (await bazaarApi.ApiBazaarPricesGetAsync())?.ToDictionary(p => p.ProductId);
+                    deserializedCache.LastUpdate = DateTime.UtcNow;
+                    deserializedCache.IsUpdating = false;
+                }
+                catch (Exception e)
+                {
+                    logger.LogError(e, "failed to update deserialized cache");
+                }
+            });
+        }
+
         var userSettings = await GetSettingForConid(mcName, sessionId);
         List<Item> items = new();
         try
@@ -251,9 +281,6 @@ public class ModDescriptionService : IDisposable
         {
             logger.LogError(e, "failed to publish inventory");
         }
-
-        var allCraftsTask = craftsApi.CraftsAllGetAsync();
-        var pricesTask = GetPrices(auctionRepresent.Select(a => a.auction));
 
         var span = Activity.Current;
         var none = new List<DescModification>();
@@ -267,11 +294,11 @@ public class ModDescriptionService : IDisposable
         var pricesPaidTask = GetPricePaidData(inventory, mcName, auctionRepresent);
         var bazaarPrices = new Dictionary<string, Bazaar.Client.Model.ItemPrice>();
         if (inventory.Settings.Fields.Any(line => line.Contains(DescriptionField.BazaarBuy) || line.Contains(DescriptionField.BazaarSell)))
-            bazaarPrices = (await bazaarApi.ApiBazaarPricesGetAsync())?.ToDictionary(p => p.ProductId);
+            bazaarPrices = deserializedCache.BazaarItems;
 
         var pricesPaid = await pricesPaidTask;
         var res = await pricesTask;
-        var allCrafts = await allCraftsTask;
+        var allCrafts = deserializedCache.Crafts;
         var enabledFields = inventory.Settings.Fields;
 
         for (int i = 0; i < auctionRepresent.Count; i++)
@@ -291,7 +318,7 @@ public class ModDescriptionService : IDisposable
                 result.Add(none);
                 continue;
             }
-            var craftPrice = allCrafts?.Where(c => auction != null && c.ItemId == auction.Tag && c.CraftCost > 0)?.FirstOrDefault()?.CraftCost;
+            var craftPrice = allCrafts?.GetValueOrDefault(auction.Tag)?.CraftCost;
             List<DescModification> mods = GetModifications(enabledFields, desc, auction, price, craftPrice, pricesPaid, bazaarPrices);
             if (auction.Tag == "SKYBLOCK_MENU")
             {
@@ -518,7 +545,7 @@ public class ModDescriptionService : IDisposable
         builder.Append($"{McColorCodes.GRAY}Gems: {McColorCodes.YELLOW}{FormatNumber(sum)} ");
     }
 
-  
+
 
     private void AddEnchantCost(SaveAuction auction, StringBuilder builder, Dictionary<string, ItemPrice> bazaarPrices)
     {
@@ -526,7 +553,7 @@ public class ModDescriptionService : IDisposable
         if (enchants == null || enchants.Count <= 0 || bazaarPrices == null)
             return;
         var enchantCost = 0L;
-        var lookup = bazaarPrices.ToDictionary(a =>a.Key, a => a.Value.BuyPrice);
+        var lookup = bazaarPrices.ToDictionary(a => a.Key, a => a.Value.BuyPrice);
         foreach (var enchant in enchants)
         {
             enchantCost += mapper.EnchantValue(enchant, auction.FlatenedNBT, lookup);
@@ -713,7 +740,7 @@ public class ModDescriptionService : IDisposable
                 var compound = t as fNbt.NbtCompound;
                 if (compound.Count == 0)
                     return (null, new string[0]);
-                if(NBT.ItemID(compound) == null)
+                if (NBT.ItemID(compound) == null)
                     return (null, new string[0]); // skip all items without id
                 var auction = new SaveAuction();
                 auction.Context = new Dictionary<string, string>();
