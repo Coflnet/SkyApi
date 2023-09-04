@@ -252,7 +252,7 @@ public class ModDescriptionService : IDisposable
             logger.LogError(e, "failed to publish inventory");
         }
 
-        var allCraftsTask = craftsApi.CraftsAllGetAsync();
+        //var allCraftsTask = craftsApi.CraftsAllGetAsync();
         var pricesTask = GetPrices(auctionRepresent.Select(a => a.auction));
 
         var span = Activity.Current;
@@ -271,7 +271,7 @@ public class ModDescriptionService : IDisposable
 
         var pricesPaid = await pricesPaidTask;
         var res = await pricesTask;
-        var allCrafts = await allCraftsTask;
+        var allCrafts = new List<Crafts.Client.Model.ProfitableCraft>();//await allCraftsTask;
         var enabledFields = inventory.Settings.Fields;
 
         for (int i = 0; i < auctionRepresent.Count; i++)
@@ -305,7 +305,7 @@ public class ModDescriptionService : IDisposable
                 }
             }
 
-            if (desc != null)
+            if (desc != null && span != null)
                 span.Log(string.Join('\n', mods.Select(m => $"{m.Line} {m.Value}")) + JsonConvert.SerializeObject(auction, Formatting.Indented) + JsonConvert.SerializeObject(price, Formatting.Indented) + "\ncraft:" + craftPrice);
             result.Add(mods);
         }
