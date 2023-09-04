@@ -252,7 +252,7 @@ public class ModDescriptionService : IDisposable
             logger.LogError(e, "failed to publish inventory");
         }
 
-        //var allCraftsTask = craftsApi.CraftsAllGetAsync();
+        var allCraftsTask = craftsApi.CraftsAllGetAsync();
         var pricesTask = GetPrices(auctionRepresent.Select(a => a.auction));
 
         var span = Activity.Current;
@@ -271,7 +271,7 @@ public class ModDescriptionService : IDisposable
 
         var pricesPaid = await pricesPaidTask;
         var res = await pricesTask;
-        var allCrafts = new List<Crafts.Client.Model.ProfitableCraft>();//await allCraftsTask;
+        var allCrafts = await allCraftsTask;
         var enabledFields = inventory.Settings.Fields;
 
         for (int i = 0; i < auctionRepresent.Count; i++)
