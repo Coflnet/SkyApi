@@ -558,6 +558,8 @@ public class ModDescriptionService : IDisposable
         {
             enchantCost += mapper.EnchantValue(enchant, auction.FlatenedNBT, lookup);
         }
+        if(enchantCost < 0)
+            enchantCost = 0;
         builder.Append($"{McColorCodes.GRAY}Enchants: {McColorCodes.YELLOW}{FormatNumber(enchantCost)} ");
     }
 
