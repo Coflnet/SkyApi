@@ -452,11 +452,11 @@ namespace Coflnet.Sky.Api.Controller
             async item =>
             {
                 using var scope = factory.CreateScope();
-                var tempService = scope.ServiceProvider.GetRequiredService<PricesService>();
+                var tempService = scope.ServiceProvider.GetRequiredService<Client.Api.PricesApi>();
                 try
                 {
-                    var data = await tempService.GetSumaryCache(item.Key);
-                    if (data.Med < 1_000_000 && data.Volume > 0)
+                    var data = await tempService.ApiItemPriceItemTagGetAsync(item.Key);
+                    if (data.Median < 1_000_000 && data.Volume > 0)
                         return;
 
                     var lowestBinTask = client.ExecuteAsync(CreateRequestTo($"/api/item/price/{item.Key}/bin"));
@@ -465,7 +465,7 @@ namespace Coflnet.Sky.Api.Controller
                     {
                         Supply = item.Value,
                         Tag = item.Key,
-                        Median = data.Med,
+                        Median = data.Median,
                         LbinData = lbinData,
                         Volume = data.Volume
                     });
