@@ -67,9 +67,10 @@ namespace Coflnet.Sky.Api.Controller
         {
             if (results.Select(r => r.Name).Take(5).Distinct().Count() == 1 && results.Count > 1)
             {
+                var useFirst = results.Select(s=> s.Id.Split('_').First()).Distinct().Count() > 1;
                 return results.Select(i =>
                 {
-                    i.Name = i.Name + " - " + i.Id.Split('_').First().Truncate(10);
+                    i.Name = i.Name + " - " + (useFirst ? i.Id.Split('_').First().Truncate(10) : i.Id.Split('_').Last().Truncate(10));
                     return i;
                 }).ToList();
             }
