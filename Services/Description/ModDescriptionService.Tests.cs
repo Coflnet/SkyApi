@@ -54,9 +54,9 @@ namespace SkyApi.Services.Description
             var sniperClient = new Mock<ISniperClient>();
             sniperClient.Setup(s => s.GetPrices(It.IsAny<IEnumerable<SaveAuction>>())).Returns<IEnumerable<SaveAuction>>(s => Task.FromResult(Enumerable.Repeat(price, s.Count()).ToList()));
 
-            ModDescriptionService modDescriptionService = new(Mock.Of<ICraftsApi>(), Mock.Of<ITracer>(), settingsService, Mock.Of<IdConverter>(), Mock.Of<IServiceScopeFactory>(),
+            ModDescriptionService modDescriptionService = new(Mock.Of<ICraftsApi>(), settingsService, Mock.Of<IdConverter>(), Mock.Of<IServiceScopeFactory>(),
                 Mock.Of<BazaarApi>(), playerNameService, Mock.Of<ILogger<ModDescriptionService>>(), Mock.Of<IConfiguration>(), Mock.Of<IStateUpdateService>(), sniperClient.Object,
-                null, itemSkinHandler);
+                null, itemSkinHandler, new (null, null, null));
 
             // Act
             var res = await modDescriptionService.GetModifications(GetMockInventory(), "test", "test");

@@ -107,6 +107,11 @@ namespace Coflnet.Sky.Api
             {
                 return new Sky.Mayor.Client.Api.ElectionPeriodsApi(Configuration["MAYOR_BASE_URL"]);
             });
+            services.AddSingleton<Sky.Proxy.Client.Api.IBaseApi>(a =>
+            {
+                return new Sky.Proxy.Client.Api.BaseApi(Configuration["PROXY_BASE_URL"]);
+            });
+            services.AddSingleton<AhListChecker>();
 
             services.AddSingleton<TfmService>();
             services.AddSingleton<ModDescriptionService>();

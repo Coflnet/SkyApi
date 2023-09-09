@@ -41,7 +41,7 @@ public class ModDescriptionService : IDisposable
 
     private ICraftsApi craftsApi;
     private ISniperClient sniperClient;
-    private ITracer tracer;
+    private AhListChecker ahListChecker;
     private SettingsService settingsService;
     private IdConverter idConverter;
     private IServiceScopeFactory scopeFactory;
@@ -72,7 +72,6 @@ public class ModDescriptionService : IDisposable
     /// <param name="kafkaCreator"></param>
     /// <param name="itemSkinHandler"></param>
     public ModDescriptionService(ICraftsApi craftsApi,
-                                 ITracer tracer,
                                  SettingsService settingsService,
                                  IdConverter idConverter,
                                  IServiceScopeFactory scopeFactory,
@@ -83,10 +82,10 @@ public class ModDescriptionService : IDisposable
                                  IStateUpdateService stateService,
                                  ISniperClient sniperClient,
                                  KafkaCreator kafkaCreator,
-                                 ItemSkinHandler itemSkinHandler)
+                                 ItemSkinHandler itemSkinHandler,
+                                 AhListChecker ahListChecker)
     {
         this.craftsApi = craftsApi;
-        this.tracer = tracer;
         this.settingsService = settingsService;
         this.idConverter = idConverter;
         this.scopeFactory = scopeFactory;
@@ -103,6 +102,7 @@ public class ModDescriptionService : IDisposable
         customModifiers.Add("Community Shop", bitsToCoins);
         customModifiers.Add("Bits Shop", bitsToCoins);
         this.itemSkinHandler = itemSkinHandler;
+        this.ahListChecker = ahListChecker;
     }
 
     private ConcurrentDictionary<string, SelfUpdatingValue<DescriptionSetting>> settings = new();
@@ -117,6 +117,7 @@ public class ModDescriptionService : IDisposable
             if (playerId == null && !items.Any(i => i?.Description?.Contains("Seller") ?? false))
                 return items;
             ProduceInventory(modDescription.ChestName, playerId, sessionId, items);
+            ahListChecker.CheckItems(items, playerId);
             return items;
         }
         catch (System.Exception e)
@@ -259,7 +260,7 @@ public class ModDescriptionService : IDisposable
                 try
                 {
                     var allCrafts = await craftsApi.CraftsAllGetAsync();
-                    deserializedCache.Crafts = allCrafts.Where(c=>c.CraftCost > 0).ToDictionary(c => c.ItemId, c => c);
+                    deserializedCache.Crafts = allCrafts.Where(c => c.CraftCost > 0).ToDictionary(c => c.ItemId, c => c);
                     deserializedCache.BazaarItems = (await bazaarApi.ApiBazaarPricesGetAsync())?.ToDictionary(p => p.ProductId);
                     deserializedCache.LastUpdate = DateTime.UtcNow;
                     deserializedCache.IsUpdating = false;
@@ -558,7 +559,7 @@ public class ModDescriptionService : IDisposable
         {
             enchantCost += mapper.EnchantValue(enchant, auction.FlatenedNBT, lookup);
         }
-        if(enchantCost < 0)
+        if (enchantCost < 0)
             enchantCost = 0;
         builder.Append($"{McColorCodes.GRAY}Enchants: {McColorCodes.YELLOW}{FormatNumber(enchantCost)} ");
     }
@@ -672,8 +673,6 @@ public class ModDescriptionService : IDisposable
         var allCraftsTask = craftsApi.CraftsAllGetAsync();
         List<Sniper.Client.Model.PriceEstimate> res = await GetPrices(auctionRepresent.Select(a => a.auction));
         var allCrafts = await allCraftsTask;
-        var span = tracer.ActiveSpan;
-        span.Log(JsonConvert.SerializeObject(allCrafts));
 
         var result = new List<string[]>();
         for (int i = 0; i < auctionRepresent.Count; i++)
@@ -715,8 +714,6 @@ public class ModDescriptionService : IDisposable
                     else
                         newOne = newOne.Append($"craft: {FormatNumber((long)craftPrice)}");
             }
-            if (desc != null)
-                span.Log(string.Join('\n', newOne) + JsonConvert.SerializeObject(auction, Formatting.Indented) + JsonConvert.SerializeObject(price, Formatting.Indented) + "\ncraft:" + craftPrice);
             result.Add(newOne.ToArray());
         }
         return result;
