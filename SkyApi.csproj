@@ -15,18 +15,8 @@
     <DefaultItemExcludes>$(DefaultItemExcludes);Client\**\*</DefaultItemExcludes>
   </PropertyGroup>
 
-  <ItemGroup Condition="'$(Configuration)' == 'Release'">
-    <Compile Remove="**\*.Tests.cs" />
-  </ItemGroup>
-  <ItemGroup Condition="'$(Configuration)' != 'Release'">
-    <PackageReference Include="Coflnet.Sky.Proxy.Client" Version="0.1.0" />
-    <PackageReference Include="nunit" Version="3.13.2" />
-    <PackageReference Include="NUnit3TestAdapter" Version="4.0.0" />
-    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="16.11.0" />
-    <PackageReference Include="FluentAssertions" Version="6.11.0" />
-  </ItemGroup>
-
   <ItemGroup>
+    <PackageReference Include="Coflnet.Sky.Proxy.Client" Version="0.1.0" />
     <PackageReference Include="AspNetCoreRateLimit" Version="5.0.0" />
     <PackageReference Include="Google.Apis.Auth" Version="1.58.0" />
     <PackageReference Include="Jaeger.Core" Version="1.0.3" />
@@ -42,6 +32,16 @@
     <PackageReference Include="prometheus-net.AspNetCore" Version="5.0.2" />
     <PackageReference Include="Swashbuckle.AspNetCore" Version="6.4.0" />
     <PackageReference Include="Swashbuckle.AspNetCore.Newtonsoft" Version="6.4.0" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(Configuration)' == 'Release'">
+    <Compile Remove="**\*.Tests.cs" />
+  </ItemGroup>
+  <ItemGroup Condition="'$(Configuration)' != 'Release'">
+    <PackageReference Include="nunit" Version="3.13.2" />
+    <PackageReference Include="NUnit3TestAdapter" Version="4.0.0" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="16.11.0" />
+    <PackageReference Include="FluentAssertions" Version="6.11.0" />
   </ItemGroup>
 
 </Project>
