@@ -89,7 +89,7 @@ namespace Coflnet.Sky.Api.Controller
         [ResponseCache(Duration = 3600, Location = ResponseCacheLocation.Any, NoStore = false)]
         public async Task<IEnumerable<SearchResultItem>> FullSearch(string searchVal, int limit = 5)
         {
-            searchVal = searchVal.ToLower();
+            searchVal = searchVal.ToLower().Replace('’', '\'');
             var collection = await ExecuteSearch(searchVal, 1000);
             if (collection.Count == 0) // search again
                 collection = await ExecuteSearch(searchVal, 2000);
