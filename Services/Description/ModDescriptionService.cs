@@ -795,11 +795,39 @@ public class ModDescriptionService : IDisposable
     {
         if (price < 1_000)
             return string.Format(CultureInfo.InvariantCulture, "{0:n1}", price);
-        if (price < 1_000_000)
-            return string.Format(CultureInfo.InvariantCulture, "{0:n0}", price);
-        if (price < 1_000_000_000)
-            return string.Format(CultureInfo.InvariantCulture, "{0:n0}k", price / 1000);
-        return string.Format(CultureInfo.InvariantCulture, "{0:n1}m", price / 1_000_000);
+        
+        return FormatPriceShort((long)price);
+    }
+
+    /// <summary>
+    /// By RenniePet on Stackoverflow
+    /// https://stackoverflow.com/a/30181106
+    /// </summary>
+    /// <param name="num"></param>
+    /// <returns></returns>
+    public static string FormatPriceShort(long num)
+    {
+        if (num == 0) // there was an issue with flips attempting to be devided by 0
+            return "0";
+        var minusPrefix = num < 0 ? "-" : "";
+        num = Math.Abs(num);
+        // Ensure number has max 3 significant digits (no rounding up can happen)
+        long i = (long)Math.Pow(10, (long)Math.Max(0, Math.Log10(num) - 2));
+        num = num / i * i;
+
+        if (num >= 1000000000)
+            return Format(1000000000D, "B");
+        if (num >= 1000000)
+            return Format(1000000D, "M");
+        if (num >= 1000)
+            return Format(1000D, "K");
+
+        return Format(1D, "");
+
+        string Format(double devider, string suffix)
+        {
+            return minusPrefix + (num / devider).ToString("0.##", CultureInfo.InvariantCulture) + suffix;
+        }
     }
 
     /// <summary>
