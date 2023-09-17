@@ -389,22 +389,22 @@ public class ModDescriptionService : IDisposable
             mods.Add(new($"Inventory Value Summary:"));
         if (inventory.Settings.Fields.Any(line => line.Contains(DescriptionField.MEDIAN)))
         {
-            mods.Add(new($"Med summary: {McColorCodes.AQUA}{FormatNumber(res.Take(take).Sum(r => r?.Median ?? 0))}"));
+            mods.Add(new($"Med summary: {McColorCodes.AQUA}{FormatPriceShort(res.Take(take).Sum(r => r?.Median ?? 0))}"));
         }
         if (inventory.Settings.Fields.Any(line => line.Contains(DescriptionField.LBIN)))
         {
-            mods.Add(new($"Lbin summary: {McColorCodes.YELLOW}{FormatNumber(res?.Take(take)?.Sum(r => r?.Lbin?.Price ?? 0) ?? -1)}"));
+            mods.Add(new($"Lbin summary: {McColorCodes.YELLOW}{FormatPriceShort(res?.Take(take)?.Sum(r => r?.Lbin?.Price ?? 0) ?? -1)}"));
         }
         if (inventory.Settings.Fields.Any(line => line.Contains(DescriptionField.PRICE_PAID)))
         {
-            mods.Add(new($"Total Price Paid: {McColorCodes.YELLOW}{FormatNumber(pricesPaid?.Sum(p => p.Value.Item1) ?? 0)}"));
+            mods.Add(new($"Total Price Paid: {McColorCodes.YELLOW}{FormatPriceShort(pricesPaid?.Sum(p => p.Value.Item1) ?? 0)}"));
         }
         if (inventory.Settings.Fields.Any(line => line.Contains(DescriptionField.BazaarSell)))
         {
             var bazaarSellValue = auctionRepresent.Take(take).Select(a => a.auction).Where(a => a != null)
                     .Where(t => bazaarPrices?.ContainsKey(GetBazaarTag(t)) ?? false)
                     .Sum(t => bazaarPrices[GetBazaarTag(t)].SellPrice * (t.Count > 1 ? t.Count : 1));
-            mods.Add(new($"Bazaar sell: {McColorCodes.GOLD}{FormatNumber(bazaarSellValue)}"));
+            mods.Add(new($"Bazaar sell: {McColorCodes.GOLD}{FormatPriceShort(bazaarSellValue)}"));
         }
     }
 
@@ -551,7 +551,7 @@ public class ModDescriptionService : IDisposable
         var listing = data.itemListings[uid];
         var sum = listing.Where(l => l.requestingUserIsSeller && l.highest == 0).Sum(l => l.start * 0.02);
         var latest = listing.Where(l => l.requestingUserIsSeller && l.highest == 0).OrderByDescending(l => l.end).Select(l => l.end).FirstOrDefault();
-        builder.Append($"{McColorCodes.GRAY}Spent on listing: {McColorCodes.YELLOW}{FormatNumber(sum)} Last attempt {McColorCodes.DARK_GRAY}{FormatTime(DateTime.UtcNow - latest)} ago");
+        builder.Append($"{McColorCodes.GRAY}Spent on listing: {McColorCodes.YELLOW}{FormatPriceShort(sum)} Last attempt {McColorCodes.DARK_GRAY}{FormatTime(DateTime.UtcNow - latest)} ago");
     }
 
     private void AddGemValue(SaveAuction auction, StringBuilder builder, Dictionary<string, ItemPrice> bazaarPrices)
@@ -637,9 +637,9 @@ public class ModDescriptionService : IDisposable
         {
             var price = priceGet(bazaarPrices[tag]);
             if (auction.Count > 1)
-                builder.Append($"{McColorCodes.GRAY}{word}: {McColorCodes.GOLD}{FormatNumber(price * auction.Count)} ({FormatNumber(price)} each)");
+                builder.Append($"{McColorCodes.GRAY}{word}: {McColorCodes.GOLD}{FormatPriceShort(price * auction.Count)} ({FormatPriceShort(price)} each)");
             else
-                builder.Append($"{McColorCodes.GRAY}{word}: {McColorCodes.GOLD}{FormatNumber(price)} ");
+                builder.Append($"{McColorCodes.GRAY}{word}: {McColorCodes.GOLD}{FormatPriceShort(price)} ");
         }
     }
 
@@ -795,8 +795,7 @@ public class ModDescriptionService : IDisposable
     {
         if (price < 1_000)
             return string.Format(CultureInfo.InvariantCulture, "{0:n1}", price);
-        
-        return FormatPriceShort((long)price);
+        return string.Format(CultureInfo.InvariantCulture, "{0:n0}", price);
     }
 
     /// <summary>
@@ -805,7 +804,7 @@ public class ModDescriptionService : IDisposable
     /// </summary>
     /// <param name="num"></param>
     /// <returns></returns>
-    public static string FormatPriceShort(long num)
+    public static string FormatPriceShort(double num)
     {
         if (num == 0) // there was an issue with flips attempting to be devided by 0
             return "0";
