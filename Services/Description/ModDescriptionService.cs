@@ -298,7 +298,7 @@ public class ModDescriptionService : IDisposable
             bazaarPrices = deserializedCache.BazaarItems;
 
         var salesData = await pricesPaidTask;
-        var pricePaid = salesData.ToDictionary(p => p.Key, p =>
+        var pricePaid = salesData.Where(p => p.Where(s => !s.requestingUserIsSeller && s.highest > 0).Any()).ToDictionary(p => p.Key, p =>
         {
             var sell = p.OrderByDescending(a => a.end).Where(s => !s.requestingUserIsSeller).First();
             return (sell.highest, sell.end);
