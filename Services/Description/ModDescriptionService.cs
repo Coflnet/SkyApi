@@ -292,15 +292,32 @@ public class ModDescriptionService : IDisposable
             inventory.Settings = userSettings;
         }
 
-        var pricesPaidTask = GetPricePaidData(inventory, mcName, auctionRepresent);
+        var pricesPaidTask = GetPriceData(inventory, mcName, auctionRepresent);
         var bazaarPrices = new Dictionary<string, Bazaar.Client.Model.ItemPrice>();
         if (inventory.Settings.Fields.Any(line => line.Contains(DescriptionField.BazaarBuy) || line.Contains(DescriptionField.BazaarSell)))
             bazaarPrices = deserializedCache.BazaarItems;
 
-        var pricesPaid = await pricesPaidTask;
+        var salesData = await pricesPaidTask;
+        var pricePaid = salesData.ToDictionary(p => p.Key, p =>
+        {
+            var sell = p.OrderByDescending(a => a.end).Where(s => !s.requestingUserIsSeller).First();
+            return (sell.highest, sell.end);
+        });
         var res = await pricesTask;
         var allCrafts = deserializedCache.Crafts;
         var enabledFields = inventory.Settings.Fields;
+
+        var container = new DataContainer
+        {
+            auctionRepresent = auctionRepresent,
+            bazaarPrices = bazaarPrices,
+            mods = result,
+            pricesPaid = pricePaid,
+            itemListings = salesData,
+            res = res,
+            modService = this,
+            Items = items
+        };
 
         for (int i = 0; i < auctionRepresent.Count; i++)
         {
@@ -320,12 +337,12 @@ public class ModDescriptionService : IDisposable
                 continue;
             }
             var craftPrice = allCrafts?.GetValueOrDefault(auction.Tag)?.CraftCost;
-            List<DescModification> mods = GetModifications(enabledFields, desc, auction, price, craftPrice, pricesPaid, bazaarPrices);
+            List<DescModification> mods = GetModifications(enabledFields, desc, auction, price, craftPrice, container);
             if (auction.Tag == "SKYBLOCK_MENU")
             {
                 try
                 {
-                    AddSummaryToMenu(inventory, auctionRepresent, res, bazaarPrices, mods, pricesPaid);
+                    AddSummaryToMenu(inventory, auctionRepresent, res, bazaarPrices, mods, pricePaid);
                 }
                 catch (Exception e)
                 {
@@ -343,16 +360,7 @@ public class ModDescriptionService : IDisposable
                 continue;
             try
             {
-                item.Value.Apply(new DataContainer
-                {
-                    auctionRepresent = auctionRepresent,
-                    bazaarPrices = bazaarPrices,
-                    mods = result,
-                    pricesPaid = pricesPaid,
-                    res = res,
-                    modService = this,
-                    Items = items
-                });
+                item.Value.Apply(container);
             }
             catch (System.Exception e)
             {
@@ -400,10 +408,10 @@ public class ModDescriptionService : IDisposable
         }
     }
 
-    private async Task<Dictionary<string, (long, DateTime)>> GetPricePaidData(InventoryDataWithSettings inventory, string mcName, List<(SaveAuction auction, IEnumerable<string> desc)> auctionRepresent)
+    private async Task<ILookup<string, (long highest, long start, DateTime end, bool requestingUserIsSeller)>> GetPriceData(InventoryDataWithSettings inventory, string mcName, List<(SaveAuction auction, IEnumerable<string> desc)> auctionRepresent)
     {
         if (!inventory.Settings.Fields.Any(line => line.Contains(DescriptionField.PRICE_PAID)))
-            return new();
+            return new (long, long, DateTime, bool)[0].ToLookup(a => "");
         var numericIds = auctionRepresent.Where(a => a.auction != null)
                 .Select(a => a.auction.FlatenedNBT?.GetValueOrDefault("uid")).Where(v => v != null)
                 .Distinct()
@@ -414,15 +422,16 @@ public class ModDescriptionService : IDisposable
         var nameRequest = playerNameService.GetUuid(mcName);
         var lastSells = await context.Auctions
                     .Where(a => a.NBTLookup.Where(l => l.KeyId == key && numericIds.Keys.Contains(l.Value)).Any())
-                    .Where(a => a.HighestBidAmount > 0)
+                    //.Where(a => a.HighestBidAmount > 0)
                     .AsSplitQuery().AsNoTracking()
-                    .Select(a => new { a.HighestBidAmount, a.End, a.AuctioneerId, uid = a.NBTLookup.Where(l => l.KeyId == key).Select(l => l.Value).FirstOrDefault() })
+                    .Select(a => new { a.HighestBidAmount, a.StartingBid, a.End, a.AuctioneerId, uid = a.NBTLookup.Where(l => l.KeyId == key).Select(l => l.Value).FirstOrDefault() })
                     .ToListAsync();
         var uuid = await nameRequest;
-        return lastSells.GroupBy(l => l.uid).ToDictionary(g => numericIds[g.Key], g =>
+        return lastSells.ToLookup(g => numericIds[g.uid], a =>
         {
-            var sell = g.OrderByDescending(a => a.End).Where(s => s.AuctioneerId != uuid).First();
-            return (sell.HighestBidAmount, sell.End);
+            return (a.HighestBidAmount, a.StartingBid, a.End, a.AuctioneerId == uuid);
+            // var sell = g.OrderByDescending(a => a.End).Where(s => s.AuctioneerId != uuid).First();
+            // return (sell.HighestBidAmount, sell.End);
         });
     }
 
@@ -457,8 +466,7 @@ public class ModDescriptionService : IDisposable
                                                     SaveAuction auction,
                                                     Sniper.Client.Model.PriceEstimate price,
                                                     double? craftPrice,
-                                                    Dictionary<string, (long, DateTime)> pricesPaid,
-                                                    Dictionary<string, Bazaar.Client.Model.ItemPrice> bazaarPrices)
+                                                    DataContainer data)
     {
         var mods = new List<DescModification>();
 
@@ -498,22 +506,25 @@ public class ModDescriptionService : IDisposable
                         builder.Append($"{auction.Tag} ");
                         break;
                     case DescriptionField.BazaarBuy:
-                        AddBazaarBuy(auction, bazaarPrices, builder);
+                        AddBazaarBuy(auction, data.bazaarPrices, builder);
                         break;
                     case DescriptionField.BazaarSell:
-                        AddBazaarSell(auction, bazaarPrices, builder);
+                        AddBazaarSell(auction, data.bazaarPrices, builder);
                         break;
                     case DescriptionField.EnchantCost:
-                        AddEnchantCost(auction, builder, bazaarPrices);
+                        AddEnchantCost(auction, builder, data.bazaarPrices);
                         break;
                     case DescriptionField.PRICE_PAID:
-                        AddPricePaid(auction, pricesPaid, builder);
+                        AddPricePaid(auction, data.pricesPaid, builder);
                         break;
                     case DescriptionField.CRAFT_COST:
                         AddCraftcost(craftPrice, builder);
                         break;
                     case DescriptionField.GemValue:
-                        AddGemValue(auction, builder, bazaarPrices);
+                        AddGemValue(auction, builder, data.bazaarPrices);
+                        break;
+                    case DescriptionField.SpentOnAhFees:
+                        AddSpentOnAhFees(auction, builder, data);
                         break;
                     default:
                         if (Random.Shared.Next() % 100 == 0)
@@ -528,6 +539,19 @@ public class ModDescriptionService : IDisposable
 
 
         return mods;
+    }
+
+    private void AddSpentOnAhFees(SaveAuction auction, StringBuilder builder, DataContainer data)
+    {
+        if (auction.FlatenedNBT == null || !auction.FlatenedNBT.TryGetValue("uid", out var uid))
+            return;
+
+        if (!data.itemListings.Contains(uid))
+            return;
+        var listing = data.itemListings[uid];
+        var sum = listing.Where(l => l.requestingUserIsSeller && l.highest == 0).Sum(l => l.start * 0.02);
+        var latest = listing.Where(l => l.requestingUserIsSeller && l.highest == 0).OrderByDescending(l => l.end).Select(l => l.end).FirstOrDefault();
+        builder.Append($"{McColorCodes.GRAY}Spent on listing: {McColorCodes.YELLOW}{FormatNumber(sum)} Last attempt {McColorCodes.DARK_GRAY}{FormatTime(DateTime.UtcNow - latest)} ago");
     }
 
     private void AddGemValue(SaveAuction auction, StringBuilder builder, Dictionary<string, ItemPrice> bazaarPrices)
@@ -771,7 +795,11 @@ public class ModDescriptionService : IDisposable
     {
         if (price < 1_000)
             return string.Format(CultureInfo.InvariantCulture, "{0:n1}", price);
-        return string.Format(CultureInfo.InvariantCulture, "{0:n0}", price);
+        if (price < 1_000_000)
+            return string.Format(CultureInfo.InvariantCulture, "{0:n0}", price);
+        if (price < 1_000_000_000)
+            return string.Format(CultureInfo.InvariantCulture, "{0:n0}k", price / 1000);
+        return string.Format(CultureInfo.InvariantCulture, "{0:n1}m", price / 1_000_000);
     }
 
     /// <summary>

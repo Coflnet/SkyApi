@@ -1,3 +1,4 @@
+using System.Linq;
 using Coflnet.Sky.Api.Models.Mod;
 using Coflnet.Sky.Bazaar.Client.Model;
 using Coflnet.Sky.Commands.Shared;
@@ -13,6 +14,7 @@ public class DataContainer
     public List<List<DescModification>> mods;
     public Dictionary<string, (long,DateTime)> pricesPaid;
     internal ModDescriptionService modService;
+    public ILookup<string, (long highest, long start, DateTime end, bool requestingUserIsSeller)> itemListings;
 
     public List<Item> Items { get; internal set; }
 }
