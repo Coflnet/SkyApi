@@ -23,6 +23,10 @@ public class PriceEstimate
     /// </summary>
     public long FastSell { get; set; }
     /// <summary>
+    /// They key for the lbin
+    /// </summary>
+    public string LbinKey { get; set; }
+    /// <summary>
     /// The key of the median price
     /// </summary>
     public string MedianKey { get; set; }
