@@ -300,7 +300,7 @@ public class ModDescriptionService : IDisposable
         var salesData = await pricesPaidTask;
         var pricePaid = salesData.Where(p => p.Where(s => !s.requestingUserIsSeller && s.highest > 0).Any()).ToDictionary(p => p.Key, p =>
         {
-            var sell = p.OrderByDescending(a => a.end).Where(s => !s.requestingUserIsSeller).First();
+            var sell = p.OrderByDescending(a => a.end).Where(s => !s.requestingUserIsSeller && s.highest > 0).First();
             return (sell.highest, sell.end);
         });
         var res = await pricesTask;
