@@ -551,7 +551,8 @@ public class ModDescriptionService : IDisposable
         var listing = data.itemListings[uid];
         var sum = listing.Where(l => l.requestingUserIsSeller && l.highest == 0).Sum(l => l.start * 0.02);
         var latest = listing.Where(l => l.requestingUserIsSeller && l.highest == 0).OrderByDescending(l => l.end).Select(l => l.end).FirstOrDefault();
-        builder.Append($"{McColorCodes.GRAY}Spent on listing: {McColorCodes.YELLOW}{FormatPriceShort(sum)} Last attempt {McColorCodes.DARK_GRAY}{FormatTime(DateTime.UtcNow - latest)} ago");
+        var formated = latest == default ? "never" : $"{FormatTime(DateTime.UtcNow - latest)} ago";
+        builder.Append($"{McColorCodes.GRAY}Spent on listing: {McColorCodes.YELLOW}{FormatPriceShort(sum)}{McColorCodes.GRAY} Last attempt {McColorCodes.BLUE}{formated}");
     }
 
     private void AddGemValue(SaveAuction auction, StringBuilder builder, Dictionary<string, ItemPrice> bazaarPrices)
