@@ -452,7 +452,7 @@ namespace Coflnet.Sky.Api.Controller
             async item =>
             {
                 using var scope = factory.CreateScope();
-                var tempService = scope.ServiceProvider.GetRequiredService<Client.Api.PricesApi>();
+                var tempService = scope.ServiceProvider.GetRequiredService<Client.Api.IPricesApi>();
                 try
                 {
                     var data = await tempService.ApiItemPriceItemTagGetAsync(item.Key);
