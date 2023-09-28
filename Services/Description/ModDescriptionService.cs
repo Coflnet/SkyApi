@@ -408,10 +408,11 @@ public class ModDescriptionService : IDisposable
         }
     }
 
-    private async Task<ILookup<string, (long highest, long start, DateTime end, bool requestingUserIsSeller)>> GetPriceData(InventoryDataWithSettings inventory, string mcName, List<(SaveAuction auction, IEnumerable<string> desc)> auctionRepresent)
+
+    private async Task<ILookup<string, ListingSum>> GetPriceData(InventoryDataWithSettings inventory, string mcName, List<(SaveAuction auction, IEnumerable<string> desc)> auctionRepresent)
     {
         if (!inventory.Settings.Fields.Any(line => line.Contains(DescriptionField.PRICE_PAID)))
-            return new (long, long, DateTime, bool)[0].ToLookup(a => "");
+            return new ListingSum[0].ToLookup(a => "");
         var numericIds = auctionRepresent.Where(a => a.auction != null)
                 .Select(a => a.auction.FlatenedNBT?.GetValueOrDefault("uid")).Where(v => v != null)
                 .Distinct()
@@ -424,14 +425,19 @@ public class ModDescriptionService : IDisposable
                     .Where(a => a.NBTLookup.Where(l => l.KeyId == key && numericIds.Keys.Contains(l.Value)).Any())
                     //.Where(a => a.HighestBidAmount > 0)
                     .AsSplitQuery().AsNoTracking()
-                    .Select(a => new { a.HighestBidAmount, a.StartingBid, a.End, a.AuctioneerId, uid = a.NBTLookup.Where(l => l.KeyId == key).Select(l => l.Value).FirstOrDefault() })
+                    .Select(a => new { a.HighestBidAmount, a.StartingBid, a.End, a.AuctioneerId, a.Start, uid = a.NBTLookup.Where(l => l.KeyId == key).Select(l => l.Value).FirstOrDefault() })
                     .ToListAsync();
         var uuid = await nameRequest;
         return lastSells.ToLookup(g => numericIds[g.uid], a =>
         {
-            return (a.HighestBidAmount, a.StartingBid, a.End, a.AuctioneerId == uuid);
-            // var sell = g.OrderByDescending(a => a.End).Where(s => s.AuctioneerId != uuid).First();
-            // return (sell.HighestBidAmount, sell.End);
+            return new ListingSum()
+            {
+                end = a.End,
+                highest = a.HighestBidAmount,
+                StartingBid = a.StartingBid,
+                start = a.Start,
+                requestingUserIsSeller = a.AuctioneerId == uuid
+            };
         });
     }
 
@@ -549,8 +555,8 @@ public class ModDescriptionService : IDisposable
         if (!data.itemListings.Contains(uid))
             return;
         var listing = data.itemListings[uid];
-        var sum = listing.Where(l => l.requestingUserIsSeller && l.highest == 0).Sum(l => l.start * 0.02);
-        var latest = listing.Where(l => l.requestingUserIsSeller && l.highest == 0).OrderByDescending(l => l.end).Select(l => l.end).FirstOrDefault();
+        var sum = listing.Where(l => l.requestingUserIsSeller && l.highest == 0).Sum(l => l.StartingBid * 0.02);
+        var latest = listing.Where(l => l.requestingUserIsSeller && l.highest == 0).OrderByDescending(l => l.start).Select(l => l.start).FirstOrDefault();
         var formated = latest == default ? "never" : $"{FormatTime(DateTime.UtcNow - latest)} ago";
         builder.Append($"{McColorCodes.GRAY}Spent on listing: {McColorCodes.YELLOW}{FormatPriceShort(sum)}{McColorCodes.GRAY} Last attempt {McColorCodes.BLUE}{formated}");
     }
@@ -612,13 +618,15 @@ public class ModDescriptionService : IDisposable
 
     private string FormatTime(TimeSpan timeSpan)
     {
+        var prefix = timeSpan.TotalSeconds < 0 ? "-" : "";
+        timeSpan = timeSpan.Duration();
         if (timeSpan.TotalDays > 1.05)
             return $"{timeSpan.TotalDays.ToString("0.#")}d";
         if (timeSpan.TotalHours > 1)
             return $"{timeSpan.TotalHours.ToString("0.#")}h";
         if (timeSpan.TotalMinutes > 1)
             return $"{timeSpan.TotalMinutes.ToString("0.#")}m";
-        return $"{timeSpan.TotalSeconds.ToString("0.#")}s";
+        return $"{prefix}{timeSpan.TotalSeconds.ToString("0.#")}s";
     }
 
     private void AddBazaarBuy(SaveAuction auction, Dictionary<string, ItemPrice> bazaarPrices, StringBuilder builder)

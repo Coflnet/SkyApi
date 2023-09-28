@@ -12,9 +12,9 @@ public class DataContainer
     public List<Sniper.Client.Model.PriceEstimate> res;
     public Dictionary<string, ItemPrice> bazaarPrices;
     public List<List<DescModification>> mods;
-    public Dictionary<string, (long,DateTime)> pricesPaid;
+    public Dictionary<string, (long, DateTime)> pricesPaid;
     internal ModDescriptionService modService;
-    public ILookup<string, (long highest, long start, DateTime end, bool requestingUserIsSeller)> itemListings;
+    public ILookup<string, ListingSum> itemListings;
 
     public List<Item> Items { get; internal set; }
 }
