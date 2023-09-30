@@ -30,6 +30,7 @@ namespace Coflnet.Sky.Api.Services;
 public class DeserializedCache
 {
     public Dictionary<string, Crafts.Client.Model.ProfitableCraft> Crafts = new();
+    public Dictionary<(string, Tier), Crafts.Client.Model.KatUpgradeCost> Kat = new();
     public Dictionary<string, Bazaar.Client.Model.ItemPrice> BazaarItems = new();
     public DateTime LastUpdate = DateTime.MinValue;
     public bool IsUpdating = false;
@@ -51,6 +52,7 @@ public class ModDescriptionService : IDisposable
     private IConfiguration config;
     private IStateUpdateService stateService;
     private ItemSkinHandler itemSkinHandler;
+    private IKatApi katApi;
     private ClassNameDictonary<CustomModifier> customModifiers = new();
     private DeserializedCache deserializedCache = new();
     private PropertyMapper mapper = new();
@@ -71,6 +73,8 @@ public class ModDescriptionService : IDisposable
     /// <param name="sniperClient"></param>
     /// <param name="kafkaCreator"></param>
     /// <param name="itemSkinHandler"></param>
+    /// <param name="ahListChecker"></param>
+    /// <param name="katApi"></param>
     public ModDescriptionService(ICraftsApi craftsApi,
                                  SettingsService settingsService,
                                  IdConverter idConverter,
@@ -83,7 +87,8 @@ public class ModDescriptionService : IDisposable
                                  ISniperClient sniperClient,
                                  KafkaCreator kafkaCreator,
                                  ItemSkinHandler itemSkinHandler,
-                                 AhListChecker ahListChecker)
+                                 AhListChecker ahListChecker,
+                                 IKatApi katApi)
     {
         this.craftsApi = craftsApi;
         this.settingsService = settingsService;
@@ -103,6 +108,7 @@ public class ModDescriptionService : IDisposable
         customModifiers.Add("Bits Shop", bitsToCoins);
         this.itemSkinHandler = itemSkinHandler;
         this.ahListChecker = ahListChecker;
+        this.katApi = katApi;
     }
 
     private ConcurrentDictionary<string, SelfUpdatingValue<DescriptionSetting>> settings = new();
@@ -264,6 +270,8 @@ public class ModDescriptionService : IDisposable
                     deserializedCache.BazaarItems = (await bazaarApi.ApiBazaarPricesGetAsync())?.ToDictionary(p => p.ProductId);
                     deserializedCache.LastUpdate = DateTime.UtcNow;
                     deserializedCache.IsUpdating = false;
+                    var kat = await katApi.KatRawGetAsync();
+                    deserializedCache.Kat = kat.ToDictionary(k => (k.ItemTag, Enum.Parse<Tier>(k?.BaseRarity?.ToString() ?? "LEGENDARY")));
                 }
                 catch (Exception e)
                 {

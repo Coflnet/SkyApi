@@ -56,7 +56,7 @@ namespace SkyApi.Services.Description
 
             ModDescriptionService modDescriptionService = new(Mock.Of<ICraftsApi>(), settingsService, Mock.Of<IdConverter>(), Mock.Of<IServiceScopeFactory>(),
                 Mock.Of<BazaarApi>(), playerNameService, Mock.Of<ILogger<ModDescriptionService>>(), Mock.Of<IConfiguration>(), Mock.Of<IStateUpdateService>(), sniperClient.Object,
-                null, itemSkinHandler, new (null, null, null));
+                null, itemSkinHandler, new (null, null, null), null);
 
             // Act
             var res = await modDescriptionService.GetModifications(GetMockInventory(), "test", "test");
