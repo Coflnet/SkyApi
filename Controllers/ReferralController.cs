@@ -1,12 +1,9 @@
-using System.Collections.Generic;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
 using Coflnet.Sky.Referral.Client.Api;
 using Coflnet.Sky.Core;
 using Microsoft.Extensions.Primitives;
-using Coflnet.Sky.Api;
 using HashidsNet;
-using System;
 using System.Linq;
 using Coflnet.Sky.Api.Models.Referral;
 using Microsoft.EntityFrameworkCore;
@@ -50,7 +47,8 @@ namespace Coflnet.Sky.Api.Controller
         [HttpPost]
         public async Task<IActionResult> TopupOptions([FromBody] ReferredBy args)
         {
-            if (!TryGetUser(out GoogleUser user))
+            var user = await GetUserOrDefault();
+            if (user == default)
                 return Unauthorized("no googletoken header");
             try
             {
@@ -73,7 +71,8 @@ namespace Coflnet.Sky.Api.Controller
         [ResponseCache(Duration = 0, Location = ResponseCacheLocation.None, NoStore = true)]
         public async Task<ActionResult<ReferralInfo>> GetRefInfo()
         {
-            if (!TryGetUser(out GoogleUser user))
+            var user = await GetUserOrDefault();
+            if (user == default)
                 return Unauthorized("no googletoken header");
             var infoTask = refApi.ReferralUserIdGetAsync(user.Id.ToString());
             var oldInfo = await GetOldRefInfo(user);
@@ -126,13 +125,12 @@ namespace Coflnet.Sky.Api.Controller
             return hashids.Decode(referer)[0];
         }
 
-        private bool TryGetUser(out GoogleUser user)
+        private async Task<GoogleUser?> GetUserOrDefault()
         {
-            user = default(GoogleUser);
-            if (!Request.Headers.TryGetValue("GoogleToken", out StringValues value))
-                return false;
-            user = tokenService.GetUserWithToken(value);
-            return true;
+            if (!Request.Headers.TryGetValue("GoogleToken", out StringValues value)
+                && !Request.Headers.TryGetValue("Authorization", out value))
+                return null;
+            return await tokenService.GetUserWithToken(value);
         }
     }
 }

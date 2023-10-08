@@ -67,7 +67,8 @@ namespace Coflnet.Sky.Api.Controller
             Console.WriteLine("Fingerprint: " + fingerprint);
 
 
-            if (!TryGetUser(out GoogleUser user))
+            var user = await GetUserOrDefault();
+            if (user == default)
                 return Unauthorized("no googletoken header");
 
             TopUpOptions options = GetOptions(args, fingerprint, user);
@@ -123,7 +124,8 @@ namespace Coflnet.Sky.Api.Controller
         [HttpPost]
         public async Task<IActionResult> StartTopUpPaypal(string productSlug, [FromBody] TopUpArguments args)
         {
-            if (!TryGetUser(out GoogleUser user))
+            var user = await GetUserOrDefault();
+            if (user == default)
                 return Unauthorized("no googletoken header");
 
             try
@@ -167,7 +169,8 @@ namespace Coflnet.Sky.Api.Controller
         [HttpPost]
         public async Task<IActionResult> PurchaseService([FromBody] PurchaseArgs args)
         {
-            if (!TryGetUser(out GoogleUser user))
+            var user = await GetUserOrDefault(true);
+            if (user == default)
                 return Unauthorized("no googletoken header");
             try
             {
@@ -192,7 +195,8 @@ namespace Coflnet.Sky.Api.Controller
         [HttpPost]
         public async Task<IActionResult> PurchaseService([FromBody] IEnumerable<string> slugs)
         {
-            if (!TryGetUser(out GoogleUser user))
+            var user = await GetUserOrDefault();
+            if (user == default)
                 return Unauthorized("no googletoken header");
             try
             {
@@ -214,7 +218,8 @@ namespace Coflnet.Sky.Api.Controller
         [HttpPost]
         public async Task<ActionResult<Dictionary<string, Sky.Api.Models.OwnerShip>>> GetOwnerShips([FromBody] List<string> slugsToTest)
         {
-            if (!TryGetUser(out GoogleUser user))
+            var user = await GetUserOrDefault();
+            if (user == default)
                 return Unauthorized("no googletoken header");
             try
             {
@@ -233,13 +238,12 @@ namespace Coflnet.Sky.Api.Controller
             }
         }
 
-        private bool TryGetUser(out GoogleUser user)
+        private async Task<GoogleUser?> GetUserOrDefault(bool isPurchase = false)
         {
-            user = default(GoogleUser);
-            if (!Request.Headers.TryGetValue("GoogleToken", out StringValues value))
-                return false;
-            user = tokenService.GetUserWithToken(value);
-            return true;
+            if (!Request.Headers.TryGetValue("GoogleToken", out StringValues value)
+                && !Request.Headers.TryGetValue("Authorization", out value))
+                return null;
+            return await tokenService.GetUserWithToken(value, isPurchase);
         }
     }
 }

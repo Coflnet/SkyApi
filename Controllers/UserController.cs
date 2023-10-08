@@ -7,6 +7,7 @@ using Microsoft.Extensions.Primitives;
 
 namespace Coflnet.Sky.Api.Controller
 {
+#nullable enable
     /// <summary>
     /// Endpoints for flips
     /// </summary>
@@ -37,7 +38,8 @@ namespace Coflnet.Sky.Api.Controller
         [HttpGet]
         public async Task<ActionResult<PrivacySettings>> GetPrivacySettings()
         {
-            if (!TryGetUser(out GoogleUser user))
+            var user = await GetUserOrDefault();
+            if (user == default)
                 return Unauthorized("no googletoken header");
             return await settingsService.GetCurrentValue<PrivacySettings>(user.Id.ToString(), "privacySettings", () => new PrivacySettings()
             {
@@ -61,19 +63,19 @@ namespace Coflnet.Sky.Api.Controller
         [HttpPost]
         public async Task<ActionResult> SetPrivacySettings(PrivacySettings settings)
         {
-            if (!TryGetUser(out GoogleUser user))
+            var user = await GetUserOrDefault();
+            if (user == default)
                 return Unauthorized("no googletoken header");
             await settingsService.UpdateSetting<PrivacySettings>(user.Id.ToString(), "privacySettings", settings);
             return Ok();
         }
 
-        private bool TryGetUser(out GoogleUser user)
+        private async Task<GoogleUser?> GetUserOrDefault()
         {
-            user = default(GoogleUser);
-            if (!Request.Headers.TryGetValue("GoogleToken", out StringValues value))
-                return false;
-            user = tokenService.GetUserWithToken(value);
-            return true;
+            if (!Request.Headers.TryGetValue("GoogleToken", out StringValues value)
+                && !Request.Headers.TryGetValue("Authorization", out value))
+                return null;
+            return await tokenService.GetUserWithToken(value);
         }
     }
 }
