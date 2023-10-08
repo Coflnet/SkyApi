@@ -1,8 +1,8 @@
 FROM mcr.microsoft.com/dotnet/sdk:7.0 as build
 WORKDIR /build
-RUN git clone --depth=1 https://github.com/Coflnet/HypixelSkyblock.git dev
-RUN git clone --depth=1 https://github.com/Coflnet/SkyBackendForFrontend.git
-RUN git clone --depth=1 https://github.com/Coflnet/SkyFilter.git
+RUN git clone --depth=1 https://github.com/Coflnet/HypixelSkyblock.git dev \
+    && git clone --depth=1 https://github.com/Coflnet/SkyBackendForFrontend.git \
+    && git clone --depth=1 https://github.com/Coflnet/SkyFilter.git
 WORKDIR /build/sky
 COPY SkyApi.csproj SkyApi.csproj
 RUN dotnet restore
