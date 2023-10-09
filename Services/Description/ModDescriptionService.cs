@@ -563,7 +563,7 @@ public class ModDescriptionService : IDisposable
     {
         if (!data.katUpgradeCost.TryGetValue((auction.Tag, auction.Tier), out var cost))
             return;
-        if (!data.bazaarPrices.TryGetValue(cost.Material, out var bazaarPrice))
+        if (!data.bazaarPrices.TryGetValue(cost.Material, out var bazaarPrice) || string.IsNullOrEmpty(cost.Material))
         {
             logger.LogError($"No bazaar price for {cost.Material} on {auction.Tag} {auction.Tier}");
             return;
