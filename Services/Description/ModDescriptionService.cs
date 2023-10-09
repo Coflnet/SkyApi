@@ -301,9 +301,7 @@ public class ModDescriptionService : IDisposable
         }
 
         var pricesPaidTask = GetPriceData(inventory, mcName, auctionRepresent);
-        var bazaarPrices = new Dictionary<string, Bazaar.Client.Model.ItemPrice>();
-        if (inventory.Settings.Fields.Any(line => line.Contains(DescriptionField.BazaarBuy) || line.Contains(DescriptionField.BazaarSell)))
-            bazaarPrices = deserializedCache.BazaarItems;
+        var bazaarPrices = deserializedCache.BazaarItems ?? new Dictionary<string, Bazaar.Client.Model.ItemPrice>();
 
         var salesData = await pricesPaidTask;
         var pricePaid = salesData.Where(p => p.Where(s => !s.requestingUserIsSeller && s.highest > 0).Any()).ToDictionary(p => p.Key, p =>
@@ -574,7 +572,7 @@ public class ModDescriptionService : IDisposable
             else
                 materialCost = cost.Amount * bazaarPrice.BuyPrice;
         }
-        var level = (float)int.Parse(Regex.Replace(auction.ItemName.Substring(0, 10), "[^0-9]", ""));
+        var level = (float)int.Parse(Regex.Replace(auction.ItemName.Substring(2, 7), "[^0-9]", ""));
         var upgradeCost = cost.Cost * (1 - (level - 1) * 0.003);
         var totalCost = materialCost + upgradeCost;
         builder.Append($"{McColorCodes.GRAY}Kat Upgrade Cost: {McColorCodes.YELLOW}{FormatPriceShort(totalCost)}");
