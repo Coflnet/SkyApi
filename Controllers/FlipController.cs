@@ -166,7 +166,7 @@ namespace Coflnet.Sky.Api.Controller
         public async Task<FlipSumary> GetStats(string playerUuid, float days = 7, int offset = 0)
         {
             if (days + offset > 7)
-                if (!premiumTierService.HasPremium(this))
+                if (!await premiumTierService.HasPremium(this))
                     throw new CoflnetException("invalid_time",
                         "Sorry but this is currently limited to one week for non premium users. "
                         + $"Please provide a google token as `{premiumTierService.HeaderName}` header to get further history");

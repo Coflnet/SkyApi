@@ -1,3 +1,4 @@
+using System.Threading.Tasks;
 using Coflnet.Payments.Client.Api;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Primitives;
@@ -19,22 +20,23 @@ public class PremiumTierService
     /// </summary>
     public readonly string HeaderName = "GoogleToken";
 
-    public bool HasPremium(ControllerBase controllerInstance)
+    public async Task<bool> HasPremium(ControllerBase controllerInstance)
     {
         var name = "premium";
-        return OwnsProduct(controllerInstance, name);
+        return await OwnsProduct(controllerInstance, name);
     }
-    public bool HasStarterPremium(ControllerBase controllerInstance)
+    public async Task<bool> HasStarterPremium(ControllerBase controllerInstance)
     {
         var name = "starter_premium";
-        return OwnsProduct(controllerInstance, name);
+        return await OwnsProduct(controllerInstance, name);
     }
 
-    private bool OwnsProduct(ControllerBase controllerInstance, string name)
+    private async Task<bool> OwnsProduct(ControllerBase controllerInstance, string name)
     {
-        if (!controllerInstance.Request.Headers.TryGetValue(HeaderName, out StringValues value))
+        if (!controllerInstance.Request.Headers.TryGetValue(HeaderName, out StringValues value)
+                && !controllerInstance.Request.Headers.TryGetValue("Authorization", out value))
             return false;
-        var user = tokenService.GetUserWithToken(value);
+        var user = await tokenService.GetUserWithToken(value);
         return userApi.UserUserIdOwnsUntilPostAsync(user.Id.ToString(), new List<string>() { name }, 0).Result.TryGetValue(name, out var time) && time > DateTime.Now;
     }
 }
