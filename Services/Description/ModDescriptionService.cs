@@ -322,6 +322,7 @@ public class ModDescriptionService : IDisposable
             mods = result,
             pricesPaid = pricePaid,
             itemListings = salesData,
+            katUpgradeCost = deserializedCache.Kat,
             res = res,
             modService = this,
             Items = items
@@ -540,6 +541,9 @@ public class ModDescriptionService : IDisposable
                     case DescriptionField.SpentOnAhFees:
                         AddSpentOnAhFees(auction, builder, data);
                         break;
+                    case DescriptionField.KatUpgradeCost:
+                        AddKatUpgradeCost(auction, builder, data);
+                        break;
                     default:
                         if (Random.Shared.Next() % 100 == 0)
                             logger.LogError("Invalid description type " + item);
@@ -553,6 +557,22 @@ public class ModDescriptionService : IDisposable
 
 
         return mods;
+    }
+
+    private void AddKatUpgradeCost(SaveAuction auction, StringBuilder builder, DataContainer data)
+    {
+        if (!data.katUpgradeCost.TryGetValue((auction.Tag, auction.Tier), out var cost))
+            return;
+        if (!data.bazaarPrices.TryGetValue(cost.Material, out var bazaarPrice))
+        {
+            logger.LogError($"No bazaar price for {cost.Material} on {auction.Tag} {auction.Tier}");
+            return;
+        }
+        var materialCost = cost.Amount * bazaarPrice.BuyPrice;
+        var level = (float)int.Parse(Regex.Replace(auction.ItemName.Substring(0, 10), "[^0-9]", ""));
+        var upgradeCost = cost.Cost * (1 - (level - 1) * 0.003);
+        var totalCost = materialCost + upgradeCost;
+        builder.Append($"{McColorCodes.GRAY}Kat Upgrade Cost: {McColorCodes.YELLOW}{FormatPriceShort(totalCost)}");
     }
 
     private void AddSpentOnAhFees(SaveAuction auction, StringBuilder builder, DataContainer data)

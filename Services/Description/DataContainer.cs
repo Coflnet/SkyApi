@@ -3,6 +3,7 @@ using Coflnet.Sky.Api.Models.Mod;
 using Coflnet.Sky.Bazaar.Client.Model;
 using Coflnet.Sky.Commands.Shared;
 using Coflnet.Sky.Core;
+using Coflnet.Sky.Crafts.Client.Model;
 
 namespace Coflnet.Sky.Api.Services.Description;
 public class DataContainer
@@ -15,6 +16,7 @@ public class DataContainer
     public Dictionary<string, (long, DateTime)> pricesPaid;
     internal ModDescriptionService modService;
     public ILookup<string, ListingSum> itemListings;
+    internal Dictionary<(string, Core.Tier), KatUpgradeCost> katUpgradeCost;
 
     public List<Item> Items { get; internal set; }
 }
