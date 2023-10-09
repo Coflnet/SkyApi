@@ -563,12 +563,17 @@ public class ModDescriptionService : IDisposable
     {
         if (!data.katUpgradeCost.TryGetValue((auction.Tag, auction.Tier), out var cost))
             return;
-        if (!data.bazaarPrices.TryGetValue(cost.Material, out var bazaarPrice) || string.IsNullOrEmpty(cost.Material))
+        double materialCost = 0;
+        if (!string.IsNullOrEmpty(cost.Material))
         {
-            logger.LogError($"No bazaar price for {cost.Material} on {auction.Tag} {auction.Tier}");
-            return;
+            if (!data.bazaarPrices.TryGetValue(cost.Material, out var bazaarPrice))
+            {
+                logger.LogError($"No bazaar price for {cost.Material} on {auction.Tag} {auction.Tier}");
+                
+            }
+            else
+                materialCost = cost.Amount * bazaarPrice.BuyPrice;
         }
-        var materialCost = cost.Amount * bazaarPrice.BuyPrice;
         var level = (float)int.Parse(Regex.Replace(auction.ItemName.Substring(0, 10), "[^0-9]", ""));
         var upgradeCost = cost.Cost * (1 - (level - 1) * 0.003);
         var totalCost = materialCost + upgradeCost;
