@@ -116,7 +116,7 @@ namespace Coflnet.Sky.Api.Controller
             }
 
             var lookupId = NBT.UidToLong(uuid.Length == 12 ? uuid : uuid.Substring(24));
-            var key = NBT.GetLookupKey("uId");
+            var key = NBT.Instance.GetKeyId("uId");
             var auctions = await db.Auctions.Where(a => a.NBTLookup.Where(l => l.KeyId == key && l.Value == lookupId).Any()).Include(a => a.Bids).OrderByDescending(a => a.End).ToListAsync();
             var lastSell = auctions.Where(a => a.End < System.DateTime.Now).FirstOrDefault();
             long med = await GetMedian(lastSell);

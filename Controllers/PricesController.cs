@@ -26,6 +26,7 @@ public class PricesController : ControllerBase
     private IItemsApi itemsApi;
     private ILogger<PricesController> logger;
     private ModDescriptionService modDescriptionSerice;
+    private AhListChecker ahListChecker;
     Counter counter = Metrics.CreateCounter("sky_api_nbt", "Counts requests to /api/item/price/nbt");
 
     /// <summary>
@@ -41,13 +42,15 @@ public class PricesController : ControllerBase
         HypixelContext context,
         IItemsApi itemsApi,
         ILogger<PricesController> logger,
-        ModDescriptionService modDescriptionSerice)
+        ModDescriptionService modDescriptionSerice,
+        AhListChecker ahListChecker)
     {
         priceService = pricesService;
         this.context = context;
         this.itemsApi = itemsApi;
         this.logger = logger;
         this.modDescriptionSerice = modDescriptionSerice;
+        this.ahListChecker = ahListChecker;
     }
     /// <summary>
     /// Aggregated sumary of item prices for the 3 last days
@@ -188,17 +191,17 @@ public class PricesController : ControllerBase
     [HttpPost]
     public async Task<IEnumerable<PriceEstimate>> GetFromNbt(InventoryData inventoryData)
     {
-        var auctions = modDescriptionSerice.ConvertToAuctions(inventoryData).Select(a => a.auction).Take(90);
-        var priceTask = modDescriptionSerice.GetPrices(auctions);
+        var auctions = modDescriptionSerice.ConvertToAuctions(inventoryData).Take(90);
+        var priceTask = modDescriptionSerice.GetPrices(auctions.Select(a => a.auction));
         try
         {
-            modDescriptionSerice.ProduceInventory(inventoryData, null, "");
+            ahListChecker.CheckItems(auctions.Select(a => new Item() { Description = string.Join("\n", a.desc), ItemName = a.auction.ItemName }).ToList(), null);
         }
         catch (Exception e)
         {
             logger.LogError(e, "failed to publish inventory nbt");
         }
-        var data = await modDescriptionSerice.GetPrices(auctions);
+        var data = await modDescriptionSerice.GetPrices(auctions.Select(a => a.auction));
         counter.Inc();
         return data.Select(d =>
         {
@@ -244,11 +247,11 @@ public class PricesController : ControllerBase
         var ids = tags.Select(t => ItemDetails.Instance.GetItemIdForTag(t, true)).ToList();
         var attributeIds = await Task.WhenAll(Constants.AttributeKeys.Select(a =>
         {
-            var id = NBT.GetLookupKey(a);
+            var id = NBT.Instance.GetKeyId(a);
             reverseAttributeMap[id] = a;
             return Task.FromResult(id);
         }));
-        var ignoreIds = await Task.WhenAll(new HashSet<string>() { "boss_tier", "id" }.Select(a => Task.FromResult(NBT.GetLookupKey(a))));
+        var ignoreIds = await Task.WhenAll(new HashSet<string>() { "boss_tier", "id" }.Select(a => Task.FromResult(NBT.Instance.GetKeyId(a))));
         var oldestTime = DateTime.UtcNow.AddDays(-1);
         ignoreIds = ignoreIds.Concat(attributeIds).ToArray();
         var prices = await context.Auctions.Where(a => ids.Contains(a.ItemId) && !a.NBTLookup.Any(l => !ignoreIds.Contains(l.KeyId)) && a.End > oldestTime && a.HighestBidAmount > 0 && a.End < DateTime.UtcNow)
