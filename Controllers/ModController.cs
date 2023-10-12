@@ -25,6 +25,8 @@ namespace Coflnet.Sky.Api.Controller
         private PlayerNameApi playerNamService;
         private ModDescriptionService descriptionService;
         private FlipperService flipperService;
+        private SettingsService settingsService;
+        private GoogletokenService tokenService;
 
         /// <summary>
         /// Creates a new instance of <see cref="ModController"/>
@@ -34,13 +36,45 @@ namespace Coflnet.Sky.Api.Controller
         /// <param name="flipperService"></param>
         /// <param name="playerName"></param>
         /// <param name="sniperApi"></param>
-        public ModController(HypixelContext db, PricesService pricesService, FlipperService flipperService, PlayerNameApi playerName = null, ModDescriptionService sniperApi = null)
+        /// <param name="settingsService"></param>
+        public ModController(HypixelContext db, PricesService pricesService, FlipperService flipperService, PlayerNameApi playerName = null, ModDescriptionService sniperApi = null, SettingsService settingsService = null, GoogletokenService tokenService = null)
         {
             this.db = db;
             priceService = pricesService;
             this.playerNamService = playerName;
             this.descriptionService = sniperApi;
             this.flipperService = flipperService;
+            this.settingsService = settingsService;
+            this.tokenService = tokenService;
+        }
+
+        /// <summary>
+        /// Authorize a mod instance 
+        /// </summary>
+        /// <returns></returns>
+        [Route("auth")]
+        [HttpPost]
+        public async Task AuthConnection(string newId)
+        {
+            var idBytes = Convert.FromBase64String(newId);
+            if (idBytes.Length < 16)
+                throw new CoflnetException("invalid_id", "The passed connection id is invalid (too short)");
+            if (idBytes.Length == 17)
+            {
+                // check checksum
+                var checksum = idBytes[16];
+                var sum = 0;
+                for (int i = 0; i < 16; i++)
+                {
+                    sum += idBytes[i];
+                }
+                if (sum % 256 != checksum)
+                    throw new CoflnetException("invalid_id", "The passed connection id is invalid, please get the link from minecraft again");
+                newId = Convert.ToBase64String(idBytes, 0, 16);
+            }
+
+            var user = tokenService.GetUserWithToken(this, true);
+            await settingsService.UpdateSetting("mod", newId, user.Id.ToString());
         }
 
         /// <summary>
@@ -69,6 +103,7 @@ namespace Coflnet.Sky.Api.Controller
         /// Returns extra information for an item
         /// </summary>
         [Route("item/{uuid}")]
+        [Obsolete("Use /api/mod/description/modifications instead")]
         [HttpGet]
         public async Task<string> ItemDescription(string uuid, int count = 1)
         {

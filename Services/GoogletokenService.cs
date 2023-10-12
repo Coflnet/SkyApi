@@ -3,6 +3,8 @@ using Coflnet.Sky.Core;
 using Google.Apis.Auth;
 using Coflnet.Sky.Commands.Shared;
 using System.Threading.Tasks;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Primitives;
 
 namespace Coflnet.Sky.Api;
 /// <summary>
@@ -31,11 +33,26 @@ public class GoogletokenService
     {
         token = token.Replace("Bearer ", "");
         // high security mode is currently requiring a google login
-        if(!highSecurity && tokenService.TryGetEmailFromToken(token, out var email))
+        if (!highSecurity && tokenService.TryGetEmailFromToken(token, out var email))
         {
             return await UserService.Instance.GetUserByEmail(email);
         }
         return UserService.Instance.GetOrCreateUser((await ValidateToken(token)).Subject);
+    }
+
+    /// <summary>
+    /// 
+    /// </summary>
+    /// <param name="controllerInstance"></param>
+    /// <param name="highSecurity"></param>
+    /// <returns></returns>
+    /// <exception cref="CoflnetException"></exception>
+    public async Task<GoogleUser> GetUserWithToken(ControllerBase controllerInstance, bool highSecurity = false)
+    {
+        if (!controllerInstance.Request.Headers.TryGetValue("Authorization", out StringValues value)
+                && !controllerInstance.Request.Headers.TryGetValue("GoogleToken", out value))
+            throw new CoflnetException("missing_authorization_header", "The authorization header is missing");
+        return await GetUserWithToken(value, highSecurity);
     }
 
     /// <summary>
