@@ -42,11 +42,15 @@ public class AhListChecker
                 {
                     var uuid = await playerNameService.GetUuid(sellerName);
                     Console.WriteLine("Checking listings for " + sellerName + " uuid " + uuid + " " + item.ItemName);
-                    await proxyApi.BaseAhPlayerIdPostAsync(uuid, $"player: {playerId}");
+                    var info = await proxyApi.BaseAhPlayerIdPostWithHttpInfoAsync(uuid, $"player: {playerId}");
+                    if(info.StatusCode == 0)
+                        logger.LogError($"Failed to check ah listings from {sellerName} because proxy unavailable");
+                    if(info.StatusCode != System.Net.HttpStatusCode.OK)
+                        logger.LogError($"Failed to check ah listings from {sellerName} because proxy returned {info.StatusCode}");
                 }
                 catch (System.Exception e)
                 {
-                    logger.LogError(e, "Failed to check ah listings");
+                    logger.LogError(e, $"Failed to check ah listings from {sellerName}");
                 }
             });
         }
