@@ -30,9 +30,8 @@ public class TradeWarning : CustomModifier
             {
                 value = sniperPrice.Median;
             }
-            else if (item?.Tag != null && (data.bazaarPrices?.ContainsKey(item.Tag) ?? false))
+            else if (item?.Tag != null && (data.bazaarPrices?.TryGetValue(item.Tag, out var price) ?? false))
             {
-                var price = data.bazaarPrices[item.ItemName];
                 value = (long)price.SellPrice * item.Count;
             }
             if (column < 4)
