@@ -36,6 +36,11 @@ public class AhListChecker
             {
                 continue;
             }
+            if (sellerName == "Refreshing...")
+            {
+                logger.LogInformation($"got a refreshing item {item.ItemName} from {playerId}");
+                continue;
+            }
             Task.Run(async () =>
             {
                 try
@@ -43,9 +48,9 @@ public class AhListChecker
                     var uuid = await playerNameService.GetUuid(sellerName);
                     Console.WriteLine("Checking listings for " + sellerName + " uuid " + uuid + " " + item.ItemName);
                     var info = await proxyApi.BaseAhPlayerIdPostWithHttpInfoAsync(uuid, $"player: {playerId}");
-                    if(info.StatusCode == 0)
+                    if (info.StatusCode == 0)
                         logger.LogError($"Failed to check ah listings from {sellerName} because proxy unavailable");
-                    if(info.StatusCode != System.Net.HttpStatusCode.OK)
+                    if (info.StatusCode != System.Net.HttpStatusCode.OK)
                         logger.LogError($"Failed to check ah listings from {sellerName} because proxy returned {info.StatusCode}");
                 }
                 catch (System.Exception e)
