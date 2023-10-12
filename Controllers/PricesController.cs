@@ -191,11 +191,12 @@ public class PricesController : ControllerBase
     [HttpPost]
     public async Task<IEnumerable<PriceEstimate>> GetFromNbt(InventoryData inventoryData)
     {
-        var auctions = modDescriptionSerice.ConvertToAuctions(inventoryData).Take(90);
+        var auctions = modDescriptionSerice.ConvertToAuctions(inventoryData).Take(90).ToList();
         var priceTask = modDescriptionSerice.GetPrices(auctions.Select(a => a.auction));
         try
         {
-            ahListChecker.CheckItems(auctions.Select(a => new Item() { Description = string.Join("\n", a.desc), ItemName = a.auction.ItemName }).ToList(), null);
+            ahListChecker.CheckItems(auctions.Where(a => a.auction?.ItemName != null)
+                .Select(a => new Item() { Description = string.Join("\n", a.desc), ItemName = a.auction.ItemName }), null);
         }
         catch (Exception e)
         {
