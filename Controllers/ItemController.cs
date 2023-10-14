@@ -118,7 +118,16 @@ namespace Coflnet.Sky.Api.Controller
             if (itemTag.Contains("_"))
                 search = itemTag.Substring(0, itemTag.LastIndexOf("_"));
             var similarName = source.Where(i => i.Tag != itemTag && i.Tag.StartsWith(search)).OrderBy(x => Random.Shared.Next()).Take(5);
-            var recipeBased = recipe?.Values?.Select(t => t.Split(':').First())
+            IEnumerable<Items.Client.Model.ItemPreview> recipeBased = NewMethod(source, recipe);
+            return recipeBased.Concat(similarName).Take(5);
+        }
+
+        private static IEnumerable<Items.Client.Model.ItemPreview> NewMethod(List<Items.Client.Model.ItemPreview> source, Crafts.Client.Model.Recipe recipe)
+        {
+            if(recipe == null)
+                return new Items.Client.Model.ItemPreview[0];
+            var allItems = new string[] { recipe.A1, recipe.A2, recipe.A3, recipe.B1, recipe.B2, recipe.B3, recipe.C1, recipe.C2, recipe.C3 };
+            var recipeBased = allItems?.Select(t => t.Split(':').First())
                 .Distinct()
                 .Where(t => t != null && t.Length > 2)
                 .Select(tag => new Items.Client.Model.ItemPreview
@@ -126,7 +135,7 @@ namespace Coflnet.Sky.Api.Controller
                     Name = source.Where(i => i.Tag == tag).FirstOrDefault()?.Name,
                     Tag = tag
                 }) ?? new Items.Client.Model.ItemPreview[0];
-            return recipeBased.Concat(similarName).Take(5);
+            return recipeBased;
         }
     }
 }
