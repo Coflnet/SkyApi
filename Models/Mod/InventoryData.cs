@@ -17,6 +17,10 @@ public class InventoryData
     /// Nbt formatted as json like mineflayer does it
     /// </summary>
     public dynamic JsonNbt;
+    /// <summary>
+    /// Id of the sender to identify and or contact
+    /// </summary>
+    public string SenderContactId;
 }
 
 /// <summary>

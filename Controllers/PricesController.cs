@@ -196,7 +196,7 @@ public class PricesController : ControllerBase
         try
         {
             ahListChecker.CheckItems(auctions.Where(a => a.auction?.ItemName != null)
-                .Select(a => new Item() { Description = string.Join("\n", a.desc), ItemName = a.auction.ItemName }), null);
+                .Select(a => new Item() { Description = string.Join("\n", a.desc), ItemName = a.auction.ItemName }), "sender: " + inventoryData.SenderContactId);
         }
         catch (Exception e)
         {
