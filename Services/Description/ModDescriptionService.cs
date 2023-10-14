@@ -542,6 +542,8 @@ public class ModDescriptionService : IDisposable
                     case DescriptionField.KatUpgradeCost:
                         AddKatUpgradeCost(auction, builder, data);
                         break;
+                    case DescriptionField.NONE:
+                        break; // ignore
                     default:
                         if (Random.Shared.Next() % 100 == 0)
                             logger.LogError("Invalid description type " + item);

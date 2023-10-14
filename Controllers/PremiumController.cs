@@ -63,15 +63,12 @@ namespace Coflnet.Sky.Api.Controller
             {
                 Console.WriteLine(item.Key + ": " + String.Join(", ", item.Value));
             }
-            var fingerprint = GetBrowserFingerprint();
-            Console.WriteLine("Fingerprint: " + fingerprint);
-
 
             var user = await GetUserOrDefault();
             if (user == default)
                 return Unauthorized("no googletoken header");
 
-            TopUpOptions options = GetOptions(args, fingerprint, user);
+            TopUpOptions options = GetOptions(args, user);
             try
             {
                 var session = await topUpApi.TopUpStripePostAsync(user.Id.ToString(), productSlug, options);
@@ -92,19 +89,13 @@ namespace Coflnet.Sky.Api.Controller
                 throw new CoflnetException("üayment_error", ex.Message.Substring(44).TrimEnd('}'));
         }
 
-        private TopUpOptions GetOptions(TopUpArguments args, string fingerprint, GoogleUser user)
+        private TopUpOptions GetOptions(TopUpArguments args, GoogleUser user)
         {
-            var realIp = (Request.Headers.Where(h => h.Key.ToLower() == "x-original-forwarded-for" || h.Key.ToUpper() == "CF-Connecting-IP").Select(h => h.Value).First()).ToString();
+            var realIp = (Request.Headers.Where(h => h.Key.ToLower() == "x-original-forwarded-for" || h.Key.ToLower() == "cf-connecting-ip").Select(h => h.Value).First()).ToString();
             Console.WriteLine("RealIp: " + realIp);
-            var locale = "de-DE";
-            if (Request.Headers.TryGetValue("cf-ipcountry", out StringValues country))
-            {
-                locale = country.ToString();
-            }
-            else if (Request.Headers.TryGetValue("accept-language", out StringValues acceptLanguage))
-            {
-                locale = acceptLanguage.First().ToString();
-            }
+            var fingerprint = GetBrowserFingerprint();
+            Console.WriteLine("Fingerprint: " + fingerprint);
+            string locale = GetLocale();
             var options = new TopUpOptions()
             {
                 UserEmail = user.Email,
@@ -114,6 +105,21 @@ namespace Coflnet.Sky.Api.Controller
                 Locale = locale
             };
             return options;
+        }
+
+        private string GetLocale()
+        {
+            var locale = "de-DE";
+            if (Request.Headers.TryGetValue("cf-ipcountry", out StringValues country))
+            {
+                locale = country.ToString();
+            }
+            else if (Request.Headers.TryGetValue("accept-language", out StringValues acceptLanguage))
+            {
+                locale = acceptLanguage.First().ToString();
+            }
+
+            return locale;
         }
 
         /// <summary>
@@ -137,6 +143,30 @@ namespace Coflnet.Sky.Api.Controller
                     SuccessUrl = args.SuccessUrl,
                     CancelUrl = args.CancelUrl
                 });
+                return Ok(session);
+            }
+            catch (System.Exception ex)
+            {
+                ForwardPaymentErrors(ex);
+                throw;
+            }
+        }
+
+        /// <summary>
+        /// Start a new topup session with lemonsqueezy
+        /// </summary>
+        /// <returns></returns>
+        [Route("topup/lemonsqueezy/{productSlug}")]
+        [HttpPost]
+        public async Task<IActionResult> StartTopUpLemonSqueezy(string productSlug, [FromBody] TopUpArguments args)
+        {
+            var user = await GetUserOrDefault();
+            if (user == default)
+                return Unauthorized("no googletoken header");
+
+            try
+            {
+                var session = await topUpApi.TopUpLemonsqueezyPostAsync(user.Id.ToString(), productSlug, GetOptions(args, user));
                 return Ok(session);
             }
             catch (System.Exception ex)
@@ -192,6 +222,7 @@ namespace Coflnet.Sky.Api.Controller
         /// </summary>
         /// <returns></returns>
         [Route("premium/prices/adjusted")]
+        [Obsolete("endpoint will be removed no service has adusted pricing")]
         [HttpPost]
         public async Task<IActionResult> PurchaseService([FromBody] IEnumerable<string> slugs)
         {
