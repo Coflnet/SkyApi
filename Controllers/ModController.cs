@@ -73,7 +73,7 @@ namespace Coflnet.Sky.Api.Controller
                 newId = Convert.ToBase64String(idBytes, 0, 16);
             }
 
-            var user = tokenService.GetUserWithToken(this, true);
+            GoogleUser user = await tokenService.GetUserWithToken(this, true);
             await settingsService.UpdateSetting("mod", newId, user.Id.ToString());
         }
 
