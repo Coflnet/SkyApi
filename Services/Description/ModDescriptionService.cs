@@ -795,7 +795,7 @@ public class ModDescriptionService : IDisposable
         if (inventory.JsonNbt != null)
         {
             return (new InventoryParser().Parse(inventory.JsonNbt) as IEnumerable<SaveAuction>)
-                    .Select(a => (a, a.Context?.GetValueOrDefault("lore")?.Split("\n") ?? new string[0].AsEnumerable())).ToList();
+                    .Select(a => (a, a?.Context?.GetValueOrDefault("lore")?.Split("\n") ?? new string[0].AsEnumerable())).ToList();
         }
         var nbt = NBT.File(Convert.FromBase64String(inventory.FullInventoryNbt));
         var auctionRepresent = nbt.RootTag.Get<fNbt.NbtList>("i").Select(t =>
