@@ -54,6 +54,7 @@ public class PricesController : ControllerBase
     }
     /// <summary>
     /// Aggregated sumary of item prices for the 3 last days
+    /// stackable items are reduced to a single item
     /// </summary>
     /// <param name="itemTag">The item tag you want prices for</param>
     /// <param name="query">Filter query</param>
