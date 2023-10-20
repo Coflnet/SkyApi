@@ -23,7 +23,6 @@ namespace Coflnet.Sky.Api.Controller
         private IConfiguration config;
         private TfmService tfm;
         private FlipTrackingService flipService;
-        private IScoresApi scoresApi;
         private ILogger<FlipController> logger;
         private PremiumTierService premiumTierService;
 
@@ -33,20 +32,17 @@ namespace Coflnet.Sky.Api.Controller
         /// <param name="config"></param>
         /// <param name="tfm"></param>
         /// <param name="flipService"></param>
-        /// <param name="scoresApi"></param>
         /// <param name="logger"></param>
         /// <param name="premiumTierService"></param>
         public FlipController(IConfiguration config,
                               TfmService tfm,
                               FlipTrackingService flipService,
-                              IScoresApi scoresApi,
                               ILogger<FlipController> logger,
                               PremiumTierService premiumTierService)
         {
             this.config = config;
             this.tfm = tfm;
             this.flipService = flipService;
-            this.scoresApi = scoresApi;
             this.logger = logger;
             this.premiumTierService = premiumTierService;
         }
@@ -175,22 +171,6 @@ namespace Coflnet.Sky.Api.Controller
             if (days > 7)
                 throw new CoflnetException("invalid_time", "You can only request one week at once");
             var result = await flipService.GetPlayerFlips(playerUuid, TimeSpan.FromDays(days), DateTime.UtcNow.AddDays(-offset));
-            _ = Task.Run(async () =>
-            {
-                try
-                {
-                    // postfix week
-                    var weekStartDate = DateTime.UtcNow.RoundDown(TimeSpan.FromDays(7)).ToString("yyyy-MM-dd");
-                    var boardSlug = $"sky-flippers-{weekStartDate}";
-                    var looserBoard = $"sky-flippers-loosers-{weekStartDate}";
-                    await scoresApi.ScoresLeaderboardSlugPostAsync(boardSlug, new ScoreCreate(playerUuid, result.TotalProfit, 100));
-                    await scoresApi.ScoresLeaderboardSlugPostAsync(looserBoard, new ScoreCreate(playerUuid, -result.TotalProfit, 100));
-                }
-                catch (Exception e)
-                {
-                    logger.LogError(e, "Failed to post flip score");
-                }
-            });
             return result;
         }
 
