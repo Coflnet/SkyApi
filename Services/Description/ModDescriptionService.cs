@@ -644,8 +644,12 @@ public class ModDescriptionService : IDisposable
         if (auction.FlatenedNBT != null && auction.FlatenedNBT.ContainsKey("uid"))
         {
             var uid = auction.FlatenedNBT["uid"];
-            if (pricesPaid.ContainsKey(uid))
-                builder.Append($"{McColorCodes.GRAY}Paid: {McColorCodes.YELLOW}{FormatNumber(pricesPaid[uid].Item1)} {McColorCodes.DARK_GRAY}{FormatTime(DateTime.UtcNow - pricesPaid[uid].Item2)} ago");
+            if (!pricesPaid.ContainsKey(uid))
+                return;
+            var time = "";
+            if (pricesPaid[uid].Item2 < new DateTime(2029, 1, 1))
+                time = $" {McColorCodes.DARK_GRAY}{FormatTime(DateTime.UtcNow - pricesPaid[uid].Item2)} ago";
+            builder.Append($"{McColorCodes.GRAY}Paid: {McColorCodes.YELLOW}{FormatNumber(pricesPaid[uid].Item1)}{time}");
         }
     }
 
