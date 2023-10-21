@@ -542,6 +542,9 @@ public class ModDescriptionService : IDisposable
                     case DescriptionField.KatUpgradeCost:
                         AddKatUpgradeCost(auction, builder, data);
                         break;
+                    case DescriptionField.InstaSellPrice:
+                        AddInstasellEstimate(price, builder, data);
+                        break;
                     case DescriptionField.NONE:
                         break; // ignore
                     default:
@@ -557,6 +560,11 @@ public class ModDescriptionService : IDisposable
 
 
         return mods;
+    }
+
+    private void AddInstasellEstimate(Sniper.Client.Model.PriceEstimate est, StringBuilder builder, DataContainer data)
+    {
+        builder.Append(ListPriceRecommend.GetRecommendText(est, this));
     }
 
     private void AddKatUpgradeCost(SaveAuction auction, StringBuilder builder, DataContainer data)
