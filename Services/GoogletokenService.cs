@@ -5,6 +5,7 @@ using Coflnet.Sky.Commands.Shared;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Primitives;
+using RestSharp;
 
 namespace Coflnet.Sky.Api;
 /// <summary>
@@ -37,7 +38,19 @@ public class GoogletokenService
         {
             return await UserService.Instance.GetUserByEmail(email);
         }
-        return UserService.Instance.GetOrCreateUser((await ValidateToken(token)).Subject);
+        var tokenData = await ValidateToken(token);
+        try
+        {
+            return UserService.Instance.GetOrCreateUser(tokenData.Subject, tokenData.Email);
+        }
+        catch (Exception)
+        {
+            var request = new RestRequest("user", Method.Post).AddJsonBody(new GoogleUser() { GoogleId = tokenData.Subject, Email = tokenData.Email });
+            var response = await IndexerClient.Client.ExecuteAsync<GoogleUser>(request);
+            var user = response.Data;
+            Console.WriteLine("created new user " + user.Id);
+            return user;
+        }
     }
 
     /// <summary>
