@@ -153,22 +153,23 @@ namespace Coflnet.Sky.Api.Controller
         /// Get flips stats for player
         /// </summary>
         /// <param name="playerUuid">Uuid of player to get stats for</param>
-        /// <param name="days"></param>
-        /// <param name="offsetDays">The amount of days to go into the past</param>
+        /// <param name="start"></param>
+        /// <param name="end">The end time to retrieve</param>
         /// <returns></returns>
         [Route("stats/player/{playerUuid}")]
         [HttpGet]
-        [ResponseCache(Duration = 600, Location = ResponseCacheLocation.Any, NoStore = false, VaryByQueryKeys = new string[] { "days", "offset" })]
-        public async Task<FlipSumary> GetStats(string playerUuid, float days = 7, double offsetDays = 0)
+        [ResponseCache(Duration = 600, Location = ResponseCacheLocation.Any, NoStore = false, VaryByQueryKeys = new string[] { "start", "end" })]
+        public async Task<FlipSumary> GetStats(string playerUuid, DateTime start, DateTime end)
         {
-            if (days + offsetDays > 7)
+            var length = (end - start);
+            if (length.TotalDays > 7 || start < DateTime.UtcNow.AddDays(-7.1))
                 if (!await premiumTierService.HasPremium(this))
                     throw new CoflnetException("invalid_time",
                         "Sorry but this is currently limited to one week for non premium users. "
                         + $"Please provide a google token as `{premiumTierService.HeaderName}` header to get further history");
-            if (days <= 0)
-                throw new CoflnetException("invalid_time", "You can't request flips in the future");
-            var result = await flipService.GetPlayerFlips(playerUuid, TimeSpan.FromDays(days), DateTime.UtcNow.AddDays(-offsetDays));
+            if (length.TotalDays <= 0)
+                throw new CoflnetException("invalid_time", "End has to be after start");
+            var result = await flipService.GetPlayerFlips(playerUuid, length, end);
             return result;
         }
 
