@@ -161,10 +161,11 @@ namespace Coflnet.Sky.Api.Controller
         [ResponseCache(Duration = 600, Location = ResponseCacheLocation.Any, NoStore = false, VaryByQueryKeys = new string[] { "start", "end" })]
         public async Task<FlipSumary> GetStats(string playerUuid, DateTime start, DateTime end)
         {
-            if(start == default)
-                start = DateTime.UtcNow.AddDays(-7);
             if(end == default)
                 end = DateTime.UtcNow;
+            if(start == default)
+                start = DateTime.UtcNow.AddDays(-7);
+            Console.WriteLine($"Getting stats for {playerUuid} from {start} to {end}");
             var length = (end - start);
             if (length.TotalDays > 7 || start < DateTime.UtcNow.AddDays(-7.1))
                 if (!await premiumTierService.HasPremium(this))
