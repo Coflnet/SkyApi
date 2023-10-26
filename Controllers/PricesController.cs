@@ -53,7 +53,7 @@ public class PricesController : ControllerBase
         this.ahListChecker = ahListChecker;
     }
     /// <summary>
-    /// Aggregated sumary of item prices for the 3 last days
+    /// Aggregated sumary of item prices for the 2 last days
     /// stackable items are reduced to a single item
     /// </summary>
     /// <param name="itemTag">The item tag you want prices for</param>
