@@ -50,7 +50,7 @@ public class TradeController : ControllerBase
             throw new CoflnetException("no_verified_account", "You need to verify on a minecraft account with our mod first");
         }
         var name = await playerNameApi.PlayerNameNameUuidGetAsync(uuid);
-        return await playerStateApi.PlayerStatePlayerIdLastChestGetAsync(name);
+        return await playerStateApi.PlayerStatePlayerIdLastChestGetAsync(name.Trim('"'));
     }
 
 }
