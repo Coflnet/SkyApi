@@ -66,7 +66,9 @@ namespace Coflnet.Sky.Api
                 var xmlFile = $"{Assembly.GetExecutingAssembly().GetName().Name}.xml";
                 var xmlPath = Path.Combine(AppContext.BaseDirectory, xmlFile);
                 c.IncludeXmlComments(xmlPath, true);
+               // c.CustomSchemaIds(t => t.FullName[12..].Replace("Models.","").Replace("Model.","").Replace("Client.",""));
             });
+            services.AddAutoMapper(typeof(Startup));
             services.AddCors(o =>
             {
                 o.AddPolicy(CORS_PLICY_NAME, p => p.AllowAnyHeader().AllowAnyMethod().AllowAnyOrigin());
@@ -103,13 +105,18 @@ namespace Coflnet.Sky.Api
             services.AddSingleton<IRateLimitCounterStore, DistributedCacheRateLimitCounterStore>();
             services.AddSingleton<IRateLimitConfiguration, RateLimitConfiguration>();
             services.AddCoflService();
-            services.AddSingleton<Sky.Mayor.Client.Api.IElectionPeriodsApi>(a =>
+            services.AddSingleton<Mayor.Client.Api.IElectionPeriodsApi>(a =>
             {
-                return new Sky.Mayor.Client.Api.ElectionPeriodsApi(Configuration["MAYOR_BASE_URL"]);
+                return new Mayor.Client.Api.ElectionPeriodsApi(Configuration["MAYOR_BASE_URL"]);
             });
-            services.AddSingleton<Sky.Proxy.Client.Api.IBaseApi>(a =>
+            services.AddSingleton<Proxy.Client.Api.IBaseApi>(a =>
             {
-                return new Sky.Proxy.Client.Api.BaseApi(Configuration["PROXY_BASE_URL"]);
+                return new Proxy.Client.Api.BaseApi(Configuration["PROXY_BASE_URL"]);
+            });
+
+            services.AddSingleton<Trade.Client.Api.ITradeApi>(p =>
+            {
+                return new Trade.Client.Api.TradeApi(Configuration["TRADE_BASE_URL"]);
             });
             services.AddSingleton<AhListChecker>();
 
