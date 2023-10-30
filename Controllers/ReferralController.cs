@@ -114,7 +114,9 @@ namespace Coflnet.Sky.Api.Controller
         {
             var minecraftAccounts = await connectApi.ConnectUserUserIdGetAsync(info.Inviter.ToString());
             var uuid = minecraftAccounts.Accounts.Where(a => a.Verified).OrderByDescending(a => a.LastRequestedAt).FirstOrDefault()?.AccountUuid;
-            var name = await playerNameApi.PlayerNameNameUuidGetAsync(uuid);
+            if(uuid == null)
+                return null;
+            var name = await playerNameApi.PlayerNameNameUuidGetAsync(uuid.Trim('"'));
             return name;
         }
 
