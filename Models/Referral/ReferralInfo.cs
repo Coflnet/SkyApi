@@ -7,6 +7,7 @@ namespace Coflnet.Sky.Api.Models.Referral
         public int PurchasedCoins { get; set; }
         public int PurchasedCoinAmount { get; set; }
         public string ReferredBy { get; set; }
+        public string InviterMinecraftName { get; set; }
         public OldRefInfo oldInfo { get; set; }
     }
 }

@@ -8,6 +8,7 @@ using System.Linq;
 using Coflnet.Sky.Api.Models.Referral;
 using Microsoft.EntityFrameworkCore;
 using Coflnet.Sky.Referral.Client.Model;
+using Coflnet.Sky.PlayerName.Client.Api;
 
 namespace Coflnet.Sky.Api.Controller
 {
@@ -22,6 +23,8 @@ namespace Coflnet.Sky.Api.Controller
         private IReferralApi refApi;
         private GoogletokenService tokenService;
         private HypixelContext db;
+        private McConnect.Api.IConnectApi connectApi;
+        private IPlayerNameApi playerNameApi;
         Hashids hashids = new Hashids("simple salt", 6);
 
         /// <summary>
@@ -30,12 +33,14 @@ namespace Coflnet.Sky.Api.Controller
         /// <param name="refApi"></param>
         /// <param name="premiumService"></param>
         /// <param name="db"></param>
-        public ReferralController(IReferralApi refApi, GoogletokenService premiumService, HypixelContext db)
+        /// <param name="connectApi"></param>
+        public ReferralController(IReferralApi refApi, GoogletokenService premiumService, HypixelContext db, McConnect.Api.IConnectApi connectApi, IPlayerNameApi playerNameApi)
         {
             this.refApi = refApi;
             this.tokenService = premiumService;
             this.db = db;
-            Console.WriteLine(GetId("QYMeyQ"));
+            this.connectApi = connectApi;
+            this.playerNameApi = playerNameApi;
         }
 
 
@@ -52,7 +57,6 @@ namespace Coflnet.Sky.Api.Controller
                 return Unauthorized("no googletoken header");
             try
             {
-
                 await refApi.ReferralUserIdPostAsync(GetId(args.RefCode).ToString(), user.Id.ToString());
                 return Ok();
             }
@@ -86,21 +90,32 @@ namespace Coflnet.Sky.Api.Controller
                 dev.Logger.Instance.Error(e, "getting ref info");
                 info = new RefInfo(new ReferralElement(), new List<ReferralElement>());
             }
+            var nameTask = GetInviterMinecraftName(info);
             string refedBy = null;
             if (!string.IsNullOrEmpty(info?.Inviter?.Inviter))
             {
                 var referrer = UserService.Instance.GetUserById(int.Parse(info.Inviter.Inviter));
                 refedBy = UserService.Instance.AnonymiseEmail(referrer.Email);
             }
+            var name = await nameTask;
             return Ok(new ReferralInfo()
             {
                 oldInfo = oldInfo,
                 ReferredBy = refedBy,
+                InviterMinecraftName = name,
                 ReferedCount = info.Invited.Count,
                 ValidatedMinecraft = info.Invited.Where(i => i.Flags.Value.HasFlag(ReferralFlags.NUMBER_1)).Count(),
                 PurchasedCoins = info.Invited.Where(i => i.Flags.Value.HasFlag(ReferralFlags.NUMBER_2)).Count(),
                 PurchasedCoinAmount = info.Invited.Sum(i => i.PurchaseAmount)
             });
+        }
+
+        private async Task<string> GetInviterMinecraftName(RefInfo info)
+        {
+            var minecraftAccounts = await connectApi.ConnectUserUserIdGetAsync(info.Inviter.ToString());
+            var uuid = minecraftAccounts.Accounts.Where(a => a.Verified).OrderByDescending(a => a.LastRequestedAt).FirstOrDefault()?.AccountUuid;
+            var name = await playerNameApi.PlayerNameNameUuidGetAsync(uuid);
+            return name;
         }
 
         private async Task<OldRefInfo> GetOldRefInfo(GoogleUser user)
