@@ -112,7 +112,10 @@ namespace Coflnet.Sky.Api.Controller
 
         private async Task<string> GetInviterMinecraftName(RefInfo info)
         {
-            var minecraftAccounts = await connectApi.ConnectUserUserIdGetAsync(info.Inviter.ToString());
+            var inviterId = info?.Inviter?.Inviter;
+            if(inviterId == null)
+                return null;
+            var minecraftAccounts = await connectApi.ConnectUserUserIdGetAsync(inviterId.ToString());
             var uuid = minecraftAccounts.Accounts.Where(a => a.Verified).OrderByDescending(a => a.LastRequestedAt).FirstOrDefault()?.AccountUuid;
             if(uuid == null)
                 return null;
