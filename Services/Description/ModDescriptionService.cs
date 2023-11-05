@@ -722,8 +722,10 @@ public class ModDescriptionService : IDisposable
     {
         if (price?.Lbin != null && price.Lbin.Price != 0)
         {
-            var prefix = price.ItemKey == price.LbinKey ? "" : "~";
-            builder.Append($"{McColorCodes.GRAY}lbin: {McColorCodes.YELLOW}{prefix}{FormatNumber(price.Lbin.Price)} ");
+            if (price.ItemKey == price.LbinKey)
+                builder.Append($"{McColorCodes.GRAY}lbin: {McColorCodes.YELLOW}{FormatNumber(price.Lbin.Price)} ");
+            else
+                builder.Append($"{McColorCodes.GRAY}lbin: ~{FormatNumber(price.Lbin.Price)} {McColorCodes.DARK_GRAY}(estimate, no match found)");
             if (auction.Count > 1)
             {
                 builder.Append($"({FormatNumber(price.Lbin.Price / auction.Count)} each)");
