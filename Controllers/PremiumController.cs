@@ -22,6 +22,7 @@ namespace Coflnet.Sky.Api.Controller
         private TopUpApi topUpApi;
         private UserApi userApi;
         private GoogletokenService tokenService;
+        private ITransactionApi transactionApi;
 
         /// <summary>
         /// Creates a new intance of <see cref="PremiumController"/>
@@ -30,12 +31,19 @@ namespace Coflnet.Sky.Api.Controller
         /// <param name="topUpApi"></param>
         /// <param name="userApi"></param>
         /// <param name="premiumService"></param>
-        public PremiumController(ProductsApi productsService, TopUpApi topUpApi, UserApi userApi, GoogletokenService premiumService)
+        /// <param name="transactionApi"></param>
+        public PremiumController(
+            ProductsApi productsService,
+            TopUpApi topUpApi,
+            UserApi userApi,
+            GoogletokenService premiumService,
+            ITransactionApi transactionApi)
         {
             this.productsService = productsService;
             this.topUpApi = topUpApi;
             this.userApi = userApi;
             this.tokenService = premiumService;
+            this.transactionApi = transactionApi;
         }
 
         /// <summary>
@@ -262,6 +270,30 @@ namespace Coflnet.Sky.Api.Controller
                 {
                     ExpiresAt = o.Value
                 }));
+            }
+            catch (Exception e)
+            {
+                throw new CoflnetException("payment_error", e.Message);
+            }
+        }
+
+        /// <summary>
+        /// Get transaction history
+        /// </summary>
+        /// <returns></returns>
+        [Route("premium/transactions")]
+        [HttpGet]
+        public async Task<ActionResult<IEnumerable<CoinTransaction>>> GetTransactions()
+        {
+            var user = await GetUserOrDefault();
+            if (user == default)
+                return Unauthorized("no googletoken header");
+            try
+            {
+                var transactions = await transactionApi.TransactionUUserIdGetAsync(user.Id.ToString());
+                if (transactions == null)
+                    return NotFound();
+                return Ok(transactions);
             }
             catch (Exception e)
             {
