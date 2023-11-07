@@ -16,7 +16,7 @@ namespace Coflnet.Sky.Api.Models
         {
             this.CoreData = new(up.CoreData);
             this.OriginAuction = up.OriginAuction;
-            this.TargetRarity = (Tier?)up.TargetRarity -1;
+            this.TargetRarity = (Tier?)up.TargetRarity;
             this.MaterialCost = up.MaterialCost;
             this.UpgradeCost = up.UpgradeCost;
             this.Profit = up.Profit;
