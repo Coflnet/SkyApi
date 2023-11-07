@@ -167,7 +167,7 @@ public class PricesController : ControllerBase
                 try
                 {
                     var options = f.OptionsGet(new OptionValues(all));
-                    return true;
+                    return options.Count() > 0;
                 }
                 catch (System.Exception e)
                 {
