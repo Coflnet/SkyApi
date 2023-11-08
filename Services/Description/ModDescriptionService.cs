@@ -48,7 +48,7 @@ public class ModDescriptionService : IDisposable
     private IServiceScopeFactory scopeFactory;
     private BazaarApi bazaarApi;
     private PlayerName.PlayerNameService playerNameService;
-    private ILogger<ModDescriptionService> logger;
+    public ILogger<ModDescriptionService> logger;
     private IConfiguration config;
     private IStateUpdateService stateService;
     private ItemSkinHandler itemSkinHandler;

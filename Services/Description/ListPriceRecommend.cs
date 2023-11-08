@@ -1,6 +1,8 @@
 using Coflnet.Sky.Api.Models.Mod;
 using Coflnet.Sky.Commands.MC;
 using Coflnet.Sky.Sniper.Client.Model;
+using Microsoft.Extensions.Logging;
+using Newtonsoft.Json;
 
 namespace Coflnet.Sky.Api.Services.Description;
 
@@ -14,9 +16,13 @@ public class ListPriceRecommend : CustomModifier
 
     public static string GetRecommendText(PriceEstimate pricing, ModDescriptionService modService)
     {
-        var text = $"No recommended instasell from Coflnet";
-        if (pricing.Median > 5_000_000)
+        if (pricing.Median <= 4_000_000)
         {
+            return $"No recommended instasell from Coflnet";
+        }
+        try
+        {
+
             var deduct = 0.12;
             if (pricing.Median < 15_000_000)
                 deduct = 0.18;
@@ -28,9 +34,12 @@ public class ListPriceRecommend : CustomModifier
                 target = fromMed;
 
             var formattedPrice = modService.FormatNumber(target);
-            text = $"{McColorCodes.GREEN}Instasell: {McColorCodes.DARK_GREEN}{formattedPrice} {McColorCodes.WHITE}based on Coflnet data";
+            return $"{McColorCodes.GREEN}Instasell: {McColorCodes.DARK_GREEN}{formattedPrice} {McColorCodes.WHITE}based on Coflnet data";
         }
-
-        return text;
+        catch (Exception e)
+        {
+            modService.logger.LogError(e, "Error while calculating price {pricing}", JsonConvert.SerializeObject(pricing));
+            return $"No recommended instasell from Coflnet";
+        }
     }
 }
