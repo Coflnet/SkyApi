@@ -202,7 +202,7 @@ namespace Coflnet.Sky.Api.Controller
         /// <returns></returns>
         [Route("stats/finder/{finderName}")]
         [HttpGet]
-        [Obsolute("This endpoint got deprecated. This was made for tfm which doesn't use it anymore. If you do, please open a suggestion thread on our discord.")]
+        [Obsolete("This endpoint got deprecated. This was made for tfm which doesn't use it anymore. If you do, please open a suggestion thread on our discord.")]
         public async Task<List<FlipDetails>> GetFlipsForFinder(string finderName, DateTime start = default, DateTime end = default)
         {
             throw new CoflnetException("deprecated", "This endpoint got deprecated. This was made for tfm which doesn't use it anymore. If you do, please open a suggestion thread on our discord.");
