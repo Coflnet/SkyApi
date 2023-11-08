@@ -202,14 +202,10 @@ namespace Coflnet.Sky.Api.Controller
         /// <returns></returns>
         [Route("stats/finder/{finderName}")]
         [HttpGet]
-        [ResponseCache(Duration = 300, Location = ResponseCacheLocation.Any, NoStore = false, VaryByQueryKeys = new string[] { "start", "end" })]
+        [Obsolute("This endpoint got deprecated. This was made for tfm which doesn't use it anymore. If you do, please open a suggestion thread on our discord.")]
         public async Task<List<FlipDetails>> GetFlipsForFinder(string finderName, DateTime start = default, DateTime end = default)
         {
-            if (end == default)
-                end = DateTime.Now;
-            if (start == default)
-                start = end - TimeSpan.FromHours(1);
-            return await flipService.GetFlipsForFinder(Enum.Parse<LowPricedAuction.FinderType>(finderName, true), start, end);
+            throw new CoflnetException("deprecated", "This endpoint got deprecated. This was made for tfm which doesn't use it anymore. If you do, please open a suggestion thread on our discord.");
         }
     }
 }
