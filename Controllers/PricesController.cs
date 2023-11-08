@@ -203,7 +203,8 @@ public class PricesController : ControllerBase
         {
             logger.LogError(e, "failed to publish inventory nbt");
         }
-        var data = await modDescriptionSerice.GetPrices(auctions.Select(a => a.auction));
+        var data = await modDescriptionSerice.GetPrices(auctions.Select(a => a.auction)) 
+            ?? throw new CoflnetException("sniper_unreachable", "The sniper service could not be reached for prices");
         counter.Inc();
         return data.Select(d =>
         {
