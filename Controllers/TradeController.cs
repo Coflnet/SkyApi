@@ -70,7 +70,7 @@ public class TradeController : ControllerBase
     [HttpPost]
     public async Task CreateTrade([FromBody] List<TradeRequest> trades)
     {
-        var mapped = mapper.Map<List<Trade.Client.Model.TradeRequestDTO>>(trades);
+        var mapped = mapper.Map<List<TradeRequest>,List<TradeRequestDTO>>(trades);
         string uuid = await GetPlayerUuid();
         foreach (var trade in mapped)
         {
