@@ -8,12 +8,12 @@ COPY SkyApi.csproj SkyApi.csproj
 RUN dotnet restore
 COPY . .
 RUN dotnet test
-RUN dotnet publish -c release
+RUN dotnet publish -c release -o /app
 
 FROM mcr.microsoft.com/dotnet/sdk:7.0
 WORKDIR /app
 
-COPY --from=build /build/sky/bin/release/net7.0/publish/ .
+COPY --from=build /app .
 
 ENV ASPNETCORE_URLS=http://+:8000
 
