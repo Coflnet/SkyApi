@@ -10,6 +10,8 @@ public class TradeRequest
     //     Gets or Sets PlayerUuid
     [DataMember(Name = "playerUuid", EmitDefaultValue = true)]
     public string PlayerUuid { get; set; }
+    [DataMember(Name = "playerUuid", EmitDefaultValue = false)]
+    public string PlayerName { get; set; }
 
     //
     // Summary:

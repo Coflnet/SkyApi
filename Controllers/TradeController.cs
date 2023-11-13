@@ -87,7 +87,13 @@ public class TradeController : ControllerBase
     public async Task<List<TradeRequest>> GetTrades(Dictionary<string, string>? filters = null)
     {
         var requests = await tradeApi.ApiTradesGetTradesByFiltersGetAsync(filters);
-        return mapper.Map<List<TradeRequest>>(requests);
+        var mapped = mapper.Map<List<TradeRequest>>(requests);
+        var names = playerNameApi.PlayerNameNamesBatchPostAsync(mapped.Select(t => t.PlayerUuid).ToList());
+        foreach (var trade in mapped)
+        {
+            trade.PlayerName = names.Result.FirstOrDefault(n => n.Key == trade.PlayerUuid).Value;
+        }
+        return mapped;
     }
 
     private async Task<string> GetPlayerUuid()
