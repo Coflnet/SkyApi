@@ -12,6 +12,9 @@ public class OrganizationProfile : Profile
         CreateMap<PlayerState.Client.Model.Item, Item>();
         CreateMap<Models.WantedItem, Trade.Client.Model.WantedItem>()
             .ForMember(d => d.Id, o => o.Ignore());
-        // Use CreateMap... Etc.. here (Profile methods are the same as configuration methods)
+
+        CreateMap<TradeRequestDTO, TradeRequest>();
+        CreateMap<Item, PlayerState.Client.Model.Item>();
+        CreateMap<Trade.Client.Model.WantedItem, Models.WantedItem>();
     }
 }
