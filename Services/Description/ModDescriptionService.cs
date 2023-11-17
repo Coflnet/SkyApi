@@ -820,7 +820,11 @@ public class ModDescriptionService : IDisposable
                 if (compound.Count == 0)
                     return (null, new string[0]);
                 if (NBT.ItemID(compound) == null)
-                    return (null, new string[0]); // skip all items without id
+                    if (NBT.GetName(compound) != "§8Quiver Arrow")
+                        return (null, new string[0]); // skip all items without id
+                    else
+                        // quiver arrow when selected a bow
+                        return (new SaveAuction() { Tag = "SKYBLOCK_MENU", ItemName = "§8Quiver Arrow" }, new string[0]);
                 var auction = new SaveAuction();
                 auction.Context = new Dictionary<string, string>();
                 NBT.FillFromTag(auction, compound, true);
