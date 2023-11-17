@@ -82,6 +82,13 @@ public class TradeController : ControllerBase
         {
             trade.PlayerUuid = uuid;
             trade.UserId = user.Id.ToString();
+            foreach (var item in trade.WantedItems)
+            {
+                if (item.Tag == null)
+                    continue;
+                if(ItemDetails.Instance.GetItemIdForTag(item.Tag) == 0)
+                    throw new CoflnetException("invalid_item", $"The item tag `{item.Tag}` is invalid");
+            }
         }
         await tradeApi.ApiTradesInsertTradesPostAsync(mapped);
     }
