@@ -5,6 +5,8 @@ namespace Coflnet.Sky.Api.Models;
 
 public class TradeRequest
 {
+    [DataMember(Name = "id", EmitDefaultValue = true)]
+    public string? Id { get; set; }
     //
     // Summary:
     //     Gets or Sets PlayerUuid

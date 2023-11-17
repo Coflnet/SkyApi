@@ -24,6 +24,7 @@ using AspNetCoreRateLimit;
 using AspNetCoreRateLimit.Redis;
 using Coflnet.Sky.Api.Services;
 using Coflnet.Sky.Filter;
+using AutoMapper;
 
 namespace Coflnet.Sky.Api
 {
@@ -66,7 +67,7 @@ namespace Coflnet.Sky.Api
                 var xmlFile = $"{Assembly.GetExecutingAssembly().GetName().Name}.xml";
                 var xmlPath = Path.Combine(AppContext.BaseDirectory, xmlFile);
                 c.IncludeXmlComments(xmlPath, true);
-               // c.CustomSchemaIds(t => t.FullName[12..].Replace("Models.","").Replace("Model.","").Replace("Client.",""));
+                // c.CustomSchemaIds(t => t.FullName[12..].Replace("Models.","").Replace("Model.","").Replace("Client.",""));
             });
             services.AddAutoMapper(typeof(OrganizationProfile));
             services.AddCors(o =>
@@ -128,7 +129,7 @@ namespace Coflnet.Sky.Api
         /// <summary>
         /// This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
         /// </summary>
-        public void Configure(IApplicationBuilder app, IWebHostEnvironment env, ILogger<Startup> logger)
+        public void Configure(IApplicationBuilder app, IWebHostEnvironment env, ILogger<Startup> logger, IMapper mapper)
         {
             app.UseExceptionHandler(errorApp =>
             {
@@ -137,6 +138,7 @@ namespace Coflnet.Sky.Api
             if (env.IsDevelopment())
             {
                 app.UseDeveloperExceptionPage();
+                mapper.ConfigurationProvider.AssertConfigurationIsValid();
             }
             app.UseSwagger();
             app.UseSwagger(a =>
