@@ -51,7 +51,7 @@ namespace Coflnet.Sky.Api.Controller
         {
             AssertUuid(playerUuid);
             var offset = pageSize * page;
-            var baseSelect = context.Bids.Where(b => b.BidderId == context.Players.Where(p => p.UuId == playerUuid).Select(p => p.Id).FirstOrDefault());
+            var baseSelect = context.Bids.Where(b => b.BidderId == context.Players.Where(p => p.UuId == playerUuid && b.BidderId != 0).Select(p => p.Id).FirstOrDefault());
             filters.Remove("page");
             if (filters.TryGetValue("tag", out string itemTag))
             {
@@ -124,7 +124,7 @@ namespace Coflnet.Sky.Api.Controller
             var offset = pageSize * page;
             filters.Remove("page");
             var baseSelect = context.Auctions
-                        .Where(a => a.SellerId == context.Players.Where(p => p.UuId == playerUuid).Select(p => p.Id).FirstOrDefault());
+                        .Where(a => a.SellerId == context.Players.Where(p => p.UuId == playerUuid).Select(p => p.Id).FirstOrDefault() && a.SellerId != 0);
             if (filters.TryGetValue("tag", out string itemTag))
             {
                 int itemId = ExtractItemIdFromFilter(filters, itemTag);
