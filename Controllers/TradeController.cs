@@ -18,7 +18,6 @@ namespace Coflnet.Sky.Api.Controller;
 /// </summary>
 [ApiController]
 [Route("api")]
-[ResponseCache(Duration = 120, Location = ResponseCacheLocation.Any, NoStore = false)]
 public class TradeController : ControllerBase
 {
     private readonly ILogger<TradeController> logger;
@@ -55,6 +54,7 @@ public class TradeController : ControllerBase
     /// </summary>
     [Route("inventory")]
     [HttpGet]
+    [ResponseCache(Duration = 0, Location = ResponseCacheLocation.None, NoStore = true)]
     public async Task<List<PlayerState.Client.Model.Item>> GetInventory()
     {
         GoogleUser user = await googletokenService.GetUserWithToken(this);
@@ -75,7 +75,7 @@ public class TradeController : ControllerBase
     [HttpPost]
     public async Task CreateTrade([FromBody] List<TradeRequest> trades)
     {
-        var mapped = mapper.Map<List<TradeRequest>,List<TradeRequestDTO>>(trades);
+        var mapped = mapper.Map<List<TradeRequest>, List<TradeRequestDTO>>(trades);
         GoogleUser user = await googletokenService.GetUserWithToken(this);
         string uuid = await GetPlayerUuid(user);
         foreach (var trade in mapped)
@@ -86,7 +86,7 @@ public class TradeController : ControllerBase
             {
                 if (item.Tag == null)
                     continue;
-                if(ItemDetails.Instance.GetItemIdForTag(item.Tag) == 0)
+                if (ItemDetails.Instance.GetItemIdForTag(item.Tag) == 0)
                     throw new CoflnetException("invalid_item", $"The item tag `{item.Tag}` is invalid");
             }
         }
@@ -140,6 +140,7 @@ public class TradeController : ControllerBase
     /// </summary>
     [Route("trades/own")]
     [HttpGet]
+    [ResponseCache(Duration = 0, Location = ResponseCacheLocation.None, NoStore = true)]
     public async Task<List<TradeRequest>> GetMyTrades()
     {
         GoogleUser user = await googletokenService.GetUserWithToken(this);
