@@ -97,10 +97,11 @@ public class TradeController : ControllerBase
     /// Returns trades based on the given filters
     /// </summary>
     [Route("trades")]
+    [ResponseCache(Duration = 30, Location = ResponseCacheLocation.Any, NoStore = false, VaryByQueryKeys = new string[] { "*" })]
     [HttpGet]
-    public async Task<List<TradeRequest>> GetTrades(Dictionary<string, string>? filters = null)
+    public async Task<List<TradeRequest>> GetTrades(Dictionary<string, string>? filters = null, int page = 0, int pageSize = 10)
     {
-        var requests = await tradeApi.ApiTradesGetTradesByFiltersGetAsync(filters);
+        var requests = await tradeApi.ApiTradesGetTradesByFiltersGetAsync(filters, pageSize, page);
         var mapped = mapper.Map<List<TradeRequest>>(requests);
         await FillDataForDisplay(mapped);
         return mapped;
@@ -128,8 +129,9 @@ public class TradeController : ControllerBase
     [HttpDelete]
     public async Task DeleteTrade(string id)
     {
-        GoogleUser user = await googletokenService.GetUserWithToken(this);
         var numericId = hashids.DecodeLong(id).FirstOrDefault();
+        Console.WriteLine($"Deleting trade {numericId}");
+        GoogleUser user = await googletokenService.GetUserWithToken(this);
         await tradeApi.ApiTradesTradeUserIdIdDeleteAsync(user.Id.ToString(), numericId);
     }
 
