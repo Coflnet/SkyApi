@@ -258,27 +258,7 @@ public class ModDescriptionService : IDisposable
     private async Task ComputeDescriptions(InventoryDataWithSettings inventory, string mcName, string sessionId, List<(SaveAuction auction, IEnumerable<string> desc)> auctionRepresent, List<List<DescModification>> result)
     {
         var pricesTask = GetPrices(auctionRepresent.Select(a => a.auction));
-        if (deserializedCache.LastUpdate < DateTime.UtcNow.AddMinutes(-2) && !deserializedCache.IsUpdating)
-        {
-            deserializedCache.IsUpdating = true;
-            _ = Task.Run(async () =>
-            {
-                try
-                {
-                    var allCrafts = await craftsApi.CraftsAllGetAsync();
-                    deserializedCache.Crafts = allCrafts.Where(c => c.CraftCost > 0).ToDictionary(c => c.ItemId, c => c);
-                    deserializedCache.BazaarItems = (await bazaarApi.ApiBazaarPricesGetAsync())?.ToDictionary(p => p.ProductId);
-                    deserializedCache.LastUpdate = DateTime.UtcNow;
-                    deserializedCache.IsUpdating = false;
-                    var kat = await katApi.KatRawGetAsync();
-                    deserializedCache.Kat = kat.ToDictionary(k => (k.ItemTag, Enum.Parse<Tier>(k?.BaseRarity?.ToString() ?? "LEGENDARY")));
-                }
-                catch (Exception e)
-                {
-                    logger.LogError(e, "failed to update deserialized cache");
-                }
-            });
-        }
+        CheckUpToDateCache();
 
         var userSettings = await GetSettingForConid(mcName, sessionId);
         List<Item> items = new();
@@ -306,7 +286,7 @@ public class ModDescriptionService : IDisposable
         var salesData = await pricesPaidTask;
         var pricePaid = salesData.Where(p => p.Where(s => !s.requestingUserIsSeller && s.highest > 0).Any()).ToDictionary(p => p.Key, p =>
         {
-            var sell = p.OrderByDescending(a => a.end).Where(s => !s.requestingUserIsSeller && s.highest > 0).First();
+            var sell = p.OrderByDescending(a => a.end).Where(s => !s.requestingUserIsSeller && s.highest > 0 && s.end < DateTime.UtcNow).First();
             return (sell.highest, sell.end);
         });
         var res = await pricesTask;
@@ -373,6 +353,31 @@ public class ModDescriptionService : IDisposable
             {
                 logger.LogError(e, "failed to apply custom modifier " + item.Key);
             }
+        }
+    }
+
+    private void CheckUpToDateCache()
+    {
+        if (deserializedCache.LastUpdate < DateTime.UtcNow.AddMinutes(-2) && !deserializedCache.IsUpdating)
+        {
+            deserializedCache.IsUpdating = true;
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    var allCrafts = await craftsApi.CraftsAllGetAsync();
+                    deserializedCache.Crafts = allCrafts.Where(c => c.CraftCost > 0).ToDictionary(c => c.ItemId, c => c);
+                    deserializedCache.BazaarItems = (await bazaarApi.ApiBazaarPricesGetAsync())?.ToDictionary(p => p.ProductId);
+                    deserializedCache.LastUpdate = DateTime.UtcNow;
+                    deserializedCache.IsUpdating = false;
+                    var kat = await katApi.KatRawGetAsync();
+                    deserializedCache.Kat = kat.ToDictionary(k => (k.ItemTag, Enum.Parse<Tier>(k?.BaseRarity?.ToString() ?? "LEGENDARY")));
+                }
+                catch (Exception e)
+                {
+                    logger.LogError(e, "failed to update deserialized cache");
+                }
+            });
         }
     }
 #nullable disable
