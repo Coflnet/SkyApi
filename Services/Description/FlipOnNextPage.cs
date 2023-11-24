@@ -31,7 +31,7 @@ public class FlipOnNextPage : CustomModifier
         targetItem.Insert(0, new DescModification(DescModification.ModType.REPLACE, 0, $"{McColorCodes.GREEN}Next page: {originalDesc.Split('\n').First()}"));
         if (bestFlip == default)
         {
-            targetItem.Insert(0, new DescModification(DescModification.ModType.REPLACE, 1, $"No flips found according to Coflent data"));
+            targetItem.Insert(0, new DescModification(DescModification.ModType.REPLACE, 1, $"No flips found, based on Coflnet data"));
             return;
         }
         Console.WriteLine(JsonConvert.SerializeObject(data.Items[index]));
