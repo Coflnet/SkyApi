@@ -103,7 +103,9 @@ public class ModDescriptionService : IDisposable
         customModifiers.Add("You    ", new TradeWarning());
         customModifiers.Add("Create BIN", new ListPriceRecommend());
         customModifiers.Add("Manage Auctions", new AuctionValueSummary());
-        customModifiers.Add("Auctions Browser", new FlipOnNextPage());
+        var nextPageFlip = new FlipOnNextPage();
+        customModifiers.Add("Auctions Browser", nextPageFlip);
+        customModifiers.Add("Auctions:", nextPageFlip);
         var bitsToCoins = new BitsCoinValue();
         customModifiers.Add("Community Shop", bitsToCoins);
         customModifiers.Add("Bits Shop", bitsToCoins);
