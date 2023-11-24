@@ -37,7 +37,7 @@ public class FlipOnNextPage : CustomModifier
         Console.WriteLine(JsonConvert.SerializeObject(data.Items[index]));
         targetItem.Insert(0, new DescModification(DescModification.ModType.INSERT, 1, $"Best flip on page:"));
         targetItem.Insert(0, new DescModification(DescModification.ModType.INSERT, 1, bestFlip.First.auction?.ItemName));
-        targetItem.Insert(1, new DescModification(DescModification.ModType.INSERT, 2, $"Lbin profit: {(bestFlip.lbinProfit == 0 ? "" : McColorCodes.GOLD)}{data.modService.FormatNumber(bestFlip.lbinProfit)}"));
+       // targetItem.Insert(1, new DescModification(DescModification.ModType.INSERT, 2, $"Lbin profit: {(bestFlip.lbinProfit == 0 ? "" : McColorCodes.GOLD)}{data.modService.FormatNumber(bestFlip.lbinProfit)}"));
         targetItem.Insert(1, new DescModification(DescModification.ModType.REPLACE, 2, $"Med profit: {McColorCodes.GOLD}{data.modService.FormatNumber(bestFlip.profit)}"));
     }
 }
