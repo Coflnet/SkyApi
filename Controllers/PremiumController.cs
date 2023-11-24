@@ -15,7 +15,7 @@ namespace Coflnet.Sky.Api.Controller
     /// </summary>
     [ApiController]
     [Route("api")]
-    [ResponseCache(Duration = 120, Location = ResponseCacheLocation.Any, NoStore = false)]
+    [ResponseCache(Duration = 0, Location = ResponseCacheLocation.None, NoStore = true)]
     public class PremiumController : ControllerBase
     {
         private ProductsApi productsService;
