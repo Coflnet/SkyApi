@@ -30,7 +30,7 @@ public class FlipOnNextPage : CustomModifier
         var targetItem = data.mods[index];
         var originalDesc = data.Items[index].Description;
         // move next page counter up
-        targetItem.Insert(0, new DescModification(DescModification.ModType.REPLACE, 0, $"{McColorCodes.GREEN}Next page: {originalDesc.Split('\n').First()}"));
+        targetItem.Insert(0, new DescModification(DescModification.ModType.REPLACE, 0, $"{McColorCodes.GREEN}Next page: {originalDesc?.Split('\n').First()}"));
         if (bestFlip == default)
         {
             targetItem.Insert(0, new DescModification(DescModification.ModType.REPLACE, 1, $"No flips found, based on Coflnet data"));

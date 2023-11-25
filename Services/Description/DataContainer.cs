@@ -17,6 +17,18 @@ public class DataContainer
     internal ModDescriptionService modService;
     public ILookup<string, ListingSum> itemListings;
     internal Dictionary<(string, Core.Tier), KatUpgradeCost> katUpgradeCost;
+    internal Dictionary<string, long> itemPrices = new();
 
     public List<Item> Items { get; internal set; }
+
+    public long GetItemprice(string itemKey)
+    {
+        if (itemKey == null)
+            return 0;
+        if (itemPrices.TryGetValue(itemKey, out var price))
+            return price;
+        if (bazaarPrices.TryGetValue(itemKey, out var bazaarPrice))
+            return (long)bazaarPrice.SellPrice;
+        return 0;
+    }
 }

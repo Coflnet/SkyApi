@@ -32,30 +32,32 @@ public class DeserializedCache
     public Dictionary<string, Crafts.Client.Model.ProfitableCraft> Crafts = new();
     public Dictionary<(string, Tier), Crafts.Client.Model.KatUpgradeCost> Kat = new();
     public Dictionary<string, Bazaar.Client.Model.ItemPrice> BazaarItems = new();
+    public Dictionary<string, long> ItemPrices = new();
     public DateTime LastUpdate = DateTime.MinValue;
     public bool IsUpdating = false;
 }
 
 public class ModDescriptionService : IDisposable
 {
-    private static string BitsRegexPattern = @".*?(\d*\.?\d+|\d{1,3}(,\d{3})*(\.\d+)?) Bits.*";
+    private static readonly string BitsRegexPattern = @".*?(\d*\.?\d+|\d{1,3}(,\d{3})*(\.\d+)?) Bits.*";
 
-    private ICraftsApi craftsApi;
-    private ISniperClient sniperClient;
-    private AhListChecker ahListChecker;
-    private SettingsService settingsService;
-    private IdConverter idConverter;
-    private IServiceScopeFactory scopeFactory;
-    private BazaarApi bazaarApi;
-    private PlayerName.PlayerNameService playerNameService;
+    private readonly ICraftsApi craftsApi;
+    private readonly ISniperClient sniperClient;
+    private readonly AhListChecker ahListChecker;
+    private readonly SettingsService settingsService;
+    private readonly IdConverter idConverter;
+    private readonly IServiceScopeFactory scopeFactory;
+    private readonly BazaarApi bazaarApi;
+    private readonly PlayerName.PlayerNameService playerNameService;
     public ILogger<ModDescriptionService> logger;
-    private IConfiguration config;
-    private IStateUpdateService stateService;
-    private ItemSkinHandler itemSkinHandler;
-    private IKatApi katApi;
-    private ClassNameDictonary<CustomModifier> customModifiers = new();
-    private DeserializedCache deserializedCache = new();
-    private PropertyMapper mapper = new();
+    private readonly IConfiguration config;
+    private readonly IStateUpdateService stateService;
+    private readonly ItemSkinHandler itemSkinHandler;
+    private readonly IKatApi katApi;
+    private readonly ClassNameDictonary<CustomModifier> customModifiers = new();
+    private readonly DeserializedCache deserializedCache = new();
+    private readonly PropertyMapper mapper = new();
+    private readonly Coflnet.Sky.Core.Services.HypixelItemService itemService;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="ModDescriptionService"/> class.
@@ -75,6 +77,7 @@ public class ModDescriptionService : IDisposable
     /// <param name="itemSkinHandler"></param>
     /// <param name="ahListChecker"></param>
     /// <param name="katApi"></param>
+    /// <param name="itemService"></param>
     public ModDescriptionService(ICraftsApi craftsApi,
                                  SettingsService settingsService,
                                  IdConverter idConverter,
@@ -88,7 +91,8 @@ public class ModDescriptionService : IDisposable
                                  KafkaCreator kafkaCreator,
                                  ItemSkinHandler itemSkinHandler,
                                  AhListChecker ahListChecker,
-                                 IKatApi katApi)
+                                 IKatApi katApi,
+                                 Coflnet.Sky.Core.Services.HypixelItemService itemService)
     {
         this.craftsApi = craftsApi;
         this.settingsService = settingsService;
@@ -112,9 +116,10 @@ public class ModDescriptionService : IDisposable
         this.itemSkinHandler = itemSkinHandler;
         this.ahListChecker = ahListChecker;
         this.katApi = katApi;
+        this.itemService = itemService;
     }
 
-    private ConcurrentDictionary<string, SelfUpdatingValue<DescriptionSetting>> settings = new();
+    private readonly ConcurrentDictionary<string, SelfUpdatingValue<DescriptionSetting>> settings = new();
 
     public List<Item> ProduceInventory(InventoryData modDescription, string playerId, string sessionId)
     {
@@ -306,6 +311,7 @@ public class ModDescriptionService : IDisposable
             katUpgradeCost = deserializedCache.Kat,
             res = res,
             modService = this,
+            itemPrices = deserializedCache.ItemPrices,
             Items = items
         };
 
@@ -372,9 +378,12 @@ public class ModDescriptionService : IDisposable
                     deserializedCache.Crafts = allCrafts.Where(c => c.CraftCost > 0).ToDictionary(c => c.ItemId, c => c);
                     deserializedCache.BazaarItems = (await bazaarApi.ApiBazaarPricesGetAsync())?.ToDictionary(p => p.ProductId);
                     deserializedCache.LastUpdate = DateTime.UtcNow;
-                    deserializedCache.IsUpdating = false;
                     var kat = await katApi.KatRawGetAsync();
                     deserializedCache.Kat = kat.ToDictionary(k => (k.ItemTag, Enum.Parse<Tier>(k?.BaseRarity?.ToString() ?? "LEGENDARY")));
+                    await itemService.GetItemsAsync();
+                    deserializedCache.ItemPrices = await sniperClient.GetCleanPrices();
+                    logger.LogInformation($"Refreshed deserialized cache");
+                    deserializedCache.IsUpdating = false;
                 }
                 catch (Exception e)
                 {
@@ -550,6 +559,15 @@ public class ModDescriptionService : IDisposable
                     case DescriptionField.KatUpgradeCost:
                         AddKatUpgradeCost(auction, builder, data);
                         break;
+                    case DescriptionField.ModifierCost:
+                        AddModifierCost(auction, builder, data);
+                        break;
+                    case DescriptionField.ModifierCostList:
+                        AddModifierCostList(auction, builder, data);
+                        break;
+                    case DescriptionField.FullCraftCost:
+                        AddFullCraftCost(auction, builder, data, craftPrice);
+                        break;
                     case DescriptionField.InstaSellPrice:
                         AddInstasellEstimate(price, builder, data);
                         break;
@@ -568,6 +586,94 @@ public class ModDescriptionService : IDisposable
 
 
         return mods;
+    }
+
+    private void AddFullCraftCost(SaveAuction auction, StringBuilder builder, DataContainer data, double? craftPrice)
+    {
+        if (craftPrice == null)
+            return;
+        var summary = craftPrice.Value + ModifierCostSum(auction, data) + EnchantCost(auction, data.bazaarPrices);
+        builder.Append($"{McColorCodes.GRAY}Full Craft Cost: {McColorCodes.YELLOW}{FormatPriceShort(summary)}");
+    }
+
+    private void AddModifierCostList(SaveAuction auction, StringBuilder builder, DataContainer data)
+    {
+        IEnumerable<List<(string id, int amount, double coins)>> cost = GetModifiersOnItem(auction, data);
+        var all = cost.Zip(auction.FlatenedNBT);
+        foreach (var item in all.Where(i => i.First.Count > 0))
+        {
+            builder.Append($"\n{McColorCodes.GRAY}{item.Second.Key}: {McColorCodes.YELLOW}{item.Second.Value} {McColorCodes.GRAY}\n"
+                + $"=> {McColorCodes.YELLOW}{string.Join(", ", item.First.Select(i => $"{i.amount}x {i.id}{(i.coins > 0 ? $" +{FormatPriceShort(i.coins)} coins" : "")}"))}");
+        }
+    }
+
+    private void AddModifierCost(SaveAuction auction, StringBuilder builder, DataContainer data)
+    {
+        double valueSum = ModifierCostSum(auction, data);
+        builder.Append($"{McColorCodes.GRAY}Modifier Cost: {McColorCodes.YELLOW}{FormatPriceShort(valueSum)}");
+
+    }
+
+    private double ModifierCostSum(SaveAuction auction, DataContainer data)
+    {
+        IEnumerable<List<(string id, int amount, double coins)>> cost = GetModifiersOnItem(auction, data);
+
+        var valueSum = cost.SelectMany(c => c).Select(d =>
+        {
+            return data.GetItemprice(d.id) * d.amount + d.coins;
+        }).Sum();
+        return valueSum;
+    }
+
+    private IEnumerable<List<(string id, int amount, double coins)>> GetModifiersOnItem(SaveAuction auction, DataContainer data)
+    {
+        var cost = auction.FlatenedNBT.Select(mod =>
+        {
+            if (data.GetItemprice(mod.Value) > 0) // items in slot
+                return new() { (mod.Value, 1, 0) };
+            if (mod.Key == "heldItem")
+                return new() { ("PET_ITEM_" + mod.Value, 1, 0) };
+            if (mod.Key == "skin") // try again with pet skin prefix
+                return new() { ("PET_SKIN_" + mod.Value, 1, 0) };
+            if (mod.Value == "PERFECT" || mod.Value == "FLAWLESS" || mod.Value == "FINE")
+                return new() { (mapper.GetItemKeyForGem(mod, auction.FlatenedNBT), 1, 0) };
+
+            var itemIds = new List<(string id, int amount, double coins)>();
+            if (mapper.TryGetIngredients(mod.Key, mod.Value, null, out var items))
+                foreach (var item in items)
+                {
+                    itemIds.Add((item, 1, 0));
+                }
+            if (mod.Key == "upgrade_level")
+            {
+                itemIds.Add((null, 0, EstStarCost(auction.Tag, int.Parse(mod.Value))));
+            }
+            if (mod.Key == "unlocked_slots")
+            {
+                var costs = itemService.GetSlotCostSync(auction.Tag, new(), mod.Value.Split(',').ToList());
+                foreach (var cost in costs)
+                {
+                    itemIds.Add((cost.ItemId, cost.Amount ?? 1, cost.Coins));
+                }
+            }
+            return itemIds;
+        });
+
+        long EstStarCost(string item, int tier)
+        {
+            var items = itemService.GetStarIngredients(item, tier);
+            var sum = 0;
+            foreach (var ingred in items)
+            {
+                if (data.bazaarPrices.TryGetValue(ingred.itemId, out var cost))
+                    sum += (int)cost.SellPrice * ingred.amount;
+                else
+                    sum += 1_000_000;
+            }
+            return sum;
+        }
+
+        return cost;
     }
 
     private void AddInstasellEstimate(Sniper.Client.Model.PriceEstimate est, StringBuilder builder, DataContainer data)
@@ -630,9 +736,15 @@ public class ModDescriptionService : IDisposable
 
     private void AddEnchantCost(SaveAuction auction, StringBuilder builder, Dictionary<string, ItemPrice> bazaarPrices)
     {
+        long enchantCost = EnchantCost(auction, bazaarPrices);
+        builder.Append($"{McColorCodes.GRAY}Enchants: {McColorCodes.YELLOW}{FormatNumber(enchantCost)} ");
+    }
+
+    private long EnchantCost(SaveAuction auction, Dictionary<string, ItemPrice> bazaarPrices)
+    {
         var enchants = auction.Enchantments;
         if (enchants == null || enchants.Count <= 0 || bazaarPrices == null)
-            return;
+            return 0;
         var enchantCost = 0L;
         var lookup = bazaarPrices.ToDictionary(a => a.Key, a => a.Value.BuyPrice);
         foreach (var enchant in enchants)
@@ -641,7 +753,7 @@ public class ModDescriptionService : IDisposable
         }
         if (enchantCost < 0)
             enchantCost = 0;
-        builder.Append($"{McColorCodes.GRAY}Enchants: {McColorCodes.YELLOW}{FormatNumber(enchantCost)} ");
+        return enchantCost;
     }
 
     private void AddCraftcost(double? craftPrice, StringBuilder builder)

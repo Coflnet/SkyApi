@@ -25,6 +25,7 @@ using AspNetCoreRateLimit.Redis;
 using Coflnet.Sky.Api.Services;
 using Coflnet.Sky.Filter;
 using AutoMapper;
+using System.Net.Http;
 
 namespace Coflnet.Sky.Api
 {
@@ -82,6 +83,8 @@ namespace Coflnet.Sky.Api
             services.AddDbContext<HypixelContext>();
             services.AddTransient<KatService>();
             services.AddSingleton<PremiumTierService>();
+            services.AddSingleton<Core.Services.HypixelItemService>();
+            services.AddSingleton<HttpClient>();
 
             services.AddSingleton<ItemSkinHandler>();
             services.AddHostedService<ItemSkinHandler>(di => di.GetService<ItemSkinHandler>());
