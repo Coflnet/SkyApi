@@ -591,7 +591,10 @@ public class ModDescriptionService : IDisposable
     private void AddFullCraftCost(SaveAuction auction, StringBuilder builder, DataContainer data, double? craftPrice)
     {
         if (craftPrice == null)
+        {
+            builder.Append($"{McColorCodes.GRAY}No Craft Cost found");
             return;
+        }
         var summary = craftPrice.Value + ModifierCostSum(auction, data) + EnchantCost(auction, data.bazaarPrices);
         builder.Append($"{McColorCodes.GRAY}Full Craft Cost: {McColorCodes.YELLOW}{FormatPriceShort(summary)}");
     }
