@@ -18,7 +18,7 @@ public class FlipOnNextPage : CustomModifier
             if (price == 0)
                 return ((null, null), 0, 0, index, null);
             var profit = FlipInstance.ProfitAfterFees(i.Second.Median, price);
-            var lbinProfit = FlipInstance.ProfitAfterFees(i.Second.Lbin.Price, price);
+            var lbinProfit = FlipInstance.ProfitAfterFees(i.Second.SLbin.Price, price);
             if (i.Second.LbinKey != i.Second.ItemKey)
                 lbinProfit = 0;
             if (i.Second.MedianKey != i.Second.ItemKey)
@@ -37,11 +37,12 @@ public class FlipOnNextPage : CustomModifier
             return;
         }
 
-        targetItem.Insert(0, new DescModification(DescModification.ModType.INSERT, 1, $"Best flip on page:"));
-        targetItem.Insert(0, new DescModification(DescModification.ModType.INSERT, 1, bestFlip.First.auction?.ItemName));
-        // targetItem.Insert(1, new DescModification(DescModification.ModType.INSERT, 2, $"Lbin profit: {(bestFlip.lbinProfit == 0 ? "" : McColorCodes.GOLD)}{data.modService.FormatNumber(bestFlip.lbinProfit)}"));
-        targetItem.Insert(1, new DescModification(DescModification.ModType.REPLACE, 2, $"Med profit: {McColorCodes.GOLD}{data.modService.FormatNumber(bestFlip.profit)}"));
+        targetItem.Add(new DescModification(DescModification.ModType.INSERT, 1, $"Best flip on page:"));
+        targetItem.Add(new DescModification(DescModification.ModType.INSERT, 2, bestFlip.First.auction?.ItemName));
+        targetItem.Add(new DescModification(DescModification.ModType.REPLACE, 3, $"Med profit: {McColorCodes.GOLD}{data.modService.FormatNumber(bestFlip.profit)}"));
         targetItem.Add(new DescModification(DescModification.ModType.INSERT, 4, bestFlip.seller));
+        if (bestFlip.lbinProfit > 0)
+            targetItem.Add(new DescModification(DescModification.ModType.INSERT, 3, $"Lbin profit: {(bestFlip.lbinProfit == 0 ? "" : McColorCodes.GOLD)}{data.modService.FormatNumber(bestFlip.lbinProfit)}"));
 
         // add highlight to item
         var item = data.mods[bestFlip.index];
