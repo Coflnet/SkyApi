@@ -632,7 +632,7 @@ public class ModDescriptionService : IDisposable
             if (data.GetItemprice(mod.Value) > 0) // items in slot
                 return new() { (mod.Value, 1, 0) };
             if (mod.Key == "heldItem")
-                return new() { ("PET_ITEM_" + mod.Value, 1, 0) };
+                return new() { (mod.Value, 1, 0) };
             if (mod.Key == "skin") // try again with pet skin prefix
                 return new() { ("PET_SKIN_" + mod.Value, 1, 0) };
             if (mod.Value == "PERFECT" || mod.Value == "FLAWLESS" || mod.Value == "FINE")
