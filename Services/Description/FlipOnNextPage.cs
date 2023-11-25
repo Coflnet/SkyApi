@@ -2,6 +2,7 @@ using System.Linq;
 using Coflnet.Sky.Api.Models.Mod;
 using Coflnet.Sky.Commands.MC;
 using Coflnet.Sky.Commands.Shared;
+using Coflnet.Sky.Core;
 using Newtonsoft.Json;
 
 namespace Coflnet.Sky.Api.Services.Description;
@@ -18,7 +19,7 @@ public class FlipOnNextPage : CustomModifier
             if (price == 0)
                 return ((null, null), 0, 0, index, null);
             var profit = FlipInstance.ProfitAfterFees(i.Second.Median, price);
-            var lbinProfit = FlipInstance.ProfitAfterFees(i.Second.SLbin.Price, price);
+            var lbinProfit = FlipInstance.ProfitAfterFees(i.Second.SLbin?.Price ?? 0, price);
             if (i.Second.LbinKey != i.Second.ItemKey)
                 lbinProfit = 0;
             if (i.Second.MedianKey != i.Second.ItemKey)
@@ -26,11 +27,24 @@ public class FlipOnNextPage : CustomModifier
             var seller = i.First.desc.Where(x => x.StartsWith(McColorCodes.GRAY + "Seller:")).FirstOrDefault();
             return (i.First, profit, lbinProfit, index, seller);
         }).OrderByDescending(a => a.profit + a.lbinProfit * 3).Where(a => a.profit > 0).FirstOrDefault();
-        var index = 9 * 6 - 1;
+        AddDescriptionTo(data, bestFlip, 9 * 6 - 1);
+        AddDescriptionTo(data, bestFlip, 9 * 5 + 1);
+
+        if(bestFlip == default)
+            return;
+        // add highlight to item
+        var item = data.mods[bestFlip.index];
+        item.Add(new DescModification(DescModification.ModType.INSERT, 1, $"{McColorCodes.DARK_GREEN}{McColorCodes.BOLD}BEST FLIP ON PAGE"));
+        item.Add(new DescModification($"{McColorCodes.DARK_GREEN}{McColorCodes.BOLD}BEST FLIP ON PAGE"));
+    }
+
+    private static void AddDescriptionTo(DataContainer data, ((SaveAuction auction, IEnumerable<string> desc) First, long profit, long lbinProfit, int index, string seller) bestFlip, int index)
+    {
         var targetItem = data.mods[index];
         var originalDesc = data.Items[index].Description;
+        var itemName = data.Items[index].ItemName;
         // move next page counter up
-        targetItem.Insert(0, new DescModification(DescModification.ModType.REPLACE, 0, $"{McColorCodes.GREEN}Next page: {originalDesc?.Split('\n').First()}"));
+        targetItem.Insert(0, new DescModification(DescModification.ModType.REPLACE, 0, $"{itemName}: {originalDesc?.Split('\n').First()}"));
         if (bestFlip == default)
         {
             targetItem.Insert(0, new DescModification(DescModification.ModType.REPLACE, 1, $"No flips found, based on Coflnet data"));
@@ -43,9 +57,5 @@ public class FlipOnNextPage : CustomModifier
         targetItem.Add(new DescModification(DescModification.ModType.INSERT, 4, bestFlip.seller));
         if (bestFlip.lbinProfit > 0)
             targetItem.Add(new DescModification(DescModification.ModType.INSERT, 3, $"Lbin profit: {(bestFlip.lbinProfit == 0 ? "" : McColorCodes.GOLD)}{data.modService.FormatNumber(bestFlip.lbinProfit)}"));
-
-        // add highlight to item
-        var item = data.mods[bestFlip.index];
-        item.Insert(0, new DescModification(DescModification.ModType.INSERT, 1, $"{McColorCodes.DARK_GREEN}{McColorCodes.BOLD}BEST FLIP ON PAGE"));
     }
 }
