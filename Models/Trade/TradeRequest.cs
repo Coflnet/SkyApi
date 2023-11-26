@@ -25,7 +25,12 @@ public class TradeRequest
     // Summary:
     //     Gets or Sets Item
     [DataMember(Name = "item", EmitDefaultValue = false)]
-    public Item Item { get; set; }
+    public Item? Item { get; set; }
+    /// <summary>
+    /// The amount of coins the player wants to spend
+    /// </summary>
+    [DataMember(Name = "coins", EmitDefaultValue = false)]
+    public long? Coins { get; set; }
 
     //
     // Summary:
