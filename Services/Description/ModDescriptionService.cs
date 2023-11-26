@@ -595,6 +595,11 @@ public class ModDescriptionService : IDisposable
             builder.Append($"{McColorCodes.GRAY}No Craft Cost found");
             return;
         }
+        if (craftPrice.Value >= 10_000_000_000)
+        {
+            builder.Append($"{McColorCodes.GRAY}Craft ingredients unavailable");
+            return;
+        }
         var summary = craftPrice.Value + ModifierCostSum(auction, data) + EnchantCost(auction, data.bazaarPrices);
         builder.Append($"{McColorCodes.GRAY}Full Craft Cost: {McColorCodes.YELLOW}{FormatPriceShort(summary)}");
     }
