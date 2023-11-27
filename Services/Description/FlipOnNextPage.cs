@@ -34,8 +34,8 @@ public class FlipOnNextPage : CustomModifier
             return;
         // add highlight to item
         var item = data.mods[bestFlip.index];
-        item.Add(new DescModification(DescModification.ModType.INSERT, 1, $"{McColorCodes.DARK_GREEN}{McColorCodes.BOLD}BEST FLIP ON PAGE"));
         item.Add(new DescModification($"{McColorCodes.DARK_GREEN}{McColorCodes.BOLD}BEST FLIP ON PAGE"));
+        item.Add(new DescModification(DescModification.ModType.HIGHLIGHT, 1, "00e600"));
     }
 
     private static void AddDescriptionTo(DataContainer data, ((SaveAuction auction, IEnumerable<string> desc) First, long profit, long lbinProfit, int index, string seller) bestFlip, int index)

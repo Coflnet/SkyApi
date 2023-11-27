@@ -50,7 +50,11 @@ public class DescModification
         /// <summary>
         /// Delete line <see cref="Line"/>
         /// </summary>
-        DELETE
+        DELETE,
+        /// <summary>
+        /// Highlight line <see cref="Line"/> with RGB color <see cref="Value"/>
+        /// </summary>
+        HIGHLIGHT
     }
 
     /// <summary>
