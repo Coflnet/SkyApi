@@ -309,7 +309,8 @@ public class ModDescriptionService : IDisposable
             res = res,
             modService = this,
             itemPrices = deserializedCache.ItemPrices,
-            Items = items
+            Items = items,
+            allCrafts = allCrafts
         };
 
         for (int i = 0; i < auctionRepresent.Count; i++)
@@ -329,8 +330,7 @@ public class ModDescriptionService : IDisposable
                 result.Add(none);
                 continue;
             }
-            var craftPrice = allCrafts?.GetValueOrDefault(auction.Tag)?.CraftCost;
-            List<DescModification> mods = GetModifications(enabledFields, desc, auction, price, craftPrice, container);
+            List<DescModification> mods = GetModifications(enabledFields, auction, price, container);
             if (auction.Tag == "SKYBLOCK_MENU")
             {
                 try
@@ -344,7 +344,7 @@ public class ModDescriptionService : IDisposable
             }
 
             if (desc != null && span != null)
-                span.Log(string.Join('\n', mods.Select(m => $"{m.Line} {m.Value}")) + JsonConvert.SerializeObject(auction, Formatting.Indented) + JsonConvert.SerializeObject(price, Formatting.Indented) + "\ncraft:" + craftPrice);
+                span.Log(string.Join('\n', mods.Select(m => $"{m.Line} {m.Value}")) + JsonConvert.SerializeObject(auction, Formatting.Indented) + JsonConvert.SerializeObject(price, Formatting.Indented));
             result.Add(mods);
         }
         foreach (var item in customModifiers)
@@ -489,10 +489,8 @@ public class ModDescriptionService : IDisposable
     }
 
     private List<DescModification> GetModifications(List<List<DescriptionField>> enabledFields,
-                                                    IEnumerable<string> desc,
                                                     SaveAuction auction,
                                                     Sniper.Client.Model.PriceEstimate price,
-                                                    double? craftPrice,
                                                     DataContainer data)
     {
         var mods = new List<DescModification>();
@@ -545,7 +543,7 @@ public class ModDescriptionService : IDisposable
                         AddPricePaid(auction, data.pricesPaid, builder);
                         break;
                     case DescriptionField.CRAFT_COST:
-                        AddCraftcost(craftPrice, builder);
+                        AddCraftcost(auction, data, builder);
                         break;
                     case DescriptionField.GemValue:
                         AddGemValue(auction, builder, data.bazaarPrices);
@@ -563,7 +561,7 @@ public class ModDescriptionService : IDisposable
                         AddModifierCostList(auction, builder, data);
                         break;
                     case DescriptionField.FullCraftCost:
-                        AddFullCraftCost(auction, builder, data, craftPrice);
+                        AddFullCraftCost(auction, builder, data);
                         break;
                     case DescriptionField.InstaSellPrice:
                         AddInstasellEstimate(price, builder, data);
@@ -585,22 +583,30 @@ public class ModDescriptionService : IDisposable
         return mods;
     }
 
-    private void AddFullCraftCost(SaveAuction auction, StringBuilder builder, DataContainer data, double? craftPrice)
+    private void AddFullCraftCost(SaveAuction auction, StringBuilder builder, DataContainer data)
     {
-        long lowestPrice = 0;
-        if (craftPrice == null && !data.itemPrices.TryGetValue(auction.Tag, out lowestPrice))
+        (double? craftPrice, double summary) value = FullCraftCost(auction, data);
+
+        if (value.craftPrice == null || value.craftPrice == 0)
         {
             builder.Append($"{McColorCodes.GRAY}No Craft Cost found");
             return;
         }
-        craftPrice ??= lowestPrice;
-        if (craftPrice.Value >= 10_000_000_000)
+        if (value.craftPrice.Value >= 10_000_000_000)
         {
             builder.Append($"{McColorCodes.GRAY}Craft ingredients unavailable");
             return;
         }
-        var summary = craftPrice.Value + ModifierCostSum(auction, data) + EnchantCost(auction, data.bazaarPrices);
-        builder.Append($"{McColorCodes.GRAY}Full Craft Cost: {McColorCodes.YELLOW}{FormatPriceShort(summary)}");
+        builder.Append($"{McColorCodes.GRAY}Full Craft Cost: {McColorCodes.YELLOW}{FormatPriceShort(value.summary)}");
+    }
+
+    public (double? craftPrice, double summary) FullCraftCost(SaveAuction auction, DataContainer data)
+    {
+        var craftPrice = data.allCrafts.GetValueOrDefault(auction.Tag)?.CraftCost;
+        craftPrice ??= data.itemPrices.GetValueOrDefault(auction.Tag);
+        double summary = craftPrice.Value + ModifierCostSum(auction, data) + EnchantCost(auction, data.bazaarPrices);
+        var value = (craftPrice, summary);
+        return value;
     }
 
     private void AddModifierCostList(SaveAuction auction, StringBuilder builder, DataContainer data)
@@ -763,8 +769,9 @@ public class ModDescriptionService : IDisposable
         return enchantCost;
     }
 
-    private void AddCraftcost(double? craftPrice, StringBuilder builder)
+    private void AddCraftcost(SaveAuction auction, DataContainer data, StringBuilder builder)
     {
+        var craftPrice = data.allCrafts?.GetValueOrDefault(auction.Tag)?.CraftCost;
         if (craftPrice.HasValue)
         {
             if (craftPrice.Value >= int.MaxValue)

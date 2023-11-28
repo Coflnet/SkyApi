@@ -18,6 +18,7 @@ public class DataContainer
     public ILookup<string, ListingSum> itemListings;
     internal Dictionary<(string, Core.Tier), KatUpgradeCost> katUpgradeCost;
     internal Dictionary<string, long> itemPrices = new();
+    internal Dictionary<string, ProfitableCraft> allCrafts;
 
     public List<Item> Items { get; internal set; }
 

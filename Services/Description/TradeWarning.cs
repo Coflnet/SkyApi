@@ -10,7 +10,9 @@ public class TradeWarning : CustomModifier
     {
         var index = 0;
         long sendSum = 0L;
+        long sendCraftSum = 0L;
         long receiveSum = 0L;
+        long receiveCraftSum = 0L;
         foreach (var sniperPrice in data.res)
         {
             var i = index++;
@@ -22,9 +24,7 @@ public class TradeWarning : CustomModifier
             if (item.ItemName?.EndsWith(" coins") ?? false)
             {
                 var name = item.ItemName;
-                Console.WriteLine("value string: " + name);
                 value = ParseCoinAmount(name.Substring(2, name.Length - 8));
-                Console.WriteLine("value parsed: " + value);
             }
             else if (sniperPrice != null && sniperPrice.Median != 0)
             {
@@ -35,19 +35,27 @@ public class TradeWarning : CustomModifier
                 value = (long)price.SellPrice * item.Count;
             }
             if (column < 4)
+            {
                 sendSum += value;
+                sendCraftSum += value;
+            }
             else if (column > 4)
+            {
                 receiveSum += value;
+                receiveCraftSum += value;
+            }
         }
         Console.WriteLine($"trade warning send: {sendSum} receive: {receiveSum}");
         Console.WriteLine(JsonConvert.SerializeObject(data.Items[48]));
-        data.mods[39].Insert(0, new DescModification($"CoflMod estimate, please report issues"));
-        data.mods[39].Insert(0, new DescModification($"Send value: {data.modService.FormatNumber(sendSum)}"));
-        data.mods[39].Insert(0, new DescModification($"Receive value: {data.modService.FormatNumber(receiveSum)}"));
+        data.mods[39].Add(new($"Send value: {data.modService.FormatNumber(sendSum)}"));
+        data.mods[39].Add(new($"{McColorCodes.GRAY}Craft value: {data.modService.FormatNumber(sendCraftSum)}"));
+        data.mods[39].Add(new($"Receive value: {data.modService.FormatNumber(receiveSum)}"));
+        data.mods[39].Add(new($"{McColorCodes.GRAY}Craft value: {data.modService.FormatNumber(receiveCraftSum)}"));
+        data.mods[39].Add(new($"CoflMod estimate, please report issues"));
         if (receiveSum < sendSum / 2)
         {
-            data.mods[39].Insert(0, new DescModification(DescModification.ModType.REPLACE, 0, $"{McColorCodes.RED}You are sending way more coins"));
-            data.mods[39].Insert(0, new DescModification(DescModification.ModType.INSERT, 1, $"{McColorCodes.RED}than you are receiving! {McColorCodes.OBFUSCATED}A"));
+            data.mods[39].Insert(0, new(DescModification.ModType.REPLACE, 0, $"{McColorCodes.RED}You are sending way more coins"));
+            data.mods[39].Insert(0, new(DescModification.ModType.INSERT, 1, $"{McColorCodes.RED}than you are receiving! {McColorCodes.OBFUSCATED}A"));
         }
     }
 
