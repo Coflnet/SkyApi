@@ -256,7 +256,7 @@ public class ModDescriptionService : IDisposable
             // compute descriptions and return everything computed on error
             await ComputeDescriptions(inventory, mcName, sessionId, auctionRepresent, result);
         }
-        catch (System.Exception e)
+        catch (Exception e)
         {
             logger.LogError(e, "failed to compute descriptions");
         }
@@ -590,11 +590,13 @@ public class ModDescriptionService : IDisposable
 
     private void AddFullCraftCost(SaveAuction auction, StringBuilder builder, DataContainer data, double? craftPrice)
     {
-        if (craftPrice == null)
+        long lowestPrice = 0;
+        if (craftPrice == null && !data.itemPrices.TryGetValue(auction.Tag, out lowestPrice))
         {
             builder.Append($"{McColorCodes.GRAY}No Craft Cost found");
             return;
         }
+        craftPrice ??= lowestPrice;
         if (craftPrice.Value >= 10_000_000_000)
         {
             builder.Append($"{McColorCodes.GRAY}Craft ingredients unavailable");
