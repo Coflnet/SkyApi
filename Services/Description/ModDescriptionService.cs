@@ -104,15 +104,12 @@ public class ModDescriptionService : IDisposable
         this.config = config;
         this.stateService = stateService;
         this.sniperClient = sniperClient;
-        customModifiers.Add("You    ", new TradeWarning());
-        customModifiers.Add("Create BIN", new ListPriceRecommend());
-        customModifiers.Add("Manage Auctions", new AuctionValueSummary());
-        var nextPageFlip = new FlipOnNextPage();
-        customModifiers.Add("Auctions Browser", nextPageFlip);
-        customModifiers.Add("Auctions:", nextPageFlip);
-        var bitsToCoins = new BitsCoinValue();
-        customModifiers.Add("Community Shop", bitsToCoins);
-        customModifiers.Add("Bits Shop", bitsToCoins);
+        customModifiers.Add("^You    ", new TradeWarning());
+        customModifiers.Add("^Create BIN", new ListPriceRecommend());
+        customModifiers.Add("^Manage Auctions", new AuctionValueSummary());
+        customModifiers.Add("^(Auctions Browser|Auctions:)", new FlipOnNextPage());
+        customModifiers.Add("^(Community Shop|Bits Shop)", new BitsCoinValue());
+        customModifiers.Add("s Auctions$", new PlayerPageFlipHighlight());
         this.itemSkinHandler = itemSkinHandler;
         this.ahListChecker = ahListChecker;
         this.katApi = katApi;
@@ -352,13 +349,13 @@ public class ModDescriptionService : IDisposable
         }
         foreach (var item in customModifiers)
         {
-            if (!inventory.ChestName?.StartsWith(item.Key) ?? true)
+            if (inventory.ChestName == null || !Regex.IsMatch(inventory.ChestName, item.Key))
                 continue;
             try
             {
                 item.Value.Apply(container);
             }
-            catch (System.Exception e)
+            catch (Exception e)
             {
                 logger.LogError(e, "failed to apply custom modifier " + item.Key);
             }

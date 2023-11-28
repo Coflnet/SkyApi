@@ -9,9 +9,28 @@ namespace Coflnet.Sky.Api.Services.Description;
 
 public class FlipOnNextPage : CustomModifier
 {
-    public void Apply(DataContainer data)
+    public virtual void Apply(DataContainer data)
     {
-        var bestFlip = data.auctionRepresent.Zip(data.res).Take(9 * 6).Select((i, index) =>
+        var bestFlip = GetFlipAble(data).OrderByDescending(a => a.profit + a.lbinProfit * 3).Where(a => a.profit > 0).FirstOrDefault();
+        AddDescriptionTo(data, bestFlip, 9 * 6 - 1);
+        AddDescriptionTo(data, bestFlip, 9 * 5 + 1);
+
+        if (bestFlip == default)
+            return;
+        // add highlight to item
+        var item = data.mods[bestFlip.index];
+        item.Add(new DescModification($"{McColorCodes.DARK_GREEN}{McColorCodes.BOLD}BEST FLIP ON PAGE"));
+        Highlight(item);
+    }
+
+    protected void Highlight(List<DescModification> item)
+    {
+        item.Add(new DescModification(DescModification.ModType.HIGHLIGHT, 1, "009600"));
+    }
+
+    protected IEnumerable<((SaveAuction auction, IEnumerable<string> desc) First, long profit, long lbinProfit, int index, string seller)> GetFlipAble(DataContainer data)
+    {
+        return data.auctionRepresent.Zip(data.res).Take(9 * 6).Select((i, index) =>
         {
 
             var price = i.First.desc.Where(x => x.StartsWith(McColorCodes.GRAY + "Buy it now: §"))
@@ -26,16 +45,7 @@ public class FlipOnNextPage : CustomModifier
                 profit = 0;
             var seller = i.First.desc.Where(x => x.StartsWith(McColorCodes.GRAY + "Seller:")).FirstOrDefault();
             return (i.First, profit, lbinProfit, index, seller);
-        }).OrderByDescending(a => a.profit + a.lbinProfit * 3).Where(a => a.profit > 0).FirstOrDefault();
-        AddDescriptionTo(data, bestFlip, 9 * 6 - 1);
-        AddDescriptionTo(data, bestFlip, 9 * 5 + 1);
-
-        if(bestFlip == default)
-            return;
-        // add highlight to item
-        var item = data.mods[bestFlip.index];
-        item.Add(new DescModification($"{McColorCodes.DARK_GREEN}{McColorCodes.BOLD}BEST FLIP ON PAGE"));
-        item.Add(new DescModification(DescModification.ModType.HIGHLIGHT, 1, "009600"));
+        });
     }
 
     private static void AddDescriptionTo(DataContainer data, ((SaveAuction auction, IEnumerable<string> desc) First, long profit, long lbinProfit, int index, string seller) bestFlip, int index)
