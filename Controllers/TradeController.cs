@@ -84,7 +84,7 @@ public class TradeController : ControllerBase
             trade.UserId = user.Id.ToString();
             foreach (var item in trade.WantedItems)
             {
-                if (item.Tag == null)
+                if (item.Tag == null || item.Tag == "SKYBLOCK_COIN")
                     continue;
                 if (ItemDetails.Instance.GetItemIdForTag(item.Tag) == 0)
                     throw new CoflnetException("invalid_item", $"The item tag `{item.Tag}` is invalid");
