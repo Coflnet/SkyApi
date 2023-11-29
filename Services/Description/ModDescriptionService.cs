@@ -603,10 +603,28 @@ public class ModDescriptionService : IDisposable
     public (double? craftPrice, double summary) FullCraftCost(SaveAuction auction, DataContainer data)
     {
         var craftPrice = data.allCrafts.GetValueOrDefault(auction.Tag)?.CraftCost;
-        craftPrice ??= data.itemPrices.GetValueOrDefault(auction.Tag);
+        craftPrice ??= CleanItemprice(auction, data);
         double summary = craftPrice.Value + ModifierCostSum(auction, data) + EnchantCost(auction, data.bazaarPrices);
         var value = (craftPrice, summary);
         return value;
+    }
+
+    private static long CleanItemprice(SaveAuction auction, DataContainer data)
+    {
+        if (auction.Tag.StartsWith("PET_") && !auction.Tag.StartsWith("PET_SKIN_") && !auction.Tag.StartsWith("PET_ITEM_"))
+        {
+            var level = int.Parse(Regex.Replace(auction.ItemName.Substring(7, 7), "[^0-9]", ""));
+            var key = $"{auction.Tag}_{auction.Tier}_{level switch
+            {
+                >= 100 => 100,
+                >= 92 => 90,
+                _ => 0
+            }}";
+            if (data.itemPrices.TryGetValue(key, out var price))
+                return price;
+
+        }
+        return data.itemPrices.GetValueOrDefault(auction.Tag);
     }
 
     private void AddModifierCostList(SaveAuction auction, StringBuilder builder, DataContainer data)
