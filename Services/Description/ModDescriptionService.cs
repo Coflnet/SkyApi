@@ -492,10 +492,14 @@ public class ModDescriptionService : IDisposable
             var updatingSettings = await SelfUpdatingValue<DescriptionSetting>.Create(userId, "description", () => DescriptionSetting.Default);
             settings.TryAdd(sessionId, (updatingSettings, await accountInfoTask));
             userSettings = updatingSettings.Value;
-            if(settings.Count > 1000)
+            if (settings.Count > 1000)
             {
                 settings.Clear();
             }
+        }
+        else
+        {
+            return (DescriptionSetting.Default, new());
         }
 
         return (settings[sessionId].Item1.Value, settings[sessionId].Item2.Value); ;
