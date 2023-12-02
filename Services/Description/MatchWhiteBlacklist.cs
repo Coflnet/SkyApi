@@ -62,7 +62,7 @@ public class MatchWhiteBlacklist : CustomModifier
                     Highlight(data, flipSlot, $"{McColorCodes.GREEN}Matches Coflnet filters", "00e600");
                 else if (isMatch.Item2.StartsWith("black"))
                     Highlight(data, flipSlot, $"{McColorCodes.DARK_RED}Matches blacklist", "b60000");
-                else if (isMatch.Item2.StartsWith("force black"))
+                else if (isMatch.Item2.StartsWith("forced black"))
                     Highlight(data, flipSlot, $"{McColorCodes.DARK_RED}{McColorCodes.BOLD}Matches force blacklist", "960000");
             }
         }
