@@ -12,7 +12,7 @@ namespace Coflnet.Sky.Api.Services.Description;
 
 public class MatchWhiteBlacklist : CustomModifier
 {
-    private ConcurrentDictionary<string, FlipSettings> settingsCache = new();
+    private ConcurrentDictionary<string, SelfUpdatingValue<FlipSettings>> settingsCache = new();
     public virtual void Apply(DataContainer data)
     {
         if (!data.inventory.Settings.HighlightFilterMatch)
@@ -45,7 +45,7 @@ public class MatchWhiteBlacklist : CustomModifier
 
             data.mods.Last().Add(new DescModification($"{McColorCodes.YELLOW}(re-)Loading filter settings"));
             data.modService.logger.LogInformation("Loading flip settings for {userId}", data.accountInfo.UserId);
-            return new();
+            return SelfUpdatingValue<FlipSettings>.CreateNoUpdate(()=>new() { WhiteList = new() }).Result;
         });
         foreach (var flipSlot in flipsRepresent)
         {
@@ -54,7 +54,7 @@ public class MatchWhiteBlacklist : CustomModifier
             {
                 if (flip.Auction != null && flip.Auction.NBTLookup == null)
                     flip.Auction.NBTLookup = NBT.CreateLookup(flip.Auction);
-                var isMatch = settings.MatchesSettings(flip);
+                var isMatch = settings.Value.MatchesSettings(flip);
                 Console.WriteLine($"{flipSlot.index} {isMatch.Item1} {isMatch.Item2}");
                 if (isMatch.Item1 && isMatch.Item2.StartsWith("white"))
                     Highlight(data, flipSlot, $"{McColorCodes.DARK_GREEN}{McColorCodes.BOLD}Matches whitelist", "009600");
