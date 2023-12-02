@@ -31,7 +31,7 @@ public class DeserializedCache
 {
     public Dictionary<string, Crafts.Client.Model.ProfitableCraft> Crafts = new();
     public Dictionary<(string, Tier), Crafts.Client.Model.KatUpgradeCost> Kat = new();
-    public Dictionary<string, Bazaar.Client.Model.ItemPrice> BazaarItems = new();
+    public Dictionary<string, ItemPrice> BazaarItems = new();
     public Dictionary<string, long> ItemPrices = new();
     public DateTime LastUpdate = DateTime.MinValue;
     public bool IsUpdating = false;
@@ -44,7 +44,7 @@ public class ModDescriptionService : IDisposable
     private readonly ICraftsApi craftsApi;
     private readonly ISniperClient sniperClient;
     private readonly AhListChecker ahListChecker;
-    private readonly SettingsService settingsService;
+    public readonly SettingsService settingsService;
     private readonly IdConverter idConverter;
     private readonly IServiceScopeFactory scopeFactory;
     private readonly BazaarApi bazaarApi;
@@ -104,19 +104,25 @@ public class ModDescriptionService : IDisposable
         this.config = config;
         this.stateService = stateService;
         this.sniperClient = sniperClient;
-        customModifiers.Add("^You    ", new TradeWarning());
-        customModifiers.Add("^Create BIN", new ListPriceRecommend());
-        customModifiers.Add("^Manage Auctions", new AuctionValueSummary());
-        customModifiers.Add("^(Auctions Browser|Auctions:)", new FlipOnNextPage());
-        customModifiers.Add("^(Community Shop|Bits Shop)", new BitsCoinValue());
-        customModifiers.Add("s Auctions$", new PlayerPageFlipHighlight());
+        RegisterModifiers();
         this.itemSkinHandler = itemSkinHandler;
         this.ahListChecker = ahListChecker;
         this.katApi = katApi;
         this.itemService = itemService;
     }
 
-    private readonly ConcurrentDictionary<string, SelfUpdatingValue<DescriptionSetting>> settings = new();
+    private void RegisterModifiers()
+    {
+        customModifiers.Add("^You    ", new TradeWarning());
+        customModifiers.Add("^Create BIN", new ListPriceRecommend());
+        customModifiers.Add("^Manage Auctions", new AuctionValueSummary());
+        customModifiers.Add("^(Auctions Browser|Auctions:)", new FlipOnNextPage());
+        customModifiers.Add("^(Community Shop|Bits Shop)", new BitsCoinValue());
+        customModifiers.Add("s Auctions$", new PlayerPageFlipHighlight());
+        customModifiers.Add("^(Auctions Browser|Auctions:|You  )", new MatchWhiteBlacklist());
+    }
+
+    private readonly ConcurrentDictionary<string, (SelfUpdatingValue<DescriptionSetting>, SelfUpdatingValue<AccountInfo>)> settings = new();
 
     public List<Item> ProduceInventory(InventoryData modDescription, string playerId, string sessionId)
     {
@@ -239,7 +245,7 @@ public class ModDescriptionService : IDisposable
     /// <returns></returns>
     public async Task<IEnumerable<IEnumerable<DescModification>>> GetModifications(InventoryDataWithSettings inventory, string mcName, string sessionId)
     {
-        List<(SaveAuction auction, IEnumerable<string> desc)> auctionRepresent = ConvertToAuctions(inventory);
+        var auctionRepresent = ConvertToAuctions(inventory);
         var menuItemName = auctionRepresent.Last().auction?.ItemName;
         if (inventory.ChestName == "Game Menu" || menuItemName != "§8Quiver Arrow" && (!menuItemName?.Contains("SkyBlock") ?? true))
         {
@@ -260,12 +266,12 @@ public class ModDescriptionService : IDisposable
         return result;
     }
 
-    private async Task ComputeDescriptions(InventoryDataWithSettings inventory, string mcName, string sessionId, List<(SaveAuction auction, IEnumerable<string> desc)> auctionRepresent, List<List<DescModification>> result)
+    private async Task ComputeDescriptions(InventoryDataWithSettings inventory, string mcName, string sessionId, List<(SaveAuction auction, string[] desc)> auctionRepresent, List<List<DescModification>> result)
     {
         var pricesTask = GetPrices(auctionRepresent.Select(a => a.auction));
         CheckUpToDateCache();
 
-        var userSettings = await GetSettingForConid(mcName, sessionId);
+        var (userSettings, userInfo) = await GetSettingForConid(mcName, sessionId);
         List<Item> items = new();
         try
         {
@@ -300,6 +306,7 @@ public class ModDescriptionService : IDisposable
 
         var container = new DataContainer
         {
+            inventory = inventory,
             auctionRepresent = auctionRepresent,
             bazaarPrices = bazaarPrices,
             mods = result,
@@ -310,7 +317,8 @@ public class ModDescriptionService : IDisposable
             modService = this,
             itemPrices = deserializedCache.ItemPrices,
             Items = items,
-            allCrafts = allCrafts
+            allCrafts = allCrafts,
+            accountInfo = userInfo
         };
 
         for (int i = 0; i < auctionRepresent.Count; i++)
@@ -393,7 +401,7 @@ public class ModDescriptionService : IDisposable
 
     private void AddSummaryToMenu(
         InventoryDataWithSettings inventory,
-        List<(SaveAuction auction, IEnumerable<string> desc)> auctionRepresent,
+        List<(SaveAuction auction, string[] desc)> auctionRepresent,
         List<Sniper.Client.Model.PriceEstimate> res,
         Dictionary<string, ItemPrice> bazaarPrices,
         List<DescModification> mods,
@@ -430,7 +438,7 @@ public class ModDescriptionService : IDisposable
     }
 
 
-    private async Task<ILookup<string, ListingSum>> GetPriceData(InventoryDataWithSettings inventory, string mcName, List<(SaveAuction auction, IEnumerable<string> desc)> auctionRepresent)
+    private async Task<ILookup<string, ListingSum>> GetPriceData(InventoryDataWithSettings inventory, string mcName, List<(SaveAuction auction, string[] desc)> auctionRepresent)
     {
         if (!inventory.Settings.Fields.Any(line => line.Contains(DescriptionField.PRICE_PAID)))
             return new ListingSum[0].ToLookup(a => "");
@@ -469,23 +477,28 @@ public class ModDescriptionService : IDisposable
         return NBT.UidToLong(u.Substring(u.Length - 12));
     }
 
-    private async Task<DescriptionSetting> GetSettingForConid(string playeruuid, string sessionId)
+    private async Task<(DescriptionSetting, AccountInfo)> GetSettingForConid(string playeruuid, string sessionId)
     {
         if (string.IsNullOrEmpty(sessionId))
-            return DescriptionSetting.Default;
+            return (DescriptionSetting.Default, new());
         if (settings.ContainsKey(sessionId))
-            return settings[sessionId].Value;
+            return (settings[sessionId].Item1.Value, settings[sessionId].Item2.Value);
         var conId = idConverter.ComputeConnectionId(playeruuid, sessionId).Item2;
         var userId = await settingsService.GetCurrentValue<string>("mod", conId, () => null);
         var userSettings = DescriptionSetting.Default;
         if (userId != null)
         {
+            var accountInfoTask = SelfUpdatingValue<AccountInfo>.Create(userId, "accountInfo", () => new());
             var updatingSettings = await SelfUpdatingValue<DescriptionSetting>.Create(userId, "description", () => DescriptionSetting.Default);
-            this.settings.TryAdd(sessionId, updatingSettings);
+            settings.TryAdd(sessionId, (updatingSettings, await accountInfoTask));
             userSettings = updatingSettings.Value;
+            if(settings.Count > 1000)
+            {
+                settings.Clear();
+            }
         }
 
-        return userSettings;
+        return (settings[sessionId].Item1.Value, settings[sessionId].Item2.Value); ;
     }
 
     private List<DescModification> GetModifications(List<List<DescriptionField>> enabledFields,
@@ -900,7 +913,7 @@ public class ModDescriptionService : IDisposable
 
     public async Task<IEnumerable<string[]>> GetDescriptions(InventoryDataWithSettings inventory)
     {
-        List<(SaveAuction auction, IEnumerable<string> desc)> auctionRepresent = ConvertToAuctions(inventory);
+        var auctionRepresent = ConvertToAuctions(inventory);
 
         var allCraftsTask = craftsApi.CraftsAllGetAsync();
         List<Sniper.Client.Model.PriceEstimate> res = await GetPrices(auctionRepresent.Select(a => a.auction));
@@ -956,12 +969,12 @@ public class ModDescriptionService : IDisposable
     /// </summary>
     /// <param name="inventory"></param>
     /// <returns></returns>
-    public List<(SaveAuction auction, IEnumerable<string> desc)> ConvertToAuctions(InventoryData inventory)
+    public List<(SaveAuction auction, string[] desc)> ConvertToAuctions(InventoryData inventory)
     {
         if (inventory.JsonNbt != null)
         {
             return (new InventoryParser().Parse(inventory.JsonNbt) as IEnumerable<SaveAuction>)
-                    .Select(a => (a, a?.Context?.GetValueOrDefault("lore")?.Split("\n") ?? new string[0].AsEnumerable())).ToList();
+                    .Select(a => (a, a?.Context?.GetValueOrDefault("lore")?.Split("\n") ?? new string[0])).ToList();
         }
         var nbt = NBT.File(Convert.FromBase64String(inventory.FullInventoryNbt));
         var auctionRepresent = nbt.RootTag.Get<fNbt.NbtList>("i").Select(t =>
@@ -987,7 +1000,7 @@ public class ModDescriptionService : IDisposable
                         auction.Tier = parsedTier;
                 }
                 var desc = NBT.GetLore(compound);
-                return (auction, desc);
+                return (auction, desc.ToArray());
             }
             catch (System.Exception e)
             {
@@ -1008,6 +1021,12 @@ public class ModDescriptionService : IDisposable
         if (price < 1_000)
             return string.Format(CultureInfo.InvariantCulture, "{0:n1}", price);
         return string.Format(CultureInfo.InvariantCulture, "{0:n0}", price);
+    }
+
+    public long GetAuctionPrice(IEnumerable<string> desc)
+    {
+        return desc.Where(x => x.StartsWith(McColorCodes.GRAY + "Buy it now: §"))
+                        .Select(x => long.Parse(x["xxBuy it now: §a".Length..].Replace(" coins", "").Replace(",", ""), NumberStyles.AllowThousands, CultureInfo.InvariantCulture)).FirstOrDefault();
     }
 
     /// <summary>
@@ -1049,7 +1068,8 @@ public class ModDescriptionService : IDisposable
         foreach (var item in this.settings.ToList())
         {
             this.settings.TryRemove(item);
-            item.Value.Dispose();
+            item.Value.Item1?.Dispose();
+            item.Value.Item2?.Dispose();
         }
     }
 }

@@ -28,13 +28,11 @@ public class FlipOnNextPage : CustomModifier
         item.Add(new DescModification(DescModification.ModType.HIGHLIGHT, 1, "009600"));
     }
 
-    protected IEnumerable<((SaveAuction auction, IEnumerable<string> desc) First, long profit, long lbinProfit, int index, string seller)> GetFlipAble(DataContainer data)
+    protected IEnumerable<((SaveAuction auction, string[] desc) First, long profit, long lbinProfit, int index, string seller)> GetFlipAble(DataContainer data)
     {
         return data.auctionRepresent.Zip(data.res).Take(9 * 6).Select((i, index) =>
         {
-
-            var price = i.First.desc.Where(x => x.StartsWith(McColorCodes.GRAY + "Buy it now: §"))
-                .Select(x => long.Parse(x["xxBuy it now: §a".Length..].Replace(" coins", "").Replace(",", ""), System.Globalization.NumberStyles.AllowThousands, System.Globalization.CultureInfo.InvariantCulture)).FirstOrDefault();
+            long price = data.modService.GetAuctionPrice(i.First.desc);
             if (price == 0)
                 return ((null, null), 0, 0, index, null);
             var profit = FlipInstance.ProfitAfterFees(i.Second.Median, price);

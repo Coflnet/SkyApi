@@ -8,8 +8,8 @@ using Coflnet.Sky.Crafts.Client.Model;
 namespace Coflnet.Sky.Api.Services.Description;
 public class DataContainer
 {
-    InventoryDataWithSettings inventory;
-    public List<(SaveAuction auction, IEnumerable<string> desc)> auctionRepresent;
+    public InventoryDataWithSettings inventory;
+    public List<(SaveAuction auction, string[] desc)> auctionRepresent;
     public List<Sniper.Client.Model.PriceEstimate> res;
     public Dictionary<string, ItemPrice> bazaarPrices;
     public List<List<DescModification>> mods;
@@ -19,6 +19,7 @@ public class DataContainer
     internal Dictionary<(string, Core.Tier), KatUpgradeCost> katUpgradeCost;
     internal Dictionary<string, long> itemPrices = new();
     internal Dictionary<string, ProfitableCraft> allCrafts;
+    internal AccountInfo accountInfo;
 
     public List<Item> Items { get; internal set; }
 
