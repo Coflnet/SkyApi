@@ -27,6 +27,7 @@ public class PricesController : ControllerBase
     private ILogger<PricesController> logger;
     private ModDescriptionService modDescriptionSerice;
     private AhListChecker ahListChecker;
+    private FilterEngine fe;
     Counter counter = Metrics.CreateCounter("sky_api_nbt", "Counts requests to /api/item/price/nbt");
 
     /// <summary>
@@ -37,13 +38,16 @@ public class PricesController : ControllerBase
     /// <param name="itemsApi"></param>
     /// <param name="logger"></param>
     /// <param name="modDescriptionSerice"></param>
+    /// <param name="ahListChecker"></param>
+    /// <param name="fe"></param>
     public PricesController(
         PricesService pricesService,
         HypixelContext context,
         IItemsApi itemsApi,
         ILogger<PricesController> logger,
         ModDescriptionService modDescriptionSerice,
-        AhListChecker ahListChecker)
+        AhListChecker ahListChecker,
+        FilterEngine fe)
     {
         priceService = pricesService;
         this.context = context;
@@ -51,6 +55,7 @@ public class PricesController : ControllerBase
         this.logger = logger;
         this.modDescriptionSerice = modDescriptionSerice;
         this.ahListChecker = ahListChecker;
+        this.fe = fe;
     }
     /// <summary>
     /// Aggregated sumary of item prices for the 2 last days
@@ -157,7 +162,6 @@ public class PricesController : ControllerBase
     [ResponseCache(Duration = 3600 * 6, Location = ResponseCacheLocation.Any, NoStore = false, VaryByQueryKeys = new string[] { "itemTag" })]
     public async Task<List<FilterOptions>> GetFilterOptions(string itemTag = "*")
     {
-        var fe = new Sky.Filter.FilterEngine();
         var optionsTask = itemsApi.ItemItemTagModifiersAllGetAsync(itemTag);
         if (itemTag == "*")
         {

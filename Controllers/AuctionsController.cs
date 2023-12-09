@@ -41,7 +41,7 @@ namespace Coflnet.Sky.Api.Controller
         PlayerNameService playerNameService;
         IServiceScopeFactory factory;
         IItemsApi itemsClient;
-        static FilterEngine fe = new FilterEngine();
+        FilterEngine fe;
 
         /// <summary>
         /// Creates a new instance of <see cref="AuctionsController"/>
@@ -54,6 +54,7 @@ namespace Coflnet.Sky.Api.Controller
         /// <param name="playerNameService"></param>
         /// <param name="factory"></param>
         /// <param name="itemsClient"></param>
+        /// <param name="fe"></param>
         public AuctionsController(AuctionService auctionService,
                                   HypixelContext context,
                                   ILogger<AuctionsController> logger,
@@ -61,7 +62,8 @@ namespace Coflnet.Sky.Api.Controller
                                   PricesService pricesService,
                                   PlayerNameService playerNameService,
                                   IServiceScopeFactory factory,
-                                  Sky.Items.Client.Api.IItemsApi itemsClient)
+                                  Sky.Items.Client.Api.IItemsApi itemsClient,
+                                  FilterEngine fe)
         {
             this.auctionService = auctionService;
             this.context = context;
@@ -71,6 +73,7 @@ namespace Coflnet.Sky.Api.Controller
             this.playerNameService = playerNameService;
             this.factory = factory;
             this.itemsClient = itemsClient;
+            this.fe = fe;
         }
 
         /// <summary>
