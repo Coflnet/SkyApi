@@ -20,6 +20,9 @@ public class FlipOnNextPage : CustomModifier
         // add highlight to item
         var item = data.mods[bestFlip.index];
         item.Add(new DescModification($"{McColorCodes.DARK_GREEN}{McColorCodes.BOLD}BEST FLIP ON PAGE"));
+        item.Add(new DescModification($"Med profit: {McColorCodes.GOLD}{data.modService.FormatNumber(bestFlip.profit)}"));
+        if (bestFlip.lbinProfit > 0)
+            item.Add(new DescModification($"Lbin profit: {(bestFlip.lbinProfit == 0 ? "" : McColorCodes.GOLD)}{data.modService.FormatNumber(bestFlip.lbinProfit)}"));
         Highlight(item);
     }
 
