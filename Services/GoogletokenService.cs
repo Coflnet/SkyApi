@@ -68,6 +68,11 @@ public class GoogletokenService
         return await GetUserWithToken(value, highSecurity);
     }
 
+    public async Task<string> GetUserId(ControllerBase controllerInstance, bool highSecurity = false)
+    {
+        return (await GetUserWithToken(controllerInstance, highSecurity)).Id.ToString();
+    }
+
     /// <summary>
     /// Validates and extracts the token content
     /// </summary>

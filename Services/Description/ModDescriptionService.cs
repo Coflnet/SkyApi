@@ -699,7 +699,7 @@ public class ModDescriptionService : IDisposable
             if (mod.Key == "unlocked_slots")
             {
                 var costs = itemService.GetSlotCostSync(auction.Tag, new(), mod.Value.Split(',').ToList());
-                foreach (var cost in costs)
+                foreach (var cost in costs.Item1)
                 {
                     itemIds.Add((cost.ItemId, cost.Amount ?? 1, cost.Coins));
                 }
