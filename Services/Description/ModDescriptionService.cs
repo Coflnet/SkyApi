@@ -295,10 +295,10 @@ public class ModDescriptionService : IDisposable
         var bazaarPrices = deserializedCache.BazaarItems ?? new Dictionary<string, Bazaar.Client.Model.ItemPrice>();
 
         var salesData = await pricesPaidTask;
-        var pricePaid = salesData.Where(p => p.Where(s => !s.requestingUserIsSeller && s.highest > 0 && s.end < DateTime.UtcNow).Any()).ToDictionary(p => p.Key, p =>
+        var pricePaid = salesData.Where(p => p.Where(s => !s.requestingUserIsSeller && s.highest > 0).Any()).ToDictionary(p => p.Key, p =>
         {
-            var sell = p.OrderByDescending(a => a.end).First();
-            return (sell.highest, sell.end);
+            var sell = p.OrderByDescending(a => a.end).Where(s => !s.requestingUserIsSeller && s.highest > 0 && s.end < DateTime.UtcNow).FirstOrDefault();
+            return (sell?.highest ?? 0, sell?.end ?? default);
         });
         var res = await pricesTask;
         var allCrafts = deserializedCache.Crafts;
