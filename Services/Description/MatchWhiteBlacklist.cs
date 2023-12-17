@@ -55,7 +55,6 @@ public class MatchWhiteBlacklist : CustomModifier
                 if (flip.Auction != null && flip.Auction.NBTLookup == null)
                     flip.Auction.NBTLookup = NBT.CreateLookup(flip.Auction);
                 var isMatch = settings.Value.MatchesSettings(flip);
-                Console.WriteLine($"{flipSlot.index} {isMatch.Item1} {isMatch.Item2}");
                 if (isMatch.Item1 && isMatch.Item2.StartsWith("white"))
                     Highlight(data, flipSlot, $"{McColorCodes.DARK_GREEN}{McColorCodes.BOLD}Matches whitelist", "009600");
                 else if (isMatch.Item1)
