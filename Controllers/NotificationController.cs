@@ -1,7 +1,10 @@
+using System.Linq;
 using System.Threading.Tasks;
 using Coflnet.Sky.Core;
 using Coflnet.Sky.EventBroker.Client.Api;
 using Coflnet.Sky.EventBroker.Client.Model;
+using Coflnet.Sky.Subscriptions.Client.Api;
+using Coflnet.Sky.Subscriptions.Client.Model;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
 
@@ -15,6 +18,7 @@ public class NotificationController : ControllerBase
     private readonly ILogger<NotificationController> logger;
     private readonly GoogletokenService googletokenService;
     private readonly ISubscriptionsApi subscriptionsApi;
+    private readonly ISubscriptionApi listenerApi;
     
     private readonly ITargetsApi targetsApi;
 
@@ -25,15 +29,18 @@ public class NotificationController : ControllerBase
     /// <param name="googletokenService"></param>
     /// <param name="subscriptionsApi"></param>
     /// <param name="targetsApi"></param>
+    /// <param name="listenerApi"></param>
     public NotificationController(ILogger<NotificationController> logger,
                            GoogletokenService googletokenService,
                            ISubscriptionsApi subscriptionsApi,
-                           ITargetsApi targetsApi)
+                           ITargetsApi targetsApi,
+                           ISubscriptionApi listenerApi)
     {
         this.logger = logger;
         this.googletokenService = googletokenService;
         this.subscriptionsApi = subscriptionsApi;
         this.targetsApi = targetsApi;
+        this.listenerApi = listenerApi;
     }
 
     /// <summary>
@@ -142,5 +149,40 @@ public class NotificationController : ControllerBase
         await subscriptionsApi.SubscriptionsPutAsync(await googletokenService.GetUserId(this), subscription);
     }
 
+    /// <summary>
+    /// Adds a new listener
+    /// </summary>
+    /// <param name="listener"></param>
+    /// <returns></returns>
+    [Route("listeners")]
+    [HttpPost]
+    public async Task<Subscription> AddListener(Subscription listener)
+    {
+        return await listenerApi.SubscriptionUserIdSubPostAsync(await googletokenService.GetUserId(this), listener);
+    }
+
+    /// <summary>
+    /// Lists all listeners
+    /// </summary>
+    /// <returns></returns>
+    /// <response code="200">Returns the listeners</response>
+    [Route("listeners")]
+    [HttpGet]
+    public async Task<List<Subscription>> ListListeners()
+    {
+        return (await listenerApi.SubscriptionUserIdGetAsync(await googletokenService.GetUserId(this))).Subscriptions;
+    }
+
+    /// <summary>
+    /// Removes a listener
+    /// </summary>
+    /// <param name="listener"></param>
+    /// <returns></returns>
+    [Route("listeners")]
+    [HttpDelete]
+    public async Task RemoveListener(Subscription listener)
+    {
+        await listenerApi.SubscriptionUserIdSubDeleteAsync(await googletokenService.GetUserId(this), listener);
+    }
 }
 

@@ -117,6 +117,10 @@ namespace Coflnet.Sky.Api
             {
                 return new Proxy.Client.Api.BaseApi(Configuration["PROXY_BASE_URL"]);
             });
+            services.AddSingleton<Subscriptions.Client.Api.ISubscriptionApi>(a =>
+            {
+                return new Subscriptions.Client.Api.SubscriptionApi(Configuration["SUBSCRIPTION_BASE_URL"]);
+            });
 
             services.AddSingleton<Trade.Client.Api.ITradeApi>(p =>
             {
