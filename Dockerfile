@@ -5,9 +5,9 @@ RUN git clone --depth=1 https://github.com/Coflnet/HypixelSkyblock.git dev \
     && git clone --depth=1 https://github.com/Coflnet/SkyFilter.git
 WORKDIR /build/sky
 COPY SkyApi.csproj SkyApi.csproj
-RUN rm SkyApi.sln && dotnet restore
+RUN dotnet restore
 COPY . .
-RUN dotnet test
+RUN rm SkyApi.sln && dotnet test
 RUN dotnet publish -c release -o /app
 
 FROM mcr.microsoft.com/dotnet/sdk:8.0
