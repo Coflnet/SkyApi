@@ -292,13 +292,13 @@ public class ModDescriptionService : IDisposable
         }
 
         var pricesPaidTask = GetPriceData(inventory, mcName, auctionRepresent);
-        var bazaarPrices = deserializedCache.BazaarItems ?? new Dictionary<string, Bazaar.Client.Model.ItemPrice>();
+        var bazaarPrices = deserializedCache.BazaarItems ?? new Dictionary<string, ItemPrice>();
 
         var salesData = await pricesPaidTask;
         var pricePaid = salesData.Where(p => p.Where(s => !s.requestingUserIsSeller && s.highest > 0).Any()).ToDictionary(p => p.Key, p =>
         {
             var sell = p.OrderByDescending(a => a.end).Where(s => !s.requestingUserIsSeller && s.highest > 0 && s.end < DateTime.UtcNow).FirstOrDefault();
-            return (sell?.highest ?? 0, sell?.end ?? default);
+            return (sell?.highest ?? -p.OrderByDescending(a => a.end).First().highest, sell?.end ?? default);
         });
         var res = await pricesTask;
         var allCrafts = deserializedCache.Crafts;
@@ -441,7 +441,7 @@ public class ModDescriptionService : IDisposable
     private async Task<ILookup<string, ListingSum>> GetPriceData(InventoryDataWithSettings inventory, string mcName, List<(SaveAuction auction, string[] desc)> auctionRepresent)
     {
         if (!inventory.Settings.Fields.Any(line => line.Contains(DescriptionField.PRICE_PAID)))
-            return new ListingSum[0].ToLookup(a => "");
+            return Array.Empty<ListingSum>().ToLookup(a => "");
         var numericIds = auctionRepresent.Where(a => a.auction != null)
                 .Select(a => a.auction.FlatenedNBT?.GetValueOrDefault("uid")).Where(v => v != null)
                 .Distinct()
