@@ -124,7 +124,7 @@ public class ModDescriptionService : IDisposable
 
     private readonly ConcurrentDictionary<string, (SelfUpdatingValue<DescriptionSetting>, SelfUpdatingValue<AccountInfo>)> settings = new();
 
-    public List<Item> ProduceInventory(InventoryData modDescription, string playerId, string sessionId)
+    public List<Item> ProduceInventory(InventoryData modDescription, string playerId, string userId)
     {
         try
         {
@@ -134,7 +134,7 @@ public class ModDescriptionService : IDisposable
             // anonymous player only ineresting if ah contains seller
             if (playerId == null && !items.Any(i => i?.Description?.Contains("Seller") ?? false))
                 return items;
-            ProduceInventory(modDescription.ChestName, playerId, sessionId, items);
+            ProduceInventory(modDescription.ChestName, playerId, userId, items);
             return items;
         }
         catch (System.Exception e)
@@ -161,9 +161,9 @@ public class ModDescriptionService : IDisposable
     /// </summary>
     /// <param name="chestName"></param>
     /// <param name="playerId"></param>
-    /// <param name="sessionId"></param>
+    /// <param name="userId"></param>
     /// <param name="items"></param>
-    public void ProduceInventory(string chestName, string playerId, string sessionId, List<Item> items)
+    public void ProduceInventory(string chestName, string playerId, string userId, List<Item> items)
     {
         stateService.Produce(playerId, new()
         {
@@ -173,7 +173,7 @@ public class ModDescriptionService : IDisposable
                 Name = chestName,
                 Items = items
             },
-            SessionId = sessionId,
+            UserId = userId,
             ReceivedAt = DateTime.UtcNow
         });
         Console.WriteLine("produced state update " + playerId + " " + chestName);
@@ -275,7 +275,7 @@ public class ModDescriptionService : IDisposable
         List<Item> items = new();
         try
         {
-            items = ProduceInventory(inventory, mcName, sessionId);
+            items = ProduceInventory(inventory, mcName, userInfo.UserId);
         }
         catch (Exception e)
         {
