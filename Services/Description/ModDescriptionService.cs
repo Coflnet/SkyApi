@@ -673,7 +673,7 @@ public class ModDescriptionService : IDisposable
         return valueSum;
     }
 
-    private IEnumerable<List<(string id, int amount, double coins)>> GetModifiersOnItem(SaveAuction auction, DataContainer data)
+    public IEnumerable<List<(string id, int amount, double coins)>> GetModifiersOnItem(SaveAuction auction, DataContainer data)
     {
         var cost = auction.FlatenedNBT.Select(mod =>
         {
@@ -705,7 +705,14 @@ public class ModDescriptionService : IDisposable
                 }
             }
             return itemIds;
-        });
+        }).ToList();
+
+        if (auction.Reforge != ItemReferences.Reforge.None)
+        {
+            var reforgeCost = mapper.GetReforgeCost(auction.Reforge);
+            if (reforgeCost.Item1 != null)
+                cost.Add(new() { (reforgeCost.Item1, 1, reforgeCost.Item2) });
+        }
 
         long EstStarCost(string item, int tier)
         {
