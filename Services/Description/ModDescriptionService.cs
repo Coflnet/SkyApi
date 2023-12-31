@@ -696,6 +696,16 @@ public class ModDescriptionService : IDisposable
             {
                 itemIds.Add((null, 0, EstStarCost(auction.Tag, int.Parse(mod.Value))));
             }
+            if (Constants.AttributeKeys.Contains(mod.Key))
+            {
+                itemIds.Add(($"{auction.Tag}+{mod.Key};1", (int)Math.Pow(2, int.Parse(mod.Value)), 0));
+                // check for combo
+                var attributes = auction.FlatenedNBT.Where(a => Constants.AttributeKeys.Contains(a.Key)).ToList();
+                if (attributes.Count > 1 && attributes[0].Key == mod.Key)
+                {
+                    itemIds.Add(($"{auction.Tag}+{string.Join("_", attributes.Select(a => a.Value))}", 1, 0));
+                }
+            }
             if (mod.Key == "unlocked_slots")
             {
                 var costs = itemService.GetSlotCostSync(auction.Tag, new(), mod.Value.Split(',').ToList());
