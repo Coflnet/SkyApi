@@ -72,8 +72,7 @@ public class NotificationController : ControllerBase
     [HttpPost]
     public async Task<PublicSubscription> AddSubscription(PublicSubscription subscription)
     {
-        await subscriptionsApi.SubscriptionsPostAsync(await googletokenService.GetUserId(this), subscription);
-        return subscription; // TODO: return the created subscription
+        return await subscriptionsApi.SubscriptionsPostAsync(await googletokenService.GetUserId(this), subscription);
     }
 
     /// <summary>
@@ -97,8 +96,7 @@ public class NotificationController : ControllerBase
     [HttpPost]
     public async Task<NotificationTarget> AddTarget(NotificationTarget target)
     {
-        await targetsApi.TargetsUserIdPostAsync(await googletokenService.GetUserId(this), target);
-        return target; // TODO: return the created target
+        return await targetsApi.TargetsUserIdPostAsync(await googletokenService.GetUserId(this), target);
     }
 
     /// <summary>
