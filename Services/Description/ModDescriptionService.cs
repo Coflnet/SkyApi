@@ -59,6 +59,8 @@ public class ModDescriptionService : IDisposable
     private readonly PropertyMapper mapper = new();
     private readonly Coflnet.Sky.Core.Services.HypixelItemService itemService;
 
+    public DeserializedCache DeserializedCache => deserializedCache;
+
     /// <summary>
     /// Initializes a new instance of the <see cref="ModDescriptionService"/> class.
     /// </summary>
@@ -741,6 +743,17 @@ public class ModDescriptionService : IDisposable
         return cost;
     }
 
+    public long GetItemprice(string itemKey)
+    {
+        if (itemKey == null)
+            return 0;
+        if (deserializedCache.ItemPrices.TryGetValue(itemKey, out var price))
+            return price;
+        if (deserializedCache.BazaarItems.TryGetValue(itemKey, out var bazaarPrice))
+            return (long)bazaarPrice.SellPrice;
+        return 0;
+    }
+
     private void AddInstasellEstimate(Sniper.Client.Model.PriceEstimate est, StringBuilder builder, DataContainer data)
     {
         builder.Append(ListPriceRecommend.GetRecommendText(est, this));
@@ -997,7 +1010,13 @@ public class ModDescriptionService : IDisposable
             return (new InventoryParser().Parse(inventory.JsonNbt) as IEnumerable<SaveAuction>)
                     .Select(a => (a, a?.Context?.GetValueOrDefault("lore")?.Split("\n") ?? new string[0])).ToList();
         }
-        var nbt = NBT.File(Convert.FromBase64String(inventory.FullInventoryNbt));
+        var nbtString = inventory.FullInventoryNbt;
+        return GetAuctionsFromNbt(nbtString);
+    }
+
+    public List<(SaveAuction auction, string[] desc)> GetAuctionsFromNbt(string nbtString)
+    {
+        var nbt = NBT.File(Convert.FromBase64String(nbtString));
         var auctionRepresent = nbt.RootTag.Get<fNbt.NbtList>("i").Select(t =>
         {
             try

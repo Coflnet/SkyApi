@@ -11,6 +11,7 @@ using Microsoft.Extensions.Logging;
 using Coflnet.Sky.Items.Client.Api;
 using Coflnet.Sky.Api.Models.Mod;
 using Prometheus;
+using Coflnet.Sky.Api.Models.Netowrth;
 
 namespace Coflnet.Sky.Api.Controller;
 /// <summary>
@@ -28,6 +29,7 @@ public class PricesController : ControllerBase
     private ModDescriptionService modDescriptionSerice;
     private AhListChecker ahListChecker;
     private FilterEngine fe;
+    private NetworthService networthService;
     Counter counter = Metrics.CreateCounter("sky_api_nbt", "Counts requests to /api/item/price/nbt");
 
     /// <summary>
@@ -47,7 +49,8 @@ public class PricesController : ControllerBase
         ILogger<PricesController> logger,
         ModDescriptionService modDescriptionSerice,
         AhListChecker ahListChecker,
-        FilterEngine fe)
+        FilterEngine fe,
+        NetworthService networthService)
     {
         priceService = pricesService;
         this.context = context;
@@ -56,6 +59,7 @@ public class PricesController : ControllerBase
         this.modDescriptionSerice = modDescriptionSerice;
         this.ahListChecker = ahListChecker;
         this.fe = fe;
+        this.networthService = networthService;
     }
     /// <summary>
     /// Aggregated sumary of item prices for the 2 last days
@@ -283,4 +287,14 @@ public class PricesController : ControllerBase
         return "endpoint deprecated, use one starting with /api/bazaar";
     }
 
+    /// <summary>
+    /// Networth estimation for a profile based on market data
+    /// </summary>
+    [Route("networth")]
+    [HttpPost]
+    [ResponseCache(Duration = 3600, Location = ResponseCacheLocation.Any, NoStore = false)]
+    public async Task<NetworthBreakDown> GetNetworth(Profile profile)
+    {
+        return await networthService.GetNetworth(profile);
+    }
 }

@@ -85,6 +85,7 @@ namespace Coflnet.Sky.Api
             services.AddSingleton<PremiumTierService>();
             services.AddSingleton<Core.Services.HypixelItemService>();
             services.AddSingleton<HttpClient>();
+            services.AddSingleton<NetworthService>();
 
             services.AddSingleton<ItemSkinHandler>();
             services.AddHostedService<ItemSkinHandler>(di => di.GetService<ItemSkinHandler>());
