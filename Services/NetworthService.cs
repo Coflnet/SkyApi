@@ -119,7 +119,7 @@ public class NetworthService
             inventories.Add("equipment", inventory.equipment_contents?? new());
             inventories.Add("personal vault", inventory.personal_vault_contents?? new());
             inventories.Add("wardrobe", inventory.wardrobe_contents?? new());
-            foreach (var backpack in inventory.backpack_contents ?? [])
+            foreach (var backpack in inventory.backpack_contents ?? new())
             {
                 inventories.Add($"backpack {backpack.Key}", backpack.Value);
             }
