@@ -164,7 +164,7 @@ namespace Coflnet.Sky.Api.Controller
             if(end == default)
                 end = DateTime.UtcNow;
             if(start == default)
-                start = DateTime.UtcNow.AddDays(-7);
+                start = end.AddDays(-7);
             Console.WriteLine($"Getting stats for {playerUuid} from {start} to {end}");
             var length = (end - start);
             if (length.TotalDays > 7 || start < DateTime.UtcNow.AddDays(-7.1))
