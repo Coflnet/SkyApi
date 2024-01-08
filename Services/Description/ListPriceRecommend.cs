@@ -1,5 +1,6 @@
 using Coflnet.Sky.Api.Models.Mod;
 using Coflnet.Sky.Commands.MC;
+using Coflnet.Sky.Commands.Shared;
 using Coflnet.Sky.Sniper.Client.Model;
 using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
@@ -20,15 +21,7 @@ public class ListPriceRecommend : CustomModifier
         {
             return $"No recommended instasell from Coflnet";
         }
-        var deduct = 0.12;
-        if (pricing.Median < 15_000_000)
-            deduct = 0.18;
-        if (pricing.Median > 150_000_000)
-            deduct = 0.10;
-        var fromMed = pricing.Median * (1 - deduct);
-        var target = Math.Max(fromMed, Math.Min(pricing.Lbin.Price * (1 - deduct - 0.08), fromMed * 1.2));
-        if (pricing.ItemKey != pricing.LbinKey)
-            target = fromMed;
+        double target = SniperClient.InstaSellPrice(pricing);
 
         var formattedPrice = modService.FormatNumber(target);
         return $"{McColorCodes.GREEN}Instasell: {McColorCodes.DARK_GREEN}{formattedPrice} {McColorCodes.WHITE}based on Coflnet data";
