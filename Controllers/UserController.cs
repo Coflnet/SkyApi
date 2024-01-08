@@ -16,7 +16,7 @@ namespace Coflnet.Sky.Api.Controller
     [ResponseCache(Duration = 0, Location = ResponseCacheLocation.None, NoStore = true)]
     public class UserController : ControllerBase
     {
-        private Sky.Api.GoogletokenService tokenService;
+        private GoogletokenService tokenService;
         private SettingsService settingsService;
 
         /// <summary>
@@ -24,7 +24,7 @@ namespace Coflnet.Sky.Api.Controller
         /// </summary>
         /// <param name="premiumService"></param>
         /// <param name="settingsService"></param>
-        public UserController(Sky.Api.GoogletokenService premiumService, SettingsService settingsService)
+        public UserController(GoogletokenService premiumService, SettingsService settingsService)
         {
             this.tokenService = premiumService;
             this.settingsService = settingsService;
@@ -41,7 +41,7 @@ namespace Coflnet.Sky.Api.Controller
             var user = await GetUserOrDefault();
             if (user == default)
                 return Unauthorized("no googletoken header");
-            return await settingsService.GetCurrentValue<PrivacySettings>(user.Id.ToString(), "privacySettings", () => new PrivacySettings()
+            return await settingsService.GetCurrentValue(user.Id.ToString(), "privacySettings", () => new PrivacySettings()
             {
                 CollectInventory = true,
                 ExtendDescriptions = true,
@@ -66,7 +66,7 @@ namespace Coflnet.Sky.Api.Controller
             var user = await GetUserOrDefault();
             if (user == default)
                 return Unauthorized("no googletoken header");
-            await settingsService.UpdateSetting<PrivacySettings>(user.Id.ToString(), "privacySettings", settings);
+            await settingsService.UpdateSetting(user.Id.ToString(), "privacySettings", settings);
             return Ok();
         }
 
