@@ -58,7 +58,7 @@ public class ModDescriptionService : IDisposable
     private readonly DeserializedCache deserializedCache = new();
     private readonly PropertyMapper mapper = new();
     private readonly Core.Services.HypixelItemService itemService;
-    private readonly FlipTracker.Client.Api.TrackerApi trackerApi;
+    private readonly FlipTracker.Client.Api.ITrackerApi trackerApi;
 
     public DeserializedCache DeserializedCache => deserializedCache;
 
@@ -66,7 +66,6 @@ public class ModDescriptionService : IDisposable
     /// Initializes a new instance of the <see cref="ModDescriptionService"/> class.
     /// </summary>
     /// <param name="craftsApi"></param>
-    /// <param name="tracer"></param>
     /// <param name="settingsService"></param>
     /// <param name="idConverter"></param>
     /// <param name="scopeFactory"></param>
@@ -76,11 +75,11 @@ public class ModDescriptionService : IDisposable
     /// <param name="config"></param>
     /// <param name="stateService"></param>
     /// <param name="sniperClient"></param>
-    /// <param name="kafkaCreator"></param>
     /// <param name="itemSkinHandler"></param>
     /// <param name="ahListChecker"></param>
     /// <param name="katApi"></param>
     /// <param name="itemService"></param>
+    /// <param name="trackerApi"></param>
     public ModDescriptionService(ICraftsApi craftsApi,
                                  SettingsService settingsService,
                                  IdConverter idConverter,
@@ -91,12 +90,11 @@ public class ModDescriptionService : IDisposable
                                  IConfiguration config,
                                  IStateUpdateService stateService,
                                  ISniperClient sniperClient,
-                                 KafkaCreator kafkaCreator,
                                  ItemSkinHandler itemSkinHandler,
                                  AhListChecker ahListChecker,
                                  IKatApi katApi,
                                  Core.Services.HypixelItemService itemService,
-                                 FlipTracker.Client.Api.TrackerApi trackerApi)
+                                 FlipTracker.Client.Api.ITrackerApi trackerApi)
     {
         this.craftsApi = craftsApi;
         this.settingsService = settingsService;

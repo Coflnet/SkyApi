@@ -54,7 +54,7 @@ public class ModDescriptionServiceTests
 
         ModDescriptionService modDescriptionService = new(Mock.Of<ICraftsApi>(), settingsService, Mock.Of<IdConverter>(), Mock.Of<IServiceScopeFactory>(),
             Mock.Of<BazaarApi>(), playerNameService, Mock.Of<ILogger<ModDescriptionService>>(), Mock.Of<IConfiguration>(), Mock.Of<IStateUpdateService>(), sniperClient.Object,
-            null, itemSkinHandler, new(null, null, null), null, null, null);
+            itemSkinHandler, new(null, null, null), null, null, null);
 
         // Act
         var res = await modDescriptionService.GetModifications(GetMockInventory(), "test", "test");
@@ -76,7 +76,7 @@ public class ModDescriptionServiceTests
     [Test]
     public async Task GetsReforgeCost()
     {
-        var service = new ModDescriptionService(null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
+        var service = new ModDescriptionService(null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
         var breakdown = service.GetModifiersOnItem(new SaveAuction() { Tag = "test", Reforge = ItemReferences.Reforge.mossy }, new()
         {
 
