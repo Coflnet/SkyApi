@@ -57,7 +57,8 @@ public class ModDescriptionService : IDisposable
     private readonly ClassNameDictonary<CustomModifier> customModifiers = new();
     private readonly DeserializedCache deserializedCache = new();
     private readonly PropertyMapper mapper = new();
-    private readonly Coflnet.Sky.Core.Services.HypixelItemService itemService;
+    private readonly Core.Services.HypixelItemService itemService;
+    private readonly FlipTracker.Client.Api.TrackerApi trackerApi;
 
     public DeserializedCache DeserializedCache => deserializedCache;
 
@@ -94,7 +95,8 @@ public class ModDescriptionService : IDisposable
                                  ItemSkinHandler itemSkinHandler,
                                  AhListChecker ahListChecker,
                                  IKatApi katApi,
-                                 Coflnet.Sky.Core.Services.HypixelItemService itemService)
+                                 Core.Services.HypixelItemService itemService,
+                                 FlipTracker.Client.Api.TrackerApi trackerApi)
     {
         this.craftsApi = craftsApi;
         this.settingsService = settingsService;
@@ -111,6 +113,7 @@ public class ModDescriptionService : IDisposable
         this.ahListChecker = ahListChecker;
         this.katApi = katApi;
         this.itemService = itemService;
+        this.trackerApi = trackerApi;
     }
 
     private void RegisterModifiers()
@@ -139,7 +142,7 @@ public class ModDescriptionService : IDisposable
             ProduceInventory(modDescription.ChestName, playerId, userId, items);
             return items;
         }
-        catch (System.Exception e)
+        catch (Exception e)
         {
             logger.LogError(e, "failed to parse inventory");
             foreach (var item in InventoryToItems(modDescription))
@@ -148,7 +151,7 @@ public class ModDescriptionService : IDisposable
                 {
                     MessagePack.MessagePackSerializer.Serialize(item);
                 }
-                catch (System.Exception)
+                catch (Exception)
                 {
                     Console.WriteLine(JsonConvert.SerializeObject(item, Formatting.Indented));
                 }
@@ -183,11 +186,11 @@ public class ModDescriptionService : IDisposable
 
     private List<Item> InventoryToItems(InventoryData modDescription)
     {
-        return NBT.File(Convert.FromBase64String(modDescription.FullInventoryNbt)).RootTag.Get<fNbt.NbtList>("i").Select(t =>
+        return NBT.File(Convert.FromBase64String(modDescription.FullInventoryNbt)).RootTag.Get<NbtList>("i").Select(t =>
         {
             try
             {
-                var compound = t as fNbt.NbtCompound;
+                var compound = t as NbtCompound;
                 if (compound.Count == 0)
                     return new Item();
 
@@ -213,7 +216,7 @@ public class ModDescriptionService : IDisposable
 
                 return item;
             }
-            catch (System.Exception e)
+            catch (Exception e)
             {
                 logger.LogError(e, "parsing nbt to item");
                 return new Item();
@@ -302,6 +305,12 @@ public class ModDescriptionService : IDisposable
             var sell = p.OrderByDescending(a => a.end).Where(s => !s.requestingUserIsSeller && s.highest > 0 && s.end < DateTime.UtcNow).FirstOrDefault();
             return (sell?.highest ?? -p.OrderByDescending(a => a.end).First().highest, sell?.end ?? default);
         });
+        List<FlipTracker.Client.Model.Flip> flips = null;
+        if(inventory.Settings.Fields.Any(f=>f.Any(x=>x == DescriptionField.FinderEstimates)))
+        {
+            // request finder estimates
+            flips = await trackerApi.TrackerBatchFlipsPostAsync(salesData.Select(s=>s.OrderByDescending(x=>x.end).First().AuctionUid).ToList());
+        }
         var res = await pricesTask;
         var allCrafts = deserializedCache.Crafts;
         var enabledFields = inventory.Settings.Fields;
@@ -320,7 +329,8 @@ public class ModDescriptionService : IDisposable
             itemPrices = deserializedCache.ItemPrices,
             Items = items,
             allCrafts = allCrafts,
-            accountInfo = userInfo
+            accountInfo = userInfo,
+            flips = flips?.ToLookup(f=>f.AuctionId)
         };
 
         for (int i = 0; i < auctionRepresent.Count; i++)
@@ -456,7 +466,15 @@ public class ModDescriptionService : IDisposable
                     .Where(a => a.NBTLookup.Where(l => l.KeyId == key && numericIds.Keys.Contains(l.Value)).Any())
                     //.Where(a => a.HighestBidAmount > 0)
                     .AsSplitQuery().AsNoTracking()
-                    .Select(a => new { a.HighestBidAmount, a.StartingBid, a.End, a.AuctioneerId, a.Start, uid = a.NBTLookup.Where(l => l.KeyId == key).Select(l => l.Value).FirstOrDefault() })
+                    .Select(a => new { 
+                        a.HighestBidAmount, 
+                        a.StartingBid, 
+                        a.End, 
+                        a.AuctioneerId, 
+                        a.Start, 
+                        uid = a.NBTLookup.Where(l => l.KeyId == key).Select(l => l.Value).FirstOrDefault(),
+                        auctionUid = a.UId
+                        })
                     .ToListAsync();
         var uuid = await nameRequest;
         return lastSells.ToLookup(g => numericIds[g.uid], a =>
@@ -467,7 +485,8 @@ public class ModDescriptionService : IDisposable
                 highest = a.HighestBidAmount,
                 StartingBid = a.StartingBid,
                 start = a.Start,
-                requestingUserIsSeller = a.AuctioneerId == uuid
+                requestingUserIsSeller = a.AuctioneerId == uuid,
+                AuctionUid = a.auctionUid
             };
         });
     }
@@ -585,6 +604,9 @@ public class ModDescriptionService : IDisposable
                     case DescriptionField.InstaSellPrice:
                         AddInstasellEstimate(price, builder, data);
                         break;
+                    case DescriptionField.FinderEstimates:
+                        AddFinderEstimates(auction, data, builder);
+                        break;
                     case DescriptionField.NONE:
                         break; // ignore
                     default:
@@ -600,6 +622,26 @@ public class ModDescriptionService : IDisposable
 
 
         return mods;
+    }
+
+    private void AddFinderEstimates(SaveAuction auction, DataContainer data, StringBuilder builder)
+    {
+        if (auction.FlatenedNBT == null || !auction.FlatenedNBT.TryGetValue("uid", out var uid))
+            return;
+
+        if (!data.itemListings.Contains(uid))
+            return;
+        var listing = data.itemListings[uid].OrderByDescending(l => l.end).FirstOrDefault();
+        if (listing == null)
+            return;
+        
+        var flips = data.flips?[listing.AuctionUid];
+        if(flips == null)
+            return;
+        foreach (var flip in flips)
+        {
+            builder.Append($"{McColorCodes.YELLOW}{flip.FinderType}: {McColorCodes.GRAY}{FormatPriceShort(flip.TargetPrice)} ");
+        }
     }
 
     private void AddFullCraftCost(SaveAuction auction, StringBuilder builder, DataContainer data)
@@ -1017,11 +1059,11 @@ public class ModDescriptionService : IDisposable
     public List<(SaveAuction auction, string[] desc)> GetAuctionsFromNbt(string nbtString)
     {
         var nbt = NBT.File(Convert.FromBase64String(nbtString));
-        var auctionRepresent = nbt.RootTag.Get<fNbt.NbtList>("i").Select(t =>
+        var auctionRepresent = nbt.RootTag.Get<NbtList>("i").Select(t =>
         {
             try
             {
-                var compound = t as fNbt.NbtCompound;
+                var compound = t as NbtCompound;
                 if (compound.Count == 0)
                     return (null, new string[0]);
                 if (NBT.ItemID(compound) == null)
@@ -1042,7 +1084,7 @@ public class ModDescriptionService : IDisposable
                 var desc = NBT.GetLore(compound);
                 return (auction, desc.ToArray());
             }
-            catch (System.Exception e)
+            catch (Exception e)
             {
                 logger.LogError(e, "parsing nbt to auction");
                 return (null, new string[0]);
