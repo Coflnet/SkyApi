@@ -672,7 +672,10 @@ public class ModDescriptionService : IDisposable
     {
         if (auction.Tag.StartsWith("PET_") && !auction.Tag.StartsWith("PET_SKIN_") && !auction.Tag.StartsWith("PET_ITEM_"))
         {
-            var level = int.Parse(Regex.Replace(auction.ItemName.Substring(7, 7), "[^0-9]", ""));
+            var name = auction.ItemName.Substring(7, 7);
+            if(!name.Contains("Lvl"))
+                name = data.auctionRepresent.Where(a=>a.auction == auction).Select(a=>a.desc).FirstOrDefault()?.FirstOrDefault(d=>d.Contains("Lvl"));
+            var level = int.Parse(Regex.Replace(name, "[^0-9]", ""));
             var key = $"{auction.Tag}_{auction.Tier}_{level switch
             {
                 >= 100 => 100,
