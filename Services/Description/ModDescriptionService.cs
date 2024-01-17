@@ -662,7 +662,9 @@ public class ModDescriptionService : IDisposable
     public (double? craftPrice, double summary) FullCraftCost(SaveAuction auction, DataContainer data)
     {
         var craftPrice = data.allCrafts.GetValueOrDefault(auction.Tag)?.CraftCost;
-        craftPrice ??= CleanItemprice(auction, data);
+        var clean = CleanItemprice(auction, data);
+        craftPrice ??= clean;
+        craftPrice = Math.Min(craftPrice ?? 0, clean);
         double summary = craftPrice.Value + ModifierCostSum(auction, data) + EnchantCost(auction, data.bazaarPrices);
         var value = (craftPrice, summary);
         return value;
