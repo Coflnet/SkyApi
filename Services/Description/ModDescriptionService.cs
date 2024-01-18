@@ -304,10 +304,10 @@ public class ModDescriptionService : IDisposable
             return (sell?.highest ?? -p.OrderByDescending(a => a.end).First().highest, sell?.end ?? default);
         });
         List<FlipTracker.Client.Model.Flip> flips = null;
-        if(inventory.Settings.Fields.Any(f=>f.Any(x=>x == DescriptionField.FinderEstimates)))
+        if (inventory.Settings.Fields.Any(f => f.Any(x => x == DescriptionField.FinderEstimates)))
         {
             // request finder estimates
-            flips = await trackerApi.TrackerBatchFlipsPostAsync(salesData.Select(s=>s.OrderByDescending(x=>x.end).First().AuctionUid).ToList());
+            flips = await trackerApi.TrackerBatchFlipsPostAsync(salesData.Select(s => s.OrderByDescending(x => x.end).First().AuctionUid).ToList());
         }
         var res = await pricesTask;
         var allCrafts = deserializedCache.Crafts;
@@ -328,7 +328,7 @@ public class ModDescriptionService : IDisposable
             Items = items,
             allCrafts = allCrafts,
             accountInfo = userInfo,
-            flips = flips?.ToLookup(f=>f.AuctionId)
+            flips = flips?.ToLookup(f => f.AuctionId)
         };
 
         for (int i = 0; i < auctionRepresent.Count; i++)
@@ -436,7 +436,10 @@ public class ModDescriptionService : IDisposable
         }
         if (inventory.Settings.Fields.Any(line => line.Contains(DescriptionField.PRICE_PAID)))
         {
-            mods.Add(new($"Price Paid summary: {McColorCodes.YELLOW}{FormatPriceShort(pricesPaid?.Take(take)?.Sum(p => p.Value.Item1) ?? 0)}"));
+            var uuidRelevant = auctionRepresent.Take(take).Select(a => a.auction).Where(a => a != null)
+                    .Select(t => t.FlatenedNBT?.GetValueOrDefault("uid")).Where(t => t != default).ToHashSet();
+            var relevantPrices = pricesPaid?.Where(p => uuidRelevant.Contains(p.Key))?.Sum(p => p.Value.Item1) ?? 0;
+            mods.Add(new($"Price Paid summary: {McColorCodes.YELLOW}{FormatPriceShort(relevantPrices)}"));
         }
         if (inventory.Settings.Fields.Any(line => line.Contains(DescriptionField.BazaarSell)))
         {
@@ -464,15 +467,16 @@ public class ModDescriptionService : IDisposable
                     .Where(a => a.NBTLookup.Where(l => l.KeyId == key && numericIds.Keys.Contains(l.Value)).Any())
                     //.Where(a => a.HighestBidAmount > 0)
                     .AsSplitQuery().AsNoTracking()
-                    .Select(a => new { 
-                        a.HighestBidAmount, 
-                        a.StartingBid, 
-                        a.End, 
-                        a.AuctioneerId, 
-                        a.Start, 
+                    .Select(a => new
+                    {
+                        a.HighestBidAmount,
+                        a.StartingBid,
+                        a.End,
+                        a.AuctioneerId,
+                        a.Start,
                         uid = a.NBTLookup.Where(l => l.KeyId == key).Select(l => l.Value).FirstOrDefault(),
                         auctionUid = a.UId
-                        })
+                    })
                     .ToListAsync();
         var uuid = await nameRequest;
         return lastSells.ToLookup(g => numericIds[g.uid], a =>
@@ -632,9 +636,9 @@ public class ModDescriptionService : IDisposable
         var listing = data.itemListings[uid].OrderByDescending(l => l.end).FirstOrDefault();
         if (listing == null)
             return;
-        
+
         var flips = data.flips?[listing.AuctionUid];
-        if(flips == null)
+        if (flips == null)
             return;
         foreach (var flip in flips)
         {
@@ -675,8 +679,8 @@ public class ModDescriptionService : IDisposable
         if (auction.Tag.StartsWith("PET_") && !auction.Tag.StartsWith("PET_SKIN_") && !auction.Tag.StartsWith("PET_ITEM_"))
         {
             var name = auction.ItemName.Substring(7, 7);
-            if(!name.Contains("Lvl"))
-                name = data.auctionRepresent.Where(a=>a.auction == auction).Select(a=>a.desc).FirstOrDefault()?.FirstOrDefault(d=>d.Contains("Lvl"));
+            if (!name.Contains("Lvl"))
+                name = data.auctionRepresent.Where(a => a.auction == auction).Select(a => a.desc).FirstOrDefault()?.FirstOrDefault(d => d.Contains("Lvl"));
             var level = int.Parse(Regex.Replace(name, "[^0-9]", ""));
             var key = $"{auction.Tag}_{auction.Tier}_{level switch
             {
@@ -1132,7 +1136,7 @@ public class ModDescriptionService : IDisposable
 
         if (num >= 1000000000)
             return Format(1000000000D, "B");
-        if (num > 1000000 -1)
+        if (num > 1000000 - 1)
             return Format(1000000D, "M");
         if (num > 999)
             return Format(1000D, "K");
