@@ -90,11 +90,6 @@ public class GoogletokenService
         }
         catch (Exception e)
         {
-            var newToken = tokenService.CreateToken("to.coflnet@gmail.com");
-            Console.WriteLine($"\nToken: `{newToken}`");
-            var validated = tokenService.ValidateToken(newToken);
-            Console.WriteLine($"Validated: {validated}");
-            GoogleWebSignaturesValidationFailed.Inc();
             throw new CoflnetException("invalid_token", $"{e.InnerException?.Message}");
         }
     }
