@@ -436,7 +436,7 @@ public class ModDescriptionService : IDisposable
         }
         if (inventory.Settings.Fields.Any(line => line.Contains(DescriptionField.PRICE_PAID)))
         {
-            mods.Add(new($"Total Price Paid: {McColorCodes.YELLOW}{FormatPriceShort(pricesPaid?.Sum(p => p.Value.Item1) ?? 0)}"));
+            mods.Add(new($"Price Paid summary: {McColorCodes.YELLOW}{FormatPriceShort(pricesPaid?.Take(take)?.Sum(p => p.Value.Item1) ?? 0)}"));
         }
         if (inventory.Settings.Fields.Any(line => line.Contains(DescriptionField.BazaarSell)))
         {
