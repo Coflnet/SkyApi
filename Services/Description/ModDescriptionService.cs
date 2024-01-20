@@ -348,7 +348,7 @@ public class ModDescriptionService : IDisposable
                 result.Add(none);
                 continue;
             }
-            List<DescModification> mods = GetModifications(enabledFields, auction, price, container);
+            List<DescModification> mods = GetModifications(enabledFields, auction, i, container);
             if (auction.Tag == "SKYBLOCK_MENU")
             {
                 try
@@ -530,7 +530,7 @@ public class ModDescriptionService : IDisposable
 
     private List<DescModification> GetModifications(List<List<DescriptionField>> enabledFields,
                                                     SaveAuction auction,
-                                                    Sniper.Client.Model.PriceEstimate price,
+                                                    int index,
                                                     DataContainer data)
     {
         var mods = new List<DescModification>();
@@ -547,74 +547,13 @@ public class ModDescriptionService : IDisposable
         {
             foreach (var item in line)
             {
-                switch (item)
+                try
                 {
-                    case DescriptionField.LBIN:
-                        AddLbin(auction, price, builder);
-                        break;
-                    case DescriptionField.LBIN_KEY:
-                        builder.Append($"Lbin-Key: {price.LbinKey} ");
-                        break;
-                    case DescriptionField.MEDIAN:
-                        AddMedian(auction, price, builder);
-                        break;
-                    case DescriptionField.MEDIAN_KEY:
-                        builder.Append($"Med-Key: {price.MedianKey}");
-                        break;
-                    case DescriptionField.ITEM_KEY:
-                        builder.Append($"Item-Key: {price.ItemKey}");
-                        break;
-                    case DescriptionField.VOLUME:
-                        AddVolume(auction, price, builder);
-                        break;
-                    case DescriptionField.TAG:
-                        builder.Append($"{auction.Tag} ");
-                        break;
-                    case DescriptionField.BazaarBuy:
-                        AddBazaarBuy(auction, data.bazaarPrices, builder);
-                        break;
-                    case DescriptionField.BazaarSell:
-                        AddBazaarSell(auction, data.bazaarPrices, builder);
-                        break;
-                    case DescriptionField.EnchantCost:
-                        AddEnchantCost(auction, builder, data.bazaarPrices);
-                        break;
-                    case DescriptionField.PRICE_PAID:
-                        AddPricePaid(auction, data.pricesPaid, builder);
-                        break;
-                    case DescriptionField.CRAFT_COST:
-                        AddCraftcost(auction, data, builder);
-                        break;
-                    case DescriptionField.GemValue:
-                        AddGemValue(auction, builder, data.bazaarPrices);
-                        break;
-                    case DescriptionField.SpentOnAhFees:
-                        AddSpentOnAhFees(auction, builder, data);
-                        break;
-                    case DescriptionField.KatUpgradeCost:
-                        AddKatUpgradeCost(auction, builder, data);
-                        break;
-                    case DescriptionField.ModifierCost:
-                        AddModifierCost(auction, builder, data);
-                        break;
-                    case DescriptionField.ModifierCostList:
-                        AddModifierCostList(auction, builder, data);
-                        break;
-                    case DescriptionField.FullCraftCost:
-                        AddFullCraftCost(auction, builder, data);
-                        break;
-                    case DescriptionField.InstaSellPrice:
-                        AddInstasellEstimate(price, builder, data);
-                        break;
-                    case DescriptionField.FinderEstimates:
-                        AddFinderEstimates(auction, data, builder);
-                        break;
-                    case DescriptionField.NONE:
-                        break; // ignore
-                    default:
-                        if (Random.Shared.Next() % 100 == 0)
-                            logger.LogError("Invalid description type " + item);
-                        break;
+                    AddFieldToBuilder(auction, index, data, builder, item);
+                }
+                catch (Exception e)
+                {
+                    logger.LogError(e, "failed to add description element " + item);
                 }
             }
             if (builder.Length > 0)
@@ -624,6 +563,80 @@ public class ModDescriptionService : IDisposable
 
 
         return mods;
+    }
+
+    private void AddFieldToBuilder(SaveAuction auction, int index, DataContainer data, StringBuilder builder, DescriptionField item)
+    {
+        var price = data.res[index];
+        switch (item)
+        {
+            case DescriptionField.LBIN:
+                AddLbin(auction, price, builder);
+                break;
+            case DescriptionField.LBIN_KEY:
+                builder.Append($"Lbin-Key: {price.LbinKey} ");
+                break;
+            case DescriptionField.MEDIAN:
+                AddMedian(auction, price, builder);
+                break;
+            case DescriptionField.MEDIAN_KEY:
+                builder.Append($"Med-Key: {price.MedianKey}");
+                break;
+            case DescriptionField.ITEM_KEY:
+                builder.Append($"Item-Key: {price.ItemKey}");
+                break;
+            case DescriptionField.VOLUME:
+                AddVolume(auction, price, builder);
+                break;
+            case DescriptionField.TAG:
+                builder.Append($"{auction.Tag} ");
+                break;
+            case DescriptionField.BazaarBuy:
+                AddBazaarBuy(auction, data.bazaarPrices, builder);
+                break;
+            case DescriptionField.BazaarSell:
+                AddBazaarSell(auction, data.bazaarPrices, builder);
+                break;
+            case DescriptionField.EnchantCost:
+                AddEnchantCost(auction, builder, data.bazaarPrices);
+                break;
+            case DescriptionField.PRICE_PAID:
+                AddPricePaid(auction, data.pricesPaid, builder);
+                break;
+            case DescriptionField.CRAFT_COST:
+                AddCraftcost(auction, data, builder);
+                break;
+            case DescriptionField.GemValue:
+                AddGemValue(auction, builder, data.bazaarPrices);
+                break;
+            case DescriptionField.SpentOnAhFees:
+                AddSpentOnAhFees(auction, builder, data);
+                break;
+            case DescriptionField.KatUpgradeCost:
+                AddKatUpgradeCost(auction, builder, data);
+                break;
+            case DescriptionField.ModifierCost:
+                AddModifierCost(auction, builder, data);
+                break;
+            case DescriptionField.ModifierCostList:
+                AddModifierCostList(auction, builder, data);
+                break;
+            case DescriptionField.FullCraftCost:
+                AddFullCraftCost(auction, builder, data);
+                break;
+            case DescriptionField.InstaSellPrice:
+                AddInstasellEstimate(price, builder, data);
+                break;
+            case DescriptionField.FinderEstimates:
+                AddFinderEstimates(auction, data, builder);
+                break;
+            case DescriptionField.NONE:
+                break; // ignore
+            default:
+                if (Random.Shared.Next() % 100 == 0)
+                    logger.LogError("Invalid description type " + item);
+                break;
+        }
     }
 
     private void AddFinderEstimates(SaveAuction auction, DataContainer data, StringBuilder builder)
