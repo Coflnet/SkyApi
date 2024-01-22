@@ -14,4 +14,4 @@ sed -i 's@annotations</Nullable>@annotations</Nullable>\n    <PackageReadmeFile>
 sed -i 's@Remove="System.Web" />@Remove="System.Web" />\n    <None Include="../../../../README.md" Pack="true" PackagePath="\"/>@g' $path
 
 dotnet pack
-cp src/Coflnet.Sky.Api.Client/bin/Debug/Coflnet.Sky.Api.Client.*.nupkg ..
+cp src/Coflnet.Sky.Api.Client/bin/Release/Coflnet.Sky.Api.Client.*.nupkg ..

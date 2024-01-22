@@ -10,6 +10,9 @@ using Coflnet.Sky.Api.Services;
 using Coflnet.Sky.Api.Models.Mod;
 using System.Runtime.Serialization;
 using static Coflnet.Sky.Core.ItemReferences;
+using Castle.Core.Logging;
+using Microsoft.Extensions.Logging;
+using Newtonsoft.Json;
 
 namespace Coflnet.Sky.Api.Controller
 {
@@ -29,6 +32,7 @@ namespace Coflnet.Sky.Api.Controller
         private FlipperService flipperService;
         private SettingsService settingsService;
         private GoogletokenService tokenService;
+        private readonly ILogger<ModController> logger;
 
         /// <summary>
         /// Creates a new instance of <see cref="ModController"/>
@@ -39,7 +43,7 @@ namespace Coflnet.Sky.Api.Controller
         /// <param name="playerName"></param>
         /// <param name="sniperApi"></param>
         /// <param name="settingsService"></param>
-        public ModController(HypixelContext db, PricesService pricesService, FlipperService flipperService, PlayerNameApi playerName = null, ModDescriptionService sniperApi = null, SettingsService settingsService = null, GoogletokenService tokenService = null)
+        public ModController(HypixelContext db, PricesService pricesService, FlipperService flipperService, PlayerNameApi playerName = null, ModDescriptionService sniperApi = null, SettingsService settingsService = null, GoogletokenService tokenService = null, ILogger<ModController> logger = null)
         {
             this.db = db;
             priceService = pricesService;
@@ -48,6 +52,7 @@ namespace Coflnet.Sky.Api.Controller
             this.flipperService = flipperService;
             this.settingsService = settingsService;
             this.tokenService = tokenService;
+            this.logger = logger;
         }
 
         /// <summary>
@@ -186,21 +191,30 @@ namespace Coflnet.Sky.Api.Controller
                 var auction = new SaveAuction()
                 {
                     Count = i.Count,
-                    Enchantments = i.Enchantments.Select(e => new Enchantment()
-                    {
-                        Type = Enum.TryParse<Enchantment.EnchantmentType>(e.Key, out var type) ? type : Enchantment.EnchantmentType.unknown,
-                        Level = e.Value
-                    }).ToList(),
                     Tag = i.Tag,
                     ItemName = i.ItemName,
-                    Tier = Enum.TryParse<Tier>(i.ExtraAttributes.FirstOrDefault(a=>a.Key == "tier").Value?.ToString() ?? "", out var tier) ? tier : Tier.UNKNOWN,
-                    Reforge = Enum.TryParse<Reforge>(i.ExtraAttributes.FirstOrDefault(a=>a.Key == "modifier").Value?.ToString() ?? "", out var reforge) ? reforge : Reforge.Unknown,
+
                 };
+                auction.Enchantments = i.Enchantments.Select(e => new Enchantment()
+                {
+                    Type = Enum.TryParse<Enchantment.EnchantmentType>(e.Key, out var type) ? type : Enchantment.EnchantmentType.unknown,
+                    Level = e.Value
+                }).ToList();
+                auction.Tier = Enum.TryParse<Tier>(i.ExtraAttributes.FirstOrDefault(a => a.Key == "tier").Value?.ToString() ?? "", out var tier) ? tier : Tier.UNKNOWN;
+                auction.Reforge = Enum.TryParse<Reforge>(i.ExtraAttributes.FirstOrDefault(a => a.Key == "modifier").Value?.ToString() ?? "", out var reforge) ? reforge : Reforge.Unknown;
                 auction.SetFlattenedNbt(NBT.FlattenNbtData(i.ExtraAttributes));
                 return auction;
             });
 
-            return auctions.Select(a=>new PricingBreakdwon(){craftPrice=this.descriptionService.GetItemValueBreakdown(a)});
+            try
+            {
+                return auctions.Select(a => new PricingBreakdwon() { craftPrice = this.descriptionService.GetItemValueBreakdown(a) });
+            }
+            catch (System.Exception e)
+            {
+                logger?.LogError(e, "Failed to get pricing breakdown for {0}", JsonConvert.SerializeObject(auctions));
+                throw;
+            }
         }
 
         public class ItemRepresent : Item
