@@ -8,6 +8,8 @@ using Coflnet.Sky.Commands.Shared;
 using Coflnet.Sky.Api.Models;
 using Coflnet.Sky.Api.Services;
 using Coflnet.Sky.Api.Models.Mod;
+using System.Runtime.Serialization;
+using static Coflnet.Sky.Core.ItemReferences;
 
 namespace Coflnet.Sky.Api.Controller
 {
@@ -170,8 +172,40 @@ namespace Coflnet.Sky.Api.Controller
             return await descriptionService.GetModifications(inventory, uuid, conId);
         }
 
+        /// <summary>
+        /// Returns parsable breakdown of the price of an item/auction
+        /// If you have nbt format you can use the /api/price/nbt endpoint with settings to get the same
+        /// </summary>
+        /// <param name="inventory"></param>
+        [Route("pricing/breakdown")]
+        [HttpPost]
+        public async Task<IEnumerable<PricingBreakdwon>> GetPricingBreakdown([FromBody] ItemRepresent[] items)
+        {
+            var auctions = items.Select(i =>
+            {
+                var auction = new SaveAuction()
+                {
+                    Count = i.Count,
+                    Enchantments = i.Enchantments.Select(e => new Enchantment()
+                    {
+                        Type = Enum.TryParse<Enchantment.EnchantmentType>(e.Key, out var type) ? type : Enchantment.EnchantmentType.unknown,
+                        Level = e.Value
+                    }).ToList(),
+                    Tag = i.Tag,
+                    ItemName = i.ItemName,
+                    Tier = Enum.TryParse<Tier>(i.ExtraAttributes.FirstOrDefault(a=>a.Key == "tier").Value?.ToString() ?? "", out var tier) ? tier : Tier.UNKNOWN,
+                    Reforge = Enum.TryParse<Reforge>(i.ExtraAttributes.FirstOrDefault(a=>a.Key == "modifier").Value?.ToString() ?? "", out var reforge) ? reforge : Reforge.Unknown,
+                };
+                auction.SetFlattenedNbt(NBT.FlattenNbtData(i.ExtraAttributes));
+                return auction;
+            });
 
-        
+            return auctions.Select(a=>new PricingBreakdwon(){craftPrice=this.descriptionService.GetItemValueBreakdown(a)});
+        }
+
+        public class ItemRepresent : Item
+        {
+        }
 
         private static void SetDefaultIfNonePassed(InventoryData inventory)
         {

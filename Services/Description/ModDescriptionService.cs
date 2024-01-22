@@ -678,13 +678,19 @@ public class ModDescriptionService : IDisposable
 
     public (double? craftPrice, double summary) FullCraftCost(SaveAuction auction, DataContainer data)
     {
+        double? craftPrice = BaseItemPrice(auction, data);
+        double summary = craftPrice.Value + ModifierCostSum(auction, data) + EnchantCost(auction, data.bazaarPrices);
+        var value = (craftPrice, summary);
+        return value;
+    }
+
+    private static double? BaseItemPrice(SaveAuction auction, DataContainer data)
+    {
         var craftPrice = data.allCrafts.GetValueOrDefault(auction.Tag)?.CraftCost;
         var clean = CleanItemprice(auction, data);
         craftPrice ??= clean;
         craftPrice = Math.Min(craftPrice ?? 0, clean);
-        double summary = craftPrice.Value + ModifierCostSum(auction, data) + EnchantCost(auction, data.bazaarPrices);
-        var value = (craftPrice, summary);
-        return value;
+        return craftPrice;
     }
 
     private static long CleanItemprice(SaveAuction auction, DataContainer data)
@@ -733,8 +739,58 @@ public class ModDescriptionService : IDisposable
         var valueSum = cost.SelectMany(c => c).Select(d =>
         {
             return data.GetItemprice(d.id) * d.amount + d.coins;
-        }).Sum();
-        return valueSum;
+        });
+        return valueSum.Sum();
+    }
+
+    public IEnumerable<CraftPrice> GetItemValueBreakdown(SaveAuction auction)
+    {
+        var data = new DataContainer
+        {
+            auctionRepresent = new List<(SaveAuction auction, string[] desc)> { (auction, new string[0]) },
+            bazaarPrices = deserializedCache.BazaarItems,
+            res = new List<Sniper.Client.Model.PriceEstimate> { new() },
+            itemPrices = deserializedCache.ItemPrices,
+            allCrafts = deserializedCache.Crafts,
+            modService = this
+        };
+        yield return new CraftPrice()
+        {
+            ItemTag = auction.Tag,
+            Count = 1,
+            Price = (long)BaseItemPrice(auction, data),
+            FormattedReson = "Base Item price"
+        };
+        foreach (var item in GetEnchantBreakdown(auction, deserializedCache.BazaarItems))
+        {
+            yield return new CraftPrice()
+            {
+                ItemTag = "ENCHANTMENT_" + item.e.Type.ToString().ToUpper() + "_" + item.e.Level,
+                Count = 1,
+                Price = item.Item2,
+                Attribute = "enchant_" + item.e.Type.ToString(),
+                FormattedReson = $"Enchant {item.e.Type} {item.e.Level}"
+            };
+        }
+        var i = 0;
+        foreach (var item in GetModifiersOnItem(auction, data))
+        {
+            var modifier = auction.FlatenedNBT.Skip(i++).FirstOrDefault();
+            foreach (var mod in item)
+            {
+                var itemPrice = 0L;
+                if (!string.IsNullOrEmpty(mod.id))
+                    itemPrice = data.GetItemprice(mod.id);
+                yield return new CraftPrice()
+                {
+                    ItemTag = mod.id,
+                    Count = mod.amount,
+                    Price = itemPrice,
+                    Attribute = modifier.Key,
+                    FormattedReson = $"Modifier {modifier.Key}={ItemDetails.TagToName(modifier.Value)}"
+                };
+            }
+        }
     }
 
     public IEnumerable<List<(string id, int amount, double coins)>> GetModifiersOnItem(SaveAuction auction, DataContainer data)
@@ -781,7 +837,7 @@ public class ModDescriptionService : IDisposable
             return itemIds;
         }).ToList();
 
-        if (auction.Reforge != ItemReferences.Reforge.None)
+        if (auction.Reforge != ItemReferences.Reforge.None && auction.Reforge != ItemReferences.Reforge.Unknown)
         {
             var reforgeCost = mapper.GetReforgeCost(auction.Reforge);
             if (reforgeCost.Item1 != null)
@@ -885,15 +941,19 @@ public class ModDescriptionService : IDisposable
         var enchants = auction.Enchantments;
         if (enchants == null || enchants.Count <= 0 || bazaarPrices == null)
             return 0;
-        var enchantCost = 0L;
-        var lookup = bazaarPrices.ToDictionary(a => a.Key, a => a.Value.BuyPrice);
-        foreach (var enchant in enchants)
-        {
-            enchantCost += mapper.EnchantValue(enchant, auction.FlatenedNBT, lookup);
-        }
+        IEnumerable<(Enchantment e, long)> enchantValues = GetEnchantBreakdown(auction, bazaarPrices);
+        var enchantCost = enchantValues.Sum(e => e.Item2);
         if (enchantCost < 0)
             enchantCost = 0;
         return enchantCost;
+    }
+
+    public IEnumerable<(Enchantment e, long)> GetEnchantBreakdown(SaveAuction auction, Dictionary<string, ItemPrice> bazaarPrices)
+    {
+        var enchants = auction.Enchantments;
+        var lookup = bazaarPrices.ToDictionary(a => a.Key, a => a.Value.BuyPrice);
+        var enchantValues = enchants.Select(e => (e, mapper.EnchantValue(e, auction.FlatenedNBT, lookup)));
+        return enchantValues;
     }
 
     private void AddCraftcost(SaveAuction auction, DataContainer data, StringBuilder builder)

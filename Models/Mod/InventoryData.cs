@@ -1,3 +1,6 @@
+using Coflnet.Sky.Api.Client.Model;
+using Coflnet.Sky.Core;
+
 namespace Coflnet.Sky.Api.Models.Mod;
 
 /// <summary>
@@ -32,4 +35,18 @@ public class InventoryDataWithSettings : InventoryData
     /// Settings of what modifications to include
     /// </summary>
     public DescriptionSetting Settings { get; set; }
+}
+
+public class PricingBreakdwon
+{
+    public IEnumerable<CraftPrice> craftPrice;
+}
+
+public class CraftPrice
+{
+    public long Price;
+    public string ItemTag;
+    public string Attribute;
+    public string FormattedReson;
+    public long Count;
 }
