@@ -785,7 +785,7 @@ public class ModDescriptionService : IDisposable
                 {
                     ItemTag = mod.id,
                     Count = mod.amount,
-                    Price = itemPrice,
+                    Price = itemPrice * mod.amount + (long)mod.coins,
                     Attribute = modifier.Key,
                     FormattedReson = $"Modifier {modifier.Key}={ItemDetails.TagToName(modifier.Value)}"
                 };
