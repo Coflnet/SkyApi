@@ -8,9 +8,7 @@ using Coflnet.Sky.Commands.Shared;
 using Coflnet.Sky.Api.Models;
 using Coflnet.Sky.Api.Services;
 using Coflnet.Sky.Api.Models.Mod;
-using System.Runtime.Serialization;
 using static Coflnet.Sky.Core.ItemReferences;
-using Castle.Core.Logging;
 using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
 
