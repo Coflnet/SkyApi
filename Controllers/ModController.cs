@@ -27,7 +27,7 @@ namespace Coflnet.Sky.Api.Controller
     {
         private HypixelContext db;
         private PricesService priceService;
-        private PlayerNameApi playerNamService;
+        private IPlayerNameApi playerNamService;
         private ModDescriptionService descriptionService;
         private FlipperService flipperService;
         private SettingsService settingsService;
@@ -43,7 +43,16 @@ namespace Coflnet.Sky.Api.Controller
         /// <param name="playerName"></param>
         /// <param name="sniperApi"></param>
         /// <param name="settingsService"></param>
-        public ModController(HypixelContext db, PricesService pricesService, FlipperService flipperService, PlayerNameApi playerName = null, ModDescriptionService sniperApi = null, SettingsService settingsService = null, GoogletokenService tokenService = null, ILogger<ModController> logger = null)
+        /// <param name="tokenService"></param>
+        /// <param name="logger"></param>
+        public ModController(HypixelContext db,
+                             PricesService pricesService,
+                             FlipperService flipperService,
+                             IPlayerNameApi playerName,
+                             ModDescriptionService sniperApi,
+                             SettingsService settingsService,
+                             GoogletokenService tokenService,
+                             ILogger<ModController> logger)
         {
             this.db = db;
             priceService = pricesService;
@@ -181,6 +190,7 @@ namespace Coflnet.Sky.Api.Controller
         /// Returns parsable breakdown of the price of an item/auction
         /// If you have nbt format you can use the /api/price/nbt endpoint with settings to get the same
         /// </summary>
+        /// <param name="items"></param>
         /// <param name="inventory"></param>
         [Route("pricing/breakdown")]
         [HttpPost]
