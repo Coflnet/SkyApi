@@ -203,11 +203,11 @@ namespace Coflnet.Sky.Api.Controller
                     ItemName = i.ItemName,
 
                 };
-                auction.Enchantments = i.Enchantments.Select(e => new Enchantment()
+                auction.Enchantments = i.Enchantments?.Select(e => new Enchantment()
                 {
                     Type = Enum.TryParse<Enchantment.EnchantmentType>(e.Key, out var type) ? type : Enchantment.EnchantmentType.unknown,
                     Level = e.Value
-                }).ToList();
+                }).ToList() ?? new();
                 auction.Tier = Enum.TryParse<Tier>(i.ExtraAttributes.FirstOrDefault(a => a.Key == "tier").Value?.ToString() ?? "", out var tier) ? tier : Tier.UNKNOWN;
                 auction.Reforge = Enum.TryParse<Reforge>(i.ExtraAttributes.FirstOrDefault(a => a.Key == "modifier").Value?.ToString() ?? "", out var reforge) ? reforge : Reforge.Unknown;
                 auction.SetFlattenedNbt(NBT.FlattenNbtData(i.ExtraAttributes));
