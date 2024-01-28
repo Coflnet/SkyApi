@@ -749,7 +749,6 @@ public class ModDescriptionService : IDisposable
         {
             auctionRepresent = new List<(SaveAuction auction, string[] desc)> { (auction, new string[0]) },
             bazaarPrices = deserializedCache.BazaarItems,
-            res = new List<Sniper.Client.Model.PriceEstimate> { new() },
             itemPrices = deserializedCache.ItemPrices,
             allCrafts = deserializedCache.Crafts,
             modService = this
@@ -776,6 +775,7 @@ public class ModDescriptionService : IDisposable
         foreach (var item in GetModifiersOnItem(auction, data))
         {
             var modifier = auction.FlatenedNBT.Skip(i++).FirstOrDefault();
+            Console.WriteLine(JsonConvert.SerializeObject(modifier));
             foreach (var mod in item)
             {
                 var itemPrice = 0L;

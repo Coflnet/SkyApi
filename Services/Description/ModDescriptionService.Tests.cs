@@ -84,4 +84,16 @@ public class ModDescriptionServiceTests
         Assert.AreEqual(1, breakdown.Count());
         Assert.AreEqual("OVERGROWN_GRASS", breakdown.First().First().id);
     }
+
+    [Test]
+    public void ParsesAttributesFromItem()
+    {
+        var json = """
+        {"id":null,"itemName":"§f§f§6Aurora Chestplate","tag":"AURORA_CHESTPLATE","extraAttributes":{"attributes":{"veteran":1,"mana_regeneration":2},"uid":"e308b5733897","boss_tier":1,"uuid":"3b49ada2-3f4a-4aea-874b-e308b5733897","timestamp":1706160188547,"tier":5},"enchantments":null}
+        """;
+        var item = JsonConvert.DeserializeObject<Item>(json);
+        var auction = new SaveAuction() { };
+        auction.SetFlattenedNbt(NBT.FlattenNbtData(item.ExtraAttributes));
+        Assert.AreEqual("1", auction.FlatenedNBT.GetValueOrDefault("veteran"), JsonConvert.SerializeObject(auction.FlatenedNBT, Formatting.Indented));
+    }
 }
