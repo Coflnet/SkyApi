@@ -775,7 +775,6 @@ public class ModDescriptionService : IDisposable
         foreach (var item in GetModifiersOnItem(auction, data))
         {
             var modifier = auction.FlatenedNBT.Skip(i++).FirstOrDefault();
-            Console.WriteLine(JsonConvert.SerializeObject(modifier));
             foreach (var mod in item)
             {
                 var itemPrice = 0L;
