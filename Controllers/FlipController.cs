@@ -90,7 +90,7 @@ namespace Coflnet.Sky.Api.Controller
             var finderType = finder.ToLower() switch
             {
                 "tfm" => LowPricedAuction.FinderType.TFM,
-                "stonks" => LowPricedAuction.FinderType.STONKS,
+                "stonks" => LowPricedAuction.FinderType.LEIKO,
                 "binmaster" => LowPricedAuction.FinderType.BINMASTER,
                 _ => LowPricedAuction.FinderType.EXTERNAL,
             };
