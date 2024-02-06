@@ -159,8 +159,6 @@ namespace Coflnet.Sky.Api
                 c.RoutePrefix = "api";
             });
 
-            app.UseHttpsRedirection();
-
             app.UseRouting();
 
             app.UseCors(CORS_PLICY_NAME);
