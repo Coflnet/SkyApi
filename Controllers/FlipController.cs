@@ -124,14 +124,16 @@ namespace Coflnet.Sky.Api.Controller
         public async Task TrackExternalFlip(string auctionId, string finder, int price = -1, long timeStamp = 0)
         {
             DateTime time = GetTime(timeStamp);
+            var finderParsed = finder.ToLower() == "tfm" ? LowPricedAuction.FinderType.TFM :
+                finder.ToLower() == "leiko" ? LowPricedAuction.FinderType.LEIKO : LowPricedAuction.FinderType.EXTERNAL;
             await flipService.NewFlip(new LowPricedAuction()
             {
                 Auction = new SaveAuction() { Uuid = auctionId },
-                Finder = finder.ToLower() == "tfm" ? LowPricedAuction.FinderType.TFM : LowPricedAuction.FinderType.EXTERNAL,
+                Finder = finderParsed,
                 TargetPrice = price
             }, time);
-            if (finder.ToLower() == "tfm")
-                Console.WriteLine($"TFM found {auctionId} at {timeStamp}");
+            if (finder.ToLower() == "leiko")
+                Console.WriteLine($"LeikOwO found {auctionId} at {timeStamp}");
         }
 
         private static DateTime GetTime(long timeStamp)
@@ -161,9 +163,9 @@ namespace Coflnet.Sky.Api.Controller
         [ResponseCache(Duration = 600, Location = ResponseCacheLocation.Any, NoStore = false, VaryByQueryKeys = new string[] { "start", "end" })]
         public async Task<FlipSumary> GetStats(string playerUuid, DateTime start, DateTime end)
         {
-            if(end == default)
+            if (end == default)
                 end = DateTime.UtcNow;
-            if(start == default)
+            if (start == default)
                 start = end.AddDays(-7);
             Console.WriteLine($"Getting stats for {playerUuid} from {start} to {end}");
             var length = (end - start);
