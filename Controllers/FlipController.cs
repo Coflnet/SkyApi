@@ -132,7 +132,7 @@ namespace Coflnet.Sky.Api.Controller
                 Finder = finderParsed,
                 TargetPrice = price
             }, time);
-            if (finder.ToLower() == "leiko")
+            if (finder.Equals("leiko", StringComparison.CurrentCultureIgnoreCase))
                 Console.WriteLine($"LeikOwO found {auctionId} at {timeStamp}");
         }
 
