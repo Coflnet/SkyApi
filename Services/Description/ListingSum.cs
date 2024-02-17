@@ -16,6 +16,9 @@ public class ListingSum
     /// Price paid doesn't want to have the highest bid of the user
     /// </summary>
     public bool requestingUserIsSeller { get; set; }
+    /// <summary>
+    /// shortened auction uuid (first part of it)
+    /// </summary>
     public long AuctionUid { get; set; }
     public DateTime start { get; set; }
 }
