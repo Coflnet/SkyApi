@@ -17,6 +17,8 @@ public class FlipOnNextPage : CustomModifier
 
         if (bestFlip == default)
             return;
+        if (data.inventory.Settings?.MinProfitForHighlight > bestFlip.profit)
+            return;
         // add highlight to item
         var item = data.mods[bestFlip.index];
         item.Add(new DescModification($"{McColorCodes.DARK_GREEN}{McColorCodes.BOLD}BEST FLIP ON PAGE"));
