@@ -21,5 +21,8 @@ public class OrganizationProfile : Profile
         CreateMap<Item, PlayerState.Client.Model.Item>();
         CreateMap<Trade.Client.Model.WantedItem, Models.WantedItem>()
             .ForMember(d => d.ItemName, o => o.Ignore());
+
+        CreateMap<Coflnet.Sky.Api.Models.Notifications.NotificationTarget, Coflnet.Sky.EventBroker.Client.Model.NotificationTarget>()
+            .ReverseMap();
     }
 }

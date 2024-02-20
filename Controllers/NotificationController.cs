@@ -21,6 +21,7 @@ public class NotificationController : ControllerBase
     private readonly ISubscriptionApi listenerApi;
     
     private readonly ITargetsApi targetsApi;
+    private readonly AutoMapper.IMapper mapper;
 
     /// <summary>
     /// Creates a new instance of <see cref="NotificationController"/>
@@ -34,13 +35,15 @@ public class NotificationController : ControllerBase
                            GoogletokenService googletokenService,
                            ISubscriptionsApi subscriptionsApi,
                            ITargetsApi targetsApi,
-                           ISubscriptionApi listenerApi)
+                           ISubscriptionApi listenerApi,
+                           AutoMapper.IMapper mapper)
     {
         this.logger = logger;
         this.googletokenService = googletokenService;
         this.subscriptionsApi = subscriptionsApi;
         this.targetsApi = targetsApi;
         this.listenerApi = listenerApi;
+        this.mapper = mapper;
     }
 
     /// <summary>
@@ -48,9 +51,10 @@ public class NotificationController : ControllerBase
     /// </summary>
     [Route("targets")]
     [HttpGet]
-    public async Task<List<NotificationTarget>> GetNotifications()
+    public async Task<List<Models.Notifications.NotificationTarget>> GetNotifications()
     {
-        return await targetsApi.TargetsUserIdGetAsync(await googletokenService.GetUserId(this));
+        var result = await targetsApi.TargetsUserIdGetAsync(await googletokenService.GetUserId(this));
+        return result.Select(x => mapper.Map<Models.Notifications.NotificationTarget>(x)).ToList();
     }
 
     /// <summary>
@@ -94,9 +98,11 @@ public class NotificationController : ControllerBase
     /// <returns></returns>
     [Route("targets")]
     [HttpPost]
-    public async Task<NotificationTarget> AddTarget(NotificationTarget target)
+    public async Task<Models.Notifications.NotificationTarget> AddTarget(Models.Notifications.NotificationTarget target)
     {
-        return await targetsApi.TargetsUserIdPostAsync(await googletokenService.GetUserId(this), target);
+        var mapped = mapper.Map<NotificationTarget>(target);
+        var result = await targetsApi.TargetsUserIdPostAsync(await googletokenService.GetUserId(this), mapped);
+        return mapper.Map<Models.Notifications.NotificationTarget>(result);
     }
 
     /// <summary>
@@ -106,9 +112,10 @@ public class NotificationController : ControllerBase
     /// <returns></returns>
     [Route("targets")]
     [HttpDelete]
-    public async Task RemoveTarget(NotificationTarget target)
+    public async Task RemoveTarget(Models.Notifications.NotificationTarget target)
     {
-        await targetsApi.TargetsUserIdDeleteAsync(await googletokenService.GetUserId(this), target);
+        var mapped = mapper.Map<NotificationTarget>(target);
+        await targetsApi.TargetsUserIdDeleteAsync(await googletokenService.GetUserId(this), mapped);
     }
 
     /// <summary>
@@ -118,9 +125,10 @@ public class NotificationController : ControllerBase
     /// <returns></returns>
     [Route("targets")]
     [HttpPut]
-    public async Task UpdateTarget(NotificationTarget target)
+    public async Task UpdateTarget(Models.Notifications.NotificationTarget target)
     {
-        await targetsApi.TargetsUserIdPutAsync(await googletokenService.GetUserId(this), target);
+        var mapped = mapper.Map<NotificationTarget>(target);
+        await targetsApi.TargetsUserIdPutAsync(await googletokenService.GetUserId(this), mapped);
     }
 
     /// <summary>
@@ -130,9 +138,10 @@ public class NotificationController : ControllerBase
     /// <returns></returns>
     [Route("targets/test")]
     [HttpPost]
-    public async Task SendTestNotification(NotificationTarget target)
+    public async Task SendTestNotification(Models.Notifications.NotificationTarget target)
     {
-        await targetsApi.TargetsUserIdTestPostAsync(await googletokenService.GetUserId(this), target);
+        var mapped = mapper.Map<NotificationTarget>(target);
+        await targetsApi.TargetsUserIdTestPostAsync(await googletokenService.GetUserId(this), mapped);
     }
 
     /// <summary>
