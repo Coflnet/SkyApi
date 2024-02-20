@@ -154,7 +154,7 @@ namespace Coflnet.Sky.Api.Controller
         /// <returns></returns>
         [Route("auctions/tag/{itemTag}/sold")]
         [HttpGet]
-        [ResponseCache(Duration = 1800, Location = ResponseCacheLocation.Any, NoStore = false, VaryByQueryKeys = new string[] { "page" })]
+        [ResponseCache(Duration = 1800, Location = ResponseCacheLocation.Any, NoStore = false, VaryByQueryKeys = new string[] { "page", "pageSize", "token" })]
         public async Task<List<SaveAuction>> GetHistory(string itemTag, int page = 0, int pageSize = 1000, string token = null)
         {
             var itemId = ItemDetails.Instance.GetItemIdForTag(itemTag);
