@@ -1,8 +1,10 @@
 using System.Linq;
 using System.Threading.Tasks;
+using Coflnet.Sky.Api.Models.Notifications;
 using Coflnet.Sky.Core;
 using Coflnet.Sky.EventBroker.Client.Api;
 using Coflnet.Sky.EventBroker.Client.Model;
+using Coflnet.Sky.Sniper.Client.Model;
 using Coflnet.Sky.Subscriptions.Client.Api;
 using Coflnet.Sky.Subscriptions.Client.Model;
 using Microsoft.AspNetCore.Mvc;
@@ -100,7 +102,7 @@ public class NotificationController : ControllerBase
     [HttpPost]
     public async Task<Models.Notifications.NotificationTarget> AddTarget(Models.Notifications.NotificationTarget target)
     {
-        var mapped = mapper.Map<NotificationTarget>(target);
+        var mapped = mapper.Map<EventBroker.Client.Model.NotificationTarget>(target);
         var result = await targetsApi.TargetsUserIdPostAsync(await googletokenService.GetUserId(this), mapped);
         return mapper.Map<Models.Notifications.NotificationTarget>(result);
     }
@@ -114,7 +116,7 @@ public class NotificationController : ControllerBase
     [HttpDelete]
     public async Task RemoveTarget(Models.Notifications.NotificationTarget target)
     {
-        var mapped = mapper.Map<NotificationTarget>(target);
+        var mapped = mapper.Map<EventBroker.Client.Model.NotificationTarget>(target);
         await targetsApi.TargetsUserIdDeleteAsync(await googletokenService.GetUserId(this), mapped);
     }
 
@@ -127,7 +129,7 @@ public class NotificationController : ControllerBase
     [HttpPut]
     public async Task UpdateTarget(Models.Notifications.NotificationTarget target)
     {
-        var mapped = mapper.Map<NotificationTarget>(target);
+        var mapped = mapper.Map<EventBroker.Client.Model.NotificationTarget>(target);
         await targetsApi.TargetsUserIdPutAsync(await googletokenService.GetUserId(this), mapped);
     }
 
@@ -140,7 +142,7 @@ public class NotificationController : ControllerBase
     [HttpPost]
     public async Task SendTestNotification(Models.Notifications.NotificationTarget target)
     {
-        var mapped = mapper.Map<NotificationTarget>(target);
+        var mapped = mapper.Map<EventBroker.Client.Model.NotificationTarget>(target);
         await targetsApi.TargetsUserIdTestPostAsync(await googletokenService.GetUserId(this), mapped);
     }
 
@@ -163,9 +165,11 @@ public class NotificationController : ControllerBase
     /// <returns></returns>
     [Route("listeners")]
     [HttpPost]
-    public async Task<Subscription> AddListener(Subscription listener)
+    public async Task<Listener> AddListener(Listener listener)
     {
-        return await listenerApi.SubscriptionUserIdSubPostAsync(await googletokenService.GetUserId(this), listener);
+        var subscription = mapper.Map<Subscription>(listener);
+        var result = await listenerApi.SubscriptionUserIdSubPostAsync("s", subscription);
+        return mapper.Map<Listener>(result);
     }
 
     /// <summary>
@@ -175,9 +179,10 @@ public class NotificationController : ControllerBase
     /// <response code="200">Returns the listeners</response>
     [Route("listeners")]
     [HttpGet]
-    public async Task<List<Subscription>> ListListeners()
+    public async Task<List<Listener>> ListListeners()
     {
-        return (await listenerApi.SubscriptionUserIdGetAsync(await googletokenService.GetUserId(this))).Subscriptions;
+        var result = (await listenerApi.SubscriptionUserIdGetAsync(await googletokenService.GetUserId(this))).Subscriptions;
+        return result.Select(x => mapper.Map<Listener>(x)).ToList();
     }
 
     /// <summary>
@@ -187,9 +192,10 @@ public class NotificationController : ControllerBase
     /// <returns></returns>
     [Route("listeners")]
     [HttpDelete]
-    public async Task RemoveListener(Subscription listener)
+    public async Task RemoveListener(Listener listener)
     {
-        await listenerApi.SubscriptionUserIdSubDeleteAsync(await googletokenService.GetUserId(this), listener);
+        var mapped = mapper.Map<Subscription>(listener);
+        await listenerApi.SubscriptionUserIdSubDeleteAsync(await googletokenService.GetUserId(this), mapped);
     }
 }
 

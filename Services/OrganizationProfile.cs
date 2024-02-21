@@ -24,5 +24,7 @@ public class OrganizationProfile : Profile
 
         CreateMap<Coflnet.Sky.Api.Models.Notifications.NotificationTarget, Coflnet.Sky.EventBroker.Client.Model.NotificationTarget>()
             .ReverseMap();
+
+        CreateMap<Coflnet.Sky.Api.Models.Notifications.Listener, Coflnet.Sky.Subscriptions.Client.Model.Subscription>().ReverseMap();
     }
 }
