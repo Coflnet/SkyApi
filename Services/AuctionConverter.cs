@@ -46,7 +46,8 @@ namespace Coflnet.Sky.Api.Services
 
         private static bool IncludeColumn(string k)
         {
-            return !ignoreColumns.Contains(k) && !k.EndsWith(".uuid");
+            // ignore all inalid enchants (with number instead of enum)
+            return !ignoreColumns.Contains(k) && !k.EndsWith(".uuid") && !(k.StartsWith("!ench") && int.TryParse(k.Replace("!ench",""), out _));
         }
 
         /// <summary>
