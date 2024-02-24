@@ -168,7 +168,7 @@ public class NotificationController : ControllerBase
     public async Task<Listener> AddListener(Listener listener)
     {
         var subscription = mapper.Map<Subscription>(listener);
-        var result = await listenerApi.SubscriptionUserIdSubPostAsync("s", subscription);
+        var result = await listenerApi.SubscriptionUserIdSubPostAsync(await googletokenService.GetUserId(this), subscription);
         return mapper.Map<Listener>(result);
     }
 
