@@ -44,6 +44,7 @@ public class NotificationTarget
         InGame
     }
 
+    [JsonConverter(typeof(JsonStringEnumConverter))]
     public enum NotifyWhen
     {
         NEVER,

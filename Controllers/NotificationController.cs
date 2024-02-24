@@ -102,8 +102,14 @@ public class NotificationController : ControllerBase
     [HttpPost]
     public async Task<Models.Notifications.NotificationTarget> AddTarget(Models.Notifications.NotificationTarget target)
     {
+        var userId = await googletokenService.GetUserId(this);
         var mapped = mapper.Map<EventBroker.Client.Model.NotificationTarget>(target);
-        var result = await targetsApi.TargetsUserIdPostAsync(await googletokenService.GetUserId(this), mapped);
+        if(mapped.Type == TargetType.FIREBASE)
+        {
+            // drop the old token if one exists
+            await listenerApi.SubscriptionUserIdDeviceDeleteAsync(userId);
+        }
+        var result = await targetsApi.TargetsUserIdPostAsync(userId, mapped);
         return mapper.Map<Models.Notifications.NotificationTarget>(result);
     }
 
