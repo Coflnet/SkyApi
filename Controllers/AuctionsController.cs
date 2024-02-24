@@ -42,6 +42,7 @@ namespace Coflnet.Sky.Api.Controller
         IServiceScopeFactory factory;
         IItemsApi itemsClient;
         FilterEngine fe;
+        AuctionConverter transformer;
 
         /// <summary>
         /// Creates a new instance of <see cref="AuctionsController"/>
@@ -55,6 +56,7 @@ namespace Coflnet.Sky.Api.Controller
         /// <param name="factory"></param>
         /// <param name="itemsClient"></param>
         /// <param name="fe"></param>
+        /// <param name="transformer"></param>
         public AuctionsController(AuctionService auctionService,
                                   HypixelContext context,
                                   ILogger<AuctionsController> logger,
@@ -62,8 +64,9 @@ namespace Coflnet.Sky.Api.Controller
                                   PricesService pricesService,
                                   PlayerNameService playerNameService,
                                   IServiceScopeFactory factory,
-                                  Sky.Items.Client.Api.IItemsApi itemsClient,
-                                  FilterEngine fe)
+                                  IItemsApi itemsClient,
+                                  FilterEngine fe,
+                                  AuctionConverter transformer)
         {
             this.auctionService = auctionService;
             this.context = context;
@@ -74,6 +77,7 @@ namespace Coflnet.Sky.Api.Controller
             this.factory = factory;
             this.itemsClient = itemsClient;
             this.fe = fe;
+            this.transformer = transformer;
         }
 
         /// <summary>
@@ -188,7 +192,6 @@ namespace Coflnet.Sky.Api.Controller
         {
             var pageSize = 50_000;
             var baseStart = 400_000_000;
-            var transformer = new AuctionConverter();
             var itemsRequest = itemsClient.ItemItemTagModifiersAllGetAsync("*");
             AssertAccessToken(token);
             var totalAuctions = await context.Auctions.MaxAsync(a => a.Id);

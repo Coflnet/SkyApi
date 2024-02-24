@@ -132,6 +132,7 @@ namespace Coflnet.Sky.Api
             services.AddSingleton<TfmService>();
             services.AddSingleton<ModDescriptionService>();
             services.AddSingleton<FilterEngine>();
+            services.AddSingleton<AuctionConverter>();
         }
 
         /// <summary>
