@@ -50,23 +50,18 @@ public class AuctionConverter
     }
 
 
-    private async Task InitMayors()
+    public async Task InitMayors()
     {
+        if(YearToMayorName.Count > 0)
+            return;
         List<Mayor.Client.Model.ModelElectionPeriod> mayors = null;
-        while (mayors == null)
+        try
         {
-            try
-            {
-                mayors = await mayorService.ElectionPeriodRangeGetAsync(0, DateTimeOffset.UtcNow.ToUnixTimeSeconds());
-            }
-            catch (Exception e)
-            {
-                logger.LogError(e, "Failed to load mayors");
-            }
-            if (mayors == null)
-            {
-                await Task.Delay(10000);
-            }
+            mayors = await mayorService.ElectionPeriodRangeGetAsync(0, DateTimeOffset.UtcNow.ToUnixTimeSeconds());
+        }
+        catch (Exception e)
+        {
+            logger.LogError(e, "Failed to load mayors");
         }
         foreach (var mayor in mayors)
         {

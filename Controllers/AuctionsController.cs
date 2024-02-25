@@ -201,7 +201,7 @@ namespace Coflnet.Sky.Api.Controller
             Response.Headers.Add("X-Page-Count", lastPage.ToString());
             Response.Headers.Add("X-Total-Count", totalAuctions.ToString());
             Response.Headers.Add("Content-Type", "application/json; charset=utf-8");
-
+            await transformer.InitMayors();
             var itemModifiers = await itemsRequest;
             var columns = itemModifiers.Keys;
             var keys = transformer.ColumnKeys(columns).ToArray();
