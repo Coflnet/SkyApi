@@ -59,13 +59,12 @@ public class AuctionConverter
             {
                 mayors = await mayorService.ElectionPeriodRangeGetAsync(0, DateTimeOffset.UtcNow.ToUnixTimeSeconds());
             }
-            catch (System.Exception)
+            catch (Exception e)
             {
-
+                logger.LogError(e, "Failed to load mayors");
             }
             if (mayors == null)
             {
-                logger.LogError("Failed to load mayors");
                 await Task.Delay(10000);
             }
         }
