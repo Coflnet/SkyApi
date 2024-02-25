@@ -58,7 +58,7 @@ public class AuctionConverter
         List<Mayor.Client.Model.ModelElectionPeriod> mayors = null;
         try
         {
-            mayors = await mayorService.ElectionPeriodRangeGetAsync(0, DateTimeOffset.UtcNow.ToUnixTimeSeconds());
+            mayors = await mayorService.ElectionPeriodRangeGetAsync(0, DateTimeOffset.UtcNow.ToUnixTimeSeconds() * 1000);
         }
         catch (Exception e)
         {
