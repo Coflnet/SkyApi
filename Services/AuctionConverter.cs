@@ -17,8 +17,9 @@ public class AuctionConverter
             "builder's_wand_data", "frosty_the_snow_blaster_data", "frosty_the_snow_cannon_data", "greater_backpack_data", "jumbo_backpack_data", "large_backpack_data", "medium_backpack_data", "new_year_cake_bag_data"
          };
 
-    public AuctionConverter(IElectionPeriodsApi mayorService)
+    public AuctionConverter(IElectionPeriodsApi mayorService, ILogger<AuctionConverter> logger)
     {
+        this.logger = logger;
         foreach (var item in Enum.GetValues<Enchantment.EnchantmentType>())
         {
             EnchantLookup["!ench" + item.ToString().ToLower()] = item;
