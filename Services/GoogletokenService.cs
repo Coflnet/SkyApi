@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Primitives;
 using RestSharp;
+using Microsoft.Extensions.Logging;
 
 namespace Coflnet.Sky.Api;
 /// <summary>
@@ -18,10 +19,12 @@ public class GoogletokenService
     private Counter GoogleWebSignaturesValidationFailed = Metrics.CreateCounter("sky_api_google_web_signatures_validations_failed", "The number of exceptions while validating google web signatures");
 
     TokenService tokenService;
+    ILogger<GoogletokenService> logger;
 
-    public GoogletokenService(TokenService tokenService)
+    public GoogletokenService(TokenService tokenService, ILogger<GoogletokenService> logger)
     {
         this.tokenService = tokenService;
+        this.logger = logger;
     }
 
     /// <summary>
@@ -90,6 +93,7 @@ public class GoogletokenService
         }
         catch (Exception e)
         {
+            logger.LogError(e, "Failed to validate google token");
             throw new CoflnetException("invalid_token", $"{e.InnerException?.Message}");
         }
     }
