@@ -1,5 +1,4 @@
 using System.ComponentModel.DataAnnotations;
-using System.Runtime.Serialization;
 
 namespace Coflnet.Sky.Api.Models.Notifications;
 
@@ -10,7 +9,7 @@ public class Listener
     /// Either User,auction or ItemId UserIds are +100.000
     /// </summary>
     /// <value></value>
-    [System.ComponentModel.DataAnnotations.MaxLength(45)]
+    [MaxLength(45)]
     public string TopicId { get; set; }
     /// <summary>
     /// Price point in case of item
