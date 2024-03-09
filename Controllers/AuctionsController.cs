@@ -43,6 +43,7 @@ namespace Coflnet.Sky.Api.Controller
         IItemsApi itemsClient;
         FilterEngine fe;
         AuctionConverter transformer;
+        ModDescriptionService modDescriptionService;
 
         /// <summary>
         /// Creates a new instance of <see cref="AuctionsController"/>
@@ -57,6 +58,7 @@ namespace Coflnet.Sky.Api.Controller
         /// <param name="itemsClient"></param>
         /// <param name="fe"></param>
         /// <param name="transformer"></param>
+        /// <param name="modDescriptionService"></param>
         public AuctionsController(AuctionService auctionService,
                                   HypixelContext context,
                                   ILogger<AuctionsController> logger,
@@ -66,7 +68,8 @@ namespace Coflnet.Sky.Api.Controller
                                   IServiceScopeFactory factory,
                                   IItemsApi itemsClient,
                                   FilterEngine fe,
-                                  AuctionConverter transformer)
+                                  AuctionConverter transformer,
+                                  ModDescriptionService modDescriptionService)
         {
             this.auctionService = auctionService;
             this.context = context;
@@ -78,6 +81,7 @@ namespace Coflnet.Sky.Api.Controller
             this.itemsClient = itemsClient;
             this.fe = fe;
             this.transformer = transformer;
+            this.modDescriptionService = modDescriptionService;
         }
 
         /// <summary>
@@ -98,7 +102,16 @@ namespace Coflnet.Sky.Api.Controller
                         .Include(a => a.Bids).FirstOrDefaultAsync();
             if (result != null && string.IsNullOrEmpty(result.ItemName))
                 result.ItemName = ItemDetails.TagToName(result.Tag);
-            return EnchantColorMapper.Instance.AddColors(result);
+            // order enchants
+            var prices = modDescriptionService.GetEnchantBreakdown(result, modDescriptionService.DeserializedCache.BazaarItems)
+                .ToDictionary(e => e.e.Type, e => e.Item2);
+            var colored = EnchantColorMapper.Instance.AddColors(result);
+            foreach (var item in colored.Enchantments)
+            {
+                item.Value = prices.GetValueOrDefault(item.Type, 0);
+            }
+            colored.Enchantments = colored.Enchantments.OrderByDescending(e => e.Value).ToList();
+            return colored;
         }
         /// <summary>
         /// Retrieve the uid of an auction (mainly a helper to get the lookup id for another service)
