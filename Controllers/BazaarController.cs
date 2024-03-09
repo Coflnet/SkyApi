@@ -29,7 +29,7 @@ namespace Coflnet.Sky.Api.Controller
         }
 
         /// <summary>
-        /// Gets the history data for display in a graph for one hour ( in intervalls of 10 seconds)
+        /// Gets the history data for display in a graph for one hour (in intervalls of 20 seconds)
         /// </summary>
         /// <param name="itemTag">What item to get data for</param>
         /// <returns>An list of graph points</returns>
