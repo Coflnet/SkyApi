@@ -86,6 +86,49 @@ public class ModDescriptionServiceTests
     }
 
     [Test]
+    public async Task GetsAbilityScrolls()
+    {
+        var json = """
+        {"id":null,"itemName":"§f§f§dHeroic Hyperion §6✪§6✪§6✪§6✪§6✪§c➍","tag":"HYPERION",
+            "extraAttributes": {
+        "rarity_upgrades": 1,
+        "stats_book": 10396,
+        "modifier": "heroic",
+        "art_of_war_count": 1,
+        "upgrade_level": 9,
+        "uuid": "3762c473-0ac3-4ff4-9ec0-569774104c85",
+        "ability_scroll": [
+            "IMPLOSION_SCROLL",
+            "SHADOW_WARP_SCROLL",
+            "WITHER_SHIELD_SCROLL"
+        ],
+        "hot_potato_count": 15,
+        "gems": {
+            "COMBAT_0": "PERFECT",
+            "unlocked_slots": [
+                "COMBAT_0",
+                "DEFENSIVE_0",
+                "SAPPHIRE_0"
+            ],
+            "COMBAT_0_gem": "SAPPHIRE",
+            "SAPPHIRE_0": "PERFECT"
+        },
+        "champion_combat_xp": 6687558.162825049,
+        "uid": "569774104c85",
+        "timestamp": 1695996960000,
+        "tier": 8
+        }}
+        """;
+        var parsed = JsonConvert.DeserializeObject<Coflnet.Sky.Api.Controller.ModController.ItemRepresent>(json);
+        var service = new ModDescriptionService(null, null, null, null, null, null, null, null, null, null, null, null, null, new(null, null), null);
+        var controller = new Coflnet.Sky.Api.Controller.ModController(null, null, null, null, service, null, null, null);
+        var result = await controller.GetPricingBreakdown([parsed]);
+        var breakdown = result.First().craftPrice;
+        Assert.AreEqual(14, breakdown.Count(), JsonConvert.SerializeObject(breakdown, Formatting.Indented));
+        Assert.That(breakdown.Select(b => b.ItemTag), Has.Member("IMPLOSION_SCROLL"));
+    }
+
+    [Test]
     public void ParsesAttributesFromItem()
     {
         var json = """
