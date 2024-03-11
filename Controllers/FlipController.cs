@@ -9,6 +9,10 @@ using Microsoft.Extensions.Configuration;
 using Coflnet.Leaderboard.Client.Api;
 using Coflnet.Leaderboard.Client.Model;
 using Microsoft.Extensions.Logging;
+using Coflnet.Sky.Bazaar.Flipper.Client.Api;
+using System.Linq;
+using Coflnet.Sky.Api.Models.Bazaar;
+using Coflnet.Sky.Items.Client.Api;
 
 namespace Coflnet.Sky.Api.Controller
 {
@@ -25,6 +29,8 @@ namespace Coflnet.Sky.Api.Controller
         private FlipTrackingService flipService;
         private ILogger<FlipController> logger;
         private PremiumTierService premiumTierService;
+        private BazaarFlipperApi bazaarFlipperApi;
+        private IItemsApi itemsApi;
 
         /// <summary>
         /// Creates a new instance of <see cref="FlipController"/>
@@ -34,17 +40,22 @@ namespace Coflnet.Sky.Api.Controller
         /// <param name="flipService"></param>
         /// <param name="logger"></param>
         /// <param name="premiumTierService"></param>
+        /// <param name="bazaarFlipperApi"></param>
         public FlipController(IConfiguration config,
                               TfmService tfm,
                               FlipTrackingService flipService,
                               ILogger<FlipController> logger,
-                              PremiumTierService premiumTierService)
+                              PremiumTierService premiumTierService,
+                              BazaarFlipperApi bazaarFlipperApi,
+                              IItemsApi itemsApi)
         {
             this.config = config;
             this.tfm = tfm;
             this.flipService = flipService;
             this.logger = logger;
             this.premiumTierService = premiumTierService;
+            this.bazaarFlipperApi = bazaarFlipperApi;
+            this.itemsApi = itemsApi;
         }
 
         /// <summary>
@@ -57,6 +68,30 @@ namespace Coflnet.Sky.Api.Controller
         public async Task<DateTime> GetFlipTime()
         {
             return await new NextUpdateRetriever().Get();
+        }
+
+        /// <summary>
+        /// Spread based bazaar flips
+        /// </summary>
+        /// <returns></returns>
+        [Route("bazaar/spread")]
+        [HttpGet]
+        [ResponseCache(Duration = 20, Location = ResponseCacheLocation.Any, NoStore = false)]
+        public async Task<IEnumerable<SpreadFlip>> GetBazaarFlipper()
+        {
+            var flips = await bazaarFlipperApi.FlipsGetAsync();
+            var names = (await itemsApi.ItemNamesGetAsync()).ToDictionary(i => i.Tag, i => i.Name);
+            return flips.Select(f =>
+            {
+                var profitmargin = f.BuyPrice / f.MedianBuyPrice;
+                var isManipulated = profitmargin > 2 || profitmargin > 1.5 && f.BuyPrice > 7_500_000;
+                return new SpreadFlip
+                {
+                    Flip = f,
+                    ItemName = names[f.ItemTag],
+                    IsManipulated = isManipulated
+                };
+            });
         }
 
         /// <summary>
