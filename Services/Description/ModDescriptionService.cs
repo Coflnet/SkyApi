@@ -975,7 +975,7 @@ public class ModDescriptionService : IDisposable
             if (!pricesPaid.ContainsKey(uid))
                 return;
             var time = "";
-            if (pricesPaid[uid].Item2 < new DateTime(2029, 1, 1))
+            if (pricesPaid[uid].Item2 < new DateTime(2029, 1, 1) && pricesPaid[uid].Item2 > new DateTime(2000, 1, 1))
                 time = $" {McColorCodes.DARK_GRAY}{FormatTime(DateTime.UtcNow - pricesPaid[uid].Item2)} ago";
             builder.Append($"{McColorCodes.GRAY}Paid: {McColorCodes.YELLOW}{FormatNumber(pricesPaid[uid].Item1)}{time}");
         }
