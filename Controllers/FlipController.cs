@@ -29,7 +29,7 @@ namespace Coflnet.Sky.Api.Controller
         private FlipTrackingService flipService;
         private ILogger<FlipController> logger;
         private PremiumTierService premiumTierService;
-        private BazaarFlipperApi bazaarFlipperApi;
+        private IBazaarFlipperApi bazaarFlipperApi;
         private IItemsApi itemsApi;
 
         /// <summary>
@@ -46,7 +46,7 @@ namespace Coflnet.Sky.Api.Controller
                               FlipTrackingService flipService,
                               ILogger<FlipController> logger,
                               PremiumTierService premiumTierService,
-                              BazaarFlipperApi bazaarFlipperApi,
+                              IBazaarFlipperApi bazaarFlipperApi,
                               IItemsApi itemsApi)
         {
             this.config = config;
