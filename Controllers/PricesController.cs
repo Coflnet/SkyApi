@@ -170,7 +170,17 @@ public class PricesController : ControllerBase
         if (itemTag == "*")
         {
             var all = await optionsTask;
-            return fe.AvailableFilters.Where(f =>
+            return fe.AvailableFilters.Where(CanGetOptions(all)).Select(f => new FilterOptions(f, all)).ToList();
+        }
+        var item = await itemsApi.ItemItemTagGetAsync(itemTag);
+        var allOptions = await optionsTask;
+        var filters = fe.FiltersFor(item);
+
+        return filters.Where(CanGetOptions(allOptions)).Select(f => new FilterOptions(f, allOptions)).ToList();
+
+        static Func<IFilter, bool> CanGetOptions(Dictionary<string, List<string>> all)
+        {
+            return f =>
             {
                 try
                 {
@@ -182,13 +192,8 @@ public class PricesController : ControllerBase
                     dev.Logger.Instance.Error(e, "retrieving filter options");
                     return false;
                 }
-            }).Select(f => new FilterOptions(f, all)).ToList();
+            };
         }
-        var item = await itemsApi.ItemItemTagGetAsync(itemTag);
-        var allOptions = await optionsTask;
-        var filters = fe.FiltersFor(item);
-
-        return filters.Select(f => new FilterOptions(f, allOptions)).ToList();
     }
 
     /// <summary>
