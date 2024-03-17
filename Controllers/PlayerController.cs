@@ -168,6 +168,21 @@ namespace Coflnet.Sky.Api.Controller
             return await playerNameApi.GetName(playerUuid) ?? "unknown!";
         }
 
+        /// <summary>
+        /// Batch name retrieval
+        /// </summary>
+        /// <param name="playerUuids"></param>
+        /// <returns></returns>
+        /// <exception cref="CoflnetException"></exception>
+        [Route("names")]
+        [HttpPost]
+        public async Task<Dictionary<string, string>> GetPlayerNames([FromBody] List<string> playerUuids)
+        {
+            if(playerUuids.Count > 100)
+                throw new CoflnetException("too_many_uuids", "You can only request the names for 100 uuids at once. Please make two requests.");
+            return await playerNameApi.GetNames(playerUuids);
+        }
+
 
         /// <summary>
         /// The name for a given uuid
