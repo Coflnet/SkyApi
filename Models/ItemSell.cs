@@ -19,6 +19,14 @@ public class ItemSell
     /// </summary>
     public string Buyer;
     /// <summary>
+    /// Hypixel internal item id, can be used for retrieving image
+    /// </summary>
+    public string ItemTag;
+    /// <summary>
+    /// The coin amount of the item that was sold for
+    /// </summary>
+    public long HighestBid;
+    /// <summary>
     /// When was the item sold
     /// </summary>
     public DateTime Timestamp;
