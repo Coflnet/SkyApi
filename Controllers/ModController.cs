@@ -30,6 +30,7 @@ namespace Coflnet.Sky.Api.Controller
         private FlipperService flipperService;
         private SettingsService settingsService;
         private GoogletokenService tokenService;
+        private AuctionConverter auctionConverter;
         private readonly ILogger<ModController> logger;
 
         /// <summary>
@@ -50,7 +51,8 @@ namespace Coflnet.Sky.Api.Controller
                              ModDescriptionService sniperApi,
                              SettingsService settingsService,
                              GoogletokenService tokenService,
-                             ILogger<ModController> logger)
+                             ILogger<ModController> logger,
+                             AuctionConverter auctionConverter)
         {
             this.db = db;
             priceService = pricesService;
@@ -60,6 +62,7 @@ namespace Coflnet.Sky.Api.Controller
             this.settingsService = settingsService;
             this.tokenService = tokenService;
             this.logger = logger;
+            this.auctionConverter = auctionConverter;
         }
 
         /// <summary>
@@ -194,25 +197,7 @@ namespace Coflnet.Sky.Api.Controller
         [HttpPost]
         public async Task<IEnumerable<PricingBreakdwon>> GetPricingBreakdown([FromBody] ItemRepresent[] items)
         {
-            var auctions = items.Select(i =>
-            {
-                var auction = new SaveAuction()
-                {
-                    Count = i.Count,
-                    Tag = i.Tag,
-                    ItemName = i.ItemName,
-
-                };
-                auction.Enchantments = i.Enchantments?.Select(e => new Enchantment()
-                {
-                    Type = Enum.TryParse<Enchantment.EnchantmentType>(e.Key, out var type) ? type : Enchantment.EnchantmentType.unknown,
-                    Level = e.Value
-                }).ToList() ?? new();
-                auction.Tier = Enum.TryParse<Tier>(i.ExtraAttributes.FirstOrDefault(a => a.Key == "tier").Value?.ToString() ?? "", out var tier) ? tier : Tier.UNKNOWN;
-                auction.Reforge = Enum.TryParse<Reforge>(i.ExtraAttributes.FirstOrDefault(a => a.Key == "modifier").Value?.ToString() ?? "", out var reforge) ? reforge : Reforge.Unknown;
-                auction.SetFlattenedNbt(NBT.FlattenNbtData(i.ExtraAttributes));
-                return auction;
-            });
+            IEnumerable<SaveAuction> auctions = auctionConverter.FromitemRepresent(items);
 
             try
             {
@@ -225,9 +210,6 @@ namespace Coflnet.Sky.Api.Controller
             }
         }
 
-        public class ItemRepresent : Item
-        {
-        }
 
         private static void SetDefaultIfNonePassed(InventoryData inventory)
         {

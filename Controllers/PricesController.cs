@@ -30,6 +30,7 @@ public class PricesController : ControllerBase
     private AhListChecker ahListChecker;
     private FilterEngine fe;
     private NetworthService networthService;
+    private AuctionConverter auctionConverter;
     Counter counter = Metrics.CreateCounter("sky_api_nbt", "Counts requests to /api/item/price/nbt");
 
     /// <summary>
@@ -42,6 +43,8 @@ public class PricesController : ControllerBase
     /// <param name="modDescriptionSerice"></param>
     /// <param name="ahListChecker"></param>
     /// <param name="fe"></param>
+    /// <param name="networthService"></param>
+    /// <param name="auctionConverter"></param>
     public PricesController(
         PricesService pricesService,
         HypixelContext context,
@@ -50,7 +53,8 @@ public class PricesController : ControllerBase
         ModDescriptionService modDescriptionSerice,
         AhListChecker ahListChecker,
         FilterEngine fe,
-        NetworthService networthService)
+        NetworthService networthService,
+        AuctionConverter auctionConverter)
     {
         priceService = pricesService;
         this.context = context;
@@ -60,6 +64,7 @@ public class PricesController : ControllerBase
         this.ahListChecker = ahListChecker;
         this.fe = fe;
         this.networthService = networthService;
+        this.auctionConverter = auctionConverter;
     }
     /// <summary>
     /// Aggregated sumary of item prices for the 2 last days
@@ -196,6 +201,36 @@ public class PricesController : ControllerBase
         }
     }
 
+    [Route("item/filters")]
+    [HttpPost]
+    public async Task<Dictionary<string, string>> GetFiltersForItem(ItemRepresent item)
+    {
+        var allOptions = await itemsApi.ItemItemTagModifiersAllGetAsync(item.ItemName);
+
+        var asAuction = auctionConverter.FromitemRepresent(new ItemRepresent[] { item }).First();
+        var modList = item.Enchantments.Select(e => ("!ench" + e.Key, e.Value.ToString())).Concat(asAuction.FlatenedNBT.Select(m => (m.Key, m.Value)));
+        var filterList = new List<(string key, string value)>();
+        var alwaysMatch = fe.FiltersFor(new() { Modifiers = new() { new() { Slug = "!enchfeather_falling" } } }).ToDictionary(f => f.Name, null);
+        foreach (var mod in modList)
+        {
+            var virtualItem = new Items.Client.Model.Item()
+            {
+                Modifiers = new(){new Items.Client.Model.Modifiers()
+                {
+                    Slug = mod.Item1,
+                    Value = mod.Item2
+                } }
+            };
+            var filters = fe.FiltersFor(virtualItem);
+            filterList.AddRange(filters.Where(f => !alwaysMatch.ContainsKey(f.Name)).Select(f => (f.Name, mod.Item2)));
+        }
+        if(item.Count >= 2)
+        {
+            filterList.Add(("Count", item.Count.ToString()));
+        }
+        return filterList.ToDictionary(f => f.key, f => f.value);
+    }
+
     /// <summary>
     /// Returns price estimations for nbt data (for in game mods) 
     /// NOTE: THIS WILL BE A PAID FEATURE IN THE FUTURE
@@ -216,7 +251,7 @@ public class PricesController : ControllerBase
         {
             logger.LogError(e, "failed to publish inventory nbt");
         }
-        var data = await modDescriptionSerice.GetPrices(auctions.Select(a => a.auction)) 
+        var data = await modDescriptionSerice.GetPrices(auctions.Select(a => a.auction))
             ?? throw new CoflnetException("sniper_unreachable", "The sniper service could not be reached for prices");
         counter.Inc();
         return data.Select(d =>

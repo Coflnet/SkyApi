@@ -53,7 +53,7 @@ public class AuctionConverter
 
     public async Task InitMayors()
     {
-        if(YearToMayorName.Count > 0)
+        if (YearToMayorName.Count > 0)
             return;
         List<Mayor.Client.Model.ModelElectionPeriod> mayors = null;
         try
@@ -188,6 +188,28 @@ public class AuctionConverter
         return string.Empty;
     }
 
+    public IEnumerable<SaveAuction> FromitemRepresent(ItemRepresent[] items)
+    {
+        return items.Select(i =>
+        {
+            var auction = new SaveAuction()
+            {
+                Count = i.Count,
+                Tag = i.Tag,
+                ItemName = i.ItemName,
+
+            };
+            auction.Enchantments = i.Enchantments?.Select(e => new Enchantment()
+            {
+                Type = Enum.TryParse<Enchantment.EnchantmentType>(e.Key, out var type) ? type : Enchantment.EnchantmentType.unknown,
+                Level = e.Value
+            }).ToList() ?? new();
+            auction.Tier = Enum.TryParse<Tier>(i.ExtraAttributes.FirstOrDefault(a => a.Key == "tier").Value?.ToString() ?? "", out var tier) ? tier : Tier.UNKNOWN;
+            auction.Reforge = Enum.TryParse<ItemReferences.Reforge>(i.ExtraAttributes.FirstOrDefault(a => a.Key == "modifier").Value?.ToString() ?? "", out var reforge) ? reforge : ItemReferences.Reforge.Unknown;
+            auction.SetFlattenedNbt(NBT.FlattenNbtData(i.ExtraAttributes));
+            return auction;
+        });
+    }
     public enum Events
     {
         None,
@@ -197,4 +219,9 @@ public class AuctionConverter
         NewYear,
         SeasonOfJerry
     }
+}
+
+
+public class ItemRepresent : Item
+{
 }
