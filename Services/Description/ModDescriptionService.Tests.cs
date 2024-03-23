@@ -121,7 +121,7 @@ public class ModDescriptionServiceTests
         """;
         var parsed = JsonConvert.DeserializeObject<ItemRepresent>(json);
         var service = new ModDescriptionService(null, null, null, null, null, null, null, null, null, null, null, null, null, new(null, null), null);
-        var controller = new Coflnet.Sky.Api.Controller.ModController(null, null, null, null, service, null, null, null, null);
+        var controller = new Coflnet.Sky.Api.Controller.ModController(null, null, null, null, service, null, null, null, new AuctionConverter(null, null));
         var result = await controller.GetPricingBreakdown(new[] { parsed });
         var breakdown = result.First().craftPrice;
         Assert.AreEqual(14, breakdown.Count(), JsonConvert.SerializeObject(breakdown, Formatting.Indented));
