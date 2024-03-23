@@ -369,7 +369,13 @@ namespace Coflnet.Sky.Api.Controller
             var result = await context.Auctions
                         .Where(a => a.NBTLookup.Where(l => l.KeyId == key && l.Value == numericId).Any())
                         .Where(a => a.HighestBidAmount > 0)
-                        .Select(a => new { a.AuctioneerId, a.Uuid, a.End, Buyer = a.Bids.OrderByDescending(b => b.Amount).Select(b => b.Bidder).FirstOrDefault() })
+                        .Select(a => new { 
+                                a.AuctioneerId, 
+                                a.Tag, 
+                                a.HighestBidAmount, 
+                                a.Uuid,
+                                a.End, 
+                                Buyer = a.Bids.OrderByDescending(b => b.Amount).Select(b => b.Bidder).FirstOrDefault() })
                         .AsSplitQuery()
                         .ToListAsync();
 
@@ -378,7 +384,9 @@ namespace Coflnet.Sky.Api.Controller
                 Buyer = i.Buyer,
                 Seller = i.AuctioneerId,
                 Timestamp = i.End,
-                Uuid = i.Uuid
+                Uuid = i.Uuid,
+                ItemTag = i.Tag,
+                HighestBid = i.HighestBidAmount
             });
         }
         /// <summary>
