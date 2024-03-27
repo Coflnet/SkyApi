@@ -23,6 +23,7 @@ using System.Security.Cryptography;
 using System.Text;
 using Coflnet.Sky.Items.Client.Api;
 using Microsoft.Extensions.DependencyInjection;
+using Coflnet.Sky.Auctions.Client.Api;
 
 namespace Coflnet.Sky.Api.Controller
 {
@@ -44,6 +45,7 @@ namespace Coflnet.Sky.Api.Controller
         FilterEngine fe;
         AuctionConverter transformer;
         ModDescriptionService modDescriptionService;
+        IAuctionApi auctionApi;
 
         /// <summary>
         /// Creates a new instance of <see cref="AuctionsController"/>
@@ -59,6 +61,7 @@ namespace Coflnet.Sky.Api.Controller
         /// <param name="fe"></param>
         /// <param name="transformer"></param>
         /// <param name="modDescriptionService"></param>
+        /// <param name="auctionApi"></param>
         public AuctionsController(AuctionService auctionService,
                                   HypixelContext context,
                                   ILogger<AuctionsController> logger,
@@ -69,7 +72,8 @@ namespace Coflnet.Sky.Api.Controller
                                   IItemsApi itemsClient,
                                   FilterEngine fe,
                                   AuctionConverter transformer,
-                                  ModDescriptionService modDescriptionService)
+                                  ModDescriptionService modDescriptionService,
+                                  IAuctionApi auctionApi)
         {
             this.auctionService = auctionService;
             this.context = context;
@@ -82,6 +86,7 @@ namespace Coflnet.Sky.Api.Controller
             this.fe = fe;
             this.transformer = transformer;
             this.modDescriptionService = modDescriptionService;
+            this.auctionApi = auctionApi;
         }
 
         /// <summary>
@@ -100,6 +105,16 @@ namespace Coflnet.Sky.Api.Controller
                         .Include(a => a.Enchantments)
                         .Include(a => a.NbtData)
                         .Include(a => a.Bids).FirstOrDefaultAsync();
+            if (result == null)
+            {
+                // check archive
+                var archived = await auctionApi.ApiAuctionUuidGetWithHttpInfoAsync(auctionUuid);
+                if (archived.StatusCode == System.Net.HttpStatusCode.OK)
+                {
+                    result = JsonConvert.DeserializeObject<SaveAuction>(archived.RawContent);
+                    logger.LogInformation($"Got auction {auctionUuid} from archive");
+                }
+            }
             if (result != null && string.IsNullOrEmpty(result.ItemName))
                 result.ItemName = ItemDetails.TagToName(result.Tag);
             // order enchants
@@ -369,13 +384,15 @@ namespace Coflnet.Sky.Api.Controller
             var result = await context.Auctions
                         .Where(a => a.NBTLookup.Where(l => l.KeyId == key && l.Value == numericId).Any())
                         .Where(a => a.HighestBidAmount > 0)
-                        .Select(a => new { 
-                                a.AuctioneerId, 
-                                a.Tag, 
-                                a.HighestBidAmount, 
-                                a.Uuid,
-                                a.End, 
-                                Buyer = a.Bids.OrderByDescending(b => b.Amount).Select(b => b.Bidder).FirstOrDefault() })
+                        .Select(a => new
+                        {
+                            a.AuctioneerId,
+                            a.Tag,
+                            a.HighestBidAmount,
+                            a.Uuid,
+                            a.End,
+                            Buyer = a.Bids.OrderByDescending(b => b.Amount).Select(b => b.Bidder).FirstOrDefault()
+                        })
                         .AsSplitQuery()
                         .ToListAsync();
 
