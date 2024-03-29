@@ -95,6 +95,17 @@ namespace Coflnet.Sky.Api.Controller
         }
 
         /// <summary>
+        /// Get the current book flips on bazaar
+        /// </summary>
+        [Route("bazaar/books")]
+        [HttpGet]
+        [ResponseCache(Duration = 20, Location = ResponseCacheLocation.Any, NoStore = false)]
+        public async Task<IEnumerable<Bazaar.Flipper.Client.Model.BookFlip>> GetBazaarBookFlipper()
+        {
+            return await bazaarFlipperApi.BooksGetAsync();
+        }
+
+        /// <summary>
         /// Shows you the available settings options for the socket comand subFlip,
         /// Doesn't currently actually do anything.
         /// </summary>
