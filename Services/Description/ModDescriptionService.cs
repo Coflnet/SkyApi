@@ -1165,7 +1165,7 @@ public class ModDescriptionService : IDisposable
             }
             catch (Exception e)
             {
-                logger.LogError(e, "parsing nbt to auction");
+                logger.LogError(e, "parsing nbt to auction: " + t);
                 return (null, new string[0]);
             }
         }).ToList();
