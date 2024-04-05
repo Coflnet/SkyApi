@@ -29,7 +29,7 @@ namespace Coflnet.Sky.Api.Controller
         }
 
         /// <summary>
-        /// Gets the history data for display in a graph for one hour (in intervalls of 20 seconds)
+        /// Gets the history data for display in a graph for one hour (in intervals of 20 seconds)
         /// </summary>
         /// <param name="itemTag">What item to get data for</param>
         /// <returns>An list of graph points</returns>
@@ -48,7 +48,7 @@ namespace Coflnet.Sky.Api.Controller
         }
 
         /// <summary>
-        /// Gets the history data for display in a graph for one day ( in intervalls of 5 minutes)
+        /// Gets the history data for display in a graph for one day ( in intervals of 5 minutes)
         /// </summary>
         /// <param name="itemTag">What item to get data for</param>
         /// <returns>An list of graph points</returns>
@@ -60,7 +60,7 @@ namespace Coflnet.Sky.Api.Controller
             return await bazaarClient.ApiBazaarItemIdHistoryGetAsync(itemTag, Ago(TimeSpan.FromDays(1)), Ago(TimeSpan.FromMilliseconds(2)));
         }
         /// <summary>
-        /// Gets the history data for display in a graph for one week ( in intervalls of 2 hours)
+        /// Gets the history data for display in a graph for one week ( in intervals of 2 hours)
         /// </summary>
         /// <param name="itemTag">What item to get data for</param>
         /// <returns>An list of graph points</returns>
