@@ -250,7 +250,7 @@ public class ModDescriptionService : IDisposable
     {
         var auctionRepresent = ConvertToAuctions(inventory);
         var menuItemName = auctionRepresent.Last().auction?.ItemName;
-        if (inventory.ChestName == "Game Menu" || menuItemName != "§8Quiver Arrow" && (!menuItemName?.Contains("SkyBlock") ?? true))
+        if (inventory.ChestName == "Game Menu" || !(menuItemName?.Contains("§8Quiver ") ?? true) && (!menuItemName?.Contains("SkyBlock") ?? true))
         {
             logger.LogInformation("Skipping game menu " + menuItemName);
             return new List<List<DescModification>>(auctionRepresent.Count).Select(_ => new List<DescModification>());
@@ -1146,7 +1146,7 @@ public class ModDescriptionService : IDisposable
                 if (compound.Count == 0)
                     return (null, new string[0]);
                 if (NBT.ItemID(compound) == null)
-                    if (NBT.GetName(compound) != "§8Quiver Arrow")
+                    if (!NBT.GetName(compound)?.StartsWith("§8Quiver Arrow") ?? true)
                         return (null, new string[0]); // skip all items without id
                     else
                         // quiver arrow when selected a bow
