@@ -21,4 +21,5 @@ public class ListingSum
     /// </summary>
     public long AuctionUid { get; set; }
     public DateTime start { get; set; }
+    public string Tag { get; set; }
 }

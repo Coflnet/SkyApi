@@ -14,14 +14,14 @@ public class DataContainer
     public List<Sniper.Client.Model.PriceEstimate> res;
     public Dictionary<string, ItemPrice> bazaarPrices;
     public List<List<DescModification>> mods;
-    public Dictionary<string, (long, DateTime)> pricesPaid;
+    public Dictionary<string, (long, DateTime, string)> pricesPaid;
     internal ModDescriptionService modService;
     public ILookup<string, ListingSum> itemListings;
     internal Dictionary<(string, Core.Tier), KatUpgradeCost> katUpgradeCost;
     internal Dictionary<string, long> itemPrices = new();
     internal Dictionary<string, ProfitableCraft> allCrafts;
     internal AccountInfo accountInfo;
-    internal ILookup<long,Flip> flips;
+    internal ILookup<long, Flip> flips;
 
     public List<Item> Items { get; internal set; }
 

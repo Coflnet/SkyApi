@@ -301,7 +301,7 @@ public class ModDescriptionService : IDisposable
         var pricePaid = salesData.Where(p => p.Where(s => !s.requestingUserIsSeller && s.highest > 0 && s.end < DateTime.UtcNow).Any()).ToDictionary(p => p.Key, p =>
         {
             var sell = p.OrderByDescending(a => a.end).Where(s => !s.requestingUserIsSeller && s.highest > 0 && s.end < DateTime.UtcNow).FirstOrDefault();
-            return (sell?.highest ?? -p.OrderByDescending(a => a.end).First().highest, sell?.end ?? default);
+            return (sell?.highest ?? -p.OrderByDescending(a => a.end).First().highest, sell?.end ?? default, sell?.Tag);
         });
         List<FlipTracker.Client.Model.Flip> flips = null;
         if (inventory.Settings.Fields.Any(f => f.Any(x => x == DescriptionField.FinderEstimates)))
@@ -415,7 +415,7 @@ public class ModDescriptionService : IDisposable
         List<Sniper.Client.Model.PriceEstimate> res,
         Dictionary<string, ItemPrice> bazaarPrices,
         List<DescModification> mods,
-        Dictionary<string, (long, DateTime)> pricesPaid)
+        Dictionary<string, (long, DateTime, string)> pricesPaid)
     {
         var take = 45;
         if (auctionRepresent.Count > take)
@@ -475,7 +475,8 @@ public class ModDescriptionService : IDisposable
                         a.AuctioneerId,
                         a.Start,
                         uid = a.NBTLookup.Where(l => l.KeyId == key).Select(l => l.Value).FirstOrDefault(),
-                        auctionUid = a.UId
+                        auctionUid = a.UId,
+                        a.Tag
                     })
                     .ToListAsync();
         var uuid = await nameRequest;
@@ -488,7 +489,8 @@ public class ModDescriptionService : IDisposable
                 StartingBid = a.StartingBid,
                 start = a.Start,
                 requestingUserIsSeller = a.AuctioneerId == uuid,
-                AuctionUid = a.auctionUid
+                AuctionUid = a.auctionUid,
+                Tag = a.Tag
             };
         });
     }
@@ -967,17 +969,19 @@ public class ModDescriptionService : IDisposable
         }
     }
 
-    private void AddPricePaid(SaveAuction auction, Dictionary<string, (long, DateTime)> pricesPaid, StringBuilder builder)
+    private void AddPricePaid(SaveAuction auction, Dictionary<string, (long, DateTime, string tag)> pricesPaid, StringBuilder builder)
     {
         if (auction.FlatenedNBT != null && auction.FlatenedNBT.ContainsKey("uid"))
         {
             var uid = auction.FlatenedNBT["uid"];
             if (!pricesPaid.ContainsKey(uid))
                 return;
-            var time = "";
+            
+            builder.Append($"{McColorCodes.GRAY}Paid: {McColorCodes.YELLOW}{FormatNumber(pricesPaid[uid].Item1)}");
             if (pricesPaid[uid].Item2 < new DateTime(2029, 1, 1) && pricesPaid[uid].Item2 > new DateTime(2000, 1, 1))
-                time = $" {McColorCodes.DARK_GRAY}{FormatTime(DateTime.UtcNow - pricesPaid[uid].Item2)} ago";
-            builder.Append($"{McColorCodes.GRAY}Paid: {McColorCodes.YELLOW}{FormatNumber(pricesPaid[uid].Item1)}{time}");
+                builder.Append($" {McColorCodes.DARK_GRAY}{FormatTime(DateTime.UtcNow - pricesPaid[uid].Item2)} ago");
+            if(pricesPaid[uid].Item3 != null && pricesPaid[uid].Item3 != auction.Tag)
+                builder.Append($" {McColorCodes.GRAY}(crafted)");
         }
     }
 
