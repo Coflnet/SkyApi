@@ -961,9 +961,9 @@ public class ModDescriptionService : IDisposable
         if (craftPrice.HasValue)
         {
             if (craftPrice.Value >= int.MaxValue)
-                builder.Append($"craft: unavailable ingredients ");
+                builder.Append($"clean craft: unavailable ingredients ");
             else
-                builder.Append($"{McColorCodes.GRAY}craft: {McColorCodes.YELLOW}{FormatNumber((long)craftPrice)} ");
+                builder.Append($"{McColorCodes.GRAY}clean craft: {McColorCodes.YELLOW}{FormatNumber((long)craftPrice)} ");
         }
     }
 
