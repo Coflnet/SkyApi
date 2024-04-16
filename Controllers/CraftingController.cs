@@ -87,29 +87,6 @@ namespace Coflnet.Sky.Api.Controller
             }
         }
 
-        private async Task<IEnumerable<ProfitableCraft>> AddSaleData(List<ProfitableCraft> list)
-        {
-            var result = new List<ProfitableCraft>();
-            await Parallel.ForEachAsync(list, async (i, t) =>
-            {
-                try
-                {
-                    i.Median = -1;
-                    var sumary = await pricesService.GetSumaryCache(i.ItemId).ConfigureAwait(false);
-                    i.Volume = sumary.Volume;
-                    i.Median = sumary.Med;
-                }
-                catch (Exception e)
-                {
-                    dev.Logger.Instance.Error(e, "getting price summary for crafts");
-                }
-
-                if (i.Volume > 2)
-                    result.Add(i);
-            });
-            return result.OrderByDescending(r => r.SellPrice - r.CraftCost);
-        }
-
         /// <summary>
         /// Returns the crafting recipe for some item
         /// </summary>
