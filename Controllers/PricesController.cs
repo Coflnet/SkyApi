@@ -304,7 +304,7 @@ public class PricesController : ControllerBase
                     var rarityText = pet.Substring(afterLastUnderscore + 1);
                     var petName = pet.Substring(0, afterLastUnderscore);
                     var rarity = Enum.TryParse<Tier>(rarityText, out var r) ? r : Tier.COMMON;
-                    return new($"{petName};{rarity - 1}", c.Value);
+                    return new($"{petName};{(int)rarity - 1}", c.Value);
                 }
                 var match = Regex.Match(c.Key, "ENCHANTMENT_(\\D*)_(\\d+)");
                 if (match.Success)
