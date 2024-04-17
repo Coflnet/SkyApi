@@ -144,13 +144,7 @@ namespace Coflnet.Sky.Api.Controller
 
             try
             {
-                var session = await topUpApi.TopUpPaypalPostAsync(user.Id.ToString(), productSlug, new TopUpOptions()
-                {
-                    UserEmail = user.Email,
-                    TopUpAmount = args.CoinAmount,
-                    SuccessUrl = args.SuccessUrl,
-                    CancelUrl = args.CancelUrl
-                });
+                var session = await topUpApi.TopUpPaypalPostAsync(user.Id.ToString(), productSlug, GetOptions(args, user));
                 return Ok(session);
             }
             catch (System.Exception ex)
