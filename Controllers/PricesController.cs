@@ -224,7 +224,7 @@ public class PricesController : ControllerBase
             var filters = fe.FiltersFor(virtualItem);
             filterList.AddRange(filters.Where(f => !alwaysMatch.ContainsKey(f.Name)).Select(f => (f.Name, mod.Item2)));
         }
-        if(item.Count >= 2)
+        if (item.Count >= 2)
         {
             filterList.Add(("Count", item.Count.ToString()));
         }
@@ -278,6 +278,44 @@ public class PricesController : ControllerBase
                 return null;
             }
         });
+    }
+
+    /// <summary>
+    /// Returns price in NEU format - but more accurate
+    /// </summary>
+    /// <returns></returns>
+    [Route("prices/neu")]
+    [HttpGet]
+    [ResponseCache(Duration = 600, Location = ResponseCacheLocation.Any, NoStore = false)]
+    public async Task<Dictionary<string, long>> GetNeuPrices()
+    {
+        var cached = modDescriptionSerice.DeserializedCache.ItemPrices;
+        return cached.Where(c => !c.Key.Contains("+")) // attributes
+            .Select(c =>
+            {
+                var isPet = c.Key.StartsWith("PET_") && !c.Key.StartsWith("PET_SKIN") && !c.Key.StartsWith("PET_ITEM");
+                if (isPet)
+                {
+                    if (!c.Key.EndsWith("_0"))
+                        return default;
+                    var pet = c.Key.Substring(4, c.Key.Length - 6);
+                    var afterLastUnderscore = pet.LastIndexOf('_');
+                    var rarityText = pet.Substring(afterLastUnderscore + 1);
+                    var petName = pet.Substring(0, afterLastUnderscore);
+                    var rarity = Enum.TryParse<Tier>(rarityText, out var r) ? r : Tier.COMMON;
+                    return new($"{petName};{rarity - 1}", c.Value);
+                }
+                if (c.Key.StartsWith("ENCHANTMENT_"))
+                {
+                    var withNoPrefix = c.Key.Substring("ENCHANTMENT_".Length);
+                    var afterLastUnderscore = withNoPrefix.LastIndexOf('_');
+                    var replacedLast = withNoPrefix.Substring(0, afterLastUnderscore) + ";" + withNoPrefix.Substring(afterLastUnderscore + 1);
+                    return new(replacedLast, c.Value);
+                }
+                return c;
+            }).Where(c => c.Key != default)
+            .ToDictionary(c => c.Key, c => c.Value);
+
     }
 
     [Route("price/attributes")]
