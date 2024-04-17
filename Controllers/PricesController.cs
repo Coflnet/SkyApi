@@ -312,6 +312,10 @@ public class PricesController : ControllerBase
                     var replacedLast = withNoPrefix.Substring(0, afterLastUnderscore) + ";" + withNoPrefix.Substring(afterLastUnderscore + 1);
                     return new(replacedLast, c.Value);
                 }
+                if (c.Key.Contains(':'))
+                {
+                    return new(c.Key.Replace(':', '-'), c.Value);
+                }
                 return c;
             }).Where(c => c.Key != default)
             .ToDictionary(c => c.Key, c => c.Value);
