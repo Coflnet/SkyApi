@@ -12,6 +12,7 @@ using Coflnet.Sky.Items.Client.Api;
 using Coflnet.Sky.Api.Models.Mod;
 using Prometheus;
 using Coflnet.Sky.Api.Models.Netowrth;
+using System.Text.RegularExpressions;
 
 namespace Coflnet.Sky.Api.Controller;
 /// <summary>
@@ -305,12 +306,11 @@ public class PricesController : ControllerBase
                     var rarity = Enum.TryParse<Tier>(rarityText, out var r) ? r : Tier.COMMON;
                     return new($"{petName};{rarity - 1}", c.Value);
                 }
-                if (c.Key.StartsWith("ENCHANTMENT_"))
+                var match = Regex.Match(c.Key, "ENCHANTMENT_(\\D*)_(\\d+)");
+                if (match.Success)
                 {
-                    var withNoPrefix = c.Key.Substring("ENCHANTMENT_".Length);
-                    var afterLastUnderscore = withNoPrefix.LastIndexOf('_');
-                    var replacedLast = withNoPrefix.Substring(0, afterLastUnderscore) + ";" + withNoPrefix.Substring(afterLastUnderscore + 1);
-                    return new(replacedLast, c.Value);
+                    var combined = match.Groups[1].Value + ";" + match.Groups[2].Value;
+                    return new(combined, c.Value);
                 }
                 if (c.Key.Contains(':'))
                 {
