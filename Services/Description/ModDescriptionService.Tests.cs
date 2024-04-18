@@ -86,6 +86,18 @@ public class ModDescriptionServiceTests
     }
 
     [Test]
+    public async Task GetPetCraftCost()
+    {
+        var service = new ModDescriptionService(null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
+        var cost = service.FullCraftCost(new SaveAuction() { Tag = "PET_MONKEY", ItemName="§7[Lvl 1] §6Monkey", Tier = Tier.COMMON }, new()
+        {
+            allCrafts = new () { { "PET_MONKEY", new () { CraftCost = 100_000 } } },
+            itemPrices = new () { { "PET_MONKEY_COMMON_0", 10_000 } }
+        });
+        Assert.AreEqual(10_000, cost.craftPrice);
+    }
+
+    [Test]
     public async Task GetsAbilityScrolls()
     {
         var json = """
