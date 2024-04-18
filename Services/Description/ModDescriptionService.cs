@@ -555,7 +555,7 @@ public class ModDescriptionService : IDisposable
                 }
                 catch (Exception e)
                 {
-                    logger.LogError(e, "failed to add description element " + item);
+                    logger.LogError(e, "failed to add description element {item} on {auction}", item, JsonConvert.SerializeObject(auction));
                 }
             }
             if (builder.Length > 0)
