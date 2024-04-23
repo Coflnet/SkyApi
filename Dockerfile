@@ -10,7 +10,7 @@ COPY . .
 RUN rm SkyApi.sln && dotnet test
 RUN dotnet publish -c release -o /app
 
-FROM mcr.microsoft.com/dotnet/aspnet:8.0
+FROM mcr.microsoft.com/dotnet/aspnet:8.0.4-jammy
 WORKDIR /app
 
 COPY --from=build /app .
