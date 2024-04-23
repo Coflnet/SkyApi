@@ -9,7 +9,7 @@ namespace Coflnet.Sky.Api.Services
         [Test]
         public void ParseEnchantEnum()
         {
-            Assert.AreEqual(Enum.Parse<Enchantment.EnchantmentType>("ultimate_duplex"), Enum.Parse<Enchantment.EnchantmentType>("ultimate_reiterate"));
+            Assert.That(Enum.Parse<Enchantment.EnchantmentType>("ultimate_duplex"),Is.EqualTo(Enum.Parse<Enchantment.EnchantmentType>("ultimate_reiterate")));
         }
     }
 }

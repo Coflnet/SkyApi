@@ -190,11 +190,15 @@ namespace Coflnet.Sky.Api.Controller
         public async Task<List<SaveAuction>> GetHistory(string itemTag, int page = 0, int pageSize = 1000, string token = null)
         {
             var itemId = ItemDetails.Instance.GetItemIdForTag(itemTag);
-            if (pageSize < 0 || pageSize > 1000)
-                pageSize = 1000;
+            var max = 1000;
+            var isPartner = IsValidPartner(token);
+            if(isPartner)
+                max = 10000;
+            if (pageSize < 0 || pageSize > max)
+                pageSize = max;
             var daysToReturn = config["MAX_SELL_LOOKBACK_ENDPOINT_DAYS"] ?? "7";
             if (!string.IsNullOrEmpty(token) && IsValidPartner(token))
-                daysToReturn = itemTag == "HYPERION" ? "1200" : "360";
+                daysToReturn = itemTag == "SPEED_WITHER_BOOTS" ? "1200" : "360";
             var startTime = DateTime.Now.RoundDown(TimeSpan.FromHours(1)) - TimeSpan.FromDays(int.Parse(daysToReturn));
             var result = await context.Auctions
                         .Where(a => a.ItemId == itemId && a.End > startTime && a.End < DateTime.Now && a.HighestBidAmount > 0)

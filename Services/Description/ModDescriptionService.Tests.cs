@@ -81,20 +81,20 @@ public class ModDescriptionServiceTests
         {
 
         });
-        Assert.AreEqual(1, breakdown.Count());
-        Assert.AreEqual("OVERGROWN_GRASS", breakdown.First().First().id);
+        Assert.That(1, Is.EqualTo(breakdown.Count()));
+        Assert.That("OVERGROWN_GRASS", Is.EqualTo(breakdown.First().First().id));
     }
 
     [Test]
     public async Task GetPetCraftCost()
     {
         var service = new ModDescriptionService(null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
-        var cost = service.FullCraftCost(new SaveAuction() { Tag = "PET_MONKEY", ItemName="§7[Lvl 1] §6Monkey", Tier = Tier.COMMON }, new()
+        var cost = service.FullCraftCost(new SaveAuction() { Tag = "PET_MONKEY", ItemName = "§7[Lvl 1] §6Monkey", Tier = Tier.COMMON }, new()
         {
-            allCrafts = new () { { "PET_MONKEY", new () { CraftCost = 100_000 } } },
-            itemPrices = new () { { "PET_MONKEY_COMMON_0", 10_000 } }
+            allCrafts = new() { { "PET_MONKEY", new() { CraftCost = 100_000 } } },
+            itemPrices = new() { { "PET_MONKEY_COMMON_0", 10_000 } }
         });
-        Assert.AreEqual(10_000, cost.craftPrice);
+        Assert.That(10_000, Is.EqualTo(cost.craftPrice));
     }
 
     [Test]
@@ -136,7 +136,7 @@ public class ModDescriptionServiceTests
         var controller = new Coflnet.Sky.Api.Controller.ModController(null, null, null, null, service, null, null, null, new AuctionConverter(null, null));
         var result = await controller.GetPricingBreakdown(new[] { parsed });
         var breakdown = result.First().craftPrice;
-        Assert.AreEqual(14, breakdown.Count(), JsonConvert.SerializeObject(breakdown, Formatting.Indented));
+        Assert.That(14, Is.EqualTo(breakdown.Count()), JsonConvert.SerializeObject(breakdown, Formatting.Indented));
         Assert.That(breakdown.Select(b => b.ItemTag), Has.Member("IMPLOSION_SCROLL"));
     }
 
@@ -149,6 +149,6 @@ public class ModDescriptionServiceTests
         var item = JsonConvert.DeserializeObject<Item>(json);
         var auction = new SaveAuction() { };
         auction.SetFlattenedNbt(NBT.FlattenNbtData(item.ExtraAttributes));
-        Assert.AreEqual("1", auction.FlatenedNBT.GetValueOrDefault("veteran"), JsonConvert.SerializeObject(auction.FlatenedNBT, Formatting.Indented));
+        Assert.That("1", Is.EqualTo(auction.FlatenedNBT.GetValueOrDefault("veteran")), JsonConvert.SerializeObject(auction.FlatenedNBT, Formatting.Indented));
     }
 }
