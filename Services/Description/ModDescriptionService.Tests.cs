@@ -12,7 +12,6 @@ using Microsoft.Extensions.Logging;
 using Moq;
 using Newtonsoft.Json;
 using NUnit.Framework;
-using OpenTracing;
 using System.IO;
 using System.Threading.Tasks;
 using Coflnet.Sky.PlayerName.Client.Client;

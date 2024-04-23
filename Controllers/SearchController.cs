@@ -10,7 +10,7 @@ using System.Text.RegularExpressions;
 using System.Linq;
 using Coflnet.Sky.Commands.Shared;
 using Coflnet.Sky.Items.Client.Api;
-using OpenTracing;
+using System.Diagnostics;
 
 namespace Coflnet.Sky.Api.Controller
 {
@@ -24,17 +24,15 @@ namespace Coflnet.Sky.Api.Controller
     {
         static Regex validCharRegex = new Regex("[^-a-zA-Z0-9_\\.' ]");
         private Sky.Items.Client.Api.IItemsApi itemsApi;
-        private readonly ITracer Tracer;
 
         /// <summary>
         /// Creates a new instance of <see cref="SearchController"/>
         /// </summary>
         /// <param name="itemsApi"></param>
         /// <param name="tracer"></param>
-        public SearchController(IItemsApi itemsApi, ITracer tracer)
+        public SearchController(IItemsApi itemsApi)
         {
             this.itemsApi = itemsApi;
-            Tracer = tracer;
         }
 
         /// <summary>
@@ -111,7 +109,7 @@ namespace Coflnet.Sky.Api.Controller
             {
                 return result;
             }
-            Tracer.ActiveSpan.SetTag("search", searchVal.ToLower());
+            Activity.Current?.SetTag("search", searchVal.ToLower());
             return ExtendIfSame(result, limit);
         }
 
