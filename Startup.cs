@@ -96,7 +96,7 @@ namespace Coflnet.Sky.Api
             services.AddStackExchangeRedisCache(options =>
             {
                 options.ConfigurationOptions = redisOptions;
-                options.InstanceName = "SampleInstance";
+                options.InstanceName = "skyapi";
             });
             services.AddSingleton<IConnectionMultiplexer>(provider => ConnectionMultiplexer.Connect(redisOptions));
 
