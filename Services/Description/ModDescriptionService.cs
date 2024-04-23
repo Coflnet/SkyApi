@@ -696,7 +696,7 @@ public class ModDescriptionService : IDisposable
 
     private static long CleanItemprice(SaveAuction auction, DataContainer data)
     {
-        if (auction.Tag.StartsWith("PET_") && !auction.Tag.StartsWith("PET_SKIN_") && !auction.Tag.StartsWith("PET_ITEM_"))
+        if (NBT.IsPet(auction.Tag))
         {
             var name = auction.ItemName;
             if (!name.Contains("Lvl"))

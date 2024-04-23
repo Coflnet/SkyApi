@@ -294,7 +294,7 @@ public class PricesController : ControllerBase
         return cached.Where(c => !c.Key.Contains("+")) // attributes
             .Select(c =>
             {
-                var isPet = c.Key.StartsWith("PET_") && !c.Key.StartsWith("PET_SKIN") && !c.Key.StartsWith("PET_ITEM");
+                var isPet = NBT.IsPet(c.Key);
                 if (isPet)
                 {
                     if (!c.Key.EndsWith("_0"))
