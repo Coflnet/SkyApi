@@ -197,11 +197,15 @@ namespace Coflnet.Sky.Api.Controller
             if (pageSize < 0 || pageSize > max)
                 pageSize = max;
             var daysToReturn = config["MAX_SELL_LOOKBACK_ENDPOINT_DAYS"] ?? "7";
-            if (!string.IsNullOrEmpty(token) && IsValidPartner(token) && GetTokenHash(token) != "1D28ABCC717A219C90B79E43564CD604E5522A5DC832B8E35D5072BB3A1DBABE")
+            var isBen = GetTokenHash(token) == "1D28ABCC717A219C90B79E43564CD604E5522A5DC832B8E35D5072BB3A1DBABE";
+            if (!string.IsNullOrEmpty(token) && IsValidPartner(token))
                 daysToReturn = itemTag == "SPEED_WITHER_BOOTS" ? "1200" : "30";
             var startTime = DateTime.Now.RoundDown(TimeSpan.FromHours(1)) - TimeSpan.FromDays(int.Parse(daysToReturn));
+            var bidNotEqualTo = 0;
+            if (isBen)
+                bidNotEqualTo = -1;
             var result = await context.Auctions
-                        .Where(a => a.ItemId == itemId && a.End > startTime && a.End < DateTime.Now && a.HighestBidAmount > 0)
+                        .Where(a => a.ItemId == itemId && a.End > startTime && a.End < DateTime.Now && a.HighestBidAmount != bidNotEqualTo)
                         .Include(a => a.Enchantments)
                         .Include(a => a.NbtData)
                         .OrderByDescending(a => a.End)
@@ -279,6 +283,8 @@ namespace Coflnet.Sky.Api.Controller
 
         private static string GetTokenHash(string token)
         {
+            if (token == null)
+                return null;
             using var mySHA256 = SHA256.Create();
             var hash = mySHA256.ComputeHash(Encoding.UTF8.GetBytes(token));
             return BitConverter.ToString(hash).Replace("-", "").ToUpper();
