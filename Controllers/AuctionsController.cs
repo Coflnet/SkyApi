@@ -192,13 +192,13 @@ namespace Coflnet.Sky.Api.Controller
             var itemId = ItemDetails.Instance.GetItemIdForTag(itemTag);
             var max = 1000;
             var isPartner = IsValidPartner(token);
-            if(isPartner)
+            if (isPartner)
                 max = 10000;
             if (pageSize < 0 || pageSize > max)
                 pageSize = max;
             var daysToReturn = config["MAX_SELL_LOOKBACK_ENDPOINT_DAYS"] ?? "7";
-            if (!string.IsNullOrEmpty(token) && IsValidPartner(token))
-                daysToReturn = itemTag == "SPEED_WITHER_BOOTS" ? "1200" : "360";
+            if (!string.IsNullOrEmpty(token) && IsValidPartner(token) && GetTokenHash(token) != "1D28ABCC717A219C90B79E43564CD604E5522A5DC832B8E35D5072BB3A1DBABE")
+                daysToReturn = itemTag == "SPEED_WITHER_BOOTS" ? "1200" : "30";
             var startTime = DateTime.Now.RoundDown(TimeSpan.FromHours(1)) - TimeSpan.FromDays(int.Parse(daysToReturn));
             var result = await context.Auctions
                         .Where(a => a.ItemId == itemId && a.End > startTime && a.End < DateTime.Now && a.HighestBidAmount > 0)
@@ -274,13 +274,14 @@ namespace Coflnet.Sky.Api.Controller
         {
             var isPartner = false;
             var tokens = config.GetSection("PartnerTokenHashes").Get<string[]>();
-            using (var mySHA256 = SHA256.Create())
-            {
-                var hash = mySHA256.ComputeHash(Encoding.UTF8.GetBytes(token));
-                isPartner = tokens.Contains(BitConverter.ToString(hash).Replace("-", "").ToUpper());
-            }
+            return tokens.Contains(GetTokenHash(token));
+        }
 
-            return isPartner;
+        private static string GetTokenHash(string token)
+        {
+            using var mySHA256 = SHA256.Create();
+            var hash = mySHA256.ComputeHash(Encoding.UTF8.GetBytes(token));
+            return BitConverter.ToString(hash).Replace("-", "").ToUpper();
         }
 
         /// <summary>
