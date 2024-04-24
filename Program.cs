@@ -9,17 +9,17 @@ namespace Coflnet.Sky.Api
     {
         public static void Main(string[] args)
         {
-            PosixSignalRegistration.Create(PosixSignal.SIGINT, context =>
+            using var sigin = PosixSignalRegistration.Create(PosixSignal.SIGINT, context =>
             {
                 Console.WriteLine("SIGINT received!");
                 Environment.Exit(0);
             });
-            PosixSignalRegistration.Create(PosixSignal.SIGTERM, context =>
+            using var sigterm = PosixSignalRegistration.Create(PosixSignal.SIGTERM, context =>
             {
                 Console.WriteLine("SIGTERM received!");
                 Environment.Exit(0);
             });
-            PosixSignalRegistration.Create(PosixSignal.SIGQUIT, context =>
+            using var sigquit = PosixSignalRegistration.Create(PosixSignal.SIGQUIT, context =>
             {
                 Console.WriteLine("SIGQUIT received!");
                 Environment.Exit(0);
