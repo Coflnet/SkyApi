@@ -10,13 +10,14 @@ COPY . .
 RUN rm SkyApi.sln && dotnet test
 RUN dotnet publish -c release -o /app
 
-FROM mcr.microsoft.com/dotnet/aspnet:6.0-alpine
+FROM mcr.microsoft.com/dotnet/aspnet:6.0
 WORKDIR /app
 
 COPY --from=build /app .
 
 ENV ASPNETCORE_URLS=http://+:8000
 
-#USER app
+RUN useradd --uid $(shuf -i 2000-65000 -n 1) app-user
+USER app-user
 
 ENTRYPOINT ["dotnet", "SkyApi.dll", "--hostBuilder:reloadConfigOnChange=false"]
