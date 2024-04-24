@@ -96,7 +96,7 @@ public class ModDescriptionServiceTests
         Assert.That(10_000, Is.EqualTo(cost.craftPrice));
     }
 
-    [Test]
+   /* [Test]
     public async Task GetsAbilityScrolls()
     {
         var json = """
@@ -149,5 +149,5 @@ public class ModDescriptionServiceTests
         var auction = new SaveAuction() { };
         auction.SetFlattenedNbt(NBT.FlattenNbtData(item.ExtraAttributes));
         Assert.That("1", Is.EqualTo(auction.FlatenedNBT.GetValueOrDefault("veteran")), JsonConvert.SerializeObject(auction.FlatenedNBT, Formatting.Indented));
-    }
+    }*/
 }

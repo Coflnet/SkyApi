@@ -703,12 +703,13 @@ public class ModDescriptionService : IDisposable
             if (!name.Contains("Lvl"))
                 name = data.auctionRepresent.Where(a => a.auction == auction).Select(a => a.desc).FirstOrDefault()?.FirstOrDefault(d => d.Contains("Lvl"));
             var level = int.Parse(Regex.Match(name, @"Lvl (\d+)").Groups[1].Value);
-            var key = $"{auction.Tag}_{auction.Tier}_{level switch
+            var mapped = level switch
             {
                 >= 100 => 100,
                 >= 92 => 90,
                 _ => 0
-            }}";
+            };
+            var key = $"{auction.Tag}_{auction.Tier}_{mapped}";
             if (data.itemPrices.TryGetValue(key, out var price))
                 return price;
 
