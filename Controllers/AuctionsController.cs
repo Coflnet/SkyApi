@@ -304,7 +304,11 @@ namespace Coflnet.Sky.Api.Controller
             List<AuctionPreview> preview = await GetRecentFor(itemTag, query, 1);
             if (preview.Count >= 12)
                 return preview;
-            return await GetRecentFor(itemTag, query, 14);
+            preview = await GetRecentFor(itemTag, query, 14);
+            if(preview.Count >= 12 || query.Count > 2)
+                return preview;
+            preview = await GetRecentFor(itemTag, query, 90);
+            return preview;
         }
 
         private async Task<List<AuctionPreview>> GetRecentFor(string itemTag, IDictionary<string, string> query, int days)
