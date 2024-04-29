@@ -656,7 +656,8 @@ public class ModDescriptionService : IDisposable
             >= 10 => (McColorCodes.YELLOW, "medium"),
             _ => (McColorCodes.GREEN, "low")
         };
-        builder.Append($"{McColorCodes.GRAY}Volatility: {warning.Item1}{warning.Item2}{McColorCodes.GRAY}({data.Volatility}%) ");
+        var formatted = data.Volatility > 119 ? "over 120" : data.Volatility.ToString();
+        builder.Append($"{McColorCodes.GRAY}Volatility: {warning.Item1}{warning.Item2}{McColorCodes.GRAY}({formatted}) ");
     }
 
     private void AddLastSoldFor(SaveAuction auction, Sniper.Client.Model.PriceEstimate data, StringBuilder builder)
