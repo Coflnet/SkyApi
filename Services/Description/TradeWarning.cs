@@ -13,7 +13,7 @@ public class TradeWarning : CustomModifier
         long sendCraftSum = 0L;
         long receiveSum = 0L;
         long receiveCraftSum = 0L;
-        foreach (var sniperPrice in data.res)
+        foreach (var sniperPrice in data.PriceEst)
         {
             var i = index++;
             if (i >= 36)

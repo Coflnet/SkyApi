@@ -11,7 +11,7 @@ public class ListPriceRecommend : CustomModifier
 {
     public void Apply(DataContainer data)
     {
-        string text = GetRecommendText(data.res[13], data.modService);
+        string text = GetRecommendText(data.PriceEst[13], data.modService);
         data.mods[31].Insert(0, new DescModification(DescModification.ModType.INSERT, 1, text));
     }
 

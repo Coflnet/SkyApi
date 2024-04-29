@@ -35,7 +35,7 @@ public class FlipOnNextPage : CustomModifier
 
     protected IEnumerable<((SaveAuction auction, string[] desc) First, long profit, long lbinProfit, int index, string seller)> GetFlipAble(DataContainer data)
     {
-        return data.auctionRepresent.Zip(data.res).Take(9 * 6).Select((i, index) =>
+        return data.auctionRepresent.Zip(data.PriceEst).Take(9 * 6).Select((i, index) =>
         {
             long price = data.modService.GetAuctionPrice(i.First.desc);
             if (price == 0)

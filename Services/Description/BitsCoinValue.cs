@@ -12,7 +12,7 @@ namespace SkyApi.Services.Description
             for (int i = 0; i < data.auctionRepresent.Count; i++)
             {
                 var desc = data.auctionRepresent[i].desc;
-                var price = data.res?[i];
+                var price = data.PriceEst?[i];
                 if (desc == null || price == null)
                 {
                     continue;

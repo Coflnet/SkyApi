@@ -23,7 +23,7 @@ public class MatchWhiteBlacklist : CustomModifier
             data.modService.logger.LogInformation(JsonConvert.SerializeObject(data.accountInfo));
             return;
         }
-        var flipsRepresent = data.auctionRepresent.Zip(data.res).Take(9 * 6).Select((i, index) =>
+        var flipsRepresent = data.auctionRepresent.Zip(data.PriceEst).Take(9 * 6).Select((i, index) =>
         {
             return (NewMethod(data, i), index);
         });

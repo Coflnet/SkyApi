@@ -11,7 +11,7 @@ public class DataContainer
 {
     public InventoryDataWithSettings inventory;
     public List<(SaveAuction auction, string[] desc)> auctionRepresent;
-    public List<Sniper.Client.Model.PriceEstimate> res;
+    public List<Sniper.Client.Model.PriceEstimate> PriceEst;
     public Dictionary<string, ItemPrice> bazaarPrices;
     public List<List<DescModification>> mods;
     public Dictionary<string, (long, DateTime, string)> pricesPaid;

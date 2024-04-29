@@ -322,7 +322,7 @@ public class ModDescriptionService : IDisposable
             pricesPaid = pricePaid,
             itemListings = salesData,
             katUpgradeCost = deserializedCache.Kat,
-            res = res,
+            PriceEst = res,
             modService = this,
             itemPrices = deserializedCache.ItemPrices,
             Items = items,
@@ -569,7 +569,7 @@ public class ModDescriptionService : IDisposable
 
     private void AddFieldToBuilder(SaveAuction auction, int index, DataContainer data, StringBuilder builder, DescriptionField item)
     {
-        var price = data.res[index];
+        var price = data.PriceEst[index];
         switch (item)
         {
             case DescriptionField.LBIN:
@@ -632,6 +632,12 @@ public class ModDescriptionService : IDisposable
             case DescriptionField.FinderEstimates:
                 AddFinderEstimates(auction, data, builder);
                 break;
+            case DescriptionField.LastSoldFor:
+                AddLastSoldFor(auction, price, builder);
+                break;
+            case DescriptionField.Volatility:
+                AddVolatility(auction, price, builder);
+                break;
             case DescriptionField.NONE:
                 break; // ignore
             default:
@@ -639,6 +645,28 @@ public class ModDescriptionService : IDisposable
                     logger.LogError("Invalid description type " + item);
                 break;
         }
+    }
+
+    private void AddVolatility(SaveAuction auction, Sniper.Client.Model.PriceEstimate data, StringBuilder builder)
+    {
+        var warning = data.Volatility switch
+        {
+            >= 30 => (McColorCodes.DARK_RED, "very high"),
+            >= 20 => (McColorCodes.RED, "high"),
+            >= 10 => (McColorCodes.YELLOW, "medium"),
+            _ => (McColorCodes.GREEN, "low")
+        };
+        builder.Append($"{McColorCodes.GRAY}Volatility: {warning.Item1}{warning.Item2}{McColorCodes.GRAY}({data.Volatility}%) ");
+    }
+
+    private void AddLastSoldFor(SaveAuction auction, Sniper.Client.Model.PriceEstimate data, StringBuilder builder)
+    {
+        if (data.LastSale.Price == 0)
+        {
+            builder.Append($"{McColorCodes.GRAY}Last Sold For: {McColorCodes.YELLOW}Unknown ");
+            return;
+        }
+        builder.Append($"{McColorCodes.GRAY}Last Sold For: {McColorCodes.YELLOW}{FormatPriceShort(data.LastSale.Price)} ");
     }
 
     private void AddFinderEstimates(SaveAuction auction, DataContainer data, StringBuilder builder)
@@ -977,11 +1005,11 @@ public class ModDescriptionService : IDisposable
             var uid = auction.FlatenedNBT["uid"];
             if (!pricesPaid.ContainsKey(uid))
                 return;
-            
+
             builder.Append($"{McColorCodes.GRAY}Paid: {McColorCodes.YELLOW}{FormatNumber(pricesPaid[uid].Item1)}");
             if (pricesPaid[uid].Item2 < new DateTime(2029, 1, 1) && pricesPaid[uid].Item2 > new DateTime(2000, 1, 1))
                 builder.Append($" {McColorCodes.DARK_GRAY}{FormatTime(DateTime.UtcNow - pricesPaid[uid].Item2)} ago");
-            if(pricesPaid[uid].Item3 != null && pricesPaid[uid].Item3 != auction.Tag)
+            if (pricesPaid[uid].Item3 != null && pricesPaid[uid].Item3 != auction.Tag)
                 builder.Append($" {McColorCodes.GRAY}(crafted)");
         }
     }
