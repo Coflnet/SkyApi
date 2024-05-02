@@ -1063,7 +1063,7 @@ public class ModDescriptionService : IDisposable
     {
         if (price != null && price.Median != 0)
         {
-            var prefix = price.ItemKey == price.MedianKey ? "" : "~";
+            var prefix = price.ItemKey == price.MedianKey.Replace("&comb", "") ? "" : "~";
             builder.Append($"{McColorCodes.GRAY}Med: {McColorCodes.AQUA}{prefix}{FormatNumber(price.Median)} ");
             if (auction.Count > 1)
             {
