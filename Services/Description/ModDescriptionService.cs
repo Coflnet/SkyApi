@@ -638,6 +638,9 @@ public class ModDescriptionService : IDisposable
             case DescriptionField.Volatility:
                 AddVolatility(auction, price, builder);
                 break;
+            case DescriptionField.TimeToSell:
+                AddTimeToSell(auction, price, builder);
+                break;
             case DescriptionField.NONE:
                 break; // ignore
             default:
@@ -645,6 +648,23 @@ public class ModDescriptionService : IDisposable
                     logger.LogError("Invalid description type " + item);
                 break;
         }
+    }
+
+    private void AddTimeToSell(SaveAuction auction, Sniper.Client.Model.PriceEstimate price, StringBuilder builder)
+    {
+        string fieldName = "Avg. SellTime";
+        if (price.Volume == 0)
+        {
+            builder.Append($"{McColorCodes.GRAY}{fieldName}: {McColorCodes.YELLOW}Unknown ");
+            return;
+        }
+        var time = TimeSpan.FromHours(24 / price.Volume);
+        if (time.TotalHours < 1)
+            builder.Append($"{McColorCodes.GRAY}{fieldName}: {McColorCodes.YELLOW}{(int)time.TotalMinutes} minutes ");
+        else if (time.TotalDays < 1)
+            builder.Append($"{McColorCodes.GRAY}{fieldName}: {McColorCodes.YELLOW}{(int)time.TotalHours} hours ");
+        else
+            builder.Append($"{McColorCodes.GRAY}{fieldName}: {McColorCodes.YELLOW}{(int)(time.TotalDays + 0.5)} days ");
     }
 
     private void AddVolatility(SaveAuction auction, Sniper.Client.Model.PriceEstimate data, StringBuilder builder)
