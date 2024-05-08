@@ -11,6 +11,7 @@ using Coflnet.Sky.Api.Models.Mod;
 using static Coflnet.Sky.Core.ItemReferences;
 using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
+using Coflnet.Sky.Items.Client.Api;
 
 namespace Coflnet.Sky.Api.Controller
 {
@@ -114,6 +115,17 @@ namespace Coflnet.Sky.Api.Controller
                 new CommandListEntry("blacklist","Allows you to blacklist auctions"),
                 new CommandListEntry("whitelist","Same as blacklist but will always show")
             };
+        }
+
+        [Route("open/{search}")]
+        [HttpGet]
+        public async Task<IActionResult> Open(string search, [FromServices] IItemsApi itemsApi)
+        {
+            var target = await itemsApi.ItemsSearchTermGetAsync(search.Split(';', '|').First());
+            var item = target.FirstOrDefault();
+            if (item == null)
+                return Redirect($"https://sky.coflnet.com");
+            return Redirect($"https://sky.coflnet.com/item/{item.Tag}");
         }
 
         /// <summary>

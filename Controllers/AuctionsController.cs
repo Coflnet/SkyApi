@@ -316,7 +316,8 @@ namespace Coflnet.Sky.Api.Controller
             var minTime = DateTime.Now.Subtract(TimeSpan.FromDays(days));
             var itemId = ItemDetails.Instance.GetItemIdForTag(itemTag);
             var baseSelect = context.Auctions
-                                        .Where(a => a.ItemId == itemId && a.End < DateTime.Now && a.End > minTime).OrderByDescending(a => a.End);
+                        .Where(a => a.ItemId == itemId && a.End < DateTime.Now && a.End > minTime)
+                        .OrderByDescending(a => a.End);
             var preview = await ToPreview(query, itemId, baseSelect);
             return preview;
         }
