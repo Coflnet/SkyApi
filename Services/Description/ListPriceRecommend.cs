@@ -17,7 +17,7 @@ public class ListPriceRecommend : CustomModifier
 
     public static string GetRecommendText(PriceEstimate pricing, ModDescriptionService modService)
     {
-        if (pricing == null || pricing.Median <= 4_000_000)
+        if (pricing == null || pricing.Median <= 4_000_000 || pricing.Volume == 0)
         {
             return $"No recommended instasell from Coflnet";
         }
