@@ -1081,14 +1081,15 @@ public class ModDescriptionService : IDisposable
 
     private void AddMedian(SaveAuction auction, Sniper.Client.Model.PriceEstimate price, StringBuilder builder)
     {
-        if (price != null && price.Median != 0)
+        if (price == null || price.Median == 0)
         {
-            var prefix = price.ItemKey == price.MedianKey.Replace("&comb", "") ? "" : "~";
-            builder.Append($"{McColorCodes.GRAY}Med: {McColorCodes.AQUA}{prefix}{FormatNumber(price.Median)} ");
-            if (auction.Count > 1)
-            {
-                builder.Append($"({FormatNumber(price.Median / auction.Count)} each)");
-            }
+            return;
+        }
+        var prefix = price.ItemKey == price.MedianKey?.Replace("&comb", "") ? "" : "~";
+        builder.Append($"{McColorCodes.GRAY}Med: {McColorCodes.AQUA}{prefix}{FormatNumber(price.Median)} ");
+        if (auction.Count > 1)
+        {
+            builder.Append($"({FormatNumber(price.Median / auction.Count)} each)");
         }
     }
 
