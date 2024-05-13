@@ -957,7 +957,7 @@ public class ModDescriptionService : IDisposable
         if (!data.itemListings.Contains(uid))
             return;
         var listing = data.itemListings[uid];
-        var sum = listing.Where(l => l.requestingUserIsSeller && l.highest == 0).Sum(l => l.StartingBid * 0.02);
+        var sum = listing.Where(l => l.requestingUserIsSeller && l.highest == 0).Sum(l => FlipInstance.GetFeesForStartingBid(l.StartingBid));
         var latest = listing.Where(l => l.requestingUserIsSeller && l.highest == 0).OrderByDescending(l => l.start).Select(l => l.start).FirstOrDefault();
         var formated = latest == default ? "never" : $"{FormatTime(DateTime.UtcNow - latest)} ago";
         builder.Append($"{McColorCodes.GRAY}Spent on listing: {McColorCodes.YELLOW}{FormatPriceShort(sum)}{McColorCodes.GRAY} Last attempt {McColorCodes.BLUE}{formated}");
