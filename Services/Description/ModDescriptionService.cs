@@ -952,10 +952,16 @@ public class ModDescriptionService : IDisposable
     private void AddSpentOnAhFees(SaveAuction auction, StringBuilder builder, DataContainer data)
     {
         if (auction.FlatenedNBT == null || !auction.FlatenedNBT.TryGetValue("uid", out var uid))
+        {
+            builder.Append($"{McColorCodes.GRAY}Unable to track listing fees");
             return;
+        }
 
         if (!data.itemListings.Contains(uid))
+        {
+            builder.Append($"{McColorCodes.GRAY}No listing attempts found");
             return;
+        }
         var listing = data.itemListings[uid];
         var sum = listing.Where(l => l.requestingUserIsSeller && l.highest == 0).Sum(l => FlipInstance.GetFeesForStartingBid(l.StartingBid));
         var latest = listing.Where(l => l.requestingUserIsSeller && l.highest == 0).OrderByDescending(l => l.start).Select(l => l.start).FirstOrDefault();
