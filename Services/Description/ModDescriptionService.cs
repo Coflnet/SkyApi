@@ -536,9 +536,6 @@ public class ModDescriptionService : IDisposable
                                                     DataContainer data)
     {
         var mods = new List<DescModification>();
-
-        //if (desc.LastOrDefault()?.EndsWith("Click to open!") ?? false)
-        //    mods.Add(new DescModification(DescModification.ModType.REPLACE, desc.Count() - 1, "Click to open"));
         if (auction.Tag == null)
         { //add nothing for now
             return new();
