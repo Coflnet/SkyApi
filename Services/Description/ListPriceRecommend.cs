@@ -21,9 +21,9 @@ public class ListPriceRecommend : CustomModifier
         {
             return $"No recommended instasell from Coflnet";
         }
-        double target = SniperClient.InstaSellPrice(pricing);
+        (double target, bool fromMedian) = SniperClient.InstaSellPrice(pricing);
 
         var formattedPrice = modService.FormatNumber(target);
-        return $"{McColorCodes.GREEN}Instasell: {McColorCodes.DARK_GREEN}{formattedPrice} {McColorCodes.WHITE}based on Coflnet data";
+        return $"{McColorCodes.GREEN}Instasell: {McColorCodes.DARK_GREEN}{formattedPrice} {McColorCodes.WHITE}based on Coflnet {(fromMedian ? "median" : "lbin")}";
     }
 }
