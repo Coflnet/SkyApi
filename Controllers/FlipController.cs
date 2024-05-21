@@ -141,10 +141,11 @@ namespace Coflnet.Sky.Api.Controller
                 _ => LowPricedAuction.FinderType.EXTERNAL,
             };
 
-            if (finderType == LowPricedAuction.FinderType.TFM && !await tfm.IsUserOnAsync(playerId))
+            if (finderType == LowPricedAuction.FinderType.TFM)
             {
-                await Task.Delay(new Random().Next(100, 500)); // avoid timing attacks and silently complete
-                return;
+                // from cloudflare header
+                var clientIp = Request.Headers["CF-Connecting-IP"].FirstOrDefault() ?? Request.HttpContext.Connection.RemoteIpAddress.ToString();
+                logger.LogInformation($"TFM found {auctionId} at {received} from {clientIp}");
             }
 
             await flipService.NewFlip(new LowPricedAuction()
