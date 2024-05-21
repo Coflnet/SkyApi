@@ -122,10 +122,10 @@ namespace Coflnet.Sky.Api.Controller
         {
             AssertUuid(playerUuid);
             var offset = pageSize * page;
-            filters.Remove("page");
+            filters?.Remove("page");
             var baseSelect = context.Auctions
                         .Where(a => a.SellerId == context.Players.Where(p => p.UuId == playerUuid).Select(p => p.Id).FirstOrDefault() && a.SellerId != 0);
-            if (filters.TryGetValue("tag", out string itemTag))
+            if (filters?.TryGetValue("tag", out string itemTag) ?? false)
             {
                 int itemId = ExtractItemIdFromFilter(filters, itemTag);
                 baseSelect = baseSelect.Where(a => a.ItemId == itemId);
