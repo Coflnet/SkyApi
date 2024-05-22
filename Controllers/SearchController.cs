@@ -88,10 +88,8 @@ namespace Coflnet.Sky.Api.Controller
         public async Task<IEnumerable<SearchResultItem>> FullSearch(string searchVal, int limit = 5)
         {
             searchVal = searchVal.ToLower().Replace('’', '\'');
-            var collection = await ExecuteSearch(searchVal, 1000);
+            var collection = await ExecuteSearch(searchVal, 2000);
             if (collection.Count == 0) // search again
-                collection = await ExecuteSearch(searchVal, 2000);
-            if (collection.Count == 0) // search once more
                 collection = await ExecuteSearch(searchVal);
             var result = SearchService.Instance.RankSearchResults(searchVal, collection.Where(r => r.Type != "internal"));
             if (result.Count == 0)
