@@ -724,6 +724,12 @@ public class ModDescriptionService : IDisposable
         builder.Append($"{McColorCodes.GRAY}Full Craft Cost: {McColorCodes.YELLOW}{FormatPriceShort(value.summary)}");
     }
 
+    /// <summary>
+    /// Returns full craft cost of an item
+    /// </summary>
+    /// <param name="auction"></param>
+    /// <param name="data"></param>
+    /// <returns></returns>
     public (double? craftPrice, double summary) FullCraftCost(SaveAuction auction, DataContainer data)
     {
         double? craftPrice = BaseItemPrice(auction, data);
