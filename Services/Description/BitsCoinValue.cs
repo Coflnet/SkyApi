@@ -1,4 +1,5 @@
 ﻿using Coflnet.Sky.Api.Models.Mod;
+using Coflnet.Sky.Api.Services;
 using Coflnet.Sky.Api.Services.Description;
 using Coflnet.Sky.Commands.MC;
 using System.Linq;
@@ -30,6 +31,12 @@ namespace SkyApi.Services.Description
                 }
             }
         }
+
+        public void Modify(ModDescriptionService.PreRequestContainer preRequest)
+        {
+            return;
+        }
+
         private bool hasBitsValue(IEnumerable<string> description, out int bits)
         {
             bits = 1;

@@ -3,7 +3,6 @@ using Coflnet.Sky.Api.Models.Mod;
 using Coflnet.Sky.Commands.MC;
 using Coflnet.Sky.Commands.Shared;
 using Coflnet.Sky.Core;
-using Newtonsoft.Json;
 
 namespace Coflnet.Sky.Api.Services.Description;
 
@@ -49,6 +48,10 @@ public class FlipOnNextPage : CustomModifier
             var seller = i.First.desc.Where(x => x.StartsWith(McColorCodes.GRAY + "Seller:")).FirstOrDefault();
             return (i.First, profit, lbinProfit, index, seller);
         });
+    }
+    public void Modify(ModDescriptionService.PreRequestContainer preRequest)
+    {
+        return;
     }
 
     private static void AddDescriptionTo(DataContainer data, ((SaveAuction auction, IEnumerable<string> desc) First, long profit, long lbinProfit, int index, string seller) bestFlip, int index)

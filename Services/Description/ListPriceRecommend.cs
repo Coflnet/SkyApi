@@ -26,4 +26,8 @@ public class ListPriceRecommend : CustomModifier
         var formattedPrice = modService.FormatNumber(target);
         return $"{McColorCodes.GREEN}Instasell: {McColorCodes.DARK_GREEN}{formattedPrice} {McColorCodes.WHITE}based on Coflnet {(fromMedian ? "median" : "lbin")}";
     }
+    public void Modify(ModDescriptionService.PreRequestContainer preRequest)
+    {
+        return;
+    }
 }

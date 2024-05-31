@@ -66,6 +66,10 @@ public class MatchWhiteBlacklist : CustomModifier
             }
         }
     }
+    public void Modify(ModDescriptionService.PreRequestContainer preRequest)
+    {
+        return;
+    }
 
     private static void Highlight(DataContainer data, (IEnumerable<FlipInstance>, int index) flipSlot, string text, string color)
     {

@@ -24,4 +24,9 @@ public class AuctionValueSummary : CustomModifier
         }
         data.mods.Last().Insert(0, new DescModification(DescModification.ModType.REPLACE, 0, $"Auctions value: §6{data.modService.FormatNumber(sum)}"));
     }
+
+    public void Modify(ModDescriptionService.PreRequestContainer preRequest)
+    {
+        return;
+    }
 }

@@ -123,6 +123,7 @@ public class ModDescriptionService : IDisposable
         customModifiers.Add("^(Community Shop|Bits Shop)", new BitsCoinValue());
         customModifiers.Add("s Auctions$", new PlayerPageFlipHighlight());
         customModifiers.Add("^(Auctions Browser|Auctions:|You  )", new MatchWhiteBlacklist());
+        customModifiers.Add("Pet - Round \\d$", new DarkAuctionPetAdjust());
     }
 
     private readonly ConcurrentDictionary<string, (SelfUpdatingValue<DescriptionSetting>, SelfUpdatingValue<AccountInfo>)> settings = new();
@@ -269,8 +270,33 @@ public class ModDescriptionService : IDisposable
         return result;
     }
 
+    public class PreRequestContainer
+    {
+        public List<(SaveAuction auction, string[] desc)> auctionRepresent;
+        public List<List<DescModification>> result;
+        public InventoryDataWithSettings inventory;
+    }
+
     private async Task ComputeDescriptions(InventoryDataWithSettings inventory, string mcName, string sessionId, List<(SaveAuction auction, string[] desc)> auctionRepresent, List<List<DescModification>> result)
     {
+        var matchingModifiers = customModifiers.Where(m => inventory.ChestName != null && Regex.IsMatch(inventory.ChestName, m.Key)).ToArray();
+        var preRequest = new PreRequestContainer()
+        {
+            auctionRepresent = auctionRepresent,
+            result = result,
+            inventory = inventory
+        };
+        foreach (var item in matchingModifiers)
+        {
+            try
+            {
+                item.Value.Modify(preRequest);
+            }
+            catch (Exception e)
+            {
+                logger.LogError(e, "failed to use custom pre modifier " + item.Key);
+            }
+        }
         var pricesTask = GetPrices(auctionRepresent.Select(a => a.auction));
         CheckUpToDateCache();
 
@@ -365,10 +391,8 @@ public class ModDescriptionService : IDisposable
                 span.Log(string.Join('\n', mods.Select(m => $"{m.Line} {m.Value}")) + JsonConvert.SerializeObject(auction, Formatting.Indented) + JsonConvert.SerializeObject(price, Formatting.Indented));
             result.Add(mods);
         }
-        foreach (var item in customModifiers)
+        foreach (var item in matchingModifiers)
         {
-            if (inventory.ChestName == null || !Regex.IsMatch(inventory.ChestName, item.Key))
-                continue;
             try
             {
                 item.Value.Apply(container);

@@ -58,6 +58,10 @@ public class TradeWarning : CustomModifier
             data.mods[39].Insert(0, new(DescModification.ModType.INSERT, 1, $"{McColorCodes.RED}than you are receiving! {McColorCodes.OBFUSCATED}A"));
         }
     }
+    public void Modify(ModDescriptionService.PreRequestContainer preRequest)
+    {
+        return;
+    }
 
     private static long ParseCoinAmount(string stringAmount)
     {
