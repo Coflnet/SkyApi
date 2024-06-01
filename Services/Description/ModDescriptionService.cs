@@ -311,6 +311,12 @@ public class ModDescriptionService : IDisposable
             logger.LogError(e, "failed to publish inventory");
         }
 
+        if (userSettings.Disabled)
+        {
+            result.AddRange(Enumerable.Repeat(new List<DescModification>(), auctionRepresent.Count));
+            return;
+        }
+
         var span = Activity.Current;
         var none = new List<DescModification>();
         if (inventory.Settings == null)
@@ -1106,6 +1112,8 @@ public class ModDescriptionService : IDisposable
 
     private void AddVolume(SaveAuction auction, Sniper.Client.Model.PriceEstimate price, StringBuilder builder)
     {
+        if (price.MedianKey == null)
+            return;
         if (price != null && price.Median != 0)
             if (float.IsInfinity(price.Volume))
                 logger.LogInformation($"Volume is infinity for {auction.Tag} {price.ItemKey}");
