@@ -1114,7 +1114,7 @@ public class ModDescriptionService : IDisposable
 
     private void AddMedian(SaveAuction auction, Sniper.Client.Model.PriceEstimate price, StringBuilder builder)
     {
-        if (price == null || price.Median == 0)
+        if (price == null || price.Median == 0 || price.MedianKey == null)
         {
             return;
         }
