@@ -46,6 +46,7 @@ namespace Coflnet.Sky.Api.Controller
         AuctionConverter transformer;
         ModDescriptionService modDescriptionService;
         IAuctionApi auctionApi;
+        private PremiumTierService premiumTierService;
 
         /// <summary>
         /// Creates a new instance of <see cref="AuctionsController"/>
@@ -62,6 +63,7 @@ namespace Coflnet.Sky.Api.Controller
         /// <param name="transformer"></param>
         /// <param name="modDescriptionService"></param>
         /// <param name="auctionApi"></param>
+        /// <param name="premiumTierService"></param>
         public AuctionsController(AuctionService auctionService,
                                   HypixelContext context,
                                   ILogger<AuctionsController> logger,
@@ -73,7 +75,8 @@ namespace Coflnet.Sky.Api.Controller
                                   FilterEngine fe,
                                   AuctionConverter transformer,
                                   ModDescriptionService modDescriptionService,
-                                  IAuctionApi auctionApi)
+                                  IAuctionApi auctionApi,
+                                  PremiumTierService premiumTierService)
         {
             this.auctionService = auctionService;
             this.context = context;
@@ -87,6 +90,7 @@ namespace Coflnet.Sky.Api.Controller
             this.transformer = transformer;
             this.modDescriptionService = modDescriptionService;
             this.auctionApi = auctionApi;
+            this.premiumTierService = premiumTierService;
         }
 
         /// <summary>
@@ -151,7 +155,7 @@ namespace Coflnet.Sky.Api.Controller
         /// <returns></returns>
         [Route("auctions/tag/{itemTag}/active/bin")]
         [HttpGet]
-        [ResponseCache(Duration = 120, Location = ResponseCacheLocation.Any, NoStore = false, VaryByQueryKeys = new string[] { "*" })]
+        [ResponseCache(Duration = 120, Location = ResponseCacheLocation.Any, NoStore = false, VaryByQueryKeys = ["*"])]
         public async Task<List<SaveAuction>> GetLowestBins(string itemTag, [FromQuery] IDictionary<string, string> query)
         {
             var itemId = ItemDetails.Instance.GetItemIdForTag(itemTag);
@@ -186,7 +190,7 @@ namespace Coflnet.Sky.Api.Controller
         /// <returns></returns>
         [Route("auctions/tag/{itemTag}/sold")]
         [HttpGet]
-        [ResponseCache(Duration = 1800, Location = ResponseCacheLocation.Any, NoStore = false, VaryByQueryKeys = new string[] { "page", "pageSize", "token" })]
+        [ResponseCache(Duration = 1800, Location = ResponseCacheLocation.Any, NoStore = false, VaryByQueryKeys = ["page", "pageSize", "token"])]
         public async Task<List<SaveAuction>> GetHistory(string itemTag, int page = 0, int pageSize = 1000, string token = null)
         {
             var itemId = ItemDetails.Instance.GetItemIdForTag(itemTag);
@@ -223,7 +227,7 @@ namespace Coflnet.Sky.Api.Controller
         /// <returns></returns>
         [Route("auctions/batch")]
         [HttpGet]
-        [ResponseCache(Duration = 1800, Location = ResponseCacheLocation.Any, NoStore = false, VaryByQueryKeys = new string[] { "page" })]
+        [ResponseCache(Duration = 1800, Location = ResponseCacheLocation.Any, NoStore = false, VaryByQueryKeys = ["page"])]
         public async Task GetHistory(string page = "last", string token = "")
         {
             var pageSize = 50_000;
@@ -298,14 +302,14 @@ namespace Coflnet.Sky.Api.Controller
         /// <returns></returns>
         [Route("auctions/tag/{itemTag}/recent/overview")]
         [HttpGet]
-        [ResponseCache(Duration = 120, Location = ResponseCacheLocation.Any, NoStore = false, VaryByQueryKeys = new string[] { "*" })]
+        [ResponseCache(Duration = 120, Location = ResponseCacheLocation.Any, NoStore = false, VaryByQueryKeys = ["*"])]
         public async Task<List<AuctionPreview>> GetRecent(string itemTag, [FromQuery] IDictionary<string, string> query)
         {
             List<AuctionPreview> preview = await GetRecentFor(itemTag, query, 1);
             if (preview.Count >= 12)
                 return preview;
             preview = await GetRecentFor(itemTag, query, 14);
-            if(preview.Count >= 12 || query.Count > 2)
+            if (preview.Count >= 12 || query.Count > 2)
                 return preview;
             preview = await GetRecentFor(itemTag, query, 90);
             return preview;
@@ -323,6 +327,30 @@ namespace Coflnet.Sky.Api.Controller
         }
 
         /// <summary>
+        /// Longer time overview of auctions
+        /// </summary>
+        /// <param name="itemTag"></param>
+        /// <param name="query"></param>
+        /// <returns></returns>
+        [Route("auctions/tag/{itemTag}/archive/overview")]
+        [HttpGet]
+        [ResponseCache(Duration = 120, Location = ResponseCacheLocation.Any, NoStore = false, VaryByQueryKeys = ["*"])]
+        public async Task<ArchiveResponse> GetArchived(string itemTag, [FromQuery] IDictionary<string, string> query)
+        {
+            if (!await premiumTierService.HasPremiumPlus(this))
+                throw new CoflnetException("premplus_required",
+                           "Sorry but you need to be a premium plus member to access this data");
+            if(!query.ContainsKey("EndAfter") || !query.ContainsKey("EndBefore"))
+                throw new CoflnetException("missing_params", "Please provide EndAfter and EndBefore filters in query");
+            List<AuctionPreview> preview = await GetRecentFor(itemTag, query, 1000);
+            return new ArchiveResponse()
+            {
+                Auctions = preview,
+                queryStatus = ArchiveResponse.QueryStatus.Success // from the main db there are only full answers
+            };
+        }
+
+        /// <summary>
         /// Gets a preview of active auctions useful in overviews, available orderBy options 
         /// HIGHEST_PRICE, LOWEST_PRICE (default), ENDING_SOON
         /// </summary>
@@ -331,7 +359,7 @@ namespace Coflnet.Sky.Api.Controller
         /// <returns></returns>
         [Route("auctions/tag/{itemTag}/active/overview")]
         [HttpGet]
-        [ResponseCache(Duration = 120, Location = ResponseCacheLocation.Any, NoStore = false, VaryByQueryKeys = new string[] { "*" })]
+        [ResponseCache(Duration = 120, Location = ResponseCacheLocation.Any, NoStore = false, VaryByQueryKeys = ["*"])]
         public async Task<List<AuctionPreview>> GetActive(string itemTag, [FromQuery] IDictionary<string, string> query)
         {
             var filter = new Dictionary<string, string>(query, StringComparer.OrdinalIgnoreCase);
@@ -361,7 +389,7 @@ namespace Coflnet.Sky.Api.Controller
             {
                 int.TryParse(filter["page"], out page);
                 filter.Remove("page");
-                if (page > 10)
+                if (page > 10 && !await premiumTierService.HasPremiumPlus(this))
                     throw new CoflnetException("max_page_exceeded", "Sorry you are only allowed to query 10 pages");
             }
             filter["ItemId"] = itemId.ToString();

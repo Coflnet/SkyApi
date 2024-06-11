@@ -22,8 +22,11 @@ public class PremiumTierService
 
     public async Task<bool> HasPremium(ControllerBase controllerInstance)
     {
-        var name = "premium";
-        return await OwnsProduct(controllerInstance, name);
+        return await OwnsProduct(controllerInstance, "premium");
+    }
+    public async Task<bool> HasPremiumPlus(ControllerBase controllerInstance)
+    {
+        return await OwnsProduct(controllerInstance, "premium_plus");
     }
     public async Task<bool> HasStarterPremium(ControllerBase controllerInstance)
     {
@@ -37,6 +40,7 @@ public class PremiumTierService
                 && !controllerInstance.Request.Headers.TryGetValue("Authorization", out value))
             return false;
         var user = await tokenService.GetUserWithToken(value);
-        return userApi.UserUserIdOwnsUntilPostAsync(user.Id.ToString(), new List<string>() { name }, 0).Result.TryGetValue(name, out var time) && time > DateTime.Now;
+        var owns = await userApi.UserUserIdOwnsUntilPostAsync(user.Id.ToString(), new List<string>() { name }, 0);
+        return owns.TryGetValue(name, out var time) && time > DateTime.Now;
     }
 }
