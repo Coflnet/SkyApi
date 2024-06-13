@@ -768,13 +768,11 @@ public class ModDescriptionService : IDisposable
         return value;
     }
 
-    private static double? BaseItemPrice(SaveAuction auction, DataContainer data)
+    private static double BaseItemPrice(SaveAuction auction, DataContainer data)
     {
         var craftPrice = data.allCrafts.GetValueOrDefault(auction.Tag)?.CraftCost;
         var clean = CleanItemprice(auction, data);
-        craftPrice ??= clean;
-        craftPrice = Math.Min(craftPrice ?? 0, clean);
-        return craftPrice;
+        return Math.Min(craftPrice ?? clean, clean == 0 ? int.MaxValue : clean);
     }
 
     private static long CleanItemprice(SaveAuction auction, DataContainer data)
