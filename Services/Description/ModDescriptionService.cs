@@ -415,20 +415,37 @@ public class ModDescriptionService : IDisposable
         if (deserializedCache.LastUpdate < DateTime.UtcNow.AddMinutes(-2) && !deserializedCache.IsUpdating)
         {
             deserializedCache.IsUpdating = true;
+            TryGet(async () =>
+            {
+                var allCrafts = await craftsApi.CraftsAllGetAsync();
+                deserializedCache.Crafts = allCrafts.Where(c => c.CraftCost > 0).ToDictionary(c => c.ItemId, c => c);
+            });
+            TryGet(async () =>
+            {
+                var kat = await katApi.KatRawGetAsync();
+                deserializedCache.Kat = kat.ToDictionary(k => (k.ItemTag, Enum.Parse<Tier>(k?.BaseRarity?.ToString() ?? "LEGENDARY")));
+            });
+            TryGet(async () =>
+            {
+                deserializedCache.BazaarItems = (await bazaarApi.ApiBazaarPricesGetAsync())?.ToDictionary(p => p.ProductId);
+            });
+            TryGet(async () =>
+            {
+                await itemService.GetItemsAsync();
+                deserializedCache.ItemPrices = await sniperClient.GetCleanPrices();
+                deserializedCache.LastUpdate = DateTime.UtcNow;
+                deserializedCache.IsUpdating = false;
+            });
+        }
+
+        void TryGet(Func<Task> action)
+        {
             _ = Task.Run(async () =>
             {
                 try
                 {
-                    var allCrafts = await craftsApi.CraftsAllGetAsync();
-                    deserializedCache.Crafts = allCrafts.Where(c => c.CraftCost > 0).ToDictionary(c => c.ItemId, c => c);
-                    deserializedCache.BazaarItems = (await bazaarApi.ApiBazaarPricesGetAsync())?.ToDictionary(p => p.ProductId);
-                    deserializedCache.LastUpdate = DateTime.UtcNow;
-                    var kat = await katApi.KatRawGetAsync();
-                    deserializedCache.Kat = kat.ToDictionary(k => (k.ItemTag, Enum.Parse<Tier>(k?.BaseRarity?.ToString() ?? "LEGENDARY")));
-                    await itemService.GetItemsAsync();
-                    deserializedCache.ItemPrices = await sniperClient.GetCleanPrices();
+                    await action();
                     logger.LogInformation($"Refreshed deserialized cache");
-                    deserializedCache.IsUpdating = false;
                 }
                 catch (Exception e)
                 {
