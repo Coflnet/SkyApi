@@ -917,7 +917,13 @@ public class ModDescriptionService : IDisposable
             }
             if (Constants.AttributeKeys.Contains(mod.Key))
             {
-                itemIds.Add(($"{auction.Tag}+{mod.Key};1", (int)Math.Pow(2, int.Parse(mod.Value)), 0));
+                var itemKey = $"{auction.Tag}+{mod.Key};1";
+                var shardKey = $"ATTRIBUTE_SHARD+{mod.Key};1";
+                var neededShards = (int)Math.Pow(2, int.Parse(mod.Value)) - 1;
+                if (data.GetItemprice(itemKey) > data.GetItemprice(shardKey))
+                    itemIds.Add((itemKey, neededShards, 0));
+                else
+                    itemIds.Add((shardKey, neededShards, 0));
                 // check for combo
                 var attributes = auction.FlatenedNBT.Where(a => Constants.AttributeKeys.Contains(a.Key)).ToList();
                 if (attributes.Count > 1 && attributes[0].Key == mod.Key)
