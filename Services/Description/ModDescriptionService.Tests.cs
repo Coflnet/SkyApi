@@ -28,8 +28,6 @@ public class ModDescriptionServiceTests
     [Test]
     async public Task AddCoinsPerBitValue_ValidPriceAndDescription_CorrectCoinsPerBitAdded()
     {
-        // Arrange
-
         IConfiguration configuration = new Mock<IConfiguration>().Object;
         var settingsApi = new Mock<ISettingsApi>();
         settingsApi.Setup(api => api.SettingsUserIdSettingKeyGetWithHttpInfoAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<int>(), It.IsAny<CancellationToken>()))
@@ -55,13 +53,10 @@ public class ModDescriptionServiceTests
             Mock.Of<BazaarApi>(), playerNameService, Mock.Of<ILogger<ModDescriptionService>>(), Mock.Of<IConfiguration>(), Mock.Of<IStateUpdateService>(), sniperClient.Object,
             itemSkinHandler, new(null, null, null), null, null, null);
 
-        // Act
         var res = await modDescriptionService.GetModifications(GetMockInventory(), "test", "test");
         var result = res.ToList();
 
-        // Assert
         var expectedResult = $"*Coins per bit: *740.0*";
-
         //At element 20 we have "KISMET_FEATHER" worth 1350 bits, expected value should be 100000/1350 = 740
         result[20].ElementAt(0).Value.Should().Match(expectedResult);
     }
