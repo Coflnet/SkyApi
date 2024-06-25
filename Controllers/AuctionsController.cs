@@ -339,9 +339,13 @@ namespace Coflnet.Sky.Api.Controller
         {
             if (!await premiumTierService.HasPremiumPlus(this))
                 throw new CoflnetException("premplus_required",
-                           "Sorry but you need to be a premium plus member to access this data");
-            if(!query.ContainsKey("EndAfter") || !query.ContainsKey("EndBefore"))
+                           "Sorry but you need to be a premium plus member to access this data, Authorization header with google/account token");
+            if (!query.ContainsKey("EndAfter") || !query.ContainsKey("EndBefore"))
                 throw new CoflnetException("missing_params", "Please provide EndAfter and EndBefore filters in query");
+            if (!long.TryParse(query["EndAfter"], out var after) || !long.TryParse(query["EndBefore"], out var before))
+                throw new CoflnetException("invalid_params", "Please provide valid dates in EndAfter and EndBefore filters in query (unix timestamp in seconds)");
+            if (after > before)
+                throw new CoflnetException("invalid_params", "EndAfter must be before EndBefore (lower unix timestamp)");
             List<AuctionPreview> preview = await GetRecentFor(itemTag, query, 1000);
             return new ArchiveResponse()
             {
