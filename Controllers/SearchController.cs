@@ -121,8 +121,8 @@ namespace Coflnet.Sky.Api.Controller
 
             // either get a decent amount of results (and require the item service & player db to have responded) or timeout
             while ((!EnoughResults(searchVal, collection.Count) ||
-                !(collection.Any(r => r.Type == "internal" && r.Id == "items")) ||
-                !(collection.Any(r => r.Type == "internal" && r.Id == "players"))
+                !collection.Any(r => r.Type == "internal" && r.Id == "items") ||
+                !collection.Any(r => r.Type == "internal" && r.Id == "players")
             ) && !cancelationSource.Token.IsCancellationRequested)
             {
                 try
