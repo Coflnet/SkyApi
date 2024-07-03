@@ -74,7 +74,16 @@ namespace Coflnet.Sky.Api.Controller
         [HttpPost]
         public async Task AuthConnection(string newId)
         {
-            var idBytes = Convert.FromBase64String(newId);
+            byte[] idBytes;
+            try
+            {
+                idBytes = Convert.FromBase64String(newId);
+            }
+            catch (System.Exception e)
+            {
+                logger.LogError(e, "Failed to decode connection id");
+                throw new CoflnetException("invalid_id", "The passed connection id is invalid. Please run /cofl reset in the mod and click the link again");
+            }
             if (idBytes.Length < 16)
                 throw new CoflnetException("invalid_id", "The passed connection id is invalid (too short)");
             if (idBytes.Length == 17)
