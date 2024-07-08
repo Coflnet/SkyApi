@@ -346,6 +346,7 @@ namespace Coflnet.Sky.Api.Controller
                 throw new CoflnetException("invalid_params", "Please provide valid dates in EndAfter and EndBefore filters in query (unix timestamp in seconds)");
             if (after > before)
                 throw new CoflnetException("invalid_params", "EndAfter must be before EndBefore (lower unix timestamp)");
+            await Task.Delay(2000); // soft ratelimit for db
             List<AuctionPreview> preview = await GetRecentFor(itemTag, query, 1500);
             return new ArchiveResponse()
             {
