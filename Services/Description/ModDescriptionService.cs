@@ -789,7 +789,7 @@ public class ModDescriptionService : IDisposable
     {
         var craftPrice = data.allCrafts.GetValueOrDefault(auction.Tag)?.CraftCost;
         var clean = CleanItemprice(auction, data);
-        return Math.Min(craftPrice ?? clean, clean == 0 ? int.MaxValue : clean);
+        return Math.Min(craftPrice ?? clean, clean == 0 ? 20_000_000_000 : clean);
     }
 
     private static long CleanItemprice(SaveAuction auction, DataContainer data)
