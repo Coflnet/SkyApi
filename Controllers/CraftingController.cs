@@ -94,7 +94,6 @@ namespace Coflnet.Sky.Api.Controller
         /// <returns></returns>
         [Route("recipe/{itemTag}")]
         [HttpGet]
-        [Route("api/craft")]
         [ResponseCache(Duration = 3600 * 12, Location = ResponseCacheLocation.Any, NoStore = false)]
         public async Task<Dictionary<string, string>> GetRecipe(string itemTag)
         {
