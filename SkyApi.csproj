@@ -22,8 +22,8 @@
     <PackageReference Include="Coflnet.Sky.Subscriptions.Client" Version="0.1.2" />
     <PackageReference Include="Coflnet.Sky.Trade.Client" Version="0.1.2" />
     <PackageReference Include="Hashids.net" Version="1.7.0" />
-    <PackageReference Include="Microsoft.AspNetCore.Mvc.NewtonsoftJson" Version="8.0.6" />
-    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="8.0.6">
+    <PackageReference Include="Microsoft.AspNetCore.Mvc.NewtonsoftJson" Version="8.0.7" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="8.0.7">
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
       <PrivateAssets>all</PrivateAssets>
     </PackageReference>
