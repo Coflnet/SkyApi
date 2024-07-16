@@ -92,6 +92,7 @@ namespace Coflnet.Sky.Api
             var redisOptions = ConfigurationOptions.Parse(Configuration["REDIS_HOST"]);
             if (redisOptions.SyncTimeout < 2000)
                 redisOptions.SyncTimeout = 2000;
+            redisOptions.AbortOnConnectFail = false;
 
             services.AddStackExchangeRedisCache(options =>
             {
