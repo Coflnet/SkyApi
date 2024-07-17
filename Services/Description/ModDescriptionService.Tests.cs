@@ -83,12 +83,13 @@ public class ModDescriptionServiceTests
     public async Task GetPetCraftCost()
     {
         var service = new ModDescriptionService(null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
+        var targetPrice = Random.Shared.Next(10_000, 20_000);
         var cost = service.FullCraftCost(new SaveAuction() { Tag = "PET_MONKEY", ItemName = "§7[Lvl 1] §6Monkey", Tier = Tier.COMMON }, new()
         {
             allCrafts = new() { { "PET_MONKEY", new() { CraftCost = 100_000 } } },
-            itemPrices = new() { { "PET_MONKEY_COMMON_0", 10_000 } }
+            itemPrices = new() { { "PET_MONKEY_COMMON_0", targetPrice } }
         });
-        Assert.That(10_000, Is.EqualTo(cost.craftPrice));
+        Assert.That(cost.obtainPrice, Is.EqualTo(targetPrice));
     }
 
    /* [Test]
