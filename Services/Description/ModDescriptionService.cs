@@ -756,19 +756,21 @@ public class ModDescriptionService : IDisposable
 
     private void AddFullCraftCost(SaveAuction auction, StringBuilder builder, DataContainer data)
     {
-        (double? craftPrice, double summary) value = FullCraftCost(auction, data);
+        (double? obtainPrice, double summary, double? craft) = FullCraftCost(auction, data);
 
-        if (value.craftPrice == null || value.craftPrice == 0)
+        if (obtainPrice == null || obtainPrice == 0)
         {
             builder.Append($"{McColorCodes.GRAY}No Craft Cost found");
             return;
         }
-        if (value.craftPrice.Value >= 10_000_000_000)
+        if (obtainPrice.Value >= 10_000_000_000)
         {
             builder.Append($"{McColorCodes.GRAY}Craft ingredients unavailable");
             return;
         }
-        builder.Append($"{McColorCodes.GRAY}Full Craft Cost: {McColorCodes.YELLOW}{FormatPriceShort(value.summary)}");
+        builder.Append($"{McColorCodes.GRAY}Full Craft Cost: {McColorCodes.YELLOW}{FormatPriceShort(summary)}");
+        if (craft == null)
+            builder.Append($"{McColorCodes.GRAY}(not craftable)");
     }
 
     /// <summary>
@@ -777,19 +779,19 @@ public class ModDescriptionService : IDisposable
     /// <param name="auction"></param>
     /// <param name="data"></param>
     /// <returns></returns>
-    public (double? craftPrice, double summary) FullCraftCost(SaveAuction auction, DataContainer data)
+    public (double? obtainPrice, double summary, double? craftPrice) FullCraftCost(SaveAuction auction, DataContainer data)
     {
-        double? craftPrice = BaseItemPrice(auction, data);
-        double summary = craftPrice.Value + ModifierCostSum(auction, data) + EnchantCost(auction, data.bazaarPrices);
-        var value = (craftPrice, summary);
+        (double? obtainPrice, double? craftPric) = BaseItemPrice(auction, data);
+        double summary = obtainPrice.Value + ModifierCostSum(auction, data) + EnchantCost(auction, data.bazaarPrices);
+        var value = (obtainPrice, summary, craftPric);
         return value;
     }
 
-    private static double BaseItemPrice(SaveAuction auction, DataContainer data)
+    private static (double lowest, double? craftPrice) BaseItemPrice(SaveAuction auction, DataContainer data)
     {
         var craftPrice = data.allCrafts.GetValueOrDefault(auction.Tag)?.CraftCost;
         var clean = CleanItemprice(auction, data);
-        return Math.Min(craftPrice ?? clean, clean == 0 ? 20_000_000_000 : clean);
+        return (Math.Min(craftPrice ?? clean, clean == 0 ? 20_000_000_000 : clean), craftPrice);
     }
 
     private static long CleanItemprice(SaveAuction auction, DataContainer data)
@@ -857,7 +859,7 @@ public class ModDescriptionService : IDisposable
         {
             ItemTag = auction.Tag,
             Count = 1,
-            Price = (long)BaseItemPrice(auction, data),
+            Price = (long)BaseItemPrice(auction, data).lowest,
             FormattedReson = "Base Item price"
         };
         foreach (var item in GetEnchantBreakdown(auction, deserializedCache.BazaarItems))
