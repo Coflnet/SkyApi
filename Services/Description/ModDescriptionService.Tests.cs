@@ -56,7 +56,7 @@ public class ModDescriptionServiceTests
         var res = await modDescriptionService.GetModifications(GetMockInventory(), "test", "test");
         var result = res.ToList();
 
-        var expectedResult = $"*Coins per bit: *740.0*";
+        var expectedResult = $"*Coins per bit: *740.7*";
         //At element 20 we have "KISMET_FEATHER" worth 1350 bits, expected value should be 100000/1350 = 740
         result[20].ElementAt(0).Value.Should().Match(expectedResult);
     }
