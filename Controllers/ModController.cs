@@ -79,10 +79,17 @@ namespace Coflnet.Sky.Api.Controller
             {
                 idBytes = Convert.FromBase64String(newId);
             }
-            catch (System.Exception e)
+            catch (Exception e)
             {
-                logger.LogError(e, "Failed to decode connection id");
-                throw new CoflnetException("invalid_id", "The passed connection id is invalid. Please run /cofl reset in the mod and click the link again");
+                try
+                {
+                    idBytes = Convert.FromBase64String(newId + "=");
+                }
+                catch (Exception)
+                {
+                    logger.LogError(e, "Failed to decode connection id");
+                    throw new CoflnetException("invalid_id", "The passed connection id is invalid. Please run /cofl reset in the mod and click the link again");
+                }
             }
             if (idBytes.Length < 16)
                 throw new CoflnetException("invalid_id", "The passed connection id is invalid (too short)");
