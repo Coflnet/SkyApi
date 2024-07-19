@@ -21,6 +21,10 @@ public class ListPriceRecommend : CustomModifier
         {
             return $"No recommended instasell from Coflnet";
         }
+        if(pricing.MedianKey != pricing.ItemKey && pricing.LbinKey != pricing.ItemKey)
+        {
+            return $"No recommended instasell from Coflnet.";
+        }
         (double target, bool fromMedian) = SniperClient.InstaSellPrice(pricing);
 
         var formattedPrice = modService.FormatNumber(target);
