@@ -21,14 +21,11 @@ public class ListPriceRecommend : CustomModifier
         {
             return $"No recommended instasell from Coflnet";
         }
-        if(pricing.MedianKey != pricing.ItemKey && pricing.LbinKey != pricing.ItemKey)
-        {
-            return $"No recommended instasell from Coflnet.";
-        }
+        var isGuess = pricing.MedianKey != pricing.ItemKey && pricing.LbinKey != pricing.ItemKey;
         (double target, bool fromMedian) = SniperClient.InstaSellPrice(pricing);
 
         var formattedPrice = modService.FormatNumber(target);
-        return $"{McColorCodes.GREEN}Instasell: {McColorCodes.DARK_GREEN}{formattedPrice} {McColorCodes.WHITE}based on Coflnet {(fromMedian ? "median" : "lbin")}";
+        return $"{McColorCodes.GREEN}Instasell: {McColorCodes.DARK_GREEN}{formattedPrice} {McColorCodes.WHITE}based on Coflnet {(fromMedian ? "median" : "lbin")}{(isGuess ? $" {McColorCodes.RED}(guess)" : "")}";
     }
     public void Modify(ModDescriptionService.PreRequestContainer preRequest)
     {
