@@ -1248,6 +1248,10 @@ public class ModDescriptionService : IDisposable
     /// <returns></returns>
     public List<(SaveAuction auction, string[] desc)> ConvertToAuctions(InventoryData inventory)
     {
+        if (inventory.JsonNbt != null && inventory.FullInventoryNbt != null)
+        {
+            throw new CoflnetException("invalid_inventory", "Please only provide `fullInventoryNbt` (hypixel api item bytes format, aka gzipped base64 encoded nbt) or `jsonNbt` (mineflayer or chattriggers json of full inventory)");
+        }
         if (inventory.JsonNbt != null)
         {
             return (new InventoryParser().Parse(inventory.JsonNbt) as IEnumerable<SaveAuction>)
