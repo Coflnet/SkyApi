@@ -4,7 +4,7 @@ using Coflnet.Sky.Sniper.Client.Model;
 
 namespace SkyApi.Services.Description;
 
-public class GemsCookiesValue : CurrencyValueDisplay
+public class SkyblockGemsValue : CurrencyValueDisplay
 {
     protected override string Value => "SkyBlock Gems";
     protected override string currencyName => "Gem";
