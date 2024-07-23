@@ -11,7 +11,6 @@ public class GemsCookiesValue : CurrencyValueDisplay
 
     protected override void ProcessLine(DataContainer data, int i, string[] desc, PriceEstimate price)
     {
-        data.bazaarPrices["BOOSTER_COOKIE"] = new Coflnet.Sky.Bazaar.Client.Model.ItemPrice() { SellPrice = 2_000_000 };
         var auction = data.auctionRepresent[i].auction;
         var bazaar = data.bazaarPrices.GetValueOrDefault(auction.Tag);
         if (bazaar != default && bazaar.SellPrice != 0 && HasValue(desc, out int bits, out int lineId))
