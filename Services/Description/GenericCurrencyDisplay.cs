@@ -2,13 +2,13 @@ namespace SkyApi.Services.Description;
 public class GenericCurrencyDisplay : CurrencyValueDisplay
 {
 
-    protected override string Value { get; }
+    protected override string ValueSuffix { get; }
 
     protected override string currencyName { get; }
 
-    public GenericCurrencyDisplay(string value, string currencyName)
+    public GenericCurrencyDisplay(string suffix, string currencyName)
     {
-        Value = value;
+        ValueSuffix = suffix;
         this.currencyName = currencyName;
     }
 }

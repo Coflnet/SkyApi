@@ -4,17 +4,18 @@ using Coflnet.Sky.Api.Services.Description;
 using Coflnet.Sky.Commands.MC;
 using Coflnet.Sky.Sniper.Client.Model;
 using System.Linq;
+using System.Text.RegularExpressions;
 
 namespace SkyApi.Services.Description;
 public abstract class CurrencyValueDisplay : CustomModifier
 {
-    protected abstract string Value { get; }
+    protected abstract string ValueSuffix { get; }
 
     protected abstract string currencyName { get; }
 
     public void Apply(DataContainer data)
     {
-        for (int i = 0; i < data.auctionRepresent.Count; i++)
+        for (int i = 0; i < Math.Min(data.auctionRepresent.Count, 54); i++)
         {
             var desc = data.auctionRepresent[i].desc;
             var price = data.PriceEst?[i];
@@ -59,11 +60,11 @@ public abstract class CurrencyValueDisplay : CustomModifier
         foreach (string descLine in description)
         {
             lineId++;
-            if (!descLine.EndsWith(Value))
+            if (!descLine.EndsWith(ValueSuffix))
             {
                 continue;
             }
-            string commaSanitizedMatch = descLine.Substring(2, descLine.Length - Value.Length - 3).Replace(",", "").Trim();
+            string commaSanitizedMatch = Regex.Replace(descLine.Substring(2, descLine.Length - ValueSuffix.Length - 3), "(§.|[^0-9])", "");
             if (int.TryParse(commaSanitizedMatch, out bits))
             {
                 return true;

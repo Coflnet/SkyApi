@@ -6,7 +6,7 @@ namespace SkyApi.Services.Description;
 
 public class SkyblockGemsValue : CurrencyValueDisplay
 {
-    protected override string Value => "SkyBlock Gems";
+    protected override string ValueSuffix => "SkyBlock Gems";
     protected override string currencyName => "Gem";
 
     protected override void ProcessLine(DataContainer data, int i, string[] desc, PriceEstimate price)
