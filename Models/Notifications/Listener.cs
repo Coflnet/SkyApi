@@ -39,6 +39,9 @@ public class Listener
 
     public int UserId { get; set; }
 
-    [MaxLength(200)]
+    /// <summary>
+    /// Additional filter to apply before sending the notification
+    /// </summary>
+    [MaxLength(5000)]
     public string? Filter { get; set; }
 }
