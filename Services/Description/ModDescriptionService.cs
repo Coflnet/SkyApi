@@ -15,6 +15,7 @@ using Coflnet.Sky.Commands.MC;
 using Coflnet.Sky.Commands.Shared;
 using Coflnet.Sky.Core;
 using Coflnet.Sky.Crafts.Client.Api;
+using Coflnet.Sky.Items.Client.Api;
 using fNbt;
 using fNbt.Tags;
 using Microsoft.EntityFrameworkCore;
@@ -33,6 +34,7 @@ public class DeserializedCache
     public Dictionary<(string, Tier), Crafts.Client.Model.KatUpgradeCost> Kat = new();
     public Dictionary<string, ItemPrice> BazaarItems = new();
     public Dictionary<string, long> ItemPrices = new();
+    public Dictionary<string, float> NpcSellPrices = new();
     public DateTime LastUpdate = DateTime.MinValue;
     public bool IsUpdating = false;
 }
@@ -59,6 +61,7 @@ public class ModDescriptionService : IDisposable
     private readonly PropertyMapper mapper = new();
     private readonly Core.Services.HypixelItemService itemService;
     private readonly FlipTracker.Client.Api.ITrackerApi trackerApi;
+    private readonly IItemsApi itemsApi;
 
     public DeserializedCache DeserializedCache => deserializedCache;
 
@@ -80,6 +83,7 @@ public class ModDescriptionService : IDisposable
     /// <param name="katApi"></param>
     /// <param name="itemService"></param>
     /// <param name="trackerApi"></param>
+    /// <param name="itemsApi"></param>
     public ModDescriptionService(ICraftsApi craftsApi,
                                  SettingsService settingsService,
                                  IdConverter idConverter,
@@ -94,7 +98,8 @@ public class ModDescriptionService : IDisposable
                                  AhListChecker ahListChecker,
                                  IKatApi katApi,
                                  Core.Services.HypixelItemService itemService,
-                                 FlipTracker.Client.Api.ITrackerApi trackerApi)
+                                 FlipTracker.Client.Api.ITrackerApi trackerApi,
+                                 IItemsApi itemsApi)
     {
         this.craftsApi = craftsApi;
         this.settingsService = settingsService;
@@ -112,6 +117,7 @@ public class ModDescriptionService : IDisposable
         this.katApi = katApi;
         this.itemService = itemService;
         this.trackerApi = trackerApi;
+        this.itemsApi = itemsApi;
     }
 
     private void RegisterModifiers()
@@ -437,6 +443,7 @@ public class ModDescriptionService : IDisposable
             {
                 await itemService.GetItemsAsync();
                 deserializedCache.ItemPrices = await sniperClient.GetCleanPrices();
+                deserializedCache.NpcSellPrices = await itemsApi.ItemsNpcSellGetAsync();
                 deserializedCache.LastUpdate = DateTime.UtcNow;
                 deserializedCache.IsUpdating = false;
             });

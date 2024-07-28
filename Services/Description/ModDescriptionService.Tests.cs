@@ -51,7 +51,7 @@ public class ModDescriptionServiceTests
 
         ModDescriptionService modDescriptionService = new(Mock.Of<ICraftsApi>(), settingsService, Mock.Of<IdConverter>(), Mock.Of<IServiceScopeFactory>(),
             Mock.Of<BazaarApi>(), playerNameService, Mock.Of<ILogger<ModDescriptionService>>(), Mock.Of<IConfiguration>(), Mock.Of<IStateUpdateService>(), sniperClient.Object,
-            itemSkinHandler, new(null, null, null), null, null, null);
+            itemSkinHandler, new(null, null, null), null, null, null, null);
 
         var res = await modDescriptionService.GetModifications(GetMockInventory(), "test", "test");
         var result = res.ToList();
@@ -70,7 +70,7 @@ public class ModDescriptionServiceTests
     [Test]
     public async Task GetsReforgeCost()
     {
-        var service = new ModDescriptionService(null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
+        var service = new ModDescriptionService(null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
         var breakdown = service.GetModifiersOnItem(new SaveAuction() { Tag = "test", Reforge = ItemReferences.Reforge.mossy }, new()
         {
 
@@ -82,7 +82,7 @@ public class ModDescriptionServiceTests
     [Test]
     public async Task GetPetCraftCost()
     {
-        var service = new ModDescriptionService(null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
+        var service = new ModDescriptionService(null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
         var targetPrice = Random.Shared.Next(10_000, 20_000);
         var cost = service.FullCraftCost(new SaveAuction() { Tag = "PET_MONKEY", ItemName = "§7[Lvl 1] §6Monkey", Tier = Tier.COMMON }, new()
         {
