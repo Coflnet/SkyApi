@@ -712,7 +712,7 @@ public class ModDescriptionService : IDisposable
     private void AddNpcSellPrice(SaveAuction auction, DataContainer data, StringBuilder builder)
     {
         if(data.NpcSellPrices.TryGetValue(auction.Tag, out var price))
-            builder.Append($"{McColorCodes.GRAY}Npc Sell Price: {McColorCodes.YELLOW}{FormatPriceShort(price)} ");
+            builder.Append($"{McColorCodes.GRAY}Npc Sell Price: {McColorCodes.YELLOW}{FormatPriceShort(price * auction.Count)} ");
     }
 
     private void AddTimeToSell(SaveAuction auction, Sniper.Client.Model.PriceEstimate price, StringBuilder builder)
