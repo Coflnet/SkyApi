@@ -362,6 +362,7 @@ public class ModDescriptionService : IDisposable
             bazaarPrices = bazaarPrices,
             mods = result,
             pricesPaid = pricePaid,
+            NpcSellPrices = deserializedCache.NpcSellPrices,
             itemListings = salesData,
             katUpgradeCost = deserializedCache.Kat,
             PriceEst = res,
@@ -696,6 +697,9 @@ public class ModDescriptionService : IDisposable
             case DescriptionField.TimeToSell:
                 AddTimeToSell(auction, price, builder);
                 break;
+            case DescriptionField.NpcSellPrice:
+                AddNpcSellPrice(auction, data, builder);
+                break;
             case DescriptionField.NONE:
                 break; // ignore
             default:
@@ -703,6 +707,12 @@ public class ModDescriptionService : IDisposable
                     logger.LogError("Invalid description type " + item);
                 break;
         }
+    }
+
+    private void AddNpcSellPrice(SaveAuction auction, DataContainer data, StringBuilder builder)
+    {
+        if(data.NpcSellPrices.TryGetValue(auction.Tag, out var price))
+            builder.Append($"{McColorCodes.GRAY}Npc Sell Price: {McColorCodes.YELLOW}{FormatPriceShort(price)} ");
     }
 
     private void AddTimeToSell(SaveAuction auction, Sniper.Client.Model.PriceEstimate price, StringBuilder builder)

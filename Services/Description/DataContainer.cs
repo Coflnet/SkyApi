@@ -13,6 +13,7 @@ public class DataContainer
     public List<(SaveAuction auction, string[] desc)> auctionRepresent;
     public List<Sniper.Client.Model.PriceEstimate> PriceEst;
     public Dictionary<string, ItemPrice> bazaarPrices;
+    public Dictionary<string, float> NpcSellPrices;
     public List<List<DescModification>> mods;
     public Dictionary<string, (long, DateTime, string)> pricesPaid;
     internal ModDescriptionService modService;
