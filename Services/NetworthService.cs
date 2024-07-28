@@ -32,43 +32,15 @@ public class NetworthService
 
     private async Task<MemberValue> GetMemberValue(Member member)
     {
-        var inventories = new Dictionary<string, InventoryElem>();
         MemberValue networth = new();
-        AddInventory(inventories, member.inventory);
-        var riftInenvotry = new Dictionary<string, InventoryElem>();
-        AddInventory(riftInenvotry, member.rift?.inventory);
-        foreach (var item in riftInenvotry)
-        {
-            inventories.Add($"rift {item.Key}", item.Value);
-        }
-        var flatten = inventories.Where(i=>!string.IsNullOrEmpty(i.Value.data))
-            .SelectMany(i => modDescriptionService.GetAuctionsFromNbt(i.Value.data).Select(a => (i.Key, a.auction)))
-            .ToList();
-        foreach (var pet in member.pets_data.pets)
-        {
-            var auction = new Core.SaveAuction()
-            {
-                Tag = $"PET_{pet.type.ToUpper()}",
-                Tier = Enum.Parse<Tier>(pet.tier),
-                FlatenedNBT = new Dictionary<string, string>()
-                {{"exp", pet.exp.ToString()},
-                {"candyUsed", pet.candyUsed.ToString()}}
-            };
-            if (!string.IsNullOrEmpty(pet.skin))
-                auction.FlatenedNBT["skin"] = pet.skin;
-            if (!string.IsNullOrEmpty(pet.heldItem))
-                auction.FlatenedNBT["heldItem"] = pet.heldItem;
-
-
-            flatten.Add(("Pets", auction));
-        }
+        List<(string Key, SaveAuction auction)> flatten = GetItemsInInventories(member);
         var prices = await modDescriptionService.GetPrices(flatten.Select(f => f.auction).ToList());
         var combined = flatten.Zip(prices, (f, p) => (f.Key, f.auction, p)).ToList();
         var breakDownDict = networth.ValuePerCategory;
         foreach (var item in combined)
         {
             var price = item.p;
-            if(price == null)
+            if (price == null)
                 continue;
             var auction = item.auction;
             var key = item.Key;
@@ -102,27 +74,61 @@ public class NetworthService
 
         networth.FullValue = (long)breakDownDict.Sum(v => v.Value);
         return networth;
-
-        static void AddInventory(Dictionary<string, InventoryElem> inventories, Inventory inventory)
+    }
+    static void AddInventory(Dictionary<string, InventoryElem> inventories, Inventory inventory)
+    {
+        if (inventory == null)
+            return;
+        if (inventory.bag_contents != null)
         {
-            if (inventory == null)
-                return;
-            if (inventory.bag_contents != null)
-            {
-                inventories.Add("quiver", inventory.bag_contents.quiver);
-                inventories.Add("fishing bag", inventory.bag_contents.fishing_bag);
-                inventories.Add("talismans", inventory.bag_contents.talisman_bag);
-                inventories.Add("potion bag", inventory.bag_contents.potion_bag);
-            }
-            inventories.Add("enderchest", inventory.ender_chest_contents ?? new());
-            inventories.Add("armor", inventory.inv_armor?? new());
-            inventories.Add("equipment", inventory.equipment_contents?? new());
-            inventories.Add("personal vault", inventory.personal_vault_contents?? new());
-            inventories.Add("wardrobe", inventory.wardrobe_contents?? new());
-            foreach (var backpack in inventory.backpack_contents ?? new())
-            {
-                inventories.Add($"backpack {backpack.Key}", backpack.Value);
-            }
+            inventories.Add("quiver", inventory.bag_contents.quiver);
+            inventories.Add("fishing bag", inventory.bag_contents.fishing_bag);
+            inventories.Add("talismans", inventory.bag_contents.talisman_bag);
+            inventories.Add("potion bag", inventory.bag_contents.potion_bag);
         }
+        inventories.Add("enderchest", inventory.ender_chest_contents ?? new());
+        inventories.Add("armor", inventory.inv_armor ?? new());
+        inventories.Add("equipment", inventory.equipment_contents ?? new());
+        inventories.Add("personal vault", inventory.personal_vault_contents ?? new());
+        inventories.Add("wardrobe", inventory.wardrobe_contents ?? new());
+        foreach (var backpack in inventory.backpack_contents ?? new())
+        {
+            inventories.Add($"backpack {backpack.Key}", backpack.Value);
+        }
+    }
+    public List<(string Key, SaveAuction auction)> GetItemsInInventories(Member member)
+    {
+        var inventories = new Dictionary<string, InventoryElem>();
+        AddInventory(inventories, member.inventory);
+        var riftInenvotry = new Dictionary<string, InventoryElem>();
+        AddInventory(riftInenvotry, member.rift?.inventory);
+        foreach (var item in riftInenvotry)
+        {
+            inventories.Add($"rift {item.Key}", item.Value);
+        }
+        var flatten = inventories.Where(i => !string.IsNullOrEmpty(i.Value.data))
+            .SelectMany(i => modDescriptionService.GetAuctionsFromNbt(i.Value.data).Select(a => (i.Key, a.auction)))
+            .ToList();
+        foreach (var pet in member.pets_data.pets)
+        {
+            var auction = new Core.SaveAuction()
+            {
+                Tag = $"PET_{pet.type.ToUpper()}",
+                Tier = Enum.Parse<Tier>(pet.tier),
+                FlatenedNBT = new Dictionary<string, string>()
+                {{"exp", pet.exp.ToString()},
+                {"candyUsed", pet.candyUsed.ToString()}}
+            };
+            if (!string.IsNullOrEmpty(pet.skin))
+                auction.FlatenedNBT["skin"] = pet.skin;
+            if (!string.IsNullOrEmpty(pet.heldItem))
+                auction.FlatenedNBT["heldItem"] = pet.heldItem;
+            if (!string.IsNullOrEmpty(pet.uuid))
+                auction.FlatenedNBT["uuid"] = pet.uuid;
+
+            flatten.Add(("Pets", auction));
+        }
+
+        return flatten;
     }
 }

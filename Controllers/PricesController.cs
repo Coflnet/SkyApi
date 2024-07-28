@@ -379,4 +379,14 @@ public class PricesController : ControllerBase
     {
         return await networthService.GetNetworth(profile);
     }
+    /// <summary>
+    /// Networth estimation for a profile based on market data
+    /// </summary>
+    [Route("profile/items")]
+    [HttpPost]
+    [ResponseCache(Duration = 3600, Location = ResponseCacheLocation.Any, NoStore = false)]
+    public Dictionary<string, SaveAuction[]> GetItemsOnProfile(Member memberProfile)
+    {
+        return networthService.GetItemsInInventories(memberProfile).GroupBy(i => i.Key).ToDictionary(g => g.Key, g => g.Select(i => i.auction).ToArray());
+    }
 }
