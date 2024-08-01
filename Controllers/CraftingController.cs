@@ -19,7 +19,7 @@ namespace Coflnet.Sky.Api.Controller
     public class CraftingController : ControllerBase
     {
         private static RestClient client = null;
-        private static RestClient profileClient = null;
+        private Coflnet.Sky.Commands.Shared.IProfileClient profileClient;
         private string apiUrl;
         PricesService pricesService;
         /// <summary>
@@ -27,14 +27,13 @@ namespace Coflnet.Sky.Api.Controller
         /// </summary>
         /// <param name="config"></param>
         /// <param name="pricesService"></param>
-        public CraftingController(IConfiguration config, PricesService pricesService)
+        public CraftingController(IConfiguration config, PricesService pricesService, IProfileClient profileClient)
         {
             if (client == null)
                 client = new RestClient(config["CRAFTS_BASE_URL"] ?? "http://" + config["CRAFTS_HOST"]);
-            if (profileClient == null)
-                profileClient = new RestClient(config["PROFILE_BASE_URL"] ?? "http://" + config["PROFILE_HOST"]);
             apiUrl = config["API_BASE_URL"];
             this.pricesService = pricesService;
+            this.profileClient = profileClient;
         }
 
         /// <summary>
@@ -54,31 +53,7 @@ namespace Coflnet.Sky.Api.Controller
                 return crafts;
             try
             {
-                var slayersJsonTask = profileClient.ExecuteAsync(new RestRequest($"/api/profile/{player}/{profile}/data/slayers"));
-                var collectionJson = await profileClient.ExecuteAsync(new RestRequest($"/api/profile/{player}/{profile}/data/collections"));
-                var slayersJson = await slayersJsonTask;
-                var collection = JsonConvert.DeserializeObject<Dictionary<string, CollectionElem>>(collectionJson.Content);
-                var slayers = JsonConvert.DeserializeObject<Dictionary<string, SlayerElem>>(slayersJson.Content);
-                var list = new List<ProfitableCraft>();
-                foreach (var item in crafts)
-                {
-                    if (item == null)
-                        continue;
-
-                    if (item.ReqCollection == null
-                    || collection.TryGetValue(item.ReqCollection.Name, out CollectionElem elem)
-                            && elem.tier >= item.ReqCollection.Level)
-                    {
-                        list.Add(item);
-                    }
-                    else if (item.ReqSlayer == null
-                        || slayers.TryGetValue(item.ReqSlayer.Name.ToLower(), out SlayerElem slayerElem)
-                          && slayerElem.Level.currentLevel >= item.ReqSlayer.Level)
-                        list.Add(item);
-                    else
-                        Console.WriteLine("Blocked " + item.ItemId + " " + item.ReqCollection.Name);
-                }
-                return list;
+                return await profileClient.FilterProfitableCrafts(Task.FromResult(crafts), player, profile);
             }
             catch (System.Exception e)
             {
