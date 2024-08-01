@@ -109,6 +109,7 @@ namespace Coflnet.Sky.Api.Controller
 
             GoogleUser user = await tokenService.GetUserWithToken(this, true);
             await settingsService.UpdateSetting("mod", newId, user.Id.ToString());
+            await settingsService.UpdateSetting(newId, "userId", user.Id.ToString());
         }
 
         /// <summary>
