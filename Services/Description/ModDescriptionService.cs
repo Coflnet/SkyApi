@@ -1040,7 +1040,7 @@ public class ModDescriptionService : IDisposable
             return;
         }
         var listing = data.itemListings[uid];
-        var sum = listing.Where(l => l.requestingUserIsSeller && l.highest == 0).Sum(l => (FlipInstance.GetFeeRateForStartingBid(l.StartingBid) - 0.01) * l.StartingBid);
+        var sum = listing.Where(l => l.requestingUserIsSeller && l.highest == 0).Sum(l => (FlipInstance.GetFeeRateForStartingBid(l.StartingBid) - 1) * l.StartingBid / 100);
         var latest = listing.Where(l => l.requestingUserIsSeller && l.highest == 0).OrderByDescending(l => l.start).Select(l => l.start).FirstOrDefault();
         var formated = latest == default ? "never" : $"{FormatTime(DateTime.UtcNow - latest)} ago";
         builder.Append($"{McColorCodes.GRAY}Spent on listing: {McColorCodes.YELLOW}{FormatPriceShort(sum)}{McColorCodes.GRAY} Last attempt {McColorCodes.BLUE}{formated}");
