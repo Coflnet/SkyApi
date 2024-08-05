@@ -438,7 +438,10 @@ public class ModDescriptionService : IDisposable
             });
             TryGet(async () =>
             {
-                deserializedCache.BazaarItems = (await bazaarApi.ApiBazaarPricesGetAsync())?.ToDictionary(p => p.ProductId);
+                foreach (var item in await bazaarApi.ApiBazaarPricesGetAsync())
+                {
+                    deserializedCache.BazaarItems[item.ProductId] = item;
+                }
             });
             TryGet(async () =>
             {
@@ -711,7 +714,7 @@ public class ModDescriptionService : IDisposable
 
     private void AddNpcSellPrice(SaveAuction auction, DataContainer data, StringBuilder builder)
     {
-        if(data.NpcSellPrices.TryGetValue(auction.Tag, out var price))
+        if (data.NpcSellPrices.TryGetValue(auction.Tag, out var price))
             builder.Append($"{McColorCodes.GRAY}Npc Sell Price: {McColorCodes.YELLOW}{FormatPriceShort(price * auction.Count)} ");
     }
 
