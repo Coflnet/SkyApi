@@ -451,6 +451,11 @@ public class ModDescriptionService : IDisposable
                 deserializedCache.LastUpdate = DateTime.UtcNow;
                 deserializedCache.IsUpdating = false;
             });
+            TryGet(async () =>
+            {
+                await Task.Delay(20_000);
+                deserializedCache.IsUpdating = false;
+            });
         }
 
         void TryGet(Func<Task> action)
