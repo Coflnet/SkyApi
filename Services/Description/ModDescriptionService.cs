@@ -447,9 +447,12 @@ public class ModDescriptionService : IDisposable
             {
                 await itemService.GetItemsAsync();
                 deserializedCache.ItemPrices = await sniperClient.GetCleanPrices();
-                deserializedCache.NpcSellPrices = await itemsApi.ItemsNpcSellGetAsync();
                 deserializedCache.LastUpdate = DateTime.UtcNow;
                 deserializedCache.IsUpdating = false;
+            });
+            TryGet(async () =>
+            {
+                deserializedCache.NpcSellPrices = await itemsApi.ItemsNpcSellGetAsync();
             });
             TryGet(async () =>
             {
