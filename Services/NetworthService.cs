@@ -109,7 +109,7 @@ public class NetworthService
         var flatten = inventories.Where(i => !string.IsNullOrEmpty(i.Value?.data))
             .SelectMany(i => modDescriptionService.GetAuctionsFromNbt(i.Value.data).Select(a => (i.Key, a.auction)))
             .ToList();
-        foreach (var pet in member.pets_data.pets)
+        foreach (var pet in member.pets_data?.pets ?? new())
         {
             var auction = new Core.SaveAuction()
             {
