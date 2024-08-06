@@ -43,4 +43,25 @@ public class PremiumTierService
         var owns = await userApi.UserUserIdOwnsUntilPostAsync(user.Id.ToString(), new List<string>() { name }, 0);
         return owns.TryGetValue(name, out var time) && time > DateTime.Now;
     }
+
+    public async Task<bool> UnlockOrCheckUnlockOfExport(ControllerBase controllerInstance, string itemId)
+    {
+        if (!controllerInstance.Request.Headers.TryGetValue(HeaderName, out StringValues value)
+                && !controllerInstance.Request.Headers.TryGetValue("Authorization", out value))
+            return false;
+        var googleUser = await tokenService.GetUserWithToken(value);
+        try
+        {
+            var user = await userApi.UserUserIdServicePurchaseProductSlugPostAsync(googleUser.Id.ToString(), "export-unlock", itemId, 5);
+            return user.Balance > 0;
+        }
+        catch (Exception e)
+        {
+            if (e.Message.Contains("already"))
+            {
+                return true;
+            }
+        }
+        return false;
+    }
 }

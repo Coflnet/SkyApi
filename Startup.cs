@@ -131,6 +131,7 @@ namespace Coflnet.Sky.Api
             services.AddSingleton<TfmService>();
             services.AddSingleton<ModDescriptionService>();
             services.AddSingleton<AuctionConverter>();
+            services.AddSingleton<Auctions.Client.Api.IExportApi>(p =>new Auctions.Client.Api.ExportApi(Configuration["API_BASE_URL"]));
         }
 
         /// <summary>

@@ -46,6 +46,7 @@ namespace Coflnet.Sky.Api.Controller
         AuctionConverter transformer;
         ModDescriptionService modDescriptionService;
         IAuctionApi auctionApi;
+        Auctions.Client.Api.IExportApi exportApi;
         private PremiumTierService premiumTierService;
 
         /// <summary>
@@ -64,6 +65,7 @@ namespace Coflnet.Sky.Api.Controller
         /// <param name="modDescriptionService"></param>
         /// <param name="auctionApi"></param>
         /// <param name="premiumTierService"></param>
+        /// <param name="exportApi"></param>
         public AuctionsController(AuctionService auctionService,
                                   HypixelContext context,
                                   ILogger<AuctionsController> logger,
@@ -76,7 +78,8 @@ namespace Coflnet.Sky.Api.Controller
                                   AuctionConverter transformer,
                                   ModDescriptionService modDescriptionService,
                                   IAuctionApi auctionApi,
-                                  PremiumTierService premiumTierService)
+                                  PremiumTierService premiumTierService,
+                                  Auctions.Client.Api.IExportApi exportApi)
         {
             this.auctionService = auctionService;
             this.context = context;
@@ -91,6 +94,7 @@ namespace Coflnet.Sky.Api.Controller
             this.modDescriptionService = modDescriptionService;
             this.auctionApi = auctionApi;
             this.premiumTierService = premiumTierService;
+            this.exportApi = exportApi;
         }
 
         /// <summary>
@@ -340,12 +344,7 @@ namespace Coflnet.Sky.Api.Controller
             if (!await premiumTierService.HasPremiumPlus(this))
                 throw new CoflnetException("premplus_required",
                            "Sorry but you need to be a premium plus member to access this data, Authorization header with google/account token");
-            if (!query.ContainsKey("EndAfter") || !query.ContainsKey("EndBefore"))
-                throw new CoflnetException("missing_params", "Please provide EndAfter and EndBefore filters in query");
-            if (!long.TryParse(query["EndAfter"], out var after) || !long.TryParse(query["EndBefore"], out var before))
-                throw new CoflnetException("invalid_params", "Please provide valid dates in EndAfter and EndBefore filters in query (unix timestamp in seconds)");
-            if (after > before)
-                throw new CoflnetException("invalid_params", "EndAfter must be before EndBefore (lower unix timestamp)");
+            AssertArchiveQuery(query);
             await Task.Delay(2000); // soft ratelimit for db
             List<AuctionPreview> preview = await GetRecentFor(itemTag, query, 1500);
             return new ArchiveResponse()
@@ -353,6 +352,39 @@ namespace Coflnet.Sky.Api.Controller
                 Auctions = preview,
                 queryStatus = ArchiveResponse.QueryStatus.Success // from the main db there are only full answers
             };
+        }
+
+        private static void AssertArchiveQuery(IDictionary<string, string> query)
+        {
+            if (!query.ContainsKey("EndAfter") || !query.ContainsKey("EndBefore"))
+                throw new CoflnetException("missing_params", "Please provide EndAfter and EndBefore filters in query");
+            if (!long.TryParse(query["EndAfter"], out var after) || !long.TryParse(query["EndBefore"], out var before))
+                throw new CoflnetException("invalid_params", "Please provide valid dates in EndAfter and EndBefore filters in query (unix timestamp in seconds)");
+            if (after > before)
+                throw new CoflnetException("invalid_params", "EndAfter must be before EndBefore (lower unix timestamp)");
+        }
+        /// <summary>
+        /// Request an export of auction data to discord webhook
+        /// Will automatically try to unlock the export for each item tag entered (one time payment) 
+        /// After unlocking there is only a limit on the concurrent waiting exports.
+        /// Export contains contact details and inventory checks, access will be revoked if missuse is reported.
+        /// </summary>
+        /// <param name="itemTag"></param>
+        /// <param name="request"></param>
+        /// <returns></returns>
+        /// <exception cref="CoflnetException"></exception>
+        [Route("auctions/tag/{itemTag}/archive/export")]
+        [HttpPost]
+        public async Task<Auctions.Client.Model.ExportRequest> RequestExport(string itemTag, [FromBody] Auctions.Client.Model.ExportRequest request)
+        {
+            if (!await premiumTierService.HasPremiumPlus(this))
+                throw new CoflnetException("premplus_required",
+                           "Sorry but you need to be a premium plus member to access this data, Authorization header with google/account token");
+            AssertArchiveQuery(request.Filters);
+            if (!await premiumTierService.UnlockOrCheckUnlockOfExport(this, itemTag))
+                throw new CoflnetException("unlock_required", $"Export for {itemTag} could not be started, make sure you have enough funds and create a report if you do");
+            request.ItemTag = itemTag;
+            return await exportApi.ExportPostAsync(request);
         }
 
         /// <summary>
