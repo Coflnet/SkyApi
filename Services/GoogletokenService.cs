@@ -46,12 +46,13 @@ public class GoogletokenService
         {
             return UserService.Instance.GetOrCreateUser(tokenData.Subject, tokenData.Email);
         }
-        catch (Exception)
+        catch (Exception e)
         {
+            logger.LogError(e, "user get with token: ");
             var request = new RestRequest("user", Method.Post).AddJsonBody(new GoogleUser() { GoogleId = tokenData.Subject, Email = tokenData.Email });
             var response = await IndexerClient.Client.ExecuteAsync<GoogleUser>(request);
             var user = response.Data;
-            Console.WriteLine("created new user " + user.Id);
+            logger.LogInformation("created new user {userId}", user.Id);
             return user;
         }
     }
