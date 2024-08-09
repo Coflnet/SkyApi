@@ -53,6 +53,10 @@ namespace Coflnet.Sky.Api.Controller
             var offset = pageSize * page;
             var baseSelect = context.Bids.Where(b => b.BidderId == context.Players.Where(p => p.UuId == playerUuid).Select(p => p.Id).FirstOrDefault() && b.BidderId != 0);
             filters.Remove("page");
+            if(filters.Count > 0)
+            {
+                throw new CoflnetException("temporarily_disabled", "Searching bids is currently disabled. We expect it to be back after the weekend.");
+            }
             if (filters.TryGetValue("tag", out string itemTag))
             {
                 int itemId = ExtractItemIdFromFilter(filters, itemTag);
