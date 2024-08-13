@@ -389,6 +389,8 @@ namespace Coflnet.Sky.Api.Controller
                 throw new CoflnetException("unlock_required", $"Export for {itemTag} could not be started, make sure you have enough funds and create a report if you do");
             var mapped = mapper.Map<Auctions.Client.Model.ExportRequest>(request);
             mapped.ItemTag = itemTag;
+            var user = await premiumTierService.GetUserOrDefault(this);
+            mapped.ByEmail = user.Email;
             return await exportApi.ExportPostAsync(mapped);
         }
 
