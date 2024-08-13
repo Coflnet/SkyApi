@@ -24,6 +24,7 @@ using System.Text;
 using Coflnet.Sky.Items.Client.Api;
 using Microsoft.Extensions.DependencyInjection;
 using Coflnet.Sky.Auctions.Client.Api;
+using AutoMapper;
 
 namespace Coflnet.Sky.Api.Controller
 {
@@ -47,6 +48,7 @@ namespace Coflnet.Sky.Api.Controller
         ModDescriptionService modDescriptionService;
         IAuctionApi auctionApi;
         Auctions.Client.Api.IExportApi exportApi;
+        IMapper mapper;
         private PremiumTierService premiumTierService;
 
         /// <summary>
@@ -79,7 +81,8 @@ namespace Coflnet.Sky.Api.Controller
                                   ModDescriptionService modDescriptionService,
                                   IAuctionApi auctionApi,
                                   PremiumTierService premiumTierService,
-                                  Auctions.Client.Api.IExportApi exportApi)
+                                  Auctions.Client.Api.IExportApi exportApi,
+                                  IMapper mapper)
         {
             this.auctionService = auctionService;
             this.context = context;
@@ -95,6 +98,7 @@ namespace Coflnet.Sky.Api.Controller
             this.auctionApi = auctionApi;
             this.premiumTierService = premiumTierService;
             this.exportApi = exportApi;
+            this.mapper = mapper;
         }
 
         /// <summary>
@@ -375,7 +379,7 @@ namespace Coflnet.Sky.Api.Controller
         /// <exception cref="CoflnetException"></exception>
         [Route("auctions/tag/{itemTag}/archive/export")]
         [HttpPost]
-        public async Task<Auctions.Client.Model.ExportRequest> RequestExport(string itemTag, [FromBody] Auctions.Client.Model.ExportRequest request)
+        public async Task<Auctions.Client.Model.ExportRequest> RequestExport(string itemTag, [FromBody] ExportRequestCreate request)
         {
             if (!await premiumTierService.HasPremiumPlus(this))
                 throw new CoflnetException("premplus_required",
@@ -383,8 +387,9 @@ namespace Coflnet.Sky.Api.Controller
             AssertArchiveQuery(request.Filters);
             if (!await premiumTierService.UnlockOrCheckUnlockOfExport(this, itemTag))
                 throw new CoflnetException("unlock_required", $"Export for {itemTag} could not be started, make sure you have enough funds and create a report if you do");
-            request.ItemTag = itemTag;
-            return await exportApi.ExportPostAsync(request);
+            var mapped = mapper.Map<Auctions.Client.Model.ExportRequest>(request);
+            mapped.ItemTag = itemTag;
+            return await exportApi.ExportPostAsync(mapped);
         }
 
         /// <summary>

@@ -26,5 +26,6 @@ public class OrganizationProfile : Profile
             .ReverseMap();
 
         CreateMap<Coflnet.Sky.Api.Models.Notifications.Listener, Coflnet.Sky.Subscriptions.Client.Model.Subscription>().ReverseMap();
+        CreateMap<ExportRequestCreate, Auctions.Client.Model.ExportRequest>().ReverseMap();
     }
 }
