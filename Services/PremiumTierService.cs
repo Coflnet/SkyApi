@@ -52,7 +52,7 @@ public class PremiumTierService
         try
         {
             var user = await userApi.UserUserIdServicePurchaseProductSlugPostAsync(googleUser.Id.ToString(), "export-unlock", itemId, 5);
-            return user.Balance > 0;
+            return true;
         }
         catch (Exception e)
         {
