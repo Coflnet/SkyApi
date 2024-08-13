@@ -109,6 +109,19 @@ public class NetworthService
         var flatten = inventories.Where(i => !string.IsNullOrEmpty(i.Value?.data))
             .SelectMany(i => modDescriptionService.GetAuctionsFromNbt(i.Value.data).Select(a => (i.Key, a.auction)))
             .ToList();
+        foreach (var item in flatten.ToList())
+        {
+            if (!(item.auction?.Tag?.EndsWith("_BACKPACK") ?? false))
+                continue;
+            var data = item.auction.FlatenedNBT.Where(f => f.Key.EndsWith("backpack_data")).FirstOrDefault();
+            if (data.Key == null)
+                continue;
+            var backpack = modDescriptionService.GetAuctionsFromNbt(data.Value);
+            foreach (var backpackItem in backpack)
+            {
+                flatten.Add((item.Key + "->backpack", backpackItem.auction));
+            }
+        }
         foreach (var pet in member.pets_data?.pets ?? new())
         {
             var auction = new Core.SaveAuction()
