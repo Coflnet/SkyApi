@@ -11,6 +11,7 @@ using Coflnet.Sky.Api.Models.Mod;
 using Coflnet.Sky.Api.Services.Description;
 using Coflnet.Sky.Bazaar.Client.Api;
 using Coflnet.Sky.Bazaar.Client.Model;
+using Coflnet.Sky.Commands.Helper;
 using Coflnet.Sky.Commands.MC;
 using Coflnet.Sky.Commands.Shared;
 using Coflnet.Sky.Core;
@@ -24,6 +25,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
 using SkyApi.Services.Description;
+using static Coflnet.Sky.Core.Services.ExoticColorService;
 
 namespace Coflnet.Sky.Api.Services;
 
@@ -62,6 +64,7 @@ public class ModDescriptionService : IDisposable
     private readonly Core.Services.HypixelItemService itemService;
     private readonly FlipTracker.Client.Api.ITrackerApi trackerApi;
     private readonly IItemsApi itemsApi;
+    private readonly Core.Services.ExoticColorService exoticColorService ;
 
     public DeserializedCache DeserializedCache => deserializedCache;
 
@@ -99,7 +102,8 @@ public class ModDescriptionService : IDisposable
                                  IKatApi katApi,
                                  Core.Services.HypixelItemService itemService,
                                  FlipTracker.Client.Api.ITrackerApi trackerApi,
-                                 IItemsApi itemsApi)
+                                 IItemsApi itemsApi,
+                                 Core.Services.ExoticColorService exoticColorService)
     {
         this.craftsApi = craftsApi;
         this.settingsService = settingsService;
@@ -118,6 +122,7 @@ public class ModDescriptionService : IDisposable
         this.itemService = itemService;
         this.trackerApi = trackerApi;
         this.itemsApi = itemsApi;
+        this.exoticColorService = exoticColorService;
     }
 
     private void RegisterModifiers()
@@ -711,6 +716,9 @@ public class ModDescriptionService : IDisposable
             case DescriptionField.NpcSellPrice:
                 AddNpcSellPrice(auction, data, builder);
                 break;
+            case DescriptionField.ColorCode:
+                AddColorCode(auction, builder);
+                break;
             case DescriptionField.NONE:
                 break; // ignore
             default:
@@ -719,6 +727,32 @@ public class ModDescriptionService : IDisposable
                 break;
         }
     }
+
+    private void AddColorCode(SaveAuction auction, StringBuilder builder)
+    {
+        var color = auction.FlatenedNBT?.GetValueOrDefault("color");
+        if(color == null)
+            return;
+        var hex = PropertiesSelector.FormatHex(color);
+        var type = exoticColorService.GetExoticColorType(auction.Tag, hex, auction.ItemCreatedAt.ToUnix());
+        builder.Append(GetChatColorCodeForColor(type));
+        builder.Append(hex);
+        builder.Append($" ({type}) ");
+    }
+
+    private string GetChatColorCodeForColor(ExoticColorType type) => type switch
+    {
+        ExoticColorType.CRYSTAL => McColorCodes.AQUA,
+        ExoticColorType.FAIRY => McColorCodes.LIGHT_PURPLE,
+        ExoticColorType.OG_FAIRY => McColorCodes.DARK_PURPLE,
+        ExoticColorType.EXOTIC => McColorCodes.GOLD,
+        ExoticColorType.ORIGINAL => McColorCodes.DARK_GRAY,
+        ExoticColorType.UNDYED => McColorCodes.GRAY,
+        ExoticColorType.SPOOK => McColorCodes.RED,
+        ExoticColorType.GLITCHED => McColorCodes.BLUE,
+        _ => McColorCodes.WHITE
+    };
+
 
     private void AddNpcSellPrice(SaveAuction auction, DataContainer data, StringBuilder builder)
     {
