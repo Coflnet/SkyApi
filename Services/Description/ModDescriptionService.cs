@@ -586,7 +586,7 @@ public class ModDescriptionService : IDisposable
             return (settings[sessionId].Item1.Value, settings[sessionId].Item2.Value);
         var conId = idConverter.ComputeConnectionId(playeruuid, sessionId).Item2;
         var userId = await settingsService.GetCurrentValue<string>("mod", conId, () => null);
-        if(IsDevMode)
+        if (IsDevMode)
         {
             userId = "1";
         }
@@ -739,6 +739,13 @@ public class ModDescriptionService : IDisposable
         if (color == null)
             return;
         var hex = Core.Services.ExoticColorService.FormatHex(color);
+        if (auction.FlatenedNBT.ContainsKey("dye_item"))
+        {
+            builder.Append(McColorCodes.GRAY);
+            builder.Append(hex);
+            builder.Append(" (DYED) ");
+            return;
+        }
         var type = exoticColorService.GetExoticColorType(auction.Tag, hex, auction.ItemCreatedAt.ToUnix());
         builder.Append(GetChatColorCodeForColor(type));
         builder.Append(hex);
