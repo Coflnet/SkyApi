@@ -45,6 +45,7 @@ public class ModDescriptionService : IDisposable
 {
     private static readonly string BitsRegexPattern = @".*?(\d*\.?\d+|\d{1,3}(,\d{3})*(\.\d+)?) Bits.*";
 
+    public static bool IsDevMode { get; } = System.Net.Dns.GetHostName().Contains("ekwav");
     private readonly ICraftsApi craftsApi;
     private readonly ISniperClient sniperClient;
     private readonly AhListChecker ahListChecker;
@@ -64,7 +65,7 @@ public class ModDescriptionService : IDisposable
     private readonly Core.Services.HypixelItemService itemService;
     private readonly FlipTracker.Client.Api.ITrackerApi trackerApi;
     private readonly IItemsApi itemsApi;
-    private readonly Core.Services.ExoticColorService exoticColorService ;
+    private readonly Core.Services.ExoticColorService exoticColorService;
 
     public DeserializedCache DeserializedCache => deserializedCache;
 
@@ -579,12 +580,16 @@ public class ModDescriptionService : IDisposable
 
     private async Task<(DescriptionSetting, AccountInfo)> GetSettingForConid(string playeruuid, string sessionId)
     {
-        if (string.IsNullOrEmpty(sessionId))
+        if (string.IsNullOrEmpty(sessionId) && !IsDevMode)
             return (DescriptionSetting.Default, new());
         if (settings.ContainsKey(sessionId))
             return (settings[sessionId].Item1.Value, settings[sessionId].Item2.Value);
         var conId = idConverter.ComputeConnectionId(playeruuid, sessionId).Item2;
         var userId = await settingsService.GetCurrentValue<string>("mod", conId, () => null);
+        if(IsDevMode)
+        {
+            userId = "1";
+        }
         var userSettings = DescriptionSetting.Default;
         if (userId != null)
         {
@@ -731,9 +736,9 @@ public class ModDescriptionService : IDisposable
     private void AddColorCode(SaveAuction auction, StringBuilder builder)
     {
         var color = auction.FlatenedNBT?.GetValueOrDefault("color");
-        if(color == null)
+        if (color == null)
             return;
-        var hex = PropertiesSelector.FormatHex(color);
+        var hex = Core.Services.ExoticColorService.FormatHex(color);
         var type = exoticColorService.GetExoticColorType(auction.Tag, hex, auction.ItemCreatedAt.ToUnix());
         builder.Append(GetChatColorCodeForColor(type));
         builder.Append(hex);
