@@ -7,6 +7,9 @@ using Microsoft.Extensions.Primitives;
 using Coflnet.Payments.Client.Model;
 using Coflnet.Sky.Api.Models;
 using System.Threading;
+using System.Net.Http;
+using System.Text;
+using Microsoft.Extensions.Logging;
 
 namespace Coflnet.Sky.Api.Controller
 {
@@ -23,6 +26,7 @@ namespace Coflnet.Sky.Api.Controller
         private UserApi userApi;
         private GoogletokenService tokenService;
         private ITransactionApi transactionApi;
+        private ILogger<PremiumController> logger;
 
         /// <summary>
         /// Creates a new intance of <see cref="PremiumController"/>
@@ -32,18 +36,21 @@ namespace Coflnet.Sky.Api.Controller
         /// <param name="userApi"></param>
         /// <param name="premiumService"></param>
         /// <param name="transactionApi"></param>
+        /// <param name="logger"></param>
         public PremiumController(
             ProductsApi productsService,
             TopUpApi topUpApi,
             UserApi userApi,
             GoogletokenService premiumService,
-            ITransactionApi transactionApi)
+            ITransactionApi transactionApi,
+            ILogger<PremiumController> logger)
         {
             this.productsService = productsService;
             this.topUpApi = topUpApi;
             this.userApi = userApi;
             this.tokenService = premiumService;
             this.transactionApi = transactionApi;
+            this.logger = logger;
         }
 
         /// <summary>
@@ -192,6 +199,43 @@ namespace Coflnet.Sky.Api.Controller
             return hash;
         }
 
+
+        [Route("linkvertise")]
+        [HttpGet]
+        public async Task<IActionResult> Linkvertise(string hash, [FromServices] HttpClient httpClient)
+        {
+            var user = await GetUserOrDefault();
+            if (user == default && string.IsNullOrEmpty(hash))
+                return Unauthorized("no auth header passed");
+            user = new GoogleUser() { };
+            if(string.IsNullOrEmpty(hash))
+            {
+                var base64 = Convert.ToBase64String(Encoding.UTF8.GetBytes($"https://sky.coflnet.com/api/linkvertise?user={user.Email}"));
+                var redirectTo = $"https://link-to.net/1216620/{user.Email}/dynamic?r={base64}";
+                // setcookie
+                Response.Cookies.Append("server-userId", user.Id.ToString(), new() { Expires = DateTimeOffset.UtcNow.AddMinutes(30) });
+                return Ok(redirectTo);
+            }
+            var url = $"https://publisher.linkvertise.com/api/v1/anti_bypassing?token=755ceac642a67e4cc06410ecc620838b5f26ecc234583242b832a5f5593effd8&hash={hash}";
+            var response = await httpClient.GetAsync(url);
+            var responseString = await response.Content.ReadAsStringAsync();
+            var userId = Request.Cookies.Where(c => c.Key == "server-userId").FirstOrDefault();
+            logger.LogInformation("Response user {userId}, has valid {hashResult}", userId, responseString);
+
+            if(responseString.Contains("true"))
+            {
+                logger.LogInformation("successful");
+                await topUpApi.TopUpCustomPostAsync(userId.ToString(), new CustomTopUp()
+                {
+                    Amount = 4,
+                    ProductId = "compensation",
+                    Reference = "ad-" + hash.Truncate(4)
+                });
+                await userApi.UserUserIdServicePurchaseProductSlugPostAsync(userId.ToString(), "starter_premium-hour", "ap-" + hash.Truncate(4), 1);
+                return Redirect("https://sky.coflnet.com/linvertise/success");
+            }
+            return Redirect("https://sky.coflnet.com/linvertise/fail");
+        }
 
         /// <summary>
         /// Purchase a service 
