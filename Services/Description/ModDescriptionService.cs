@@ -634,6 +634,16 @@ public class ModDescriptionService : IDisposable
                 {
                     logger.LogError(e, "failed to add description element {item} on {auction}", item, JsonConvert.SerializeObject(auction));
                 }
+                if (item == DescriptionField.DefaultLore)
+                {
+                    // change all mods so far into insert of the first line
+                    var i = 0;
+                    foreach (var mod in mods)
+                    {
+                        mod.Type = DescModification.ModType.INSERT;
+                        mod.Line = i++ + 1;
+                    }
+                }
             }
             if (builder.Length > 0)
                 mods.Add(new DescModification(builder.ToString()));

@@ -222,7 +222,7 @@ namespace Coflnet.Sky.Api.Controller
             var userId = Request.Cookies.Where(c => c.Key == "server-userId").FirstOrDefault();
             logger.LogInformation("Response user {userId}, has valid {hashResult}", userId, responseString);
 
-            if(responseString.Contains("true"))
+            if(responseString.ToLower().Contains("true"))
             {
                 logger.LogInformation("successful");
                 await topUpApi.TopUpCustomPostAsync(userId.ToString(), new CustomTopUp()
