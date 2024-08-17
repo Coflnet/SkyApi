@@ -232,9 +232,9 @@ namespace Coflnet.Sky.Api.Controller
                     Reference = "ad-" + hash.Truncate(4)
                 });
                 await userApi.UserUserIdServicePurchaseProductSlugPostAsync(userId.ToString(), "starter_premium-hour", "ap-" + hash.Truncate(4), 1);
-                return Redirect("https://sky.coflnet.com/linvertise/success");
+                return Redirect("https://sky.coflnet.com/linkvertise/success");
             }
-            return Redirect("https://sky.coflnet.com/linvertise/fail");
+            return Redirect("https://sky.coflnet.com/linkvertise/fail");
         }
 
         /// <summary>
