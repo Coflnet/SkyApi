@@ -207,6 +207,7 @@ namespace Coflnet.Sky.Api.Controller
             var user = await GetUserOrDefault();
             if (user == default && string.IsNullOrEmpty(hash))
                 return Unauthorized("no auth header passed");
+            var userId = Request.Cookies.Where(c => c.Key == "server-userId").FirstOrDefault();
             if(string.IsNullOrEmpty(hash))
             {
                 var base64 = Convert.ToBase64String(Encoding.UTF8.GetBytes($"https://sky.coflnet.com/api/linkvertise?user={user.Email}"));
@@ -215,10 +216,9 @@ namespace Coflnet.Sky.Api.Controller
                 Response.Cookies.Append("server-userId", user.Id.ToString(), new() { Expires = DateTimeOffset.UtcNow.AddMinutes(30) });
                 return Ok(redirectTo);
             }
-            var url = $"https://publisher.linkvertise.com/api/v1/anti_bypassing?token=755ceac642a67e4cc06410ecc620838b5f26ecc234583242b832a5f5593effd8&hash={hash}";
-            var response = await httpClient.GetAsync(url);
+            var url = $"https://publisher.linkvertise.com/api/v1/anti_bypassing?token=c43268cacfa9a88da627b24876ee3dddbadd08292dc54e420d24b4d6510c6a9e&hash={hash}";
+            var response = await httpClient.PostAsync(url, new StringContent(""));
             var responseString = await response.Content.ReadAsStringAsync();
-            var userId = Request.Cookies.Where(c => c.Key == "server-userId").FirstOrDefault();
             logger.LogInformation("Response user {userId}, has valid {hashResult}", userId, responseString);
 
             if(responseString.ToLower().Contains("true"))
