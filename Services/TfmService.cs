@@ -13,7 +13,7 @@ namespace Coflnet.Sky.Api.Services
         public async Task<bool> IsUserOnAsync(string uuid)
         {
             var tfmTask = client.ExecuteAsync(new RestRequest("online_tfm_users"));
-            var name = (await PlayerService.Instance.GetPlayer(uuid)).Name;
+            var name = await PlayerSearch.Instance.GetName(uuid);
             var onlinePlayersJson = (await tfmTask).Content;
             var onlinePlayers = JsonConvert.DeserializeObject<OnlineResponse>(onlinePlayersJson).user_list.Select(a => a.First());
 
