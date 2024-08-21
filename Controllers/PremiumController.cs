@@ -208,7 +208,7 @@ namespace Coflnet.Sky.Api.Controller
             if (user == default && string.IsNullOrEmpty(hash))
                 return Unauthorized("no auth header passed");
             var userId = Request.Cookies.Where(c => c.Key == "server-userId").FirstOrDefault().Value;
-            if(string.IsNullOrEmpty(hash))
+            if (string.IsNullOrEmpty(hash))
             {
                 var base64 = Convert.ToBase64String(Encoding.UTF8.GetBytes($"https://sky.coflnet.com/api/linkvertise?user={user.Email}"));
                 var redirectTo = $"https://link-to.net/1216620/{user.Email}/dynamic?r={base64}";
@@ -216,12 +216,19 @@ namespace Coflnet.Sky.Api.Controller
                 Response.Cookies.Append("server-userId", user.Id.ToString(), new() { Expires = DateTimeOffset.UtcNow.AddMinutes(30) });
                 return Ok(redirectTo);
             }
+            var lastTransactionsTask = transactionApi.TransactionUUserIdGetAsync(userId, 2);
             var url = $"https://publisher.linkvertise.com/api/v1/anti_bypassing?token=c43268cacfa9a88da627b24876ee3dddbadd08292dc54e420d24b4d6510c6a9e&hash={hash}";
             var response = await httpClient.PostAsync(url, new StringContent(""));
             var responseString = await response.Content.ReadAsStringAsync();
             logger.LogInformation("Response user {userId}, has valid {hashResult}", userId, responseString);
+            var transactions = await lastTransactionsTask;
+            if (transactions.Any(t => t.ProductId == "compensation" && t.Reference.StartsWith("ad") && t.TimeStamp > DateTime.UtcNow.AddMinutes(-50)))
+            {
+                // don't recredit
+                return Redirect("https://sky.coflnet.com/linkvertise/success");
+            }
 
-            if(responseString.ToLower().Contains("true"))
+            if (responseString.ToLower().Contains("true"))
             {
                 logger.LogInformation("successful");
                 await topUpApi.TopUpCustomPostAsync(userId.ToString(), new CustomTopUp()
@@ -231,6 +238,7 @@ namespace Coflnet.Sky.Api.Controller
                     Reference = "ad-" + hash.Truncate(4)
                 });
                 await userApi.UserUserIdServicePurchaseProductSlugPostAsync(userId.ToString(), "starter_premium-hour", "ap-" + hash.Truncate(4), 1);
+                // delete cookie 
                 return Redirect("https://sky.coflnet.com/linkvertise/success");
             }
             return Redirect("https://sky.coflnet.com/linkvertise/fail");
