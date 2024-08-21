@@ -149,7 +149,6 @@ namespace Coflnet.Sky.Api
                 app.UseDeveloperExceptionPage();
                 mapper.ConfigurationProvider.AssertConfigurationIsValid();
             }
-            app.UseSwagger();
             app.UseSwagger(a =>
             {
                 a.RouteTemplate = "api/swagger/{documentName}/swagger.json";

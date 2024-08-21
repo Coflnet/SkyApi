@@ -207,7 +207,7 @@ namespace Coflnet.Sky.Api.Controller
             var user = await GetUserOrDefault();
             if (user == default && string.IsNullOrEmpty(hash))
                 return Unauthorized("no auth header passed");
-            var userId = Request.Cookies.Where(c => c.Key == "server-userId").FirstOrDefault();
+            var userId = Request.Cookies.Where(c => c.Key == "server-userId").FirstOrDefault().Value;
             if(string.IsNullOrEmpty(hash))
             {
                 var base64 = Convert.ToBase64String(Encoding.UTF8.GetBytes($"https://sky.coflnet.com/api/linkvertise?user={user.Email}"));
