@@ -18,21 +18,26 @@ public class StartedAgoToEndsIn : CustomModifier
                 continue;
             var startTime = data.itemListings[uid].OrderByDescending(a => a.start).FirstOrDefault()?.start;
             var timeSinceStart = DateTime.UtcNow - startTime;
-            
+
             var line = desc.Select((l, i) => (l, i)).FirstOrDefault(l => l.l.StartsWith("§7Ends in"));
             if (line.i == 0)
             {
                 continue;
             }
-            if(timeSinceStart == null)
+            if (timeSinceStart == null)
             {
                 Console.WriteLine($"Found new auction " + string.Join("\n", desc));
                 continue;
             }
             var formatted = ModDescriptionService.FormatTime(timeSinceStart.Value);
-            var position = desc.Length - 3;
-            if (auction.Enchantments.Any(e => e.Type == Core.Enchantment.EnchantmentType.efficiency))
+            var position = desc.Length - 1;
+            position += auction.Enchantments.Where(e => e.Type == Core.Enchantment.EnchantmentType.efficiency 
+                                                || e.Type == Core.Enchantment.EnchantmentType.respiration 
+                                                || e.Type == Core.Enchantment.EnchantmentType.aqua_affinity).Count();
+            if (auction.FlatenedNBT.ContainsKey("color"))
                 position++;
+            if(desc.Last() == "§eClick to inspect!")
+                position-=2;
             data.mods[i].Insert(0, new DescModification($"{McColorCodes.DARK_GRAY}Started {McColorCodes.GRAY}{formatted} {McColorCodes.DARK_GRAY}ago")
             {
                 Line = position,
