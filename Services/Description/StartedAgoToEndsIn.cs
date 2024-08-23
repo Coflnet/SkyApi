@@ -8,6 +8,8 @@ public class StartedAgoToEndsIn : CustomModifier
 {
     public void Apply(DataContainer data)
     {
+        if(data.itemListings.Count == 0)
+            return;
         for (int i = 0; i < data.auctionRepresent.Count; i++)
         {
             var item = data.auctionRepresent[i];
