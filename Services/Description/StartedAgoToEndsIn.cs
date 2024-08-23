@@ -33,7 +33,8 @@ public class StartedAgoToEndsIn : CustomModifier
             var position = desc.Length - 1;
             position += auction.Enchantments.Where(e => e.Type == Core.Enchantment.EnchantmentType.efficiency 
                                                 || e.Type == Core.Enchantment.EnchantmentType.respiration 
-                                                || e.Type == Core.Enchantment.EnchantmentType.aqua_affinity).Count();
+                                                || e.Type == Core.Enchantment.EnchantmentType.aqua_affinity
+                                                || e.Type == Core.Enchantment.EnchantmentType.depth_strider).Count();
             if (auction.FlatenedNBT.ContainsKey("color"))
                 position++;
             if(desc.Last() == "§eClick to inspect!")
