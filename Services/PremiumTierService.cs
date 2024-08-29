@@ -51,7 +51,7 @@ public class PremiumTierService
             return false;
         try
         {
-            var user = await userApi.UserUserIdServicePurchaseProductSlugPostAsync(googleUser.Id.ToString(), "export-unlock", itemId, 5);
+            await userApi.UserUserIdServicePurchaseProductSlugPostAsync(googleUser.Id.ToString(), "export-unlock", itemId, 5);
             return true;
         }
         catch (Exception e)

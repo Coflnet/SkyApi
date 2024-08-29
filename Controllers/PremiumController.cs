@@ -261,8 +261,8 @@ namespace Coflnet.Sky.Api.Controller
                 var count = args.count == 0 ? 1 : args.count;
                 if (string.IsNullOrEmpty(reference))
                     reference = "apiautofill" + DateTime.UtcNow;
-                var purchaseResult = await userApi.UserUserIdServicePurchaseProductSlugPostAsync(user.Id.ToString(), args.slug, reference, count);
-                return Ok(purchaseResult);
+                await userApi.UserUserIdServicePurchaseProductSlugPostAsync(user.Id.ToString(), args.slug, reference, count);
+                return Ok();
             }
             catch (Exception e)
             {
