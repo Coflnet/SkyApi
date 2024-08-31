@@ -325,13 +325,22 @@ namespace Coflnet.Sky.Api.Controller
 
         private async Task<List<AuctionPreview>> GetRecentFor(string itemTag, IDictionary<string, string> query, int days)
         {
-            var minTime = DateTime.Now.Subtract(TimeSpan.FromDays(days));
-            var itemId = ItemDetails.Instance.GetItemIdForTag(itemTag);
-            var baseSelect = context.Auctions
-                        .Where(a => a.ItemId == itemId && a.End < DateTime.Now && a.End > minTime)
-                        .OrderByDescending(a => a.End);
-            var preview = await ToPreview(query, itemId, baseSelect);
-            return preview;
+            try
+            {
+                var minTime = DateTime.Now.Subtract(TimeSpan.FromDays(days));
+                var itemId = ItemDetails.Instance.GetItemIdForTag(itemTag);
+                var baseSelect = context.Auctions
+                            .Where(a => a.ItemId == itemId && a.End < DateTime.Now && a.End > minTime)
+                            .OrderByDescending(a => a.End);
+                var preview = await ToPreview(query, itemId, baseSelect);
+                return preview;
+            }
+            catch (Exception e)
+            {
+                if (e.Message.Contains("max_statement_time exceeded"))
+                    throw new CoflnetException("timeout", "The query took to long to execute, please try again with a smaller time frame");
+                throw;
+            }
         }
 
         /// <summary>
