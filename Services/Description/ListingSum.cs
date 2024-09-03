@@ -9,7 +9,13 @@ public class ListingSum
     /// highest bid
     /// </summary>
     public long highest { get; set; }
+    /// <summary>
+    /// The starting bid of the auction
+    /// </summary>
     public long StartingBid { get; set; }
+    /// <summary>
+    /// When the auction will probably expire
+    /// </summary>
     public DateTime end { get; set; }
     /// <summary>
     /// Whereever the mod user requesting the data is the same as the seller
@@ -20,6 +26,12 @@ public class ListingSum
     /// shortened auction uuid (first part of it)
     /// </summary>
     public long AuctionUid { get; set; }
+    /// <summary>
+    /// Start time of the auction
+    /// </summary>
     public DateTime start { get; set; }
+    /// <summary>
+    /// The hypixel item id of the item listed
+    /// </summary>
     public string Tag { get; set; }
 }
