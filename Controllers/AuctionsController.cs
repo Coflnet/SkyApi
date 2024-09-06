@@ -238,7 +238,7 @@ namespace Coflnet.Sky.Api.Controller
         [ResponseCache(Duration = 1800, Location = ResponseCacheLocation.Any, NoStore = false, VaryByQueryKeys = ["page", "tag"])]
         public async Task GetHistory(string page = "last", string tag = "*", string token = "")
         {
-            var pageSize = 50_000;
+            var pageSize = 10_000;
             var baseStart = 400_000_000;
             var itemsRequest = itemsClient.ItemItemTagModifiersAllGetAsync(tag);
             AssertAccessToken(token);
@@ -281,7 +281,7 @@ namespace Coflnet.Sky.Api.Controller
 
             if (itemId != 0)
             {
-                var timeStart = DateTime.Now - TimeSpan.FromDays(500);
+                var timeStart = DateTime.Now.Date - TimeSpan.FromDays(200);
                 baseSelect = context.Auctions.Where(a => a.ItemId == itemId && a.End > timeStart).Skip(pageSize * pageNum).Take(pageSize)
                         .Where(a => a.HighestBidAmount > 0);
             }
