@@ -13,9 +13,11 @@ public class AuctionConverter
     IElectionPeriodsApi mayorService;
     private ILogger<AuctionConverter> logger;
     private readonly Dictionary<int, string> YearToMayorName = new();
-    public static string[] ignoreColumns = new string[] {
-            "builder's_wand_data", "frosty_the_snow_blaster_data", "frosty_the_snow_cannon_data", "greater_backpack_data", "jumbo_backpack_data", "large_backpack_data", "medium_backpack_data", "new_year_cake_bag_data"
-         };
+    public static HashSet<string> ignoreColumns = [
+            "builder's_wand_data", "frosty_the_snow_blaster_data", "frosty_the_snow_cannon_data", 
+            "uniqueId", "uuid", "hideInfo", "hideRightClick", "noMove", "active", "abr", "name",
+            "greater_backpack_data", "jumbo_backpack_data", "large_backpack_data", "medium_backpack_data", "new_year_cake_bag_data"
+         ];
 
     public AuctionConverter(IElectionPeriodsApi mayorService, ILogger<AuctionConverter> logger)
     {
@@ -64,6 +66,8 @@ public class AuctionConverter
         {
             logger.LogError(e, "Failed to load mayors");
         }
+        if (mayors == null)
+            return;
         foreach (var mayor in mayors)
         {
             if (mayor == null || mayor.Winner == null)
@@ -103,13 +107,13 @@ public class AuctionConverter
     /// <returns></returns>
     public IEnumerable<string> ColumnKeys(IEnumerable<string> datakeys)
     {
-        return (new string[] { "uuid", "item_id", "sold_for", "count", "ACTIVE_mayor", "ACTIVE_event" }).Concat(datakeys.Where(k => IncludeColumn(k))).ToList();
+        return (new string[] { "auctionuuid", "item_id", "sold_for", "count", "ACTIVE_mayor", "ACTIVE_event" }).Concat(datakeys.Where(k => IncludeColumn(k))).ToList();
     }
 
     private static bool IncludeColumn(string k)
     {
         // ignore all inalid enchants (with number instead of enum)
-        return !ignoreColumns.Contains(k) && !k.EndsWith(".uuid") && !(k.StartsWith("!ench") && int.TryParse(k.Replace("!ench", ""), out _));
+        return !ignoreColumns.Contains(k) && !k.EndsWith("uid") && !(k.StartsWith("!ench") && int.TryParse(k.Replace("!ench", "").Trim('-'), out _));
     }
 
     /// <summary>
@@ -139,7 +143,7 @@ public class AuctionConverter
                 "reforge" => auction.Reforge.ToString(),
                 "count" => auction.Count.ToString(),
                 "item_id" => auction.Tag,
-                "uuid" => auction.Uuid,
+                "auctionuuid" => auction.Uuid,
                 "sold_for" => auction.HighestBidAmount.ToString(),
                 "ACTIVE_mayor" => GetMayor(auction.End),
                 "ACTIVE_event" => CurrentEvent(auction.End),
@@ -147,7 +151,7 @@ public class AuctionConverter
             };
         });
         var builder = new StringBuilder(1000);
-        builder.AppendJoin(',', values);
+        builder.AppendJoin(';', values);
         builder.AppendLine();
         return builder.ToString();
     }
@@ -157,10 +161,6 @@ public class AuctionConverter
         value = value.Replace("\n", "");
         if (value.Contains('"'))
             value = "\"" + value.Replace("\"", "\"\"") + "\"";
-        if (value.Contains(","))
-        {
-            value = "\"[" + value + "]\"";
-        }
 
         return value;
     }

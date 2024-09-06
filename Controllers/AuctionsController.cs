@@ -235,12 +235,12 @@ namespace Coflnet.Sky.Api.Controller
         /// <returns></returns>
         [Route("auctions/batch")]
         [HttpGet]
-        [ResponseCache(Duration = 1800, Location = ResponseCacheLocation.Any, NoStore = false, VaryByQueryKeys = ["page"])]
-        public async Task GetHistory(string page = "last", string token = "")
+        [ResponseCache(Duration = 1800, Location = ResponseCacheLocation.Any, NoStore = false, VaryByQueryKeys = ["page", "tag"])]
+        public async Task GetHistory(string page = "last", string tag = "*", string token = "")
         {
             var pageSize = 50_000;
             var baseStart = 400_000_000;
-            var itemsRequest = itemsClient.ItemItemTagModifiersAllGetAsync("*");
+            var itemsRequest = itemsClient.ItemItemTagModifiersAllGetAsync(tag);
             AssertAccessToken(token);
             var totalAuctions = await context.Auctions.MaxAsync(a => a.Id);
             if (totalAuctions < 100_000_000)
@@ -249,10 +249,12 @@ namespace Coflnet.Sky.Api.Controller
             Response.Headers["X-Page-Count"] = lastPage.ToString();
             Response.Headers["X-Total-Count"] = totalAuctions.ToString();
             Response.Headers["Content-Type"] = "application/json; charset=utf-8";
+            // set locale to en-US globally 
+            System.Globalization.CultureInfo.DefaultThreadCurrentCulture = new System.Globalization.CultureInfo("en-US");
             await transformer.InitMayors();
             var itemModifiers = await itemsRequest;
             var columns = itemModifiers.Keys;
-            var keys = transformer.ColumnKeys(columns).ToArray();
+            var keys = transformer.ColumnKeys(columns).ToHashSet();
             if (!int.TryParse(page, out int pageNum))
             {
                 //await HttpResponseWritingExtensions.WriteAsync(this.Response, transformer.GetHeader(columns));
@@ -260,21 +262,34 @@ namespace Coflnet.Sky.Api.Controller
                     await ItemDetails.Instance.LoadLookup();
                 var itemids = ItemDetails.Instance.TagLookup.Keys.ToArray();
                 logger.LogInformation("Exporting " + itemids.Length + " items");
-                itemModifiers["item_id"] = itemids.ToList();
-                itemModifiers["headers"] = transformer.ColumnKeys(columns).ToList();
-                foreach (var item in AuctionConverter.ignoreColumns.Concat(itemModifiers.Keys.Where(k => k.EndsWith(".uuid")).ToList()))
+                foreach (var item in itemModifiers.Keys)
                 {
+                    if (keys.Contains(item))
+                        continue;
                     itemModifiers.Remove(item);
                 }
+                if (tag == "*")
+                    itemModifiers["item_id"] = itemids.ToList();
+                itemModifiers["headers"] = keys.ToList();
+
                 await HttpResponseWritingExtensions.WriteAsync(this.Response, JsonConvert.SerializeObject(itemModifiers));
                 return;
             }
-            foreach (var item in context.Auctions
-                        .Where(a => a.Id >= baseStart + pageSize * pageNum && a.Id < baseStart + pageSize * (pageNum + 1) && a.HighestBidAmount > 0)
+            var itemId = ItemDetails.Instance.GetItemIdForTag(tag);
+            var baseSelect = context.Auctions
+                        .Where(a => a.Id >= baseStart + pageSize * pageNum && a.Id < baseStart + pageSize * (pageNum + 1) && a.HighestBidAmount > 0);
+
+            if (itemId != 0)
+            {
+                var timeStart = DateTime.Now - TimeSpan.FromDays(500);
+                baseSelect = context.Auctions.Where(a => a.ItemId == itemId && a.End > timeStart).Skip(pageSize * pageNum).Take(pageSize)
+                        .Where(a => a.HighestBidAmount > 0);
+            }
+            Console.WriteLine("Exporting page " + pageNum + " of " + itemId + " from " + baseStart + " to " + (baseStart + pageSize * pageNum + pageSize));
+            foreach (var item in baseSelect
                         .Include(a => a.Enchantments)
                         .Include(a => a.NbtData))
             {
-
                 await HttpResponseWritingExtensions.WriteAsync(this.Response, transformer.Transform(item, keys));
             }
         }
