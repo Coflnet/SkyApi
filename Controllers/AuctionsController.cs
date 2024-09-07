@@ -288,9 +288,11 @@ namespace Coflnet.Sky.Api.Controller
                         .Where(a => a.HighestBidAmount > 0);
             }
             Console.WriteLine("Query: " + baseSelect.ToQueryString());
-            await foreach (var item in baseSelect
+            var data = await baseSelect
                         .Include(a => a.Enchantments)
-                        .Include(a => a.NbtData).AsAsyncEnumerable())
+                        .Include(a => a.NbtData).ToListAsync();
+            logger.LogInformation($"Exporting {data.Count} auctions");
+            foreach (var item in data)
             {
                 await HttpResponseWritingExtensions.WriteAsync(this.Response, transformer.Transform(item, keys));
             }
