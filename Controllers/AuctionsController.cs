@@ -238,7 +238,7 @@ namespace Coflnet.Sky.Api.Controller
         [ResponseCache(Duration = 1800, Location = ResponseCacheLocation.Any, NoStore = false, VaryByQueryKeys = ["page", "tag"])]
         public async Task GetHistory(string page = "last", string tag = "*", string token = "")
         {
-            var pageSize = 10_000;
+            var pageSize = 5_000;
             var baseStart = 400_000_000;
             var itemsRequest = itemsClient.ItemItemTagModifiersAllGetAsync(tag);
             AssertAccessToken(token);
@@ -275,6 +275,8 @@ namespace Coflnet.Sky.Api.Controller
                 await HttpResponseWritingExtensions.WriteAsync(this.Response, JsonConvert.SerializeObject(itemModifiers));
                 return;
             }
+            // increase query timeout to 2 minutes
+            context.Database.SetCommandTimeout(120);
             var itemId = ItemDetails.Instance.GetItemIdForTag(tag);
             var baseSelect = context.Auctions
                         .Where(a => a.Id >= baseStart + pageSize * pageNum && a.Id < baseStart + pageSize * (pageNum + 1) && a.HighestBidAmount > 0);
@@ -285,7 +287,7 @@ namespace Coflnet.Sky.Api.Controller
                 baseSelect = context.Auctions.Where(a => a.ItemId == itemId && a.End > timeStart).Skip(pageSize * pageNum).Take(pageSize)
                         .Where(a => a.HighestBidAmount > 0);
             }
-            Console.WriteLine("Exporting page " + pageNum + " of " + itemId + " from " + baseStart + " to " + (baseStart + pageSize * pageNum + pageSize));
+            Console.WriteLine("Query: " + baseSelect.ToQueryString());
             foreach (var item in baseSelect
                         .Include(a => a.Enchantments)
                         .Include(a => a.NbtData))
