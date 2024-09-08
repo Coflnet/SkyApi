@@ -144,6 +144,7 @@ public class AuctionConverter
                 "count" => auction.Count.ToString(),
                 "item_id" => auction.Tag,
                 "auctionuuid" => auction.Uuid,
+                "tier" => auction.Tier.ToString(),
                 "sold_for" => auction.HighestBidAmount.ToString(),
                 "ACTIVE_mayor" => GetMayor(auction.End),
                 "ACTIVE_event" => CurrentEvent(auction.End),
