@@ -14,7 +14,7 @@ public class AuctionConverter
     private ILogger<AuctionConverter> logger;
     private readonly Dictionary<int, string> YearToMayorName = new();
     public static HashSet<string> ignoreColumns = [
-            "builder's_wand_data", "frosty_the_snow_blaster_data", "frosty_the_snow_cannon_data", 
+            "builder's_wand_data", "frosty_the_snow_blaster_data", "frosty_the_snow_cannon_data",
             "uniqueId", "uuid", "hideInfo", "hideRightClick", "noMove", "active", "abr", "name",
             "greater_backpack_data", "jumbo_backpack_data", "large_backpack_data", "medium_backpack_data", "new_year_cake_bag_data"
          ];
@@ -147,6 +147,7 @@ public class AuctionConverter
                 "sold_for" => auction.HighestBidAmount.ToString(),
                 "ACTIVE_mayor" => GetMayor(auction.End),
                 "ACTIVE_event" => CurrentEvent(auction.End),
+                "upgrade_level" => auction.FlatenedNBT.GetValueOrDefault("dungeon_item_level"),
                 _ => string.Empty
             };
         });

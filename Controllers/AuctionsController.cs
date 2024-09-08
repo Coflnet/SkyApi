@@ -271,20 +271,30 @@ namespace Coflnet.Sky.Api.Controller
                 if (tag == "*")
                     itemModifiers["item_id"] = itemids.ToList();
                 itemModifiers["headers"] = keys.ToList();
+                itemModifiers.Remove("dungeon_item_level");
+                if (itemModifiers.TryGetValue("unlocked_slots", out var options))
+                {
+                    foreach (var item in options.ToList())
+                    {
+                        if (item.Contains("TAG_String"))
+                            options.Remove(item);
+                    }
+                    itemModifiers["unlocked_slots"] = options;
+                }
 
                 await HttpResponseWritingExtensions.WriteAsync(this.Response, JsonConvert.SerializeObject(itemModifiers));
                 return;
             }
             // increase query timeout to 2 minutes
             context.Database.SetCommandTimeout(120);
-            if(!int.TryParse(tag, out var itemId))
+            if (!int.TryParse(tag, out var itemId))
                 itemId = ItemDetails.Instance.GetItemIdForTag(tag);
             var baseSelect = context.Auctions
                         .Where(a => a.Id >= baseStart + pageSize * pageNum && a.Id < baseStart + pageSize * (pageNum + 1) && a.HighestBidAmount > 0);
 
             if (itemId != 0)
             {
-                if(pageNum >= 20)
+                if (pageNum >= 20)
                     throw new CoflnetException("max_page_exceeded", "Sorry you are only allowed to query 20 pages");
                 var timeStart = DateTime.Now.Date - TimeSpan.FromDays(200 - pageNum * 10);
                 var end = timeStart + TimeSpan.FromDays(10);
