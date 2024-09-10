@@ -225,6 +225,7 @@ public class AuctionConverter
         itemModifiers["ACTIVE_mayor"] = YearToMayorName.Values.ToHashSet().OrderByDescending(v => v).ToList();
         itemModifiers["ACTIVE_event"] = Enum.GetNames<Events>().ToList();
         itemModifiers["sold_for"] = ["1.0"];
+        itemModifiers["count"] = ["1.0"];
         var columns = keys.SelectMany(k =>
         {
             if (!itemModifiers.TryGetValue(k, out var list))
@@ -284,6 +285,8 @@ public class AuctionConverter
         IEnumerable<string> values = GetValues(item, keys);
         var mapped = MapToFloats(values.ToList(), keys, itemModifiers, columns);
         var builder = new StringBuilder(1000);
+        builder.Append(item.Uuid);
+        builder.Append(';');
         builder.AppendJoin(';', mapped);
         builder.AppendLine();
         return builder.ToString();
