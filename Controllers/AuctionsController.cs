@@ -282,7 +282,7 @@ namespace Coflnet.Sky.Api.Controller
                 if (tag == "*")
                     itemModifiers["item_id"] = itemids.ToList();
 
-                itemModifiers["mapping"] = transformer.Createmap(keys.ToList(), itemModifiers); 
+                itemModifiers["mapping"] = transformer.Createmap(keys.ToList(), itemModifiers);
 
                 await HttpResponseWritingExtensions.WriteAsync(this.Response, JsonConvert.SerializeObject(itemModifiers));
                 return;
@@ -309,10 +309,10 @@ namespace Coflnet.Sky.Api.Controller
             Console.WriteLine("Query: " + fullSelect.ToQueryString());
             var data = await fullSelect.ToListAsync();
             logger.LogInformation($"Exporting {data.Count} auctions");
+            var outputColumns = transformer.Createmap(keys.ToList(), itemModifiers);
             foreach (var item in data)
             {
-                await HttpResponseWritingExtensions.WriteAsync(this.Response, transformer.MapAsFrame(item, keys.ToList(), itemModifiers));
-                Console.WriteLine("Exported: " + item.HighestBidAmount);
+                await HttpResponseWritingExtensions.WriteAsync(this.Response, transformer.MapAsFrame(item, keys.ToList(), itemModifiers, outputColumns));
             }
         }
 

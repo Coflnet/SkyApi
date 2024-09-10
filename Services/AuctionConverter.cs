@@ -15,7 +15,7 @@ public class AuctionConverter
     private readonly Dictionary<int, string> YearToMayorName = new();
     public static HashSet<string> ignoreColumns = [
             "builder's_wand_data", "frosty_the_snow_blaster_data", "frosty_the_snow_cannon_data",
-            "uniqueId", "uuid", "hideInfo", "hideRightClick", "noMove", "active", "abr", "name",
+            "uniqueId", "uuid", "hideInfo", "hideRightClick", "noMove", "active", "abr", "name", "quality",
             "greater_backpack_data", "jumbo_backpack_data", "large_backpack_data", "medium_backpack_data", "new_year_cake_bag_data"
          ];
 
@@ -187,9 +187,8 @@ public class AuctionConverter
         return builder.ToString();
     }
 
-    public float[] MapToFloats(List<string> lines, List<string> keys, Dictionary<string, List<string>> itemModifiers)
+    public float[] MapToFloats(List<string> lines, List<string> keys, Dictionary<string, List<string>> itemModifiers, List<string> columns)
     {
-        List<string> columns = Createmap(keys, itemModifiers);
         var lookup = lines.Zip(keys);
         var values = new Dictionary<string, float>();
         foreach (var item in lookup)
@@ -218,7 +217,6 @@ public class AuctionConverter
                 }
             }
         }
-        Console.WriteLine("Columns: " + string.Join(',', columns));
         return columns.Select(c => values.GetValueOrDefault(c, 0)).ToArray();
     }
 
@@ -281,10 +279,10 @@ public class AuctionConverter
         });
     }
 
-    internal string MapAsFrame(SaveAuction item, List<string> keys, Dictionary<string, List<string>> itemModifiers)
+    internal string MapAsFrame(SaveAuction item, List<string> keys, Dictionary<string, List<string>> itemModifiers, List<string> columns)
     {
         IEnumerable<string> values = GetValues(item, keys);
-        var mapped = MapToFloats(values.ToList(), keys, itemModifiers);
+        var mapped = MapToFloats(values.ToList(), keys, itemModifiers, columns);
         var builder = new StringBuilder(1000);
         builder.AppendJoin(';', mapped);
         builder.AppendLine();
