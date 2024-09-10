@@ -255,6 +255,17 @@ namespace Coflnet.Sky.Api.Controller
             var itemModifiers = await itemsRequest;
             var columns = itemModifiers.Keys;
             var keys = transformer.ColumnKeys(columns).ToHashSet();
+            itemModifiers["headers"] = keys.ToList();
+            itemModifiers.Remove("dungeon_item_level");
+            if (itemModifiers.TryGetValue("unlocked_slots", out var options))
+            {
+                foreach (var item in options.ToList())
+                {
+                    if (item.Contains("TAG_String"))
+                        options.Remove(item);
+                }
+                itemModifiers["unlocked_slots"] = options;
+            }
             if (!int.TryParse(page, out int pageNum))
             {
                 //await HttpResponseWritingExtensions.WriteAsync(this.Response, transformer.GetHeader(columns));
@@ -270,17 +281,8 @@ namespace Coflnet.Sky.Api.Controller
                 }
                 if (tag == "*")
                     itemModifiers["item_id"] = itemids.ToList();
-                itemModifiers["headers"] = keys.ToList();
-                itemModifiers.Remove("dungeon_item_level");
-                if (itemModifiers.TryGetValue("unlocked_slots", out var options))
-                {
-                    foreach (var item in options.ToList())
-                    {
-                        if (item.Contains("TAG_String"))
-                            options.Remove(item);
-                    }
-                    itemModifiers["unlocked_slots"] = options;
-                }
+
+                itemModifiers["mapping"] = transformer.Createmap(keys.ToList(), itemModifiers); 
 
                 await HttpResponseWritingExtensions.WriteAsync(this.Response, JsonConvert.SerializeObject(itemModifiers));
                 return;
@@ -309,7 +311,8 @@ namespace Coflnet.Sky.Api.Controller
             logger.LogInformation($"Exporting {data.Count} auctions");
             foreach (var item in data)
             {
-                await HttpResponseWritingExtensions.WriteAsync(this.Response, transformer.Transform(item, keys));
+                await HttpResponseWritingExtensions.WriteAsync(this.Response, transformer.MapAsFrame(item, keys.ToList(), itemModifiers));
+                Console.WriteLine("Exported: " + item.HighestBidAmount);
             }
         }
 

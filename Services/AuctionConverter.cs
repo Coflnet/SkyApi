@@ -124,6 +124,15 @@ public class AuctionConverter
     /// <returns></returns>
     public string Transform(SaveAuction auction, IEnumerable<string> keys)
     {
+        IEnumerable<string> values = GetValues(auction, keys);
+        var builder = new StringBuilder(1000);
+        builder.AppendJoin(';', values);
+        builder.AppendLine();
+        return builder.ToString();
+    }
+
+    private IEnumerable<string> GetValues(SaveAuction auction, IEnumerable<string> keys)
+    {
         var flattened = auction.FlatenedNBT;
         var enchants = auction.Enchantments.ToDictionary(e => e.Type, e => e.Level);
         var values = keys.Select(item =>
@@ -152,10 +161,7 @@ public class AuctionConverter
                 _ => string.Empty
             };
         });
-        var builder = new StringBuilder(1000);
-        builder.AppendJoin(';', values);
-        builder.AppendLine();
-        return builder.ToString();
+        return values;
     }
 
     private static string QuoteJson(string value)
@@ -179,6 +185,68 @@ public class AuctionConverter
         }));
         builder.AppendLine();
         return builder.ToString();
+    }
+
+    public float[] MapToFloats(List<string> lines, List<string> keys, Dictionary<string, List<string>> itemModifiers)
+    {
+        List<string> columns = Createmap(keys, itemModifiers);
+        var lookup = lines.Zip(keys);
+        var values = new Dictionary<string, float>();
+        foreach (var item in lookup)
+        {
+            if (int.TryParse(item.First, out var val) && val <= 20)
+            {
+                values[$"{item.Second}:{val}"] = 1;
+                continue;
+            }
+            if (float.TryParse(item.First, out var f))
+            {
+                var max = itemModifiers.GetValueOrDefault(item.Second, new List<string>()).Max(v => float.TryParse(v, out var val) ? val : 0);
+                values[item.Second] = f / max;
+                continue;
+            }
+            if (itemModifiers.TryGetValue(item.Second, out var list))
+            {
+                var allValues = list.SelectMany(v => v.Split(',', ' ')).Distinct().Where(v => !string.IsNullOrWhiteSpace(v)).ToList();
+                for (int i = 0; i < allValues.Count; i++)
+                {
+                    if (allValues[i] == item.First)
+                    {
+                        values[$"{item.Second}:{allValues[i]}"] = 1;
+                        break;
+                    }
+                }
+            }
+        }
+        Console.WriteLine("Columns: " + string.Join(',', columns));
+        return columns.Select(c => values.GetValueOrDefault(c, 0)).ToArray();
+    }
+
+    public List<string> Createmap(List<string> keys, Dictionary<string, List<string>> itemModifiers)
+    {
+        itemModifiers["ACTIVE_mayor"] = YearToMayorName.Values.ToHashSet().OrderByDescending(v => v).ToList();
+        itemModifiers["ACTIVE_event"] = Enum.GetNames<Events>().ToList();
+        itemModifiers["sold_for"] = ["1.0"];
+        var columns = keys.SelectMany(k =>
+        {
+            if (!itemModifiers.TryGetValue(k, out var list))
+            {
+                logger.LogError("No item modifiers for " + k);
+                return new List<string>();
+            }
+            if (list.All(v => float.TryParse(v, out _)))
+            {
+                if (list.All(v => int.TryParse(v, out var val) && val <= 20))
+                {
+                    return list.Select(v => $"{k}:{v}");
+                }
+                return new List<string>() { k };
+            }
+            Console.WriteLine("Mapping " + k);
+            var allValues = list.SelectMany(v => v.Split(',', ' ')).Distinct().Where(v => !string.IsNullOrWhiteSpace(v)).ToList();
+            return allValues.Select(v => $"{k}:{v}");
+        }).ToList();
+        return columns;
     }
 
     private string GetValue(Dictionary<string, List<string>> values, string k, int i)
@@ -212,6 +280,17 @@ public class AuctionConverter
             return auction;
         });
     }
+
+    internal string MapAsFrame(SaveAuction item, List<string> keys, Dictionary<string, List<string>> itemModifiers)
+    {
+        IEnumerable<string> values = GetValues(item, keys);
+        var mapped = MapToFloats(values.ToList(), keys, itemModifiers);
+        var builder = new StringBuilder(1000);
+        builder.AppendJoin(';', mapped);
+        builder.AppendLine();
+        return builder.ToString();
+    }
+
     public enum Events
     {
         None,
