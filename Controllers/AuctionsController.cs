@@ -296,17 +296,18 @@ namespace Coflnet.Sky.Api.Controller
 
             if (itemId != 0)
             {
-                if (pageNum >= 20)
-                    throw new CoflnetException("max_page_exceeded", "Sorry you are only allowed to query 20 pages");
-                var timeStart = DateTime.Now.Date - TimeSpan.FromDays(200 - pageNum * 10);
-                var end = timeStart + TimeSpan.FromDays(10);
-                baseSelect = context.Auctions.Where(a => a.ItemId == itemId && a.End > timeStart && a.End < end).Take(pageSize)
-                        .Where(a => a.HighestBidAmount > 0).AsSplitQuery();
+                var maxPages = 30;
+                var pageDays = 10;
+                if (pageNum >= maxPages)
+                    throw new CoflnetException("max_page_exceeded", $"Sorry you are only allowed to query {maxPages} pages (from 0)");
+                var timeStart = DateTime.Now.Date - TimeSpan.FromDays(maxPages * pageDays - pageNum * pageDays);
+                var end = timeStart + TimeSpan.FromDays(pageDays);
+                baseSelect = context.Auctions.Where(a => a.ItemId == itemId && a.End > timeStart && a.End < end).Take(pageDays)
+                        .Where(a => a.HighestBidAmount > 0).Take(5000).AsSplitQuery();
             }
             var fullSelect = baseSelect
                         .Include(a => a.Enchantments)
                         .Include(a => a.NbtData);
-            Console.WriteLine("Query: " + fullSelect.ToQueryString());
             var data = await fullSelect.ToListAsync();
             logger.LogInformation($"Exporting {data.Count} auctions");
             var outputColumns = transformer.Createmap(keys.ToList(), itemModifiers);
