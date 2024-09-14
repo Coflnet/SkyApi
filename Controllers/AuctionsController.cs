@@ -567,7 +567,8 @@ namespace Coflnet.Sky.Api.Controller
                             a.Uuid,
                             a.End,
                             Buyer = a.Bids.OrderByDescending(b => b.Amount).Select(b => b.Bidder).FirstOrDefault(),
-                            uid = a.NBTLookup.Where(l => l.KeyId == key).Select(l => l.Value).FirstOrDefault()
+                            uid = a.NBTLookup.Where(l => l.KeyId == key).Select(l => l.Value).FirstOrDefault(),
+                            a.HighestBidAmount
                         })
                         .AsSplitQuery()
                         .ToListAsync();
@@ -577,7 +578,8 @@ namespace Coflnet.Sky.Api.Controller
                 Buyer = i.Buyer,
                 Seller = i.AuctioneerId,
                 Timestamp = i.End,
-                Uuid = i.Uuid
+                Uuid = i.Uuid,
+                HighestBid = i.HighestBidAmount
             }));
             var defaultVal = new ItemSell[0];
             return numericIds.ToDictionary(id => id.Value, id => sells.GetValueOrDefault(id.Value, defaultVal));
