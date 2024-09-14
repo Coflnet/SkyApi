@@ -1154,7 +1154,9 @@ public class ModDescriptionService : IDisposable
     {
         var enchants = auction.Enchantments;
         var lookup = bazaarPrices.ToDictionary(a => a.Key, a => a.Value.BuyPrice);
-        var enchantValues = enchants.Select(e => (e, mapper.EnchantValue(e, auction.FlatenedNBT, lookup)));
+        var relevant = mapper.IrrelevantOn(auction.Tag).ToDictionary(a => a.Item1, a => a.level);
+        var enchantValues = enchants.Where(e => !relevant.TryGetValue(e.Type, out var l) || l < e.Level)
+                    .Select(e => (e, mapper.EnchantValue(e, auction.FlatenedNBT, lookup)));
         return enchantValues;
     }
 
