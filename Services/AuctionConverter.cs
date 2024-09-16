@@ -292,8 +292,14 @@ public class AuctionConverter
         return builder.ToString();
     }
 
+    /// <summary>
+    /// Possible active events
+    /// </summary>
     public enum Events
     {
+        /// <summary>
+        /// No active event
+        /// </summary>
         None,
         TravelingZoo,
         SpookyFestival,
