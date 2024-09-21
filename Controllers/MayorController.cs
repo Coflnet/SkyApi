@@ -56,7 +56,7 @@ public class MayorController : ControllerBase
         var range = new List<ModelElectionPeriod>();
         await Task.WhenAny(
             Task.Run(async () => range.AddRange(await mayorService.ElectionPeriodRangeGetAsync(from.ToUnix() * 1000, to.ToUnix() * 1000))),
-            Task.Delay(5000)
+            Task.Delay(2500)
         );
         return range;
     }
