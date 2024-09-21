@@ -53,7 +53,12 @@ public class MayorController : ControllerBase
     {
         if(default(DateTime) == to)
             to = DateTime.Now;
-        return await mayorService.ElectionPeriodRangeGetAsync(from.ToUnix() * 1000, to.ToUnix() * 1000);
+        var range = new List<ModelElectionPeriod>();
+        await Task.WhenAny(
+            Task.Run(async () => range.AddRange(await mayorService.ElectionPeriodRangeGetAsync(from.ToUnix() * 1000, to.ToUnix() * 1000))),
+            Task.Delay(5000)
+        );
+        return range;
     }
 }
 
