@@ -4,6 +4,8 @@ RUN git clone --depth=1 https://github.com/Coflnet/HypixelSkyblock.git dev \
     && git clone --depth=1 https://github.com/Coflnet/SkyBackendForFrontend.git \
     && git clone --depth=1 https://github.com/Coflnet/SkyFilter.git
 WORKDIR /build/sky
+RUN git clone --depth=1 https://github.com/NotEnoughUpdates/NotEnoughUpdates-REPO.git NEU-REPO \
+    && rm -rf NEU-REPO/.git NEU-REPO/items
 COPY SkyApi.csproj SkyApi.csproj
 RUN dotnet restore
 COPY . .
@@ -14,8 +16,7 @@ FROM mcr.microsoft.com/dotnet/aspnet:8.0
 WORKDIR /app
 
 COPY --from=build /app .
-RUN git clone --depth=1 https://github.com/NotEnoughUpdates/NotEnoughUpdates-REPO.git NEU-REPO \
-    && rm -rf NEU-REPO/.git NEU-REPO/items
+COPY --from=build /build/sky/NEU-REPO NEU-REPO
 
 ENV ASPNETCORE_URLS=http://+:8000
 
