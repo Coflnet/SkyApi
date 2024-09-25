@@ -2,6 +2,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using Coflnet.Sky.Core;
+using Coflnet.Sky.Crafts.Client.Api;
 using Coflnet.Sky.Mayor.Client.Api;
 using Microsoft.Extensions.Logging;
 
@@ -12,14 +13,17 @@ public class AuctionConverter
 
     IElectionPeriodsApi mayorService;
     private ILogger<AuctionConverter> logger;
+    private PropertyMapper propertyMapper = new PropertyMapper();
     private readonly Dictionary<int, string> YearToMayorName = new();
+    private MappingCenter mappingCenter;
+    private ICraftsApi craftsApi;
     public static HashSet<string> ignoreColumns = [
             "builder's_wand_data", "frosty_the_snow_blaster_data", "frosty_the_snow_cannon_data",
             "uniqueId", "uuid", "hideInfo", "hideRightClick", "noMove", "active", "abr", "name", "quality",
             "greater_backpack_data", "jumbo_backpack_data", "large_backpack_data", "medium_backpack_data", "new_year_cake_bag_data"
          ];
 
-    public AuctionConverter(IElectionPeriodsApi mayorService, ILogger<AuctionConverter> logger)
+    public AuctionConverter(IElectionPeriodsApi mayorService, ILogger<AuctionConverter> logger, MappingCenter mappingCenter, ICraftsApi craftsApi)
     {
         this.logger = logger;
         foreach (var item in Enum.GetValues<Enchantment.EnchantmentType>())
@@ -29,6 +33,8 @@ public class AuctionConverter
 
         this.mayorService = mayorService;
         _ = InitMayors();
+        this.mappingCenter = mappingCenter;
+        this.craftsApi = craftsApi;
     }
 
     public string CurrentEvent(DateTime time)
@@ -154,7 +160,7 @@ public class AuctionConverter
                 "item_id" => auction.Tag,
                 "auctionuuid" => auction.Uuid,
                 "tier" => auction.Tier.ToString(),
-                "sold_for" => auction.HighestBidAmount.ToString(),
+                "sold_for" => ((float)auction.HighestBidAmount / 10_000_000_000).ToString(),
                 "ACTIVE_mayor" => GetMayor(auction.End),
                 "ACTIVE_event" => CurrentEvent(auction.End),
                 "upgrade_level" => auction.FlatenedNBT.GetValueOrDefault("dungeon_item_level"),
@@ -187,15 +193,17 @@ public class AuctionConverter
         return builder.ToString();
     }
 
-    public float[] MapToFloats(List<string> lines, List<string> keys, Dictionary<string, List<string>> itemModifiers, List<string> columns)
+    public float[] MapToFloats(List<string> lines, List<string> keys, Dictionary<string, List<string>> itemModifiers, List<string> columns, Task<List<(string, long price)>> propValues)
     {
         var lookup = lines.Zip(keys);
         var values = new Dictionary<string, float>();
+        var priceLookup = propValues.Result.ToDictionary(p => p.Item1, p => (float)p.price / 10_000_000_000);
         foreach (var item in lookup)
         {
             if (int.TryParse(item.First, out var val) && val <= 20)
             {
-                values[$"{item.Second}:{val}"] = 1;
+                var key = $"{item.Second}:{val}";
+                values[key] = priceLookup.GetValueOrDefault(key, 1);
                 continue;
             }
             if (float.TryParse(item.First, out var f))
@@ -211,7 +219,8 @@ public class AuctionConverter
                 {
                     if (allValues[i] == item.First)
                     {
-                        values[$"{item.Second}:{allValues[i]}"] = 1;
+                        var key = $"{item.Second}:{allValues[i]}";
+                        values[key] = priceLookup.GetValueOrDefault(key, 1);
                         break;
                     }
                 }
@@ -282,14 +291,34 @@ public class AuctionConverter
 
     internal string MapAsFrame(SaveAuction item, List<string> keys, Dictionary<string, List<string>> itemModifiers, List<string> columns)
     {
+        var propValues = mappingCenter.GetColumnsForAuction(item, item.End);
         IEnumerable<string> values = GetValues(item, keys);
-        var mapped = MapToFloats(values.ToList(), keys, itemModifiers, columns);
+        var mapped = MapToFloats(values.ToList(), keys, itemModifiers, columns, propValues);
         var builder = new StringBuilder(1000);
         builder.Append(item.Uuid);
         builder.Append(';');
         builder.AppendJoin(';', mapped);
         builder.AppendLine();
         return builder.ToString();
+    }
+
+    internal async Task LoadItems(string tag)
+    {
+        await this.mappingCenter.Load();
+        var crafts = await this.craftsApi.CraftsAllGetAsync();
+        var ingredients = crafts.Where(c => c.ItemId == tag).SelectMany(c => c.Ingredients).ToList();
+        foreach (var item in ingredients.ToList())
+        {
+            if (item.CraftCost < 100_000_000)
+                continue;
+            ingredients.AddRange(crafts.Where(c => c.ItemId == item.ItemId).SelectMany(c => c.Ingredients));
+        }
+        await mappingCenter.SetIngredientsFor(tag, ingredients.Select(i => i.ItemId).ToList());
+    }
+
+    internal IEnumerable<string> GetRelevantIngredients(string tag)
+    {
+        return mappingCenter.GetIngredients(tag);
     }
 
     /// <summary>

@@ -241,6 +241,7 @@ namespace Coflnet.Sky.Api.Controller
             var pageSize = 5_000;
             var baseStart = 400_000_000;
             var itemsRequest = itemsClient.ItemItemTagModifiersAllGetAsync(tag);
+            var loadTask = this.transformer.LoadItems(tag);
             AssertAccessToken(token);
             var totalAuctions = await context.Auctions.MaxAsync(a => a.Id);
             if (totalAuctions < 100_000_000)
@@ -254,6 +255,8 @@ namespace Coflnet.Sky.Api.Controller
             await transformer.InitMayors();
             var itemModifiers = await itemsRequest;
             var columns = itemModifiers.Keys;
+            await loadTask;
+            var craftItems = transformer.GetRelevantIngredients(tag);
             var keys = transformer.ColumnKeys(columns).ToHashSet();
             itemModifiers["headers"] = keys.ToList();
             itemModifiers.Remove("dungeon_item_level");
@@ -282,7 +285,7 @@ namespace Coflnet.Sky.Api.Controller
                 if (tag == "*")
                     itemModifiers["item_id"] = itemids.ToList();
 
-                itemModifiers["mapping"] = transformer.Createmap(keys.ToList(), itemModifiers);
+                itemModifiers["mapping"] = transformer.Createmap(keys.ToList(), itemModifiers).Concat(craftItems).ToList();
 
                 await HttpResponseWritingExtensions.WriteAsync(this.Response, JsonConvert.SerializeObject(itemModifiers));
                 return;
@@ -293,7 +296,6 @@ namespace Coflnet.Sky.Api.Controller
                 itemId = ItemDetails.Instance.GetItemIdForTag(tag);
             var baseSelect = context.Auctions
                         .Where(a => a.Id >= baseStart + pageSize * pageNum && a.Id < baseStart + pageSize * (pageNum + 1) && a.HighestBidAmount > 0);
-
             if (itemId != 0)
             {
                 var maxPages = 30;
@@ -310,7 +312,8 @@ namespace Coflnet.Sky.Api.Controller
                         .Include(a => a.NbtData);
             var data = await fullSelect.ToListAsync();
             logger.LogInformation($"Exporting {data.Count} auctions");
-            var outputColumns = transformer.Createmap(keys.ToList(), itemModifiers);
+            await loadTask;
+            var outputColumns = transformer.Createmap(keys.ToList(), itemModifiers).Concat(craftItems).ToList();
             foreach (var item in data)
             {
                 await HttpResponseWritingExtensions.WriteAsync(this.Response, transformer.MapAsFrame(item, keys.ToList(), itemModifiers, outputColumns));

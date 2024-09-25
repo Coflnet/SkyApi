@@ -24,6 +24,8 @@ using Coflnet.Sky.Api.Services;
 using Coflnet.Sky.Filter;
 using AutoMapper;
 using System.Net.Http;
+using Coflnet.Sky.Bazaar.Client.Api;
+using System.Linq;
 
 namespace Coflnet.Sky.Api
 {
@@ -132,7 +134,29 @@ namespace Coflnet.Sky.Api
             services.AddSingleton<TfmService>();
             services.AddSingleton<ModDescriptionService>();
             services.AddSingleton<AuctionConverter>();
-            services.AddSingleton<Auctions.Client.Api.IExportApi>(p =>new Auctions.Client.Api.ExportApi(Configuration["AUCTIONS_BASE_URL"]));
+            services.AddSingleton<Auctions.Client.Api.IExportApi>(p => new Auctions.Client.Api.ExportApi(Configuration["AUCTIONS_BASE_URL"]));
+            services.AddSingleton<MappingCenter>(di =>
+            {
+
+                return new MappingCenter(di.GetRequiredService<Core.Services.HypixelItemService>(), async (id) =>
+                {
+                    var bazaarItems = di.GetRequiredService<ModDescriptionService>().DeserializedCache.BazaarItems;
+                    if (bazaarItems.ContainsKey(id))
+                    {
+                        var history = await di.GetRequiredService<IBazaarApi>().ApiBazaarItemIdHistoryGetAsync(id); ;
+                        return history.GroupBy(a => a.Timestamp.Date).Select(s => s.First()).ToDictionary(h => h.Timestamp.Date, h => (long)h.Sell);
+                    }
+                    using var dbcontext = new HypixelContext();
+                    var dbId = ItemDetails.Instance.GetItemIdForTag(id, false);
+                    if(dbId == 0)
+                    {
+                        Console.WriteLine("Item not found in db " + id);
+                        return new Dictionary<DateTime, long>();
+                    }
+                    var all = dbcontext.Prices.Where(p => p.ItemId == dbId).ToList();
+                    return all.GroupBy(a => a.Date.Date).Select(s => s.First()).ToDictionary(a => a.Date.Date, a => (long)a.Avg);
+                });
+            });
         }
 
         /// <summary>
