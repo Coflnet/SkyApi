@@ -316,7 +316,15 @@ namespace Coflnet.Sky.Api.Controller
             var outputColumns = transformer.Createmap(keys.ToList(), itemModifiers).Concat(craftItems).ToList();
             foreach (var item in data)
             {
-                await HttpResponseWritingExtensions.WriteAsync(this.Response, transformer.MapAsFrame(item, keys.ToList(), itemModifiers, outputColumns));
+                try
+                {
+                    await HttpResponseWritingExtensions.WriteAsync(this.Response, transformer.MapAsFrame(item, keys.ToList(), itemModifiers, outputColumns));
+                }
+                catch (System.Exception e)
+                {
+                    await HttpResponseWritingExtensions.WriteAsync(this.Response, e.ToString());
+                    throw;
+                }
             }
         }
 
