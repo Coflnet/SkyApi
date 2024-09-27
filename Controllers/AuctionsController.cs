@@ -236,9 +236,9 @@ namespace Coflnet.Sky.Api.Controller
         [Route("auctions/batch")]
         [HttpGet]
         [ResponseCache(Duration = 1800, Location = ResponseCacheLocation.Any, NoStore = false, VaryByQueryKeys = ["page", "tag"])]
-        public async Task GetHistory(string page = "last", string tag = "*", string token = "")
+        public async Task GetHistory(string page = "last", string tag = "*", string token = "", int count = 50)
         {
-            var pageSize = 5_000;
+            var pageSize = count;
             var baseStart = 400_000_000;
             var itemsRequest = itemsClient.ItemItemTagModifiersAllGetAsync(tag);
             var loadTask = this.transformer.LoadItems(tag);
