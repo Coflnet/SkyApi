@@ -304,8 +304,8 @@ namespace Coflnet.Sky.Api.Controller
                     throw new CoflnetException("max_page_exceeded", $"Sorry you are only allowed to query {maxPages} pages (from 0)");
                 var timeStart = DateTime.Now.Date - TimeSpan.FromDays(maxPages * pageDays - pageNum * pageDays);
                 var end = timeStart + TimeSpan.FromDays(pageDays);
-                baseSelect = context.Auctions.Where(a => a.ItemId == itemId && a.End > timeStart && a.End < end).Take(pageDays)
-                        .Where(a => a.HighestBidAmount > 0).Take(5000).AsSplitQuery();
+                baseSelect = context.Auctions.Where(a => a.ItemId == itemId && a.End > timeStart && a.End < end)
+                        .Where(a => a.HighestBidAmount > 0).Take(count).AsSplitQuery();
             }
             var fullSelect = baseSelect
                         .Include(a => a.Enchantments)
