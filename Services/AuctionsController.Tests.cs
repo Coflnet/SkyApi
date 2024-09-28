@@ -23,6 +23,7 @@ public class AuctionsConverterTests
     [Test]
     public async Task MinResultCount()
     {
+        System.Threading.Thread.CurrentThread.CurrentCulture = new System.Globalization.CultureInfo("en-US");
         var mayorApi = new Mock<IElectionPeriodsApi>();
         var craftsApi = new Mock<ICraftsApi>();
         var mappingCenter = new MappingCenter(new Core.Services.HypixelItemService(new System.Net.Http.HttpClient(), NullLogger<HypixelItemService>.Instance), get =>
@@ -63,7 +64,7 @@ public class AuctionsConverterTests
         outputColumns.Should().BeEquivalentTo(new[]{"sold_for", "count", "ACTIVE_event:None", "ACTIVE_event:TravelingZoo", "ACTIVE_event:SpookyFestival", "ACTIVE_event:DarkAuction", "ACTIVE_event:NewYear", "ACTIVE_event:SeasonOfJerry", 
                 "ability_scroll:IMPLOSION_SCROLL", "!enchcritical:6", "NECRON_BLADE", "NECRON_HANDLE", "WITHER_CATALYST"});
         var floats = await converter.MapAsFrame(auction, keys.ToList(), itemModifiers, outputColumns);
-        floats.Should().BeEquivalentTo($"a23;0,01;0;1;0;0;0;0;0;1E-07;1E-07;1E-07;1E-07;1E-07\n");
+        floats.Should().BeEquivalentTo($"a23;0.1;0;1;0;0;0;0;0;1E-07;1E-07;1E-07;1E-07;1E-07\n");
     }
 }
 
