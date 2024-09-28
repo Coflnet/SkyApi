@@ -235,7 +235,7 @@ namespace Coflnet.Sky.Api.Controller
         /// <returns></returns>
         [Route("auctions/batch")]
         [HttpGet]
-        [ResponseCache(Duration = 1800, Location = ResponseCacheLocation.Any, NoStore = false, VaryByQueryKeys = ["page", "tag"])]
+        [ResponseCache(Duration = 1800, Location = ResponseCacheLocation.Any, NoStore = false, VaryByQueryKeys = ["page", "tag", "count"])]
         public async Task GetHistory(string page = "last", string tag = "*", string token = "", int count = 50)
         {
             var pageSize = count;
@@ -318,7 +318,7 @@ namespace Coflnet.Sky.Api.Controller
             {
                 try
                 {
-                    await HttpResponseWritingExtensions.WriteAsync(this.Response, transformer.MapAsFrame(item, keys.ToList(), itemModifiers, outputColumns));
+                    await HttpResponseWritingExtensions.WriteAsync(this.Response, await transformer.MapAsFrame(item, keys.ToList(), itemModifiers, outputColumns));
                 }
                 catch (System.Exception e)
                 {

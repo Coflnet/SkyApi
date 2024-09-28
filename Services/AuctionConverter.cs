@@ -5,6 +5,7 @@ using Coflnet.Sky.Core;
 using Coflnet.Sky.Crafts.Client.Api;
 using Coflnet.Sky.Mayor.Client.Api;
 using Microsoft.Extensions.Logging;
+using Newtonsoft.Json;
 
 namespace Coflnet.Sky.Api.Services;
 public class AuctionConverter
@@ -193,11 +194,11 @@ public class AuctionConverter
         return builder.ToString();
     }
 
-    public float[] MapToFloats(List<string> lines, List<string> keys, Dictionary<string, List<string>> itemModifiers, List<string> columns, Task<List<(string, long price)>> propValues)
+    public float[] MapToFloats(List<string> lines, List<string> keys, Dictionary<string, List<string>> itemModifiers, List<string> columns, List<(string, long price)> propValues)
     {
         var lookup = lines.Zip(keys);
         var values = new Dictionary<string, float>();
-        var priceLookup = propValues.Result.ToDictionary(p => p.Item1, p => (float)p.price / 10_000_000_000);
+        var priceLookup = propValues.ToDictionary(p => p.Item1, p => (float)p.price / 10_000_000_000);
         foreach (var item in lookup)
         {
             if (int.TryParse(item.First, out var val) && val <= 20)
@@ -226,7 +227,7 @@ public class AuctionConverter
                 }
             }
         }
-        return columns.Select(c => values.GetValueOrDefault(c, 0)).ToArray();
+        return columns.Select(c => values.GetValueOrDefault(c, priceLookup.GetValueOrDefault(c, 0))).ToArray();
     }
 
     public List<string> Createmap(List<string> keys, Dictionary<string, List<string>> itemModifiers)
@@ -289,10 +290,11 @@ public class AuctionConverter
         });
     }
 
-    internal string MapAsFrame(SaveAuction item, List<string> keys, Dictionary<string, List<string>> itemModifiers, List<string> columns)
+    internal async Task<string> MapAsFrame(SaveAuction item, List<string> keys, Dictionary<string, List<string>> itemModifiers, List<string> columns)
     {
-        var propValues = mappingCenter.GetColumnsForAuction(item, item.End);
+        var propValues = await mappingCenter.GetColumnsForAuction(item, item.End);
         IEnumerable<string> values = GetValues(item, keys);
+        Console.WriteLine(JsonConvert.SerializeObject(propValues));
         var mapped = MapToFloats(values.ToList(), keys, itemModifiers, columns, propValues);
         var builder = new StringBuilder(1000);
         builder.Append(item.Uuid);
