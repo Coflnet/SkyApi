@@ -314,6 +314,7 @@ namespace Coflnet.Sky.Api.Controller
             logger.LogInformation($"Exporting {data.Count} auctions");
             await loadTask;
             var outputColumns = transformer.Createmap(keys.ToList(), itemModifiers).Concat(craftItems).ToList();
+            await HttpResponseWritingExtensions.WriteAsync(this.Response, string.Join(';', outputColumns) + '\n');
             foreach (var item in data)
             {
                 try
