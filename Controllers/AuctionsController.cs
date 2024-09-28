@@ -25,6 +25,7 @@ using Coflnet.Sky.Items.Client.Api;
 using Microsoft.Extensions.DependencyInjection;
 using Coflnet.Sky.Auctions.Client.Api;
 using AutoMapper;
+using System.Diagnostics;
 
 namespace Coflnet.Sky.Api.Controller
 {
@@ -243,6 +244,8 @@ namespace Coflnet.Sky.Api.Controller
             var itemsRequest = itemsClient.ItemItemTagModifiersAllGetAsync(tag);
             var loadTask = this.transformer.LoadItems(tag);
             AssertAccessToken(token);
+            using var scope = factory.CreateScope();
+            using var activity = scope.ServiceProvider.GetRequiredService<ActivitySource>().StartActivity("auction_export");
             var totalAuctions = await context.Auctions.MaxAsync(a => a.Id);
             if (totalAuctions < 100_000_000)
                 baseStart /= 10;
