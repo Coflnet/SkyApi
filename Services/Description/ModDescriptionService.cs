@@ -1250,17 +1250,27 @@ public class ModDescriptionService : IDisposable
 
     private void AddLbin(SaveAuction auction, Sniper.Client.Model.PriceEstimate price, StringBuilder builder)
     {
-        if (price?.Lbin != null && price.Lbin.Price != 0)
+        if ((price?.Lbin) == null || price.Lbin.Price == 0)
         {
-            if (price.ItemKey == price.LbinKey)
-                builder.Append($"{McColorCodes.GRAY}lbin: {McColorCodes.YELLOW}{FormatNumber(price.Lbin.Price)} ");
-            else
-                builder.Append($"{McColorCodes.GRAY}lbin: ~{FormatNumber(price.Lbin.Price)} {McColorCodes.DARK_GRAY}(estimate, no match found)");
+            return;
+        }
+        var estimate = price.Lbin.Price;
+        if (price.ItemKey == price.LbinKey)
+            builder.Append($"{McColorCodes.GRAY}lbin: {McColorCodes.YELLOW}{FormatNumber(estimate)} ");
+        else
+        {
             if (auction.Count > 1)
             {
-                builder.Append($"({FormatNumber(price.Lbin.Price / auction.Count)} each)");
+                // https://discord.com/channels/267680588666896385/1291015754564505672/1291382816424067094
+                estimate = price.SLbin.Price * auction.Count;
             }
+            builder.Append($"{McColorCodes.GRAY}lbin: ~{FormatNumber(estimate)} {McColorCodes.DARK_GRAY}(estimate, no match found)");
         }
+        if (auction.Count <= 1)
+        {
+            return;
+        }
+        builder.Append($"({FormatNumber(estimate / auction.Count)} each)");
     }
 
     private static string GetBazaarTag(SaveAuction auction)
