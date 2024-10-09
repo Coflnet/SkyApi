@@ -27,6 +27,7 @@ namespace Coflnet.Sky.Api.Controller
         private GoogletokenService tokenService;
         private ITransactionApi transactionApi;
         private ILogger<PremiumController> logger;
+        private ISubscriptionApi subscriptionApi;
 
         /// <summary>
         /// Creates a new intance of <see cref="PremiumController"/>
@@ -37,13 +38,15 @@ namespace Coflnet.Sky.Api.Controller
         /// <param name="premiumService"></param>
         /// <param name="transactionApi"></param>
         /// <param name="logger"></param>
+        /// <param name="subscriptionApi"></param>
         public PremiumController(
             ProductsApi productsService,
             TopUpApi topUpApi,
             UserApi userApi,
             GoogletokenService premiumService,
             ITransactionApi transactionApi,
-            ILogger<PremiumController> logger)
+            ILogger<PremiumController> logger,
+            ISubscriptionApi subscriptionApi)
         {
             this.productsService = productsService;
             this.topUpApi = topUpApi;
@@ -51,6 +54,7 @@ namespace Coflnet.Sky.Api.Controller
             this.tokenService = premiumService;
             this.transactionApi = transactionApi;
             this.logger = logger;
+            this.subscriptionApi = subscriptionApi;
         }
 
         /// <summary>
@@ -344,6 +348,39 @@ namespace Coflnet.Sky.Api.Controller
             {
                 throw new CoflnetException("payment_error", e.Message);
             }
+        }
+
+        [HttpGet]
+        [Route("premium/subscription")]
+        public async Task<ActionResult<PremiumSubscription[]>> GetSubscription()
+        {
+            var user = await GetUserOrDefault();
+            if (user == default)
+                return Unauthorized("no googletoken header");
+
+            var subscriptions = await subscriptionApi.ApiSubscriptionUUserIdGetAsync(user.Id.ToString());
+            var publicSubscriptions = subscriptions.Select(s => new PremiumSubscription
+            {
+                ExternalId = s.ExternalId,
+                EndsAt = s.EndsAt,
+                ProductName = s.Product.Title,
+                PaymentAmount = s.PaymentAmount,
+                RenewsAt = s.RenewsAt,
+                CreatedAt = s.CreatedAt
+            }).ToArray();
+            return Ok(publicSubscriptions);
+        }
+
+        [HttpDelete]
+        [Route("premium/subscription/{externalId}")]
+        public async Task<ActionResult> CancelSubscription(string externalId)
+        {
+            var user = await GetUserOrDefault();
+            if (user == default)
+                return Unauthorized("no googletoken header");
+
+            await subscriptionApi.ApiSubscriptionCancelSubscriptionIdDeleteAsync(externalId, user.Id.ToString());
+            return Ok();
         }
 
         private async Task<GoogleUser?> GetUserOrDefault(bool isPurchase = false)
