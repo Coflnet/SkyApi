@@ -140,6 +140,8 @@ namespace Coflnet.Sky.Api
 
                 return new MappingCenter(di.GetRequiredService<Core.Services.HypixelItemService>(), async (id) =>
                 {
+                    if (id == "SKYBLOCK_COIN")
+                        return new Dictionary<DateTime, long>() { { DateTime.UtcNow.Date.AddDays(-400), 1 } };
                     var bazaarItems = di.GetRequiredService<ModDescriptionService>().DeserializedCache.BazaarItems;
                     if (bazaarItems.ContainsKey(id))
                     {
@@ -148,7 +150,7 @@ namespace Coflnet.Sky.Api
                     }
                     using var dbcontext = new HypixelContext();
                     var dbId = ItemDetails.Instance.GetItemIdForTag(id, false);
-                    if(dbId == 0)
+                    if (dbId == 0)
                     {
                         Console.WriteLine("Item not found in db " + id);
                         return new Dictionary<DateTime, long>();
