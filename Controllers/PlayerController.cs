@@ -135,6 +135,15 @@ namespace Coflnet.Sky.Api.Controller
                 var expression = filterEngine.GetMatchExpression(filters, true);
                 baseSelect = baseSelect.Where(expression);
             }
+            if(page < 5)
+            {
+                var auctions = await baseSelect.OrderByDescending(a => a.Id).Take(50).ToListAsync();
+                return auctions.OrderByDescending(a => a.End)
+                    .Select(a => new AuctionResult(a))
+                    .Skip(offset)
+                    .Take(pageSize)
+                    .ToList();
+            }
             var batch = await baseSelect
                         .OrderByDescending(a => a.Id)
                         .Skip(offset)
