@@ -349,7 +349,28 @@ namespace Coflnet.Sky.Api.Controller
                 throw new CoflnetException("payment_error", e.Message);
             }
         }
-
+        /// <summary>
+        /// Purchase a service 
+        /// </summary>
+        /// <returns></returns>
+        [Route("premium/subscription/{subscriptionSlug}")]
+        [HttpPost]
+        public async Task<IActionResult> PurchaseServiceSubscription(string subscriptionSlug)
+        {
+            var user = await GetUserOrDefault(true);
+            if (user == default)
+                return Unauthorized("no googletoken header");
+            try
+            {
+                TopUpOptions options = GetOptions(new(), user);
+                var link = await topUpApi.TopUpLemonsqueezySubscribePostAsync(user.Id.ToString(), subscriptionSlug, options);
+                return Ok(link);
+            }
+            catch (Exception e)
+            {
+                throw new CoflnetException("payment_error", e.Message);
+            }
+        }
         [HttpGet]
         [Route("premium/subscription")]
         public async Task<ActionResult<PremiumSubscription[]>> GetSubscription()
