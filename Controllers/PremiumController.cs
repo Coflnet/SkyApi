@@ -76,7 +76,7 @@ namespace Coflnet.Sky.Api.Controller
         /// <returns></returns>
         [Route("topup/stripe/{productSlug}")]
         [HttpPost]
-        public async Task<IActionResult> StartTopUp(string productSlug, [FromBody] TopUpArguments args)
+        public async Task<ActionResult<TopUpIdResponse>> StartTopUp(string productSlug, [FromBody] TopUpArguments args)
         {
             foreach (var item in Request.Headers)
             {
@@ -147,7 +147,7 @@ namespace Coflnet.Sky.Api.Controller
         /// <returns></returns>
         [Route("topup/paypal/{productSlug}")]
         [HttpPost]
-        public async Task<IActionResult> StartTopUpPaypal(string productSlug, [FromBody] TopUpArguments args)
+        public async Task<ActionResult<TopUpIdResponse>> StartTopUpPaypal(string productSlug, [FromBody] TopUpArguments args)
         {
             var user = await GetUserOrDefault();
             if (user == default)
@@ -171,7 +171,7 @@ namespace Coflnet.Sky.Api.Controller
         /// <returns></returns>
         [Route("topup/lemonsqueezy/{productSlug}")]
         [HttpPost]
-        public async Task<IActionResult> StartTopUpLemonSqueezy(string productSlug, [FromBody] TopUpArguments args)
+        public async Task<ActionResult<TopUpIdResponse>> StartTopUpLemonSqueezy(string productSlug, [FromBody] TopUpArguments args)
         {
             var user = await GetUserOrDefault();
             if (user == default)
@@ -355,7 +355,7 @@ namespace Coflnet.Sky.Api.Controller
         /// <returns></returns>
         [Route("premium/subscription/{subscriptionSlug}")]
         [HttpPost]
-        public async Task<IActionResult> PurchaseServiceSubscription(string subscriptionSlug)
+        public async Task<ActionResult<TopUpIdResponse>> PurchaseServiceSubscription(string subscriptionSlug)
         {
             var user = await GetUserOrDefault(true);
             if (user == default)
