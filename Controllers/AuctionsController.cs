@@ -723,8 +723,10 @@ namespace Coflnet.Sky.Api.Controller
         */
         private static RestRequest CreateRequestTo(string path)
         {
-            var lbinReq = new RestRequest(path);
-            lbinReq.Timeout = 3000;
+            var lbinReq = new RestRequest(path)
+            {
+                Timeout = TimeSpan.FromSeconds(3)
+            };
             return lbinReq;
         }
     }
