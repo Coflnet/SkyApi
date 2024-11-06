@@ -384,7 +384,7 @@ namespace Coflnet.Sky.Api.Controller
             {
                 ExternalId = s.ExternalId,
                 EndsAt = s.EndsAt,
-                ProductName = s.Product.Title,
+                ProductName = s.Product?.Title,
                 PaymentAmount = s.PaymentAmount,
                 RenewsAt = s.RenewsAt,
                 CreatedAt = s.CreatedAt
