@@ -84,6 +84,7 @@ namespace Coflnet.Sky.Api
             services.AddTransient<KatService>();
             services.AddSingleton<PremiumTierService>();
             services.AddSingleton<Core.Services.HypixelItemService>();
+            services.AddSingleton<Core.Services.IHypixelItemStore>(di => di.GetRequiredService<Core.Services.HypixelItemService>());
             services.AddSingleton<Core.Services.ExoticColorService>();
             services.AddSingleton<HttpClient>();
             services.AddSingleton<NetworthService>();
