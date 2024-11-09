@@ -22,6 +22,7 @@ using FluentAssertions;
 using System.Threading;
 
 namespace SkyApi.Services.Description;
+#pragma warning disable CS1591 // Missing XML comment for publicly visible type or member
 public class ModDescriptionServiceTests
 {
 
@@ -79,7 +80,7 @@ public class ModDescriptionServiceTests
     }
 
     [Test]
-    public async Task GetsReforgeCost()
+    public void GetsReforgeCost()
     {
         var breakdown = service.GetModifiersOnItem(new SaveAuction() { Tag = "test", Reforge = ItemReferences.Reforge.mossy }, new()
         {
@@ -90,7 +91,7 @@ public class ModDescriptionServiceTests
     }
 
     [Test]
-    public async Task GetPetCraftCost()
+    public void GetPetCraftCost()
     {
         var targetPrice = Random.Shared.Next(10_000, 20_000);
         var cost = service.FullCraftCost(new SaveAuction() { Tag = "PET_MONKEY", ItemName = "§7[Lvl 1] §6Monkey", Tier = Tier.COMMON }, new()
@@ -103,7 +104,7 @@ public class ModDescriptionServiceTests
 
     [TestCase("DRILL", 5_000_000)]
     [TestCase("PROMISING_PICKAXE", 0)]
-    public async Task IgnoresEnchantOnPromising(string tag, int price)
+    public void IgnoresEnchantOnPromising(string tag, int price)
     {
         var enchantVal = service.GetEnchantBreakdown(new SaveAuction() { Tag = tag, Enchantments = [new Enchantment(Enchantment.EnchantmentType.efficiency, 6)] }, new()
         {
@@ -113,6 +114,7 @@ public class ModDescriptionServiceTests
         });
         enchantVal.Sum(e => e.Item2).Should().Be(price);
     }
+#pragma warning restore CS1591 // Missing XML comment for publicly visible type or member
 
     /* [Test]
      public async Task GetsAbilityScrolls()
