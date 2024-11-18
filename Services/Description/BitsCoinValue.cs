@@ -1,11 +1,14 @@
-﻿namespace SkyApi.Services.Description
+﻿namespace SkyApi.Services.Description;
+/// <summary>
+/// Wrapper for BitsCoinValue display
+/// </summary>
+public class BitsCoinValue : CurrencyValueDisplay
 {
-
-    public class BitsCoinValue : CurrencyValueDisplay
-    {
-
-        protected override string ValueSuffix => "Bits";
-
-        protected override string currencyName => "bit";
-    }
+    /// <summary>
+    /// Display suffix to search for to parse
+    protected override string ValueSuffix => "Bits";
+    /// <summary>
+    /// Per unit name
+    /// </summary>
+    protected override string currencyName => "bit";
 }
