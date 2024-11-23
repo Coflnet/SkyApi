@@ -785,6 +785,8 @@ public class ModDescriptionService : IDisposable
 
     private void AddTimeToSell(SaveAuction auction, Sniper.Client.Model.PriceEstimate price, StringBuilder builder)
     {
+        if (price.Median <= 0)
+            return; // probably not auctionable
         string fieldName = "Avg. SellTime";
         if (price.Volume == 0)
         {
@@ -802,6 +804,8 @@ public class ModDescriptionService : IDisposable
 
     private void AddVolatility(SaveAuction auction, Sniper.Client.Model.PriceEstimate data, StringBuilder builder)
     {
+        if (data.Median <= 0)
+            return; // probably not auctionable
         var warning = data.Volatility switch
         {
             >= 30 => (McColorCodes.DARK_RED, "very high"),
@@ -815,6 +819,8 @@ public class ModDescriptionService : IDisposable
 
     private void AddLastSoldFor(SaveAuction auction, Sniper.Client.Model.PriceEstimate data, StringBuilder builder)
     {
+        if (data.Median <= 0)
+            return; // probably not sellable
         if (data.LastSale.Price == 0)
         {
             builder.Append($"{McColorCodes.GRAY}Last Sold For: {McColorCodes.YELLOW}Unknown ");
@@ -857,9 +863,12 @@ public class ModDescriptionService : IDisposable
             builder.Append($"{McColorCodes.GRAY}Craft ingredients unavailable");
             return;
         }
-        builder.Append($"{McColorCodes.GRAY}Full Craft Cost: {McColorCodes.YELLOW}{FormatPriceShort(summary)}");
         if (craft == null)
-            builder.Append($"{McColorCodes.GRAY}(not craftable)");
+        {
+            builder.Append($"{McColorCodes.GRAY}Obtain cost: {McColorCodes.WHITE}{FormatPriceShort(summary)}{McColorCodes.GRAY}(not craftable)");
+            return;
+        }
+        builder.Append($"{McColorCodes.GRAY}Full Craft Cost: {McColorCodes.YELLOW}{FormatPriceShort(summary)}");
     }
 
     /// <summary>
@@ -1070,6 +1079,8 @@ public class ModDescriptionService : IDisposable
 
     private void AddInstasellEstimate(Sniper.Client.Model.PriceEstimate est, StringBuilder builder, DataContainer data)
     {
+        if (est.Median <= 0)
+            return; // probably not auctionable
         builder.Append(ListPriceRecommend.GetRecommendText(est, this));
     }
 
