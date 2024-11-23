@@ -916,6 +916,11 @@ public class ModDescriptionService : IDisposable
 
     private void AddModifierCostList(SaveAuction auction, StringBuilder builder, DataContainer data)
     {
+        if(data.inventory.ChestName?.StartsWith("Wardrobe") ?? false)
+        {
+            builder.Append($"{McColorCodes.GRAY}No modifier cost in wardrobe, breaks SkyHani");
+            return;
+        }
         IEnumerable<List<(string id, int amount, double coins)>> cost = GetModifiersOnItem(auction, data);
         var all = cost.Zip(auction.FlatenedNBT);
         foreach (var item in all.Where(i => i.First.Count > 0))
