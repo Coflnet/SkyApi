@@ -12,6 +12,7 @@ using Coflnet.Sky.Core;
 using Coflnet.Sky.Api.Services;
 using Prometheus;
 using Coflnet.Sky.Commands;
+using Microsoft.Extensions.Logging;
 
 namespace Coflnet.Sky.Api.Controller;
 /// <summary>
@@ -27,6 +28,7 @@ public class DataController : ControllerBase
     RestClient proxyClient;
     PlayerNameService playerNameService;
     FlipTrackingService ft;
+    ILogger<DataController> logger;
     ModDescriptionService modDescriptionService;
     static Counter profitFound = Metrics.CreateCounter("sky_api_pf_profit_found", "How much coins of profit were found");
     static Counter flipsFound = Metrics.CreateCounter("sky_api_pf_flips_found", "How many flips were found");
@@ -37,7 +39,7 @@ public class DataController : ControllerBase
     /// <summary>
     /// Creates a new instance of <see cref="DataController"/>
     /// </summary>
-    public DataController(IConfiguration config, ISniperApi sniperApi, PlayerNameService playerNameService, ModDescriptionService modDescriptionService, FlipTrackingService ft)
+    public DataController(IConfiguration config, ISniperApi sniperApi, PlayerNameService playerNameService, ModDescriptionService modDescriptionService, FlipTrackingService ft, ILogger<DataController> logger)
     {
         this.config = config;
         this.sniperApi = sniperApi;
@@ -45,6 +47,7 @@ public class DataController : ControllerBase
         this.playerNameService = playerNameService;
         this.modDescriptionService = modDescriptionService;
         this.ft = ft;
+        this.logger = logger;
     }
 
     /// <summary>
@@ -56,6 +59,9 @@ public class DataController : ControllerBase
     public string UploadProxied()
     {
         Request.Headers.TryGetValue("X-Request-Id", out var id);
+        // get body as string
+        var body = new System.IO.StreamReader(Request.Body).ReadToEnd();
+        logger.LogInformation($"Received proxy data {id} {body.Truncate(100)}");
         return "received " + id;
     }
     /// <summary>
