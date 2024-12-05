@@ -56,11 +56,11 @@ public class DataController : ControllerBase
     /// <returns></returns>
     [Route("proxy")]
     [HttpPost]
-    public string UploadProxied()
+    public async Task<string> UploadProxied()
     {
         Request.Headers.TryGetValue("X-Request-Id", out var id);
         // get body as string
-        var body = new System.IO.StreamReader(Request.Body).ReadToEnd();
+        var body = await new System.IO.StreamReader(Request.Body).ReadToEndAsync();
         logger.LogInformation($"Received proxy data {id} {body.Truncate(100)}");
         return "received " + id;
     }
