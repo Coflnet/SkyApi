@@ -141,6 +141,7 @@ public class ModDescriptionService : IDisposable
         customModifiers.Add("s Auctions$", new PlayerPageFlipHighlight());
         customModifiers.Add("^(Auctions Browser|Auctions:|You  )", new MatchWhiteBlacklist());
         customModifiers.Add("Pet - Round \\d$", new DarkAuctionPetAdjust());
+        customModifiers.Add("Bazaar Orders$", new BazaarOrderAdjust(bazaarApi));
     }
 
     private readonly ConcurrentDictionary<string, (SelfUpdatingValue<DescriptionSetting>, SelfUpdatingValue<AccountInfo>)> settings = new();
@@ -292,6 +293,7 @@ public class ModDescriptionService : IDisposable
         public List<(SaveAuction auction, string[] desc)> auctionRepresent;
         public List<List<DescModification>> result;
         public InventoryDataWithSettings inventory;
+        public Dictionary<string, Task<string>> ToLoad = new();
     }
 
     private async Task ComputeDescriptions(InventoryDataWithSettings inventory, string mcName, string sessionId, List<(SaveAuction auction, string[] desc)> auctionRepresent, List<List<DescModification>> result)
@@ -378,7 +380,8 @@ public class ModDescriptionService : IDisposable
             Items = items,
             allCrafts = allCrafts,
             accountInfo = userInfo,
-            flips = flips?.ToLookup(f => f.AuctionId)
+            flips = flips?.ToLookup(f => f.AuctionId),
+            Loaded = preRequest.ToLoad
         };
 
         for (int i = 0; i < auctionRepresent.Count; i++)
@@ -414,6 +417,10 @@ public class ModDescriptionService : IDisposable
             if (desc != null && span != null)
                 span.Log(string.Join('\n', mods.Select(m => $"{m.Line} {m.Value}")) + JsonConvert.SerializeObject(auction, Formatting.Indented) + JsonConvert.SerializeObject(price, Formatting.Indented));
             result.Add(mods);
+        }
+        foreach (var task in preRequest.ToLoad.Values)
+        {
+            await task;
         }
         foreach (var item in matchingModifiers)
         {
@@ -916,7 +923,7 @@ public class ModDescriptionService : IDisposable
 
     private void AddModifierCostList(SaveAuction auction, StringBuilder builder, DataContainer data)
     {
-        if(data.inventory.ChestName?.StartsWith("Wardrobe") ?? false)
+        if (data.inventory.ChestName?.StartsWith("Wardrobe") ?? false)
         {
             builder.Append($"{McColorCodes.GRAY}No modifier cost in wardrobe, breaks SkyHani");
             return;
@@ -1011,7 +1018,7 @@ public class ModDescriptionService : IDisposable
                 return new() { (mapper.GetItemKeyForGem(mod, auction.FlatenedNBT), 1, 0) };
 
             var itemIds = new List<(string id, int amount, double coins)>();
-            if (mapper.TryGetIngredients(mod.Key, mod.Value, null, out var items))
+            if (mapper.TryGetIngredients(auction.Tag,mod.Key, mod.Value, null, out var items))
                 foreach (var item in items)
                 {
                     itemIds.Add((item, 1, 0));

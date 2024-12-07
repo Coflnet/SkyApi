@@ -1,4 +1,5 @@
 using System.Linq;
+using System.Threading.Tasks;
 using Coflnet.Sky.Api.Models.Mod;
 using Coflnet.Sky.Bazaar.Client.Model;
 using Coflnet.Sky.Commands.Shared;
@@ -25,6 +26,7 @@ public class DataContainer
     internal ILookup<long, Flip> flips;
 
     public List<Item> Items { get; internal set; }
+    public Dictionary<string, Task<string>> Loaded { get; set; }
 
     public long GetItemprice(string itemKey)
     {
