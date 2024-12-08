@@ -20,7 +20,7 @@ public class BazaarOrderAdjust : CustomModifier
     {
         var loaded = data.Loaded[nameof(BazaarOrderAdjust)].Result;
         var result = JsonConvert.DeserializeObject<StorageQuickStatus[]>(loaded).ToDictionary(x => x.ProductId);
-        var offerLookup = data.auctionRepresent.Take(36).Where(x => x.auction != null).ToLookup(x => x.auction.Tag);
+        var offerLookup = data.auctionRepresent.Take(36).Where(x => x.auction != null).ToLookup(x => (x.auction.ItemName.Contains("BUY"),x.auction.Tag));
         for (int i = 0; i < 36; i++)
         {
             var auction = data.auctionRepresent[i].auction;
@@ -30,17 +30,17 @@ public class BazaarOrderAdjust : CustomModifier
             var bazaar = result.GetValueOrDefault(auction.Tag);
             if (bazaar != null && bazaar.SellPrice != 0)
             {
-                var allPrices = offerLookup[auction.Tag].Select(x => x.desc).Where(x => x != null)
+                var isBuy = auction.ItemName.Contains("BUY");
+                var allPrices = offerLookup[(isBuy,auction.Tag)].Select(x => x.desc).Where(x => x != null)
                     .Select(x => x.Where(p => p.StartsWith("§7Price per unit: §6")).First().Split("§7Price per unit: §6").Last().Split(" coins").First())
                     .Select(v => double.Parse(v, System.Globalization.CultureInfo.InvariantCulture)).ToArray();
 
-                var isBuy = auction.ItemName.Contains("BUY");
                 var price = isBuy ? allPrices.Max() : allPrices.Min();
                 var isTop = isBuy ? bazaar.SellPrice <= price : bazaar.BuyPrice >= price;
-                var isOnlyOne = offerLookup[auction.Tag].Count() == 1;
+                var isOnlyOne = offerLookup[(isBuy,auction.Tag)].Count() == 1;
                 if (isTop)
                 {
-                    var color = isOnlyOne ? "00ff00" : "50af50";
+                    var color = isOnlyOne ? "50af50" : "508f50";
                     data.mods[i].Add(new(Models.Mod.DescModification.ModType.HIGHLIGHT, 0, color));
                     data.mods[i].Add(new(Models.Mod.DescModification.ModType.INSERT, 2, $"{McColorCodes.DARK_GREEN}You have best offer ({ModDescriptionService.FormatPriceShort(price)})"));
                 }
@@ -52,6 +52,10 @@ public class BazaarOrderAdjust : CustomModifier
                         bazaar.BuyOrders.Select(s => (s.Amount, s.PricePerUnit)).TakeWhile(s => s.PricePerUnit < price);
                     var ahead = list.Sum(o => o.Amount);
                     data.mods[i].Add(new(Models.Mod.DescModification.ModType.INSERT, 2, $"{McColorCodes.RED}{ModDescriptionService.FormatPriceShort(ahead)}{McColorCodes.GRAY} available for better price "));
+                }
+                if(description.Any(l=>l.EndsWith("100%!")))
+                {
+                    data.mods[i].Where(x => x.Type == Models.Mod.DescModification.ModType.HIGHLIGHT).First().Value = "00ff00";
                 }
                 if (!isOnlyOne)
                 {
