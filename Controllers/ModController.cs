@@ -8,7 +8,6 @@ using Coflnet.Sky.Commands.Shared;
 using Coflnet.Sky.Api.Models;
 using Coflnet.Sky.Api.Services;
 using Coflnet.Sky.Api.Models.Mod;
-using static Coflnet.Sky.Core.ItemReferences;
 using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
 using Coflnet.Sky.Items.Client.Api;
@@ -24,14 +23,14 @@ namespace Coflnet.Sky.Api.Controller
     [ResponseCache(Duration = 1800, Location = ResponseCacheLocation.Any, NoStore = false)]
     public class ModController : ControllerBase
     {
-        private HypixelContext db;
-        private PricesService priceService;
-        private IPlayerNameApi playerNamService;
-        private ModDescriptionService descriptionService;
-        private FlipperService flipperService;
-        private SettingsService settingsService;
-        private GoogletokenService tokenService;
-        private AuctionConverter auctionConverter;
+        private readonly HypixelContext db;
+        private readonly PricesService priceService;
+        private readonly IPlayerNameApi playerNamService;
+        private readonly ModDescriptionService descriptionService;
+        private readonly FlipperService flipperService;
+        private readonly SettingsService settingsService;
+        private readonly GoogletokenService tokenService;
+        private readonly AuctionConverter auctionConverter;
         private readonly ILogger<ModController> logger;
 
         /// <summary>
@@ -57,8 +56,8 @@ namespace Coflnet.Sky.Api.Controller
         {
             this.db = db;
             priceService = pricesService;
-            this.playerNamService = playerName;
-            this.descriptionService = sniperApi;
+            playerNamService = playerName;
+            descriptionService = sniperApi;
             this.flipperService = flipperService;
             this.settingsService = settingsService;
             this.tokenService = tokenService;
@@ -119,19 +118,19 @@ namespace Coflnet.Sky.Api.Controller
         [HttpGet]
         public IEnumerable<CommandListEntry> GetSumary()
         {
-            return new List<CommandListEntry>()
-            {
-                new CommandListEntry("report {message}","Creates an error report with an optional message"),
-                new CommandListEntry("online", "Tells you how many connections there are to the server"),
-                new CommandListEntry("reset", "Resets the mod (deletes everything)"),
-                new CommandListEntry("profit 7","Shows your profit from flips in the last week"),
-                new CommandListEntry("logout","Logs out all connected mods"),
-                new CommandListEntry("set","Sets some setting"),
-                new CommandListEntry("chat {message}","Sends message in chat"),
-                new CommandListEntry("backup","Allows you to create and restore settings backups"),
-                new CommandListEntry("blacklist","Allows you to blacklist auctions"),
-                new CommandListEntry("whitelist","Same as blacklist but will always show")
-            };
+            return
+            [
+                new("report {message}","Creates an error report with an optional message"),
+                new("online", "Tells you how many connections there are to the server"),
+                new("reset", "Resets the mod (deletes everything)"),
+                new("profit 7","Shows your profit from flips in the last week"),
+                new("logout","Logs out all connected mods"),
+                new("set","Sets some setting"),
+                new("chat {message}","Sends message in chat"),
+                new("backup","Allows you to create and restore settings backups"),
+                new("blacklist","Allows you to blacklist auctions"),
+                new("whitelist","Same as blacklist but will always show")
+            ];
         }
 
         [Route("open/{search}")]
@@ -230,9 +229,9 @@ namespace Coflnet.Sky.Api.Controller
 
             try
             {
-                return auctions.Select(a => new PricingBreakdwon() { craftPrice = this.descriptionService.GetItemValueBreakdown(a) });
+                return auctions.Select(a => new PricingBreakdwon() { craftPrice = descriptionService.GetItemValueBreakdown(a) });
             }
-            catch (System.Exception e)
+            catch (Exception e)
             {
                 logger?.LogError(e, "Failed to get pricing breakdown for {0}", JsonConvert.SerializeObject(auctions));
                 throw;
