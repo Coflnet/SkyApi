@@ -7,6 +7,8 @@ using Coflnet.Sky.Crafts.Models;
 using Newtonsoft.Json;
 using Coflnet.Sky.Api.Models;
 using Coflnet.Sky.Commands.Shared;
+using Coflnet.Sky.Sniper.Client.Api;
+using Coflnet.Sky.Core;
 
 namespace Coflnet.Sky.Api.Controller
 {
@@ -19,21 +21,25 @@ namespace Coflnet.Sky.Api.Controller
     public class CraftingController : ControllerBase
     {
         private static RestClient client = null;
-        private Coflnet.Sky.Commands.Shared.IProfileClient profileClient;
+        private IProfileClient profileClient;
         private string apiUrl;
         PricesService pricesService;
+        private IAuctionApi auctionApi;
         /// <summary>
         /// Creates a new instance of <see cref="CraftingController"/>
         /// </summary>
         /// <param name="config"></param>
         /// <param name="pricesService"></param>
-        public CraftingController(IConfiguration config, PricesService pricesService, IProfileClient profileClient)
+        /// <param name="profileClient"></param>
+        /// <param name="auctionApi"></param>
+        public CraftingController(IConfiguration config, PricesService pricesService, IProfileClient profileClient, IAuctionApi auctionApi)
         {
             if (client == null)
                 client = new RestClient(config["CRAFTS_BASE_URL"] ?? "http://" + config["CRAFTS_HOST"]);
             apiUrl = config["API_BASE_URL"];
             this.pricesService = pricesService;
             this.profileClient = profileClient;
+            this.auctionApi = auctionApi;
         }
 
         /// <summary>
@@ -74,6 +80,33 @@ namespace Coflnet.Sky.Api.Controller
         {
             var response = await client.ExecuteAsync(new RestRequest($"Crafts/recipe/{itemTag}"));
             return JsonConvert.DeserializeObject<Dictionary<string, string>>(response.Content);
+        }
+
+        /// <summary>
+        /// Returns craft instructions and if lbin
+        /// </summary>
+        /// <param name="itemTag"></param>
+        /// <returns></returns>
+        [Route("{itemTag}/instructions")]
+        [HttpGet]
+        [ResponseCache(Duration = 3600 * 12, Location = ResponseCacheLocation.Any, NoStore = false)]
+        public async Task<CraftInstruction> GetInstructions(string itemTag)
+        {
+            var response = await client.ExecuteAsync(new RestRequest($"Crafts/recipe/{itemTag}"));
+            var recipe = JsonConvert.DeserializeObject<Dictionary<string, string>>(response.Content ?? "{}");
+            var ids = recipe.Select(x => x.Value.Split(':').First()).Distinct().ToList();
+            var itemsOnBazaar = await pricesService.GetBazaarItems();
+            var lbins = await auctionApi.ApiAuctionLbinsGetAsync();
+            var elements = await Task.WhenAll(ids.Select(async x =>
+            {
+                if (itemsOnBazaar.Contains(x))
+                    return (x, $"/item/{x}", $"/bz {x}");
+                var auction = await AuctionService.Instance.GetAuctionAsync(AuctionService.Instance.GetUuid(lbins.GetValueOrDefault(x).AuctionId));
+                return (x, $"/auction/{auction.Uuid}", $"/viewauction {auction.Uuid}");
+            }));
+            var commands = elements.ToDictionary(x => x.Item1, x => x.Item3);
+            var path = elements.ToDictionary(x => x.Item1, x => x.Item2);
+            return new CraftInstruction(itemTag, recipe, commands, path);
         }
     }
 }
