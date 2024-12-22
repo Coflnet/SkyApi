@@ -103,7 +103,7 @@ namespace Coflnet.Sky.Api.Controller
                     return (x, $"/item/{x}", $"/bz {x}");
                 var lbin = lbins.GetValueOrDefault(x);
                 if (lbin == null)
-                    return (x, $"/item/{x}", $"/auction {x}");
+                    return (x, $"/item/{x}?range=active", $"/ah");
                 var auction = await AuctionService.Instance.GetAuctionAsync(AuctionService.Instance.GetUuid(lbin.AuctionId));
                 return (x, $"/auction/{auction.Uuid}", $"/viewauction {auction.Uuid}");
             }));
