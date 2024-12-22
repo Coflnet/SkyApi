@@ -101,7 +101,10 @@ namespace Coflnet.Sky.Api.Controller
             {
                 if (itemsOnBazaar.Contains(x))
                     return (x, $"/item/{x}", $"/bz {x}");
-                var auction = await AuctionService.Instance.GetAuctionAsync(AuctionService.Instance.GetUuid(lbins.GetValueOrDefault(x).AuctionId));
+                var lbin = lbins.GetValueOrDefault(x);
+                if(lbin == null)
+                    return (x, $"/item/{x}", $"/auction {x}");
+                var auction = await AuctionService.Instance.GetAuctionAsync(AuctionService.Instance.GetUuid(lbin.AuctionId));
                 return (x, $"/auction/{auction.Uuid}", $"/viewauction {auction.Uuid}");
             }));
             var commands = elements.ToDictionary(x => x.Item1, x => x.Item3);
