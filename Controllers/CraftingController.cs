@@ -94,7 +94,7 @@ namespace Coflnet.Sky.Api.Controller
         {
             var response = await client.ExecuteAsync(new RestRequest($"Crafts/recipe/{itemTag}"));
             var recipe = JsonConvert.DeserializeObject<Dictionary<string, string>>(response.Content ?? "{}");
-            var ids = recipe.Select(x => x.Value.Split(':').First()).Distinct().ToList();
+            var ids = recipe.Select(x => x.Value.Split(':').First()).Where(x => x.Length >= 3).Distinct().ToList();
             var itemsOnBazaar = await pricesService.GetBazaarItems();
             var lbins = await auctionApi.ApiAuctionLbinsGetAsync();
             var elements = await Task.WhenAll(ids.Select(async x =>
@@ -102,7 +102,7 @@ namespace Coflnet.Sky.Api.Controller
                 if (itemsOnBazaar.Contains(x))
                     return (x, $"/item/{x}", $"/bz {x}");
                 var lbin = lbins.GetValueOrDefault(x);
-                if(lbin == null)
+                if (lbin == null)
                     return (x, $"/item/{x}", $"/auction {x}");
                 var auction = await AuctionService.Instance.GetAuctionAsync(AuctionService.Instance.GetUuid(lbin.AuctionId));
                 return (x, $"/auction/{auction.Uuid}", $"/viewauction {auction.Uuid}");
