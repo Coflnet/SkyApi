@@ -26,6 +26,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Coflnet.Sky.Auctions.Client.Api;
 using AutoMapper;
 using System.Diagnostics;
+using static Coflnet.Sky.Filter.Controllers.FilterController;
 
 namespace Coflnet.Sky.Api.Controller
 {
@@ -124,7 +125,7 @@ namespace Coflnet.Sky.Api.Controller
                 var archived = await auctionApi.ApiAuctionUuidGetWithHttpInfoAsync(auctionUuid);
                 if (archived.StatusCode == System.Net.HttpStatusCode.OK)
                 {
-                    result = JsonConvert.DeserializeObject<SaveAuction>(archived.RawContent);
+                    result = JsonConvert.DeserializeObject<ApiSaveAuction>(archived.RawContent);
                     logger.LogInformation($"Got auction {auctionUuid} from archive");
                 }
             }
