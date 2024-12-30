@@ -285,6 +285,13 @@ public class ModDescriptionService : IDisposable
         {
             logger.LogError(e, "failed to compute descriptions");
         }
+        if(inventory.Settings.DisableHighlighting)
+        {
+            foreach (var item in result)
+            {
+                item.RemoveAll(m => m.Type == DescModification.ModType.HIGHLIGHT);
+            }
+        }
         return result;
     }
 
