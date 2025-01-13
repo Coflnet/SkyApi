@@ -285,7 +285,7 @@ public class ModDescriptionService : IDisposable
         {
             logger.LogError(e, "failed to compute descriptions");
         }
-        if(inventory.Settings.DisableHighlighting)
+        if (inventory.Settings.DisableHighlighting)
         {
             foreach (var item in result)
             {
@@ -1011,8 +1011,20 @@ public class ModDescriptionService : IDisposable
         }
     }
 
+    private static readonly DateTime UnlockIntroduction = new DateTime(2021, 9, 4);
     public IEnumerable<List<(string id, int amount, double coins)>> GetModifiersOnItem(SaveAuction auction, DataContainer data)
     {
+        if (auction.ItemCreatedAt < UnlockIntroduction && !auction.FlatenedNBT.ContainsKey("unlocked_slots"))
+        { // simulate gemstones for old items
+            var allUnlockable = itemService?.GetUnlockableSlots(auction.Tag).ToList();
+            if (auction.FlatenedNBT.TryGetValue("gemstone_slots", out var countString) && int.TryParse(countString, out var count))
+            {
+                allUnlockable = allUnlockable.Take(count).ToList();
+                auction.FlatenedNBT.Remove("gemstone_slots");
+            }
+            if (allUnlockable?.Count > 0)
+                auction.FlatenedNBT.Add("unlocked_slots", string.Join(",", allUnlockable.OrderBy(s => s)));
+        }
         var cost = auction.FlatenedNBT.Select(mod =>
         {
             if (data.GetItemprice(mod.Value.ToUpper()) > 0) // items in slot, to upper for drill parts
@@ -1025,12 +1037,12 @@ public class ModDescriptionService : IDisposable
                 return new() { (mapper.GetItemKeyForGem(mod, auction.FlatenedNBT), 1, 0) };
 
             var itemIds = new List<(string id, int amount, double coins)>();
-            if (mapper.TryGetIngredients(auction.Tag,mod.Key, mod.Value, null, out var items))
+            if (mapper.TryGetIngredients(auction.Tag, mod.Key, mod.Value, null, out var items))
                 foreach (var item in items)
                 {
                     itemIds.Add((item, 1, 0));
                 }
-            if (mod.Key == "upgrade_level")
+            if (mod.Key == "upgrade_level" || mod.Key == "dungeon_item_level" && !auction.FlatenedNBT.TryGetValue("upgrade_level", out _))
             {
                 itemIds.Add((null, 0, EstStarCost(auction.Tag, int.Parse(mod.Value))));
             }
