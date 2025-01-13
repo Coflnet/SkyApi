@@ -517,24 +517,27 @@ public class ModDescriptionService : IDisposable
         }
         else
             mods.Add(new($"Inventory Value Summary:"));
+            
+        var collection = auctionRepresent?.Zip(res).Select((e) => (e.First.auction, price: e.Second))
+                .Take(take).Where(t => !(t.auction?.FlatenedNBT?.ContainsKey("donated_museum") ?? false)).ToList();
         if (inventory.Settings.Fields.Any(line => line.Contains(DescriptionField.MEDIAN)))
         {
-            mods.Add(new($"Med summary: {McColorCodes.AQUA}{FormatPriceShort(res.Take(take).Sum(r => r?.Median ?? 0))}"));
+            mods.Add(new($"Med summary: {McColorCodes.AQUA}{FormatPriceShort(collection.Sum(r => r.price?.Median ?? 0))}"));
         }
         if (inventory.Settings.Fields.Any(line => line.Contains(DescriptionField.LBIN)))
         {
-            mods.Add(new($"Lbin summary: {McColorCodes.YELLOW}{FormatPriceShort(res?.Take(take)?.Sum(r => r?.Lbin?.Price ?? 0) ?? -1)}"));
+            mods.Add(new($"Lbin summary: {McColorCodes.YELLOW}{FormatPriceShort(collection?.Sum(r => r.price?.Lbin?.Price ?? 0) ?? -1)}"));
         }
         if (inventory.Settings.Fields.Any(line => line.Contains(DescriptionField.PRICE_PAID)))
         {
-            var uuidRelevant = auctionRepresent.Take(take).Select(a => a.auction).Where(a => a != null)
+            var uuidRelevant = collection.Select(a => a.auction).Where(a => a != null)
                     .Select(t => t.FlatenedNBT?.GetValueOrDefault("uid")).Where(t => t != default).ToHashSet();
             var relevantPrices = pricesPaid?.Where(p => uuidRelevant.Contains(p.Key))?.Sum(p => p.Value.Item1) ?? 0;
             mods.Add(new($"Price Paid summary: {McColorCodes.YELLOW}{FormatPriceShort(relevantPrices)}"));
         }
         if (inventory.Settings.Fields.Any(line => line.Contains(DescriptionField.BazaarSell)))
         {
-            var bazaarSellValue = auctionRepresent.Take(take).Select(a => a.auction).Where(a => a != null)
+            var bazaarSellValue = collection.Select(a => a.auction).Where(a => a != null)
                     .Where(t => bazaarPrices?.ContainsKey(GetBazaarTag(t)) ?? false)
                     .Sum(t => bazaarPrices[GetBazaarTag(t)].SellPrice * (t.Count > 1 ? t.Count : 1));
             mods.Add(new($"Bazaar sell: {McColorCodes.GOLD}{FormatPriceShort(bazaarSellValue)}"));
