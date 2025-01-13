@@ -365,7 +365,7 @@ public class ModDescriptionService : IDisposable
         if (inventory.Settings.Fields.Any(f => f.Any(x => x == DescriptionField.FinderEstimates)))
         {
             // request finder estimates
-            flips = await trackerApi.TrackerBatchFlipsPostAsync(salesData.Select(s => s.OrderByDescending(x => x.end).First().AuctionUid).ToList());
+            flips = await trackerApi.GetFlipsOfAuctionBatchAsync(salesData.Select(s => s.OrderByDescending(x => x.end).First().AuctionUid).ToList());
         }
         var res = await pricesTask;
         var allCrafts = deserializedCache.Crafts;
