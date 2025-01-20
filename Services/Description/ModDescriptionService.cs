@@ -517,7 +517,7 @@ public class ModDescriptionService : IDisposable
         }
         else
             mods.Add(new($"Inventory Value Summary:"));
-            
+
         var collection = auctionRepresent?.Zip(res).Select((e) => (e.First.auction, price: e.Second))
                 .Take(take).Where(t => !(t.auction?.FlatenedNBT?.ContainsKey("donated_museum") ?? false)).ToList();
         if (inventory.Settings.Fields.Any(line => line.Contains(DescriptionField.MEDIAN)))
@@ -811,6 +811,8 @@ public class ModDescriptionService : IDisposable
             return;
         }
         var time = TimeSpan.FromHours(24 / price.Volume);
+        if (price.AvgSellTime != 0)
+            time = TimeSpan.FromMinutes(price.AvgSellTime);
         if (time.TotalHours < 1)
             builder.Append($"{McColorCodes.GRAY}{fieldName}: {McColorCodes.YELLOW}{(int)time.TotalMinutes} minutes ");
         else if (time.TotalDays < 1)
