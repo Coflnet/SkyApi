@@ -206,7 +206,7 @@ namespace Coflnet.Sky.Api.Controller
 
         [Route("linkvertise")]
         [HttpGet]
-        public async Task<IActionResult> Linkvertise(string hash, string? email, [FromServices] HttpClient httpClient, [FromServices] UserService userService)
+        public async Task<IActionResult> Linkvertise(string hash, string? email, [FromServices] HttpClient httpClient)
         {
             var user = await GetUserOrDefault();
             if (user == default && string.IsNullOrEmpty(hash))
@@ -222,7 +222,7 @@ namespace Coflnet.Sky.Api.Controller
             }
             if (string.IsNullOrEmpty(userId))
             {
-                userId = (await userService.GetUserIdByEmail(email)).ToString();
+                userId = (await UserService.Instance.GetUserIdByEmail(email)).ToString();
             }
             var lastTransactionsTask = transactionApi.TransactionUUserIdGetAsync(userId, 2);
             var url = $"https://publisher.linkvertise.com/api/v1/anti_bypassing?token=c43268cacfa9a88da627b24876ee3dddbadd08292dc54e420d24b4d6510c6a9e&hash={hash}";
