@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Mvc;
 using Coflnet.Sky.Bazaar.Client.Api;
 using System;
 using Coflnet.Sky.PlayerState.Client.Api;
+using Microsoft.Extensions.Logging;
 
 namespace Coflnet.Sky.Api.Controller
 {
@@ -18,14 +19,18 @@ namespace Coflnet.Sky.Api.Controller
     {
         private BazaarApi bazaarClient;
         private IPlayerStateApi playerStateApi;
+        private ILogger<BazaarController> logger;
         /// <summary>
         /// Creates a new instance of <see cref="BazaarApi"/>
         /// </summary>
         /// <param name="bazaarClient"></param>
-        public BazaarController(BazaarApi bazaarClient, IPlayerStateApi playerStateApi)
+        /// <param name="playerStateApi"></param>
+        /// <param name="logger"></param>
+        public BazaarController(BazaarApi bazaarClient, IPlayerStateApi playerStateApi, ILogger<BazaarController> logger)
         {
             this.bazaarClient = bazaarClient;
             this.playerStateApi = playerStateApi;
+            this.logger = logger;
         }
 
         /// <summary>
@@ -85,9 +90,14 @@ namespace Coflnet.Sky.Api.Controller
         [ResponseCache(Duration = 3600, Location = ResponseCacheLocation.Any, NoStore = false, VaryByQueryKeys = new string[] { "start", "end" })]
         public async Task<List<Sky.Bazaar.Client.Model.GraphResult>> HistoryGraph(string itemTag, DateTime? start = null, DateTime? end = null)
         {
-            return await bazaarClient.ApiBazaarItemIdHistoryGetAsync(itemTag, 
+            var result = await bazaarClient.ApiBazaarItemIdHistoryGetAsync(itemTag, 
                 start.HasValue ? start!.Value.RoundDown(TimeSpan.FromMinutes(1)) : null, 
                 end.HasValue ? end!.Value.RoundDown(TimeSpan.FromMinutes(1)) : null);
+            if(result.Count == 0)
+            {
+                logger.LogInformation("No data found for {itemTag} between {start} and {end}", itemTag, start, end);
+            }
+            return result;
         }
 
         /// <summary>
