@@ -13,6 +13,7 @@ using Coflnet.Sky.Api.Models.Mod;
 using Prometheus;
 using Coflnet.Sky.Api.Models.Netowrth;
 using System.Text.RegularExpressions;
+using Coflnet.Core;
 
 namespace Coflnet.Sky.Api.Controller;
 /// <summary>
@@ -173,9 +174,11 @@ public class PricesController : ControllerBase
     public async Task<List<FilterOptions>> GetFilterOptions(string itemTag = "*")
     {
         var optionsTask = itemsApi.ItemItemTagModifiersAllGetAsync(itemTag);
-        if (itemTag == "*")
+        if (itemTag == "*" || string.IsNullOrEmpty(itemTag))
         {
             var all = await optionsTask;
+            if (all == null)
+                throw new ApiException("load_error", "Options not loadable");
             return fe.AvailableFilters.Where(CanGetOptions(all)).Select(f => new FilterOptions(f, all)).ToList();
         }
         var item = await itemsApi.ItemItemTagGetAsync(itemTag);
