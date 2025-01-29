@@ -198,7 +198,7 @@ public class PricesController : ControllerBase
                 }
                 catch (System.Exception e)
                 {
-                    dev.Logger.Instance.Error(e, "retrieving filter options");
+                    dev.Logger.Instance.Error(e, "retrieving filter options, filter: " + f.Name);
                     return false;
                 }
             };
