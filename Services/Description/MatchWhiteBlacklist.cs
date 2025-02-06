@@ -10,23 +10,31 @@ using Newtonsoft.Json;
 
 namespace Coflnet.Sky.Api.Services.Description;
 
-public class MatchWhiteBlacklist : CustomModifier
+public class AuctionHouseHighlighting : CustomModifier
 {
     private ConcurrentDictionary<string, SelfUpdatingValue<FlipSettings>> settingsCache = new();
     public virtual void Apply(DataContainer data)
     {
         if (!data.inventory.Settings.HighlightFilterMatch)
             return;
+
+        var flipsRepresent = data.auctionRepresent.Zip(data.PriceEst).Take(9 * 6).Select((i, index) =>
+        {
+            return (NewMethod(data, i), index, i.Second);
+        });
+        foreach (var item in flipsRepresent)
+        {
+            var user = item.Item1.First();
+            var estimate = item.Item3;
+            if (estimate.Median * 5 < user.Auction.StartingBid && estimate.Lbin.Price * 5 < user.Auction.StartingBid)
+                Highlight(data, item, $"{McColorCodes.RED}Overpriced", "000000");
+        }
         if (data.accountInfo.ExpiresAt <= DateTime.UtcNow)
         {
             data.mods.Last().Add(new DescModification($"{McColorCodes.RED}Premium required for filter highlighting"));
             data.modService.logger.LogInformation(JsonConvert.SerializeObject(data.accountInfo));
             return;
         }
-        var flipsRepresent = data.auctionRepresent.Zip(data.PriceEst).Take(9 * 6).Select((i, index) =>
-        {
-            return (NewMethod(data, i), index);
-        });
         var settings = settingsCache.GetOrAdd(data.accountInfo.UserId, (a) =>
         {
             Task.Run(async () =>
@@ -45,7 +53,7 @@ public class MatchWhiteBlacklist : CustomModifier
 
             data.mods.Last().Add(new DescModification($"{McColorCodes.YELLOW}(re-)Loading filter settings"));
             data.modService.logger.LogInformation("Loading flip settings for {userId}", data.accountInfo.UserId);
-            return SelfUpdatingValue<FlipSettings>.CreateNoUpdate(()=>new() { WhiteList = new() }).Result;
+            return SelfUpdatingValue<FlipSettings>.CreateNoUpdate(() => new() { WhiteList = new() }).Result;
         });
         foreach (var flipSlot in flipsRepresent)
         {
@@ -71,7 +79,7 @@ public class MatchWhiteBlacklist : CustomModifier
         return;
     }
 
-    private static void Highlight(DataContainer data, (IEnumerable<FlipInstance>, int index) flipSlot, string text, string color)
+    private static void Highlight(DataContainer data, (IEnumerable<FlipInstance>, int index, Sniper.Client.Model.PriceEstimate est) flipSlot, string text, string color)
     {
         data.mods[flipSlot.index].Add(new DescModification(DescModification.ModType.HIGHLIGHT, 1, color));
         data.mods[flipSlot.index].Add(new DescModification(text));
