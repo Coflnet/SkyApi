@@ -24,10 +24,14 @@ public class AuctionHouseHighlighting : CustomModifier
         });
         foreach (var item in flipsRepresent)
         {
-            var user = item.Item1.First();
+            var user = item.Item1.FirstOrDefault();
+            if(user == null)
+                continue;
             var estimate = item.Item3;
             if (estimate.Median * 5 < user.Auction.StartingBid && estimate.Lbin.Price * 5 < user.Auction.StartingBid)
+            {
                 Highlight(data, item, $"{McColorCodes.RED}Overpriced", "000000");
+            }
         }
         if (data.accountInfo.ExpiresAt <= DateTime.UtcNow)
         {
