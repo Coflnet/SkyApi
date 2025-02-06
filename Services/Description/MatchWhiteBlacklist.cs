@@ -15,9 +15,6 @@ public class AuctionHouseHighlighting : CustomModifier
     private ConcurrentDictionary<string, SelfUpdatingValue<FlipSettings>> settingsCache = new();
     public virtual void Apply(DataContainer data)
     {
-        if (!data.inventory.Settings.HighlightFilterMatch)
-            return;
-
         var flipsRepresent = data.auctionRepresent.Zip(data.PriceEst).Take(9 * 6).Select((i, index) =>
         {
             return (NewMethod(data, i), index, i.Second);
@@ -33,6 +30,8 @@ public class AuctionHouseHighlighting : CustomModifier
                 Highlight(data, item, $"{McColorCodes.RED}Overpriced", "000000");
             }
         }
+        if (!data.inventory.Settings.HighlightFilterMatch)
+            return;
         if (data.accountInfo.ExpiresAt <= DateTime.UtcNow)
         {
             data.mods.Last().Add(new DescModification($"{McColorCodes.RED}Premium required for filter highlighting"));
