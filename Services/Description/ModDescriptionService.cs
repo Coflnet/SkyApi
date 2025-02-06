@@ -139,7 +139,7 @@ public class ModDescriptionService : IDisposable
         customModifiers.Add("^(Seasonal Bundles|SkyMart Barn Skins)", new GenericCurrencyDisplay("Gems", "Gem"));
         customModifiers.Add("^SkyMart", new GenericCurrencyDisplay("Copper", "Copper"));
         customModifiers.Add("s Auctions$", new PlayerPageFlipHighlight());
-        customModifiers.Add("^(Auctions Browser|Auctions:|You  )", new MatchWhiteBlacklist());
+        customModifiers.Add("^(Auctions Browser|Auctions:|You  )", new AuctionHouseHighlighting());
         customModifiers.Add("Pet - Round \\d$", new DarkAuctionPetAdjust());
         customModifiers.Add("Bazaar Orders$", new BazaarOrderAdjust(bazaarApi));
     }
