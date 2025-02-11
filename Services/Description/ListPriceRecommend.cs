@@ -25,7 +25,7 @@ public class ListPriceRecommend : CustomModifier
         (double target, bool fromMedian) = SniperClient.InstaSellPrice(pricing);
 
         var formattedPrice = modService.FormatNumber(target);
-        return $"{McColorCodes.GREEN}Instasell: {McColorCodes.DARK_GREEN}{formattedPrice} {McColorCodes.WHITE}based on Coflnet {(fromMedian ? "median" : "lbin")}{(isGuess ? $" {McColorCodes.RED}(guess)" : "")}";
+        return $"{McColorCodes.GREEN}Instasell: {(isGuess ? $"{McColorCodes.GRAY}~" : "")}{McColorCodes.DARK_GREEN}{formattedPrice} {McColorCodes.WHITE}based on Coflnet {(fromMedian ? "median" : "lbin")}{(isGuess ? $" {McColorCodes.RED}(guess)" : "")}";
     }
     public void Modify(ModDescriptionService.PreRequestContainer preRequest)
     {
