@@ -65,6 +65,8 @@ public class BazaarOrderAdjust : CustomModifier
 
             }
         }
+        data.mods[data.mods.Count - 40].Add(new($"{McColorCodes.GREEN}Also checkout"));
+        data.mods[data.mods.Count - 40].Add(new($"{McColorCodes.GOLD}/cofl bazaar"));
     }
 
     public void Modify(ModDescriptionService.PreRequestContainer preRequest)
