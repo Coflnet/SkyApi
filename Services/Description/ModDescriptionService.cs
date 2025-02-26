@@ -142,6 +142,7 @@ public class ModDescriptionService : IDisposable
         customModifiers.Add("^(Auctions Browser|Auctions:|You  )", new AuctionHouseHighlighting());
         customModifiers.Add("Pet - Round \\d$", new DarkAuctionPetAdjust());
         customModifiers.Add("Bazaar Orders$", new BazaarOrderAdjust(bazaarApi));
+        customModifiers.Add("^The Forge", new ForgeExtenssion());
     }
 
     private readonly ConcurrentDictionary<string, (SelfUpdatingValue<DescriptionSetting>, SelfUpdatingValue<AccountInfo>)> settings = new();
