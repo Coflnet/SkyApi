@@ -232,7 +232,15 @@ public class PricesController : ControllerBase
         {
             filterList.Add(("Count", item.Count.ToString()));
         }
-        return filterList.ToDictionary(f => f.key, f => f.value);
+        if(asAuction.Reforge != ItemReferences.Reforge.Unknown)
+        {
+            filterList.Add(("Reforge", asAuction.Reforge.ToString()));
+        }
+        if(asAuction.Tier != Tier.UNKNOWN)
+        {
+            filterList.Add(("Rarity", asAuction.Tier.ToString()));
+        }
+        return filterList.GroupBy(g=>g.key).Select(g=>g.OrderBy(f=>f.value.Length).First()).ToDictionary(f => f.key, f => f.value);
     }
 
     /// <summary>
