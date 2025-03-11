@@ -1055,19 +1055,29 @@ public class ModDescriptionService : IDisposable
             }
             if (Constants.AttributeKeys.Contains(mod.Key))
             {
-                var itemKey = $"{auction.Tag}+{mod.Key};1";
-                var shardKey = $"ATTRIBUTE_SHARD+{mod.Key};1";
-                var neededShards = (int)Math.Pow(2, int.Parse(mod.Value)) - 1;
-                if (data.GetItemprice(itemKey) > data.GetItemprice(shardKey))
-                    itemIds.Add((itemKey, neededShards, 0));
-                else
-                    itemIds.Add((shardKey, neededShards, 0));
                 // check for combo
                 var attributes = auction.FlatenedNBT.Where(a => Constants.AttributeKeys.Contains(a.Key)).ToList();
                 if (attributes.Count > 1 && attributes[0].Key == mod.Key)
                 {
                     itemIds.Add(($"{auction.Tag}+{string.Join("_", attributes.Select(a => a.Value))}", 1, 0));
                 }
+                var itemKey = $"{auction.Tag}+{mod.Key};1";
+                var shardKey = $"ATTRIBUTE_SHARD+{mod.Key};1";
+                var shardLevel = int.Parse(mod.Value);
+                var neededShards = (int)Math.Pow(2, shardLevel) - 1;
+                if (int.Parse(mod.Value) > 6)
+                {
+                    var level7Key = $"ATTRIBUTE_SHARD+{mod.Key};7";
+                    if (data.GetItemprice(level7Key) > 0)
+                    {
+                        neededShards = (int)Math.Pow(2, shardLevel - 6) - 1;
+                        itemIds.Add((level7Key, neededShards, 0));
+                    }
+                }
+                if (data.GetItemprice(itemKey) > data.GetItemprice(shardKey))
+                    itemIds.Add((itemKey, neededShards, 0));
+                else
+                    itemIds.Add((shardKey, neededShards, 0));
             }
             if (mod.Key == "unlocked_slots")
             {
