@@ -136,7 +136,7 @@ public class ModDescriptionService : IDisposable
         customModifiers.Add("^(Community Shop|Bits Shop)", new BitsCoinValue());
         customModifiers.Add("^Community Shop", new SkyblockGemsValue());
         customModifiers.Add("^Previous Fire Sales", new GenericCurrencyDisplay("SkyBlock Gems", "Gem"));
-        customModifiers.Add("^(Seasonal Bundles|SkyMart Barn Skins)", new GenericCurrencyDisplay("Gems", "Gem"));
+        customModifiers.Add("^(Seasonal Bundles|SkyMart Barn Skins|Taylor's Collection)", new GenericCurrencyDisplay("Gems", "Gem"));
         customModifiers.Add("^SkyMart", new GenericCurrencyDisplay("Copper", "Copper"));
         customModifiers.Add("s Auctions$", new PlayerPageFlipHighlight());
         customModifiers.Add("^(Auctions Browser|Auctions:|You  )", new AuctionHouseHighlighting());
