@@ -286,6 +286,10 @@ public class AuctionConverter
             auction.Tier = Enum.TryParse<Tier>(i.ExtraAttributes.FirstOrDefault(a => a.Key == "tier").Value?.ToString() ?? "", out var tier) ? tier : Tier.UNKNOWN;
             auction.Reforge = Enum.TryParse<ItemReferences.Reforge>(i.ExtraAttributes.FirstOrDefault(a => a.Key == "modifier").Value?.ToString() ?? "", out var reforge) ? reforge : ItemReferences.Reforge.Unknown;
             auction.SetFlattenedNbt(NBT.FlattenNbtData(NBT.FromDeserializedJson(i.ExtraAttributes)));
+            if (i.ExtraAttributes.TryGetValue("timestamp", out var time) && time is long v)
+            {
+                auction.ItemCreatedAt = DateTimeOffset.FromUnixTimeMilliseconds(v).DateTime;
+            }
             return auction;
         });
     }
