@@ -240,7 +240,10 @@ public class PricesController : ControllerBase
         {
             filterList.Add(("Rarity", asAuction.Tier.ToString()));
         }
-        return filterList.GroupBy(g=>g.key).Select(g=>g.OrderBy(f=>f.value.Length).First()).ToDictionary(f => f.key, f => f.value);
+        var all = filterList.GroupBy(g=>g.key).Select(g=>g.OrderBy(f=>f.value.Length).First()).ToDictionary(f => f.key, f => f.value);
+        all.Remove("UnlockedSlots");
+        all.Remove("PerfectGemsCount");
+        return all;
     }
 
     /// <summary>
