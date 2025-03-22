@@ -63,15 +63,12 @@ namespace Coflnet.Sky.Api.Controller
 
         private static List<SearchResultItem> ExtendIfSame(List<SearchResultItem> results, int limit = 5)
         {
-            if (results.Select(r => r.Name).Take(5).Distinct().Count() == 1 && results.Count > 1)
-            {
-                var useFirst = results.Select(s=> s.Id.Split('_').First()).Distinct().Count() > 1;
-                return results.Select(i =>
+            results.Where(r=>r.Type == "item").GroupBy(r => r.Name)
+                .Where(g => g.Count() > 1).SelectMany(g => g).ToList().ForEach(i =>
                 {
+                    var useFirst = results.Select(s => s.Id.Split('_').First()).Distinct().Count() > 1;
                     i.Name = i.Name + " - " + (useFirst ? i.Id.Split('_').First().Truncate(10) : i.Id.Split('_').Last().Truncate(10));
-                    return i;
-                }).ToList();
-            }
+                });
             return results.Take(limit).ToList();
         }
 
