@@ -220,7 +220,7 @@ public class ModDescriptionService : IDisposable
                     ItemName = NBT.GetName(compound),
                     Description = string.Join('\n', NBT.GetLore(compound)),
                     Color = NBT.GetColor(compound),
-                    Count = NBT.Count(compound),
+                    Count = (byte)NBT.Count(compound),
                     ExtraAttributes = GetRemainingAttributes(compound)
                 };
                 if (!item.ExtraAttributes?.TryGetValue("tier", out _) ?? false)
@@ -325,6 +325,7 @@ public class ModDescriptionService : IDisposable
                 logger.LogError(e, "failed to use custom pre modifier " + item.Key);
             }
         }
+        Console.WriteLine(JsonConvert.SerializeObject(auctionRepresent, Formatting.Indented));
         var pricesTask = GetPrices(auctionRepresent.Select(a => a.auction));
         CheckUpToDateCache();
 

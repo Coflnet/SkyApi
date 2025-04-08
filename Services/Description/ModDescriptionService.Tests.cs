@@ -80,6 +80,15 @@ public class ModDescriptionServiceTests
     }
 
     [Test]
+    public void Parse121()
+    {
+        var base64 = File.ReadAllText("MockObjects/inventory1.21.json");
+        var auctions = service.GetAuctionsFromNbt(base64);
+        auctions.Count.Should().Be(24);
+        auctions[0].auction.Tag.Should().Be("RED_ROSE:6");
+    }
+
+    [Test]
     public void GetsReforgeCost()
     {
         var breakdown = service.GetModifiersOnItem(new SaveAuction() { Tag = "test", Reforge = ItemReferences.Reforge.mossy }, new()
