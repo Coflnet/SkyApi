@@ -86,6 +86,7 @@ public class ModDescriptionServiceTests
         var auctions = service.GetAuctionsFromNbt(base64);
         auctions.Count.Should().Be(24);
         auctions[0].auction.Tag.Should().Be("RED_ROSE:6");
+        auctions.Last().auction.Tier.Should().Be(Tier.COMMON);
     }
 
     [Test]
