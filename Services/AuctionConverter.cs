@@ -311,7 +311,7 @@ public class AuctionConverter
     internal async Task LoadItems(string tag)
     {
         await this.mappingCenter.Load();
-        var crafts = await this.craftsApi.CraftsAllGetAsync();
+        var crafts = await this.craftsApi.GetAllAsync();
         var ingredients = crafts.Where(c => c.ItemId == tag).SelectMany(c => c.Ingredients).ToList();
         foreach (var item in ingredients.ToList())
         {

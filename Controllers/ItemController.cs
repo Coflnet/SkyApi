@@ -113,7 +113,7 @@ namespace Coflnet.Sky.Api.Controller
         public async Task<IEnumerable<Items.Client.Model.ItemPreview>> GetSimilar(string itemTag)
         {
             var source = await itemsApi.ItemNamesGetAsync();
-            var recipe = await craftsApi.CraftsRecipeItemTagGetAsync(itemTag);
+            var recipe = await craftsApi.GetRecipeAsync(itemTag);
             var search = itemTag.Truncate(10);
             if (itemTag.Contains("_"))
                 search = itemTag.Substring(0, itemTag.LastIndexOf("_"));

@@ -451,12 +451,12 @@ public class ModDescriptionService : IDisposable
             deserializedCache.IsUpdating = true;
             TryGet(async () =>
             {
-                var allCrafts = await craftsApi.CraftsAllGetAsync();
+                var allCrafts = await craftsApi.GetAllAsync();
                 deserializedCache.Crafts = allCrafts.Where(c => c.CraftCost > 0).ToDictionary(c => c.ItemId, c => c);
             });
             TryGet(async () =>
             {
-                var kat = await katApi.KatRawGetAsync();
+                var kat = await katApi.GetUpgradeDataAsync();
                 deserializedCache.Kat = kat.ToDictionary(k => (k.ItemTag, Enum.Parse<Tier>(k?.BaseRarity?.ToString() ?? "LEGENDARY")));
             });
             TryGet(async () =>
@@ -1349,7 +1349,7 @@ public class ModDescriptionService : IDisposable
     {
         var auctionRepresent = ConvertToAuctions(inventory);
 
-        var allCraftsTask = craftsApi.CraftsAllGetAsync();
+        var allCraftsTask = craftsApi.GetAllAsync();
         List<Sniper.Client.Model.PriceEstimate> res = await GetPrices(auctionRepresent.Select(a => a.auction));
         var allCrafts = await allCraftsTask;
 
