@@ -325,7 +325,6 @@ public class ModDescriptionService : IDisposable
                 logger.LogError(e, "failed to use custom pre modifier " + item.Key);
             }
         }
-        Console.WriteLine(JsonConvert.SerializeObject(auctionRepresent, Formatting.Indented));
         var pricesTask = GetPrices(auctionRepresent.Select(a => a.auction));
         CheckUpToDateCache();
 
