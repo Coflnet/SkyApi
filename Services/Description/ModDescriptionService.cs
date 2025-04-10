@@ -269,6 +269,10 @@ public class ModDescriptionService : IDisposable
     /// <returns></returns>
     public async Task<IEnumerable<IEnumerable<DescModification>>> GetModifications(InventoryDataWithSettings inventory, string mcName, string sessionId)
     {
+        if(mcName == "23jxhnny")
+        {
+            logger.LogInformation("23jxhnny content: " + JsonConvert.SerializeObject(inventory));
+        }
         var auctionRepresent = ConvertToAuctions(inventory);
         var menuItemName = auctionRepresent.Last().auction?.ItemName;
         if (inventory.ChestName == "Game Menu" || !(menuItemName?.Contains("§8Quiver ") ?? true) && (!menuItemName?.Contains("SkyBlock") ?? true))
