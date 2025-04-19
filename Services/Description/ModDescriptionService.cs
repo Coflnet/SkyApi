@@ -1039,7 +1039,7 @@ public class ModDescriptionService : IDisposable
         var cost = auction.FlatenedNBT.Select(mod =>
         {
             if (data.GetItemprice(mod.Value.ToUpper()) > 0) // items in slot, to upper for drill parts
-                return new() { (mod.Value, 1, 0) };
+                return new() { (mod.Value.ToUpper(), 1, 0) };
             if (mod.Key == "heldItem")
                 return new() { (mod.Value, 1, 0) };
             if (mod.Key == "skin") // try again with pet skin prefix
