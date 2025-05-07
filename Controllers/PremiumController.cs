@@ -326,6 +326,11 @@ namespace Coflnet.Sky.Api.Controller
             }
             catch (Exception e)
             {
+                if (e.Message.Contains("The operation was canceled")) // timeout when db not reachable
+                    return Ok(slugsToTest.ToDictionary(s => s, s => new OwnerShip()
+                    {
+                        ExpiresAt = DateTime.Now.AddMinutes(10)
+                    }));
                 throw new CoflnetException("payment_error", e.Message);
             }
         }
