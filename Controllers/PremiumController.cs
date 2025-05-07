@@ -308,7 +308,7 @@ namespace Coflnet.Sky.Api.Controller
         /// <returns></returns>
         [Route("premium/user/owns")]
         [HttpPost]
-        public async Task<ActionResult<Dictionary<string, Sky.Api.Models.OwnerShip>>> GetOwnerShips([FromBody] List<string> slugsToTest)
+        public async Task<ActionResult<Dictionary<string, Models.OwnerShip>>> GetOwnerShips([FromBody] List<string> slugsToTest)
         {
             var user = await GetUserOrDefault();
             if (user == default)
@@ -319,7 +319,7 @@ namespace Coflnet.Sky.Api.Controller
                 var owns = await userApi.UserUserIdOwnsUntilPostAsync(user.Id.ToString(), slugsToTest, 0, cancelationSource.Token);
                 if (owns == null)
                     return NotFound();
-                return Ok(owns.Where(o => o.Value > DateTime.Now).ToDictionary(o => o.Key, o => new Sky.Api.Models.OwnerShip()
+                return Ok(owns.Where(o => o.Value > DateTime.Now).ToDictionary(o => o.Key, o => new Models.OwnerShip()
                 {
                     ExpiresAt = o.Value
                 }));
@@ -327,7 +327,7 @@ namespace Coflnet.Sky.Api.Controller
             catch (Exception e)
             {
                 if (e.Message.Contains("The operation was canceled")) // timeout when db not reachable
-                    return Ok(slugsToTest.ToDictionary(s => s, s => new OwnerShip()
+                    return Ok(slugsToTest.ToDictionary(s => s, s => new Models.OwnerShip()
                     {
                         ExpiresAt = DateTime.Now.AddMinutes(10)
                     }));
