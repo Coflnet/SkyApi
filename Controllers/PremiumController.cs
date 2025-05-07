@@ -332,7 +332,7 @@ namespace Coflnet.Sky.Api.Controller
                         ExpiresAt = DateTime.Now.AddMinutes(10)
                     }));
                 logger.LogError(e, "Error while checking ownership");
-                return Ok(slugsToTest.ToDictionary(s => s, s => new Models.OwnerShip()
+                return Ok(slugsToTest.Where(s => s == "premium").ToDictionary(s => s, s => new Models.OwnerShip()
                 {
                     ExpiresAt = DateTime.Now.AddMinutes(5)
                 }));
