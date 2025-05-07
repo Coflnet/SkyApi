@@ -331,7 +331,11 @@ namespace Coflnet.Sky.Api.Controller
                     {
                         ExpiresAt = DateTime.Now.AddMinutes(10)
                     }));
-                throw new CoflnetException("payment_error", e.Message);
+                logger.LogError(e, "Error while checking ownership");
+                return Ok(slugsToTest.ToDictionary(s => s, s => new Models.OwnerShip()
+                {
+                    ExpiresAt = DateTime.Now.AddMinutes(5)
+                }));
             }
         }
 
