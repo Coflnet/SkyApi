@@ -184,6 +184,7 @@ public class PricesController : ControllerBase
         var item = await itemsApi.ItemItemTagGetAsync(itemTag);
         var allOptions = await optionsTask;
         var filters = fe.FiltersFor(item);
+        logger.LogInformation("filters for item {itemTag} : {filters}", itemTag, filters.Select(f => f.Name));
 
         return filters.Where(CanGetOptions(allOptions)).Select(f => new FilterOptions(f, allOptions)).ToList();
 
@@ -194,6 +195,8 @@ public class PricesController : ControllerBase
                 try
                 {
                     var options = f.OptionsGet(new OptionValues(all));
+                    if (f.Name.Contains("exp"))
+                        Console.WriteLine("filter: " + f.Name + " options: " + JSON.Stringify(options));
                     return options.Count() > 0;
                 }
                 catch (System.Exception e)
@@ -232,17 +235,18 @@ public class PricesController : ControllerBase
         {
             filterList.Add(("Count", item.Count.ToString()));
         }
-        if(asAuction.Reforge != ItemReferences.Reforge.Unknown)
+        if (asAuction.Reforge != ItemReferences.Reforge.Unknown)
         {
             filterList.Add(("Reforge", asAuction.Reforge.ToString()));
         }
-        if(asAuction.Tier != Tier.UNKNOWN)
+        if (asAuction.Tier != Tier.UNKNOWN)
         {
             filterList.Add(("Rarity", asAuction.Tier.ToString()));
         }
-        var all = filterList.GroupBy(g=>g.key).Select(g=>g.OrderBy(f=>f.value.Length).First()).ToDictionary(f => f.key, f => f.value);
+        var all = filterList.GroupBy(g => g.key).Select(g => g.OrderBy(f => f.value.Length).First()).ToDictionary(f => f.key, f => f.value);
         all.Remove("UnlockedSlots");
         all.Remove("PerfectGemsCount");
+        all.Remove("HasAttributes");
         return all;
     }
 
@@ -338,6 +342,7 @@ public class PricesController : ControllerBase
 
     [Route("price/attributes")]
     [HttpGet]
+    [Obsolete("not supported anymore, query items with filters directly via /api/item/price/{itemTag}")]
     [ResponseCache(Duration = 3600, Location = ResponseCacheLocation.Any, NoStore = false)]
     public async Task<Dictionary<string, Dictionary<string, long>>> GetAttributePrices()
     {
