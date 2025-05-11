@@ -246,7 +246,7 @@ public class PricesController : ControllerBase
         var all = filterList.GroupBy(g => g.key).Select(g => g.OrderBy(f => f.value.Length).First()).ToDictionary(f => f.key, f => f.value);
         all.Remove("UnlockedSlots");
         all.Remove("PerfectGemsCount");
-        all.Remove("HasAttributes");
+        all.Remove("HasAttribute");
         return all;
     }
 
