@@ -1433,7 +1433,7 @@ public class ModDescriptionService : IDisposable
                 if (compound.Count == 0)
                     return (null, new string[0]);
                 if (NBT.ItemID(compound) == null)
-                    if (!NBT.GetName(compound)?.StartsWith("§8Quiver Arrow") ?? true)
+                    if (!NBT.GetName(compound)?.StartsWith("§8Quiver ") ?? true) // special variats are §8Quiver Flint Arrow
                         return (null, new string[0]); // skip all items without id
                     else
                         // quiver arrow when selected a bow
