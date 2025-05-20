@@ -248,6 +248,7 @@ public class PricesController : ControllerBase
         all.Remove("PerfectGemsCount");
         all.Remove("FlawlessGemsCount");
         all.Remove("HasAttribute");
+        all.Remove("unknown"); // not yet added enchants
         return all;
     }
 
