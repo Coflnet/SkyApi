@@ -112,6 +112,7 @@ namespace Coflnet.Sky.Api.Controller
         /// <returns>The default settings for modsocket v1</returns>
         [Route("settings/options")]
         [HttpGet]
+        [Obsolete("This endpoint is deprecated. It doesn't do anything and is not used anywhere.")]
         public FlipSettings SeeOptions()
         {
             return null;//Sky.Commands.MC.MinecraftSocket.DEFAULT_SETTINGS;
