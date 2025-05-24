@@ -1,9 +1,11 @@
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Coflnet.Sky.Api.Models;
 using Coflnet.Sky.Core;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Configuration;
+using Newtonsoft.Json;
 
 namespace Coflnet.Sky.Api.Controller
 {
@@ -56,7 +58,8 @@ namespace Coflnet.Sky.Api.Controller
         [ResponseCache(Duration = 3600, Location = ResponseCacheLocation.Any, NoStore = false)]
         public async Task<IEnumerable<ItemMetadataElement>> GetAllItems()
         {
-            return (await itemsApi.ItemsGetAsync()).Select(i =>
+            var content = await itemsApi.ItemsGetWithHttpInfoAsync();
+            return JsonConvert.DeserializeObject<List<Items.Client.Model.Item>>(content.RawContent).Select(i =>
             {
                 return new ItemMetadataElement
                 {
