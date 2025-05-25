@@ -111,12 +111,7 @@ public class TradeController : ControllerBase
     private async Task FillDataForDisplay(List<TradeRequest> mapped)
     {
         var nameTask = playerNameApi.PlayerNameNamesBatchPostAsync(mapped.Select(t => t.PlayerUuid).ToList());
-        var itemNamesResponse = await itemsApi.ItemNamesGetAsync();
-        if (!itemNamesResponse.TryOk(out var itemNames))
-        {
-            logger.LogError("Failed to get item names: {StatusCode} {Content}", itemNamesResponse.StatusCode, itemNamesResponse.RawContent);
-            throw new CoflnetException("failed_to_get_item_names", "Failed to get item names from the API");
-        }
+        var itemNames = await itemsApi.ItemNamesGetAsync();
         var names = await nameTask;
         foreach (var trade in mapped)
         {

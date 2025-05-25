@@ -479,12 +479,7 @@ public class ModDescriptionService : IDisposable
             });
             TryGet(async () =>
             {
-                var response = await itemsApi.ItemsNpcSellGetAsync();
-                if (!response.TryOk(out var items))
-                {
-                    logger.LogError("Failed to get npc sell prices: {StatusCode} {Content}", response.StatusCode, response.RawContent);
-                    return;
-                }
+                var items = await itemsApi.ItemsNpcSellGetAsync();
                 deserializedCache.NpcSellPrices = items;
             });
             TryGet(async () =>

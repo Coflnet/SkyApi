@@ -148,12 +148,7 @@ namespace Coflnet.Sky.Api.Controller
         [HttpGet]
         public async Task<IActionResult> Open(string search, [FromServices] IItemsApi itemsApi)
         {
-            var targetResponse = await itemsApi.ItemsSearchTermGetAsync(search.Split(';', '|').First());
-            if(!targetResponse.TryOk(out var target))
-            {
-                logger.LogError("Failed to get item for {Search}: {StatusCode} {Content}", search, targetResponse.StatusCode, targetResponse.RawContent);
-                return Redirect($"https://sky.coflnet.com");
-            }
+            var target = await itemsApi.ItemsSearchTermGetAsync(search.Split(';', '|').First());
             var item = target.FirstOrDefault();
             if (item == null)
                 return Redirect($"https://sky.coflnet.com");

@@ -80,13 +80,7 @@ namespace Coflnet.Sky.Api.Controller
         public async Task<IEnumerable<SpreadFlip>> GetBazaarFlipper()
         {
             var flips = await bazaarFlipperApi.FlipsGetAsync();
-            var nameResponse = await itemsApi.ItemNamesGetAsync();
-            if (!nameResponse.TryOk(out var nameList))
-            {
-                logger.LogError("Failed to get item names for bazaar flips");
-                return [];
-            }
-            var names = nameList.ToDictionary(i => i.Tag, i => i.Name);
+            var names = (await itemsApi.ItemNamesGetAsync()).ToDictionary(i => i.Tag, i => i.Name);
             return flips.Select(f =>
             {
                 var profitmargin = f.BuyPrice / f.MedianBuyPrice;

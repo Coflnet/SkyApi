@@ -47,11 +47,7 @@ namespace Coflnet.Sky.Api.Controller
         [ResponseCache(Duration = 3600, Location = ResponseCacheLocation.Any, NoStore = false)]
         public async Task<List<SearchResultItem>> SearchItem(string searchVal)
         {
-            var itemsResponse = await itemsApi.ItemsSearchTermGetAsync(searchVal, 10);
-            if (!itemsResponse.TryOk(out var itemsResult))
-            {
-                return new List<SearchResultItem>();
-            }
+            var itemsResult = await itemsApi.ItemsSearchTermGetAsync(searchVal, 10);
             var results = itemsResult?.Select(i => new SearchResultItem(new ItemDetails.ItemSearchResult()
             {
                 Name = i.Text + (i.Flags.Value.HasFlag(Sky.Items.Client.Model.ItemFlags.BAZAAR) ? " - bazaar"

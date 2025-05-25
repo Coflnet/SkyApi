@@ -180,17 +180,12 @@ public class PricesController : ControllerBase
         var optionsTask = itemsApi.ItemItemTagModifiersAllGetAsync(itemTag);
         if (itemTag == "*" || string.IsNullOrEmpty(itemTag))
         {
-            var allResponse = await optionsTask;
-            if (!allResponse.TryOk(out var all))
-                throw new ApiException("load_error", "Options not loadable");
+            var all = await optionsTask
+                ?? throw new ApiException("load_error", "Options not loadable");
             return fe.AvailableFilters.Where(CanGetOptions(all)).Select(f => new FilterOptions(f, all)).ToList();
         }
-        var itemResponse = await itemsApi.ItemItemTagGetAsync(itemTag);
-        var allOptionsResponse = await optionsTask;
-        if (!allOptionsResponse.TryOk(out var allOptions))
-            throw new ApiException("load_error", "Options not loadable");
-        if (!itemResponse.TryOk(out var item))
-            throw new ApiException("load_error", "Item not loadable");
+        var item = await itemsApi.ItemItemTagGetAsync(itemTag);
+        var allOptions = await optionsTask ??throw new ApiException("load_error", "Options not loadable");
         var filters = fe.FiltersFor(item);
         logger.LogInformation("filters for item {itemTag} : {filters}", itemTag, filters.Select(f => f.Name));
 

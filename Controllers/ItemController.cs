@@ -49,12 +49,7 @@ namespace Coflnet.Sky.Api.Controller
         [ResponseCache(Duration = 3600, Location = ResponseCacheLocation.Any, NoStore = false)]
         public async Task<IEnumerable<string>> GetFlipTime()
         {
-            var respose = await itemsApi.ItemsBazaarTagsGetAsync();
-            if(!respose.TryOk(out var itemsApiResponse))
-            {
-                return [];
-            }
-            return itemsApiResponse;
+            return await itemsApi.ItemsBazaarTagsGetAsync();
         }
 
         /// <summary>
@@ -67,12 +62,7 @@ namespace Coflnet.Sky.Api.Controller
         public async Task<IEnumerable<ItemMetadataElement>> GetAllItems()
         {
             var response = await itemsApi.ItemsGetAsync();
-            if (!response.TryOk(out var content))
-            {
-                logger.LogError("Failed to get items: {StatusCode} {Content}", response.StatusCode, response.RawContent);
-                return [];
-            }
-            return content.Select(i =>
+            return response.Select(i =>
             {
                 return new ItemMetadataElement
                 {
@@ -92,12 +82,7 @@ namespace Coflnet.Sky.Api.Controller
         [ResponseCache(Duration = 3600, Location = ResponseCacheLocation.Any, NoStore = false)]
         public async Task<Dictionary<string, string>> ItemTags([FromBody] HashSet<string> tags)
         {
-            var response = await itemsApi.ItemNamesGetAsync();
-            if (!response.TryOk(out var items))
-            {
-                logger.LogError("Failed to get item names: {StatusCode} {Content}", response.StatusCode, response.RawContent);
-                return new Dictionary<string, string>();
-            }
+            var items = await itemsApi.ItemNamesGetAsync();
             return items.Where(t => tags.Contains(t.Tag)).ToDictionary(i => i.Tag, i => i.Name);
         }
 
@@ -111,12 +96,7 @@ namespace Coflnet.Sky.Api.Controller
         [ResponseCache(Duration = 3600, Location = ResponseCacheLocation.Any, NoStore = false)]
         public async Task<SkyblockItem> GetItemDetails(string itemTag)
         {
-            var response = await itemsApi.ItemItemTagGetAsync(itemTag);
-            if (!response.TryOk(out var source))
-            {
-                logger.LogError("Failed to get item details for {ItemTag}: {StatusCode} {Content}", itemTag, response.StatusCode, response.RawContent);
-                return new SkyblockItem();
-            }
+            var source = await itemsApi.ItemItemTagGetAsync(itemTag);
             return new SkyblockItem()
             {
                 Category = source?.Category,
@@ -138,12 +118,7 @@ namespace Coflnet.Sky.Api.Controller
         [ResponseCache(Duration = 3600 * 12, Location = ResponseCacheLocation.Any, NoStore = false)]
         public async Task<IEnumerable<Items.Client.Model.ItemPreview>> GetSimilar(string itemTag)
         {
-            var sourceResponse = await itemsApi.ItemNamesGetAsync();
-            if (!sourceResponse.TryOk(out var source))
-            {
-                logger.LogError("Failed to get item names: {StatusCode} {Content}", sourceResponse.StatusCode, sourceResponse.RawContent);
-                return [];
-            }
+            var source = await itemsApi.ItemNamesGetAsync();
             var recipe = await craftsApi.GetRecipeAsync(itemTag);
             var search = itemTag.Truncate(10);
             if (itemTag.Contains("_"))

@@ -31,12 +31,7 @@ public class ItemSkinHandler : BackgroundService, IItemSkinHandler
             try
             {
                 using var activity = activitySource?.StartActivity("UpdateSkins");
-                var noIconResponse = await itemsApi.ItemsNoiconGetAsync(stoppingToken);
-                if (!noIconResponse.TryOk(out var items))
-                {
-                    Console.WriteLine("Failed to get items without skins");
-                    return;
-                }
+                var items = await itemsApi.ItemsNoiconGetAsync();
                 foreach (var item in items)
                 {
                     skinNames.TryAdd(item.Tag, false);
