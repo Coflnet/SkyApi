@@ -22,6 +22,7 @@ namespace Coflnet.Sky.Api.Controller
         HypixelContext context;
         private FilterEngine filterEngine;
         private PlayerNameService playerNameApi;
+        private ItemDetails itemDetails;
 
         /// <summary>
         /// Creates a new instance of <see cref="PlayerController"/>
@@ -29,11 +30,13 @@ namespace Coflnet.Sky.Api.Controller
         /// <param name="context"></param>
         /// <param name="filterEngine"></param>
         /// <param name="playerNameApi"></param>
-        public PlayerController(HypixelContext context, FilterEngine filterEngine, PlayerNameService playerNameApi)
+        /// <param name="itemDetails"></param>
+        public PlayerController(HypixelContext context, FilterEngine filterEngine, PlayerNameService playerNameApi, ItemDetails itemDetails)
         {
             this.context = context;
             this.filterEngine = filterEngine;
             this.playerNameApi = playerNameApi;
+            this.itemDetails = itemDetails;
         }
 
 
@@ -155,9 +158,9 @@ namespace Coflnet.Sky.Api.Controller
                     .ToList();
         }
 
-        private static int ExtractItemIdFromFilter(Dictionary<string, string> filters, string itemTag)
+        private int ExtractItemIdFromFilter(Dictionary<string, string> filters, string itemTag)
         {
-            var itemId = ItemDetails.Instance.GetItemIdForTag(itemTag);
+            var itemId = itemDetails.GetItemIdForTag(itemTag);
             filters["ItemId"] = itemId.ToString();
             filters.Remove("tag");
             return itemId;

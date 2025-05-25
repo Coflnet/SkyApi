@@ -33,6 +33,7 @@ public class PricesController : ControllerBase
     private FilterEngine fe;
     private NetworthService networthService;
     private AuctionConverter auctionConverter;
+    private ItemDetails itemDetails;
     Counter counter = Metrics.CreateCounter("sky_api_nbt", "Counts requests to /api/item/price/nbt");
 
     /// <summary>
@@ -47,6 +48,7 @@ public class PricesController : ControllerBase
     /// <param name="fe"></param>
     /// <param name="networthService"></param>
     /// <param name="auctionConverter"></param>
+    /// <param name="itemDetails"></param>
     public PricesController(
         PricesService pricesService,
         HypixelContext context,
@@ -56,7 +58,8 @@ public class PricesController : ControllerBase
         AhListChecker ahListChecker,
         FilterEngine fe,
         NetworthService networthService,
-        AuctionConverter auctionConverter)
+        AuctionConverter auctionConverter,
+        ItemDetails itemDetails)
     {
         priceService = pricesService;
         this.context = context;
@@ -67,6 +70,7 @@ public class PricesController : ControllerBase
         this.fe = fe;
         this.networthService = networthService;
         this.auctionConverter = auctionConverter;
+        this.itemDetails = itemDetails;
     }
     /// <summary>
     /// Aggregated sumary of item prices for the 2 last days
@@ -160,7 +164,7 @@ public class PricesController : ControllerBase
     [ResponseCache(Duration = 3600 * 2, Location = ResponseCacheLocation.Any, NoStore = false)]
     public async Task<IEnumerable<AveragePrice>> GetFullHistory(string itemTag)
     {
-        var id = ItemDetails.Instance.GetItemIdForTag(itemTag, true);
+        var id = itemDetails.GetItemIdForTag(itemTag, true);
         return await context.Prices.Where(p => p.ItemId == id).ToListAsync();
     }
 
@@ -176,13 +180,17 @@ public class PricesController : ControllerBase
         var optionsTask = itemsApi.ItemItemTagModifiersAllGetAsync(itemTag);
         if (itemTag == "*" || string.IsNullOrEmpty(itemTag))
         {
-            var all = await optionsTask;
-            if (all == null)
+            var allResponse = await optionsTask;
+            if (!allResponse.TryOk(out var all))
                 throw new ApiException("load_error", "Options not loadable");
             return fe.AvailableFilters.Where(CanGetOptions(all)).Select(f => new FilterOptions(f, all)).ToList();
         }
-        var item = await itemsApi.ItemItemTagGetAsync(itemTag);
-        var allOptions = await optionsTask;
+        var itemResponse = await itemsApi.ItemItemTagGetAsync(itemTag);
+        var allOptionsResponse = await optionsTask;
+        if (!allOptionsResponse.TryOk(out var allOptions))
+            throw new ApiException("load_error", "Options not loadable");
+        if (!itemResponse.TryOk(out var item))
+            throw new ApiException("load_error", "Item not loadable");
         var filters = fe.FiltersFor(item);
         logger.LogInformation("filters for item {itemTag} : {filters}", itemTag, filters.Select(f => f.Name));
 
@@ -358,14 +366,14 @@ public class PricesController : ControllerBase
                 "MOLTEN_BELT",  "MOLTEN_NECKLACE",  "MOLTEN_CLOAK",  "MOLTEN_BRACELET",
                 "ATTRIBUTE_SHARD"};
         var reverseAttributeMap = new Dictionary<int, string>();
-        var ids = tags.Select(t => ItemDetails.Instance.GetItemIdForTag(t, true)).ToList();
+        var ids = tags.Select(t => itemDetails.GetItemIdForTag(t, true)).ToList();
         var attributeIds = await Task.WhenAll(Constants.AttributeKeys.Select(a =>
         {
-            var id = NBT.Instance.GetKeyId(a);
+            var id = fe.NbtInstance.GetKeyId(a);
             reverseAttributeMap[id] = a;
             return Task.FromResult(id);
         }));
-        var ignoreIds = await Task.WhenAll(new HashSet<string>() { "boss_tier", "id" }.Select(a => Task.FromResult(NBT.Instance.GetKeyId(a))));
+        var ignoreIds = await Task.WhenAll(new HashSet<string>() { "boss_tier", "id" }.Select(a => Task.FromResult(fe.NbtInstance.GetKeyId(a))));
         var oldestTime = DateTime.UtcNow.AddDays(-1);
         ignoreIds = ignoreIds.Concat(attributeIds).ToArray();
         var prices = await context.Auctions.Where(a => ids.Contains(a.ItemId) && !a.NBTLookup.Any(l => !ignoreIds.Contains(l.KeyId)) && a.End > oldestTime && a.HighestBidAmount > 0 && a.End < DateTime.UtcNow)

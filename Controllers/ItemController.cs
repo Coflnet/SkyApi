@@ -5,6 +5,7 @@ using Coflnet.Sky.Api.Models;
 using Coflnet.Sky.Core;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
 
 namespace Coflnet.Sky.Api.Controller
@@ -21,6 +22,7 @@ namespace Coflnet.Sky.Api.Controller
         private HypixelContext db;
         private Sky.Items.Client.Api.IItemsApi itemsApi;
         private Sky.Crafts.Client.Api.ICraftsApi craftsApi;
+        private ILogger<ItemController> logger;
 
         /// <summary>
         /// Creates a new instance of <see cref="FlipController"/>
@@ -28,12 +30,13 @@ namespace Coflnet.Sky.Api.Controller
         /// <param name="config"></param>
         /// <param name="context"></param>
         /// <param name="itemsApi"></param>
-        public ItemController(IConfiguration config, HypixelContext context, Sky.Items.Client.Api.IItemsApi itemsApi, Crafts.Client.Api.ICraftsApi craftsApi)
+        public ItemController(IConfiguration config, HypixelContext context, Sky.Items.Client.Api.IItemsApi itemsApi, Crafts.Client.Api.ICraftsApi craftsApi, ILogger<ItemController> logger)
         {
             this.config = config;
             this.db = context;
             this.itemsApi = itemsApi;
             this.craftsApi = craftsApi;
+            this.logger = logger;
         }
 
         /// <summary>
@@ -46,7 +49,12 @@ namespace Coflnet.Sky.Api.Controller
         [ResponseCache(Duration = 3600, Location = ResponseCacheLocation.Any, NoStore = false)]
         public async Task<IEnumerable<string>> GetFlipTime()
         {
-            return await itemsApi.ItemsBazaarTagsGetAsync();
+            var respose = await itemsApi.ItemsBazaarTagsGetAsync();
+            if(!respose.TryOk(out var itemsApiResponse))
+            {
+                return [];
+            }
+            return itemsApiResponse;
         }
 
         /// <summary>
@@ -58,8 +66,13 @@ namespace Coflnet.Sky.Api.Controller
         [ResponseCache(Duration = 3600, Location = ResponseCacheLocation.Any, NoStore = false)]
         public async Task<IEnumerable<ItemMetadataElement>> GetAllItems()
         {
-            var content = await itemsApi.ItemsGetWithHttpInfoAsync();
-            return JsonConvert.DeserializeObject<List<Items.Client.Model.Item>>(content.RawContent).Select(i =>
+            var response = await itemsApi.ItemsGetAsync();
+            if (!response.TryOk(out var content))
+            {
+                logger.LogError("Failed to get items: {StatusCode} {Content}", response.StatusCode, response.RawContent);
+                return [];
+            }
+            return content.Select(i =>
             {
                 return new ItemMetadataElement
                 {
@@ -79,7 +92,12 @@ namespace Coflnet.Sky.Api.Controller
         [ResponseCache(Duration = 3600, Location = ResponseCacheLocation.Any, NoStore = false)]
         public async Task<Dictionary<string, string>> ItemTags([FromBody] HashSet<string> tags)
         {
-            var items = await itemsApi.ItemNamesGetAsync();
+            var response = await itemsApi.ItemNamesGetAsync();
+            if (!response.TryOk(out var items))
+            {
+                logger.LogError("Failed to get item names: {StatusCode} {Content}", response.StatusCode, response.RawContent);
+                return new Dictionary<string, string>();
+            }
             return items.Where(t => tags.Contains(t.Tag)).ToDictionary(i => i.Tag, i => i.Name);
         }
 
@@ -93,7 +111,12 @@ namespace Coflnet.Sky.Api.Controller
         [ResponseCache(Duration = 3600, Location = ResponseCacheLocation.Any, NoStore = false)]
         public async Task<SkyblockItem> GetItemDetails(string itemTag)
         {
-            var source = await itemsApi.ItemItemTagGetAsync(itemTag);
+            var response = await itemsApi.ItemItemTagGetAsync(itemTag);
+            if (!response.TryOk(out var source))
+            {
+                logger.LogError("Failed to get item details for {ItemTag}: {StatusCode} {Content}", itemTag, response.StatusCode, response.RawContent);
+                return new SkyblockItem();
+            }
             return new SkyblockItem()
             {
                 Category = source?.Category,
@@ -115,7 +138,12 @@ namespace Coflnet.Sky.Api.Controller
         [ResponseCache(Duration = 3600 * 12, Location = ResponseCacheLocation.Any, NoStore = false)]
         public async Task<IEnumerable<Items.Client.Model.ItemPreview>> GetSimilar(string itemTag)
         {
-            var source = await itemsApi.ItemNamesGetAsync();
+            var sourceResponse = await itemsApi.ItemNamesGetAsync();
+            if (!sourceResponse.TryOk(out var source))
+            {
+                logger.LogError("Failed to get item names: {StatusCode} {Content}", sourceResponse.StatusCode, sourceResponse.RawContent);
+                return [];
+            }
             var recipe = await craftsApi.GetRecipeAsync(itemTag);
             var search = itemTag.Truncate(10);
             if (itemTag.Contains("_"))

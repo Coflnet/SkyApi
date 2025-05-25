@@ -479,7 +479,13 @@ public class ModDescriptionService : IDisposable
             });
             TryGet(async () =>
             {
-                deserializedCache.NpcSellPrices = await itemsApi.ItemsNpcSellGetAsync();
+                var response = await itemsApi.ItemsNpcSellGetAsync();
+                if (!response.TryOk(out var items))
+                {
+                    logger.LogError("Failed to get npc sell prices: {StatusCode} {Content}", response.StatusCode, response.RawContent);
+                    return;
+                }
+                deserializedCache.NpcSellPrices = items;
             });
             TryGet(async () =>
             {
@@ -559,7 +565,7 @@ public class ModDescriptionService : IDisposable
                 .Select(a => a.auction.FlatenedNBT?.GetValueOrDefault("uid")).Where(v => v != null)
                 .Distinct()
                 .ToDictionary(uid => GetUidFromString(uid));
-        var key = NBT.Instance.GetKeyId("uid");
+        var key = DiHandler.GetService<NBT>().GetKeyId("uid");
         using var scope = scopeFactory.CreateScope();
         using var context = scope.ServiceProvider.GetRequiredService<HypixelContext>();
         var nameRequest = playerNameService.GetUuid(mcName);

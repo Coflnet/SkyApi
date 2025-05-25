@@ -2,6 +2,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using AutoMapper;
 using Coflnet.Sky.Api.Models;
+using Coflnet.Sky.Commands.Shared;
 using Coflnet.Sky.Core;
 using Coflnet.Sky.PlayerName.Client.Api;
 using Coflnet.Sky.PlayerState.Client.Api;
@@ -86,7 +87,7 @@ public class TradeController : ControllerBase
             {
                 if (item.Tag == null || item.Tag == "SKYBLOCK_COIN")
                     continue;
-                if (ItemDetails.Instance.GetItemIdForTag(item.Tag) == 0)
+                if (DiHandler.GetService<ItemDetails>().GetItemIdForTag(item.Tag) == 0)
                     throw new CoflnetException("invalid_item", $"The item tag `{item.Tag}` is invalid");
             }
         }
@@ -110,7 +111,12 @@ public class TradeController : ControllerBase
     private async Task FillDataForDisplay(List<TradeRequest> mapped)
     {
         var nameTask = playerNameApi.PlayerNameNamesBatchPostAsync(mapped.Select(t => t.PlayerUuid).ToList());
-        var itemNames = await itemsApi.ItemNamesGetAsync();
+        var itemNamesResponse = await itemsApi.ItemNamesGetAsync();
+        if (!itemNamesResponse.TryOk(out var itemNames))
+        {
+            logger.LogError("Failed to get item names: {StatusCode} {Content}", itemNamesResponse.StatusCode, itemNamesResponse.RawContent);
+            throw new CoflnetException("failed_to_get_item_names", "Failed to get item names from the API");
+        }
         var names = await nameTask;
         foreach (var trade in mapped)
         {

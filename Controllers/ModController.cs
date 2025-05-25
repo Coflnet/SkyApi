@@ -32,6 +32,7 @@ namespace Coflnet.Sky.Api.Controller
         private readonly GoogletokenService tokenService;
         private readonly AuctionConverter auctionConverter;
         private readonly ILogger<ModController> logger;
+        private readonly ItemDetails itemDetails;
 
         /// <summary>
         /// Creates a new instance of <see cref="ModController"/>
@@ -44,6 +45,8 @@ namespace Coflnet.Sky.Api.Controller
         /// <param name="settingsService"></param>
         /// <param name="tokenService"></param>
         /// <param name="logger"></param>
+        /// <param name="auctionConverter"></param>
+        /// <param name="itemDetails"></param>
         public ModController(HypixelContext db,
                              PricesService pricesService,
                              FlipperService flipperService,
@@ -52,7 +55,8 @@ namespace Coflnet.Sky.Api.Controller
                              SettingsService settingsService,
                              GoogletokenService tokenService,
                              ILogger<ModController> logger,
-                             AuctionConverter auctionConverter)
+                             AuctionConverter auctionConverter,
+                             ItemDetails itemDetails)
         {
             this.db = db;
             priceService = pricesService;
@@ -63,6 +67,7 @@ namespace Coflnet.Sky.Api.Controller
             this.tokenService = tokenService;
             this.logger = logger;
             this.auctionConverter = auctionConverter;
+            this.itemDetails = itemDetails;
         }
 
         /// <summary>
@@ -133,11 +138,22 @@ namespace Coflnet.Sky.Api.Controller
             ];
         }
 
+        /// <summary>
+        /// Redirect for SkyHani ah button, can be called with item names and will try to redirect to correct item page
+        /// </summary>
+        /// <param name="search"></param>
+        /// <param name="itemsApi"></param>
+        /// <returns></returns>
         [Route("open/{search}")]
         [HttpGet]
         public async Task<IActionResult> Open(string search, [FromServices] IItemsApi itemsApi)
         {
-            var target = await itemsApi.ItemsSearchTermGetAsync(search.Split(';', '|').First());
+            var targetResponse = await itemsApi.ItemsSearchTermGetAsync(search.Split(';', '|').First());
+            if(!targetResponse.TryOk(out var target))
+            {
+                logger.LogError("Failed to get item for {Search}: {StatusCode} {Content}", search, targetResponse.StatusCode, targetResponse.RawContent);
+                return Redirect($"https://sky.coflnet.com");
+            }
             var item = target.FirstOrDefault();
             if (item == null)
                 return Redirect($"https://sky.coflnet.com");
@@ -154,14 +170,14 @@ namespace Coflnet.Sky.Api.Controller
         {
             if (uuid.Length < 32 && uuid.Length != 12)
             {
-                if (ItemDetails.Instance.GetItemIdForTag(uuid) == 0)
+                if (itemDetails.GetItemIdForTag(uuid) == 0)
                     throw new CoflnetException("invalid_id", "the passed id does not map to an item");
                 var median = await priceService.GetSumary(uuid, new Dictionary<string, string>());
                 return $"Median sell for {count} is {FormatPrice(median.Med)}";
             }
 
             var lookupId = NBT.UidToLong(uuid.Length == 12 ? uuid : uuid.Substring(24));
-            var key = NBT.Instance.GetKeyId("uId");
+            var key = DiHandler.GetService<NBT>().GetKeyId("uId");
             var auctions = await db.Auctions.Where(a => a.NBTLookup.Where(l => l.KeyId == key && l.Value == lookupId).Any()).Include(a => a.Bids).OrderByDescending(a => a.End).ToListAsync();
             var lastSell = auctions.Where(a => a.End < System.DateTime.Now).FirstOrDefault();
             long med = await GetMedian(lastSell);

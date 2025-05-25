@@ -64,7 +64,7 @@ public class AuctionHouseHighlighting : CustomModifier
             foreach (var flip in flipSlot.Item1)
             {
                 if (flip.Auction != null && flip.Auction.NBTLookup == null)
-                    flip.Auction.NBTLookup = NBT.CreateLookup(flip.Auction);
+                    flip.Auction.NBTLookup = DiHandler.GetService<NBT>().CreateLookup(flip.Auction);
                 var isMatch = settings.Value.MatchesSettings(flip);
                 if (isMatch.Item1 && isMatch.Item2.StartsWith("white"))
                     Highlight(data, flipSlot, $"{McColorCodes.DARK_GREEN}{McColorCodes.BOLD}Matches whitelist", "009600");

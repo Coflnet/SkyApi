@@ -23,16 +23,18 @@ namespace Coflnet.Sky.Api.Controller
     public class SearchController : ControllerBase
     {
         static Regex validCharRegex = new Regex("[^-a-zA-Z0-9_\\.' ]");
-        private Sky.Items.Client.Api.IItemsApi itemsApi;
+        private IItemsApi itemsApi;
+        private SearchService searchService;
 
         /// <summary>
         /// Creates a new instance of <see cref="SearchController"/>
         /// </summary>
         /// <param name="itemsApi"></param>
-        /// <param name="tracer"></param>
-        public SearchController(IItemsApi itemsApi)
+        /// <param name="searchService"></param>
+        public SearchController(IItemsApi itemsApi, SearchService searchService)
         {
             this.itemsApi = itemsApi;
+            this.searchService = searchService;
         }
 
         /// <summary>
@@ -45,8 +47,11 @@ namespace Coflnet.Sky.Api.Controller
         [ResponseCache(Duration = 3600, Location = ResponseCacheLocation.Any, NoStore = false)]
         public async Task<List<SearchResultItem>> SearchItem(string searchVal)
         {
-            //var itemSearch = await ItemDetails.Instance.Search(RemoveInvalidChars(searchVal), 5);
-            var itemsResult = await itemsApi.ItemsSearchTermGetAsync(searchVal, 10);
+            var itemsResponse = await itemsApi.ItemsSearchTermGetAsync(searchVal, 10);
+            if (!itemsResponse.TryOk(out var itemsResult))
+            {
+                return new List<SearchResultItem>();
+            }
             var results = itemsResult?.Select(i => new SearchResultItem(new ItemDetails.ItemSearchResult()
             {
                 Name = i.Text + (i.Flags.Value.HasFlag(Sky.Items.Client.Model.ItemFlags.BAZAAR) ? " - bazaar"
@@ -88,7 +93,7 @@ namespace Coflnet.Sky.Api.Controller
             var collection = await ExecuteSearch(searchVal, 2000);
             if (collection.Count == 0) // search again
                 collection = await ExecuteSearch(searchVal);
-            var result = SearchService.Instance.RankSearchResults(searchVal, collection.Where(r => r.Type != "internal"));
+            var result = searchService.RankSearchResults(searchVal, collection.Where(r => r.Type != "internal"));
             if (result.Count == 0)
             {
                 HttpContext.Response.GetTypedHeaders().CacheControl =
@@ -112,7 +117,7 @@ namespace Coflnet.Sky.Api.Controller
         {
             var cancelationSource = new CancellationTokenSource();
             cancelationSource.CancelAfter(timeout);
-            var channel = await SearchService.Instance.Search(searchVal, cancelationSource.Token);
+            var channel = await searchService.Search(searchVal, cancelationSource.Token);
 
             var collection = new ConcurrentQueue<SearchResultItem>();
 

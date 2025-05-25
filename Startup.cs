@@ -150,7 +150,8 @@ namespace Coflnet.Sky.Api
                         return history.GroupBy(a => a.Timestamp.Date).Select(s => s.First()).ToDictionary(h => h.Timestamp.Date, h => (long)h.Sell);
                     }
                     using var dbcontext = new HypixelContext();
-                    var dbId = ItemDetails.Instance.GetItemIdForTag(id, false);
+                    var itemDetails = di.GetRequiredService<ItemDetails>();
+                    var dbId = itemDetails.GetItemIdForTag(id, false);
                     if (dbId == 0)
                     {
                         Console.WriteLine("Item not found in db " + id);

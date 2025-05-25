@@ -50,6 +50,7 @@ namespace Coflnet.Sky.Api.Controller
         ModDescriptionService modDescriptionService;
         IAuctionApi auctionApi;
         Auctions.Client.Api.IExportApi exportApi;
+        ItemDetails itemDetails;
         IMapper mapper;
         private PremiumTierService premiumTierService;
 
@@ -70,6 +71,8 @@ namespace Coflnet.Sky.Api.Controller
         /// <param name="auctionApi"></param>
         /// <param name="premiumTierService"></param>
         /// <param name="exportApi"></param>
+        /// <param name="mapper"></param>
+        /// <param name="itemDetails"></param>
         public AuctionsController(AuctionService auctionService,
                                   HypixelContext context,
                                   ILogger<AuctionsController> logger,
@@ -84,7 +87,8 @@ namespace Coflnet.Sky.Api.Controller
                                   IAuctionApi auctionApi,
                                   PremiumTierService premiumTierService,
                                   Auctions.Client.Api.IExportApi exportApi,
-                                  IMapper mapper)
+                                  IMapper mapper,
+                                  ItemDetails itemDetails)
         {
             this.auctionService = auctionService;
             this.context = context;
@@ -101,6 +105,7 @@ namespace Coflnet.Sky.Api.Controller
             this.premiumTierService = premiumTierService;
             this.exportApi = exportApi;
             this.mapper = mapper;
+            this.itemDetails = itemDetails;
         }
 
         /// <summary>
@@ -168,7 +173,7 @@ namespace Coflnet.Sky.Api.Controller
         [ResponseCache(Duration = 120, Location = ResponseCacheLocation.Any, NoStore = false, VaryByQueryKeys = ["*"])]
         public async Task<List<SaveAuction>> GetLowestBins(string itemTag, [FromQuery] IDictionary<string, string> query)
         {
-            var itemId = ItemDetails.Instance.GetItemIdForTag(itemTag);
+            var itemId = itemDetails.GetItemIdForTag(itemTag);
             var filter = new Dictionary<string, string>(query);
             int page = 0;
             if (filter.ContainsKey("page"))
@@ -203,7 +208,7 @@ namespace Coflnet.Sky.Api.Controller
         [ResponseCache(Duration = 1800, Location = ResponseCacheLocation.Any, NoStore = false, VaryByQueryKeys = ["page", "pageSize", "token"])]
         public async Task<List<SaveAuction>> GetHistory(string itemTag, int page = 0, int pageSize = 1000, string token = null)
         {
-            var itemId = ItemDetails.Instance.GetItemIdForTag(itemTag);
+            var itemId = itemDetails.GetItemIdForTag(itemTag);
             var max = 1000;
             var isPartner = IsValidPartner(token);
             if (isPartner)
@@ -233,104 +238,16 @@ namespace Coflnet.Sky.Api.Controller
         /// Batch raw item value export, requires token
         /// </summary>
         /// <param name="page">Page of auctions to get</param>
+        /// <param name="tag"></param>
         /// <param name="token">Secret token to access data</param>
+        /// <param name="count"></param>
         /// <returns></returns>
         [Route("auctions/batch")]
         [HttpGet]
         [ResponseCache(Duration = 1800, Location = ResponseCacheLocation.Any, NoStore = false, VaryByQueryKeys = ["page", "tag", "count"])]
         public async Task GetHistory(string page = "last", string tag = "*", string token = "", int count = 50)
         {
-            var pageSize = count;
-            var baseStart = 400_000_000;
-            var itemsRequest = itemsClient.ItemItemTagModifiersAllGetAsync(tag);
-            var loadTask = this.transformer.LoadItems(tag);
-            AssertAccessToken(token);
-            using var scope = factory.CreateScope();
-            using var activity = scope.ServiceProvider.GetRequiredService<ActivitySource>().StartActivity("auction_export");
-            var totalAuctions = await context.Auctions.MaxAsync(a => a.Id);
-            if (totalAuctions < 100_000_000)
-                baseStart /= 10;
-            var lastPage = (totalAuctions - baseStart) / pageSize;
-            Response.Headers["X-Page-Count"] = lastPage.ToString();
-            Response.Headers["X-Total-Count"] = totalAuctions.ToString();
-            Response.Headers["Content-Type"] = "application/json; charset=utf-8";
-            // set locale to en-US globally 
-            System.Globalization.CultureInfo.DefaultThreadCurrentCulture = new System.Globalization.CultureInfo("en-US");
-            await transformer.InitMayors();
-            var itemModifiers = await itemsRequest;
-            var columns = itemModifiers.Keys;
-            await loadTask;
-            var craftItems = transformer.GetRelevantIngredients(tag);
-            var keys = transformer.ColumnKeys(columns).ToHashSet();
-            itemModifiers["headers"] = keys.ToList();
-            itemModifiers.Remove("dungeon_item_level");
-            if (itemModifiers.TryGetValue("unlocked_slots", out var options))
-            {
-                foreach (var item in options.ToList())
-                {
-                    if (item.Contains("TAG_String"))
-                        options.Remove(item);
-                }
-                itemModifiers["unlocked_slots"] = options;
-            }
-            if (!int.TryParse(page, out int pageNum))
-            {
-                //await HttpResponseWritingExtensions.WriteAsync(this.Response, transformer.GetHeader(columns));
-                if (ItemDetails.Instance.TagLookup.Count == 0)
-                    await ItemDetails.Instance.LoadLookup();
-                var itemids = ItemDetails.Instance.TagLookup.Keys.ToArray();
-                logger.LogInformation("Exporting " + itemids.Length + " items");
-                foreach (var item in itemModifiers.Keys)
-                {
-                    if (keys.Contains(item))
-                        continue;
-                    itemModifiers.Remove(item);
-                }
-                if (tag == "*")
-                    itemModifiers["item_id"] = itemids.ToList();
-
-                itemModifiers["mapping"] = transformer.Createmap(keys.ToList(), itemModifiers).Concat(craftItems).ToList();
-
-                await HttpResponseWritingExtensions.WriteAsync(this.Response, JsonConvert.SerializeObject(itemModifiers));
-                return;
-            }
-            // increase query timeout to 2 minutes
-            context.Database.SetCommandTimeout(120);
-            if (!int.TryParse(tag, out var itemId))
-                itemId = ItemDetails.Instance.GetItemIdForTag(tag);
-            var baseSelect = context.Auctions
-                        .Where(a => a.Id >= baseStart + pageSize * pageNum && a.Id < baseStart + pageSize * (pageNum + 1) && a.HighestBidAmount > 0);
-            if (itemId != 0)
-            {
-                var maxPages = 30;
-                var pageDays = 10;
-                if (pageNum >= maxPages)
-                    throw new CoflnetException("max_page_exceeded", $"Sorry you are only allowed to query {maxPages} pages (from 0)");
-                var timeStart = DateTime.Now.Date - TimeSpan.FromDays(maxPages * pageDays - pageNum * pageDays);
-                var end = timeStart + TimeSpan.FromDays(pageDays);
-                baseSelect = context.Auctions.Where(a => a.ItemId == itemId && a.End > timeStart && a.End < end)
-                        .Where(a => a.HighestBidAmount > 0).Take(count).AsSplitQuery();
-            }
-            var fullSelect = baseSelect
-                        .Include(a => a.Enchantments)
-                        .Include(a => a.NbtData);
-            var data = await fullSelect.ToListAsync();
-            logger.LogInformation($"Exporting {data.Count} auctions");
-            await loadTask;
-            var outputColumns = transformer.Createmap(keys.ToList(), itemModifiers).Concat(craftItems).ToList();
-            await HttpResponseWritingExtensions.WriteAsync(this.Response, string.Join(';', outputColumns) + '\n');
-            foreach (var item in data)
-            {
-                try
-                {
-                    await HttpResponseWritingExtensions.WriteAsync(this.Response, await transformer.MapAsFrame(item, keys.ToList(), itemModifiers, outputColumns));
-                }
-                catch (System.Exception e)
-                {
-                    await HttpResponseWritingExtensions.WriteAsync(this.Response, e.ToString());
-                    throw;
-                }
-            }
+            // unused by anyone
         }
 
         private void AssertAccessToken(string token)
@@ -382,7 +299,7 @@ namespace Coflnet.Sky.Api.Controller
             try
             {
                 var minTime = DateTime.Now.Subtract(TimeSpan.FromDays(days));
-                var itemId = ItemDetails.Instance.GetItemIdForTag(itemTag);
+                var itemId = itemDetails.GetItemIdForTag(itemTag);
                 var baseSelect = context.Auctions
                             .Where(a => a.ItemId == itemId && a.End < DateTime.Now && a.End > minTime)
                             .OrderByDescending(a => a.End);
@@ -470,7 +387,7 @@ namespace Coflnet.Sky.Api.Controller
         public async Task<List<AuctionPreview>> GetActive(string itemTag, [FromQuery] IDictionary<string, string> query)
         {
             var filter = new Dictionary<string, string>(query, StringComparer.OrdinalIgnoreCase);
-            var itemId = ItemDetails.Instance.GetItemIdForTag(itemTag);
+            var itemId = itemDetails.GetItemIdForTag(itemTag);
             var order = ActiveItemSearchQuery.SortOrder.LOWEST_PRICE;
             if (filter.ContainsKey("orderBy"))
             {
@@ -531,7 +448,7 @@ namespace Coflnet.Sky.Api.Controller
         public async Task<IEnumerable<ItemSell>> GetUidHistory(string uid)
         {
             var numericId = GetUidFromString(uid);
-            var key = NBT.Instance.GetKeyId("uid");
+            var key = fe.NbtInstance.GetKeyId("uid");
             var result = await context.Auctions
                         .Where(a => a.NBTLookup.Where(l => l.KeyId == key && l.Value == numericId).Any())
                         .Where(a => a.HighestBidAmount > 0)
@@ -572,7 +489,7 @@ namespace Coflnet.Sky.Api.Controller
             if (request.Uuids.Length > limit)
                 throw new CoflnetException("to_many_uuid", $"Please do batch lookups on no more than {limit} uuids at a time");
             var numericIds = request.Uuids.GroupBy(id => id).Select(ids => ids.First()).ToDictionary(uid => GetUidFromString(uid));
-            var key = NBT.Instance.GetKeyId("uid");
+            var key = fe.NbtInstance.GetKeyId("uid");
             var maxEnd = DateTime.UtcNow + TimeSpan.FromMinutes(2);
             var result = await context.Auctions
                         .Where(a => a.NBTLookup.Where(l => l.KeyId == key && numericIds.Keys.Contains(l.Value)).Any() && a.End < maxEnd)
@@ -611,7 +528,7 @@ namespace Coflnet.Sky.Api.Controller
         [ResponseCache(Duration = 1800, Location = ResponseCacheLocation.Any, NoStore = false)]
         public async Task<IEnumerable<string>> CheckIfIdsActive([FromBody] List<string> uuids)
         {
-            var key = NBT.Instance.GetKeyId("uid");
+            var key = fe.NbtInstance.GetKeyId("uid");
             var uIds = uuids.Select(u =>
             {
                 return GetUidFromString(u);
@@ -686,7 +603,7 @@ namespace Coflnet.Sky.Api.Controller
                 [ResponseCache(Duration = 120, Location = ResponseCacheLocation.Any, NoStore = false, VaryByQueryKeys = new string[] { "*" })]
                 public async Task<List<AuctionPreview>> SoldRecent(string itemTag, [FromQuery] IDictionary<string, string> query)
                 {
-                    var itemId = ItemDetails.Instance.GetItemIdForTag(itemTag);
+                    var itemId = itemDetails.GetItemIdForTag(itemTag);
                     var filter = new Dictionary<string, string>(query);
                     int page = 0;
                     if (filter.ContainsKey("page"))
