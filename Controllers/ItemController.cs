@@ -133,7 +133,7 @@ namespace Coflnet.Sky.Api.Controller
             if(recipe == null)
                 return new Items.Client.Model.ItemPreview[0];
             var allItems = new string[] { recipe.A1, recipe.A2, recipe.A3, recipe.B1, recipe.B2, recipe.B3, recipe.C1, recipe.C2, recipe.C3 };
-            var recipeBased = allItems?.Select(t => t.Split(':').First())
+            var recipeBased = allItems?.Select(t => t?.Split(':').First())
                 .Distinct()
                 .Where(t => t != null && t.Length > 2)
                 .Select(tag => new Items.Client.Model.ItemPreview
