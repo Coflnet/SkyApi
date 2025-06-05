@@ -30,7 +30,7 @@ public class AuctionValueSummary : CustomModifier
             if (lbin >= value || lbin == 0)
             {
                 data.mods[i].Add(new DescModification(DescModification.ModType.HIGHLIGHT, 0, "80ff80")); // green for lbin
-                data.mods[i].Add(new DescModification(DescModification.ModType.INSERT, 1, $"{McColorCodes.DARK_GREEN}Is Lbin" + (lbin == 0 ? " (only offer)" : $" ({data.modService.FormatNumber(lbin-value)} lower than slbin)")));
+                data.mods[i].Add(new DescModification(DescModification.ModType.INSERT, 1, $"{McColorCodes.DARK_GREEN}Is Lbin" + (price.SLbin.Price == 0 ? " (only offer)" : $" ({data.modService.FormatNumber(price.SLbin.Price-value)} lower than slbin)")));
             }
             else if (lbin < value)
             {
