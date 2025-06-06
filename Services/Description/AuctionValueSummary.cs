@@ -38,7 +38,7 @@ public class AuctionValueSummary : CustomModifier
             }
             else if (lbin < value)
             {
-                data.mods[i].Add(new DescModification(DescModification.ModType.HIGHLIGHT, 0, "ff8080")); // red for not lbin
+                data.mods[i].Add(new DescModification(DescModification.ModType.HIGHLIGHT, 0, "ff0000")); // red for not lbin
                 data.mods[i].Add(new DescModification(DescModification.ModType.INSERT, 1, $"{McColorCodes.RED}Not lbin ({data.modService.FormatNumber(value-lbin)} higher than lbin)"));
             }
         }
