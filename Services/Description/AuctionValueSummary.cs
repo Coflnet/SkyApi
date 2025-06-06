@@ -10,12 +10,16 @@ public class AuctionValueSummary : CustomModifier
     public void Apply(DataContainer data)
     {
         var sum = 0L;
-        for (int i = 0; i < 9 * 3; i++)
+        for (int i = 0; i < 9 * 4; i++)
         {
             var item = data.Items.ElementAtOrDefault(i);
             var price = data.PriceEst.ElementAtOrDefault(i);
             if (item?.Description == null)
                 continue;
+            if (item.ItemName.EndsWith("Go Back"))
+            {
+                break; // stop at "Go Back" item
+            }
             var regexParsedPrice = Regex.Match(item.Description, @"Buy it now: §\d([\d,]+) coins");
             if (!regexParsedPrice.Success)
                 continue;
