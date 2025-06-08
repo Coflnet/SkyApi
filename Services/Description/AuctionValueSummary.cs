@@ -23,9 +23,9 @@ public class AuctionValueSummary : CustomModifier
             var regexParsedPrice = Regex.Match(item.Description, @"Buy it now: §\d([\d,]+) coins");
             if (!regexParsedPrice.Success)
             {
-                var isSold = Regex.IsMatch(item.Description, @"Sold for §\d([\d,]+) coins");
+                var isSold = Regex.IsMatch(item.Description, @"Sold for: §\d([\d,]+) coins");
                 if (isSold)
-                    data.mods[i].Add(new DescModification(DescModification.ModType.HIGHLIGHT, 1, "00ff00"));
+                    data.mods[i].Add(new DescModification(DescModification.ModType.HIGHLIGHT, 1, "008f00"));
                 continue;
             }
             var value = long.Parse(regexParsedPrice.Groups[1].Value, System.Globalization.NumberStyles.AllowThousands, System.Globalization.CultureInfo.InvariantCulture);
