@@ -29,7 +29,7 @@ public class BazaarOrderAdjust : CustomModifier
             if (auction == null)
                 continue;
             var bazaar = result.GetValueOrDefault(auction.Tag);
-            if (bazaar != null && bazaar.SellPrice != 0)
+            if (bazaar != null && (bazaar.SellPrice != 0 || bazaar.BuyPrice != 0))
             {
                 var isBuy = auction.ItemName.Contains("BUY");
                 var allPrices = offerLookup[(isBuy, auction.Tag)].Select(x => x.desc).Where(x => x != null)
