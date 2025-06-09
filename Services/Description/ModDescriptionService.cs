@@ -1434,11 +1434,18 @@ public class ModDescriptionService : IDisposable
                 if (compound.Count == 0)
                     return (null, new string[0]);
                 if (NBT.ItemID(compound) == null)
-                    if (!NBT.GetName(compound)?.StartsWith("§8Quiver ") ?? true) // special variats are §8Quiver Flint Arrow
+                {
+                    var name = NBT.GetName(compound);
+                    if (compound?.Get<NbtString>("id").StringValue == "minecraft:enchanted_book")
+                    {
+                        // continue for bazaar orders (they don't have an id) we create a virtual one
+                    }
+                    else if (!name?.StartsWith("§8Quiver ") ?? true) // special variats are §8Quiver Flint Arrow
                         return (null, new string[0]); // skip all items without id
                     else
                         // quiver arrow when selected a bow
                         return (new SaveAuction() { Tag = "SKYBLOCK_MENU", ItemName = "§8Quiver Arrow" }, new string[0]);
+                }
                 var auction = new SaveAuction();
                 auction.Context = new Dictionary<string, string>();
                 NBT.FillFromTag(auction, compound, true);
