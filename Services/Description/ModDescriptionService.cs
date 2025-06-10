@@ -564,7 +564,7 @@ public class ModDescriptionService : IDisposable
         using var scope = scopeFactory.CreateScope();
         using var context = scope.ServiceProvider.GetRequiredService<HypixelContext>();
         var nameRequest = playerNameService.GetUuid(mcName);
-        var lastSells = await context.Auctions
+        var query = context.Auctions
                     .Where(a => a.NBTLookup.Where(l => l.KeyId == key && numericIds.Keys.Contains(l.Value)).Any())
                     //.Where(a => a.HighestBidAmount > 0)
                     .AsSplitQuery().AsNoTracking()
@@ -580,20 +580,30 @@ public class ModDescriptionService : IDisposable
                         a.Tag
                     })
                     .ToListAsync();
-        var uuid = await nameRequest;
-        return lastSells.ToLookup(g => numericIds[g.uid], a =>
+        try
         {
-            return new ListingSum()
+            var lastSells = await query;
+            var uuid = await nameRequest;
+            return lastSells.ToLookup(g => numericIds[g.uid], a =>
             {
-                end = a.End,
-                highest = a.HighestBidAmount,
-                StartingBid = a.StartingBid,
-                start = a.Start,
-                requestingUserIsSeller = a.AuctioneerId == uuid,
-                AuctionUid = a.auctionUid,
-                Tag = a.Tag
-            };
-        });
+                return new ListingSum()
+                {
+                    end = a.End,
+                    highest = a.HighestBidAmount,
+                    StartingBid = a.StartingBid,
+                    start = a.Start,
+                    requestingUserIsSeller = a.AuctioneerId == uuid,
+                    AuctionUid = a.auctionUid,
+                    Tag = a.Tag
+                };
+            });
+
+        }
+        catch (Exception e)
+        {
+            logger.LogError(e, "failed to get price data for {mcName} {sender}", mcName, inventory.SenderContactId);
+            return Array.Empty<ListingSum>().ToLookup(a => "");
+        }
     }
 
     private static long GetUidFromString(string u)
