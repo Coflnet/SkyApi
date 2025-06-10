@@ -367,11 +367,19 @@ public class ModDescriptionService : IDisposable
             var sell = p.OrderByDescending(a => a.end).Where(s => !s.requestingUserIsSeller && s.highest > 0 && s.end < DateTime.UtcNow).FirstOrDefault();
             return (sell?.highest ?? -p.OrderByDescending(a => a.end).First().highest, sell?.end ?? default, sell?.Tag);
         });
-        List<FlipTracker.Client.Model.Flip> flips = null;
+        List<FlipTracker.Client.Model.Flip> flips = [];
         if (inventory.Settings.Fields.Any(f => f.Any(x => x == DescriptionField.FinderEstimates)))
         {
-            // request finder estimates
-            flips = await trackerApi.GetFlipsOfAuctionBatchAsync(salesData.Select(s => s.OrderByDescending(x => x.end).First().AuctionUid).ToList());
+            try
+            {
+                // request finder estimates
+                flips = await trackerApi.GetFlipsOfAuctionBatchAsync(salesData.Select(s => s.OrderByDescending(x => x.end).First().AuctionUid).ToList());
+            }
+            catch (Exception e)
+            {
+                logger.LogError(e, "failed to get flips for auction");
+                flips = new();
+            }
         }
         var res = await pricesTask;
         var allCrafts = deserializedCache.Crafts;
