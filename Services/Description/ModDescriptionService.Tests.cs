@@ -88,6 +88,15 @@ public class ModDescriptionServiceTests
         auctions[0].auction.Tag.Should().Be("RED_ROSE:6");
         auctions.Last().auction.Tier.Should().Be(Tier.COMMON);
     }
+    [Test]
+    public void Parse1215()
+    {
+        var base64 = File.ReadAllText("MockObjects/inventory1.21.5.json");
+        var auctions = service.GetAuctionsFromNbt(base64);
+        auctions.Count.Should().Be(26);
+        auctions[0].auction.Tag.Should().Be("FARM_SUIT_HELMET");
+        auctions.First().auction.Tier.Should().Be(Tier.COMMON);
+    }
 
     [Test]
     public void GetsReforgeCost()
