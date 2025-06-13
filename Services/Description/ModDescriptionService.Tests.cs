@@ -96,6 +96,8 @@ public class ModDescriptionServiceTests
         auctions.Count.Should().Be(26);
         auctions[0].auction.Tag.Should().Be("FARM_SUIT_HELMET");
         auctions.First().auction.Tier.Should().Be(Tier.COMMON);
+        auctions.First().desc.Count().Should().Be(21);
+        auctions.First().desc.First().Should().StartWith("§7Defense: §a+15");
     }
 
     [Test]

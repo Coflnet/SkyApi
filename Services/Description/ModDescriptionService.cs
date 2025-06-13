@@ -1454,6 +1454,11 @@ public class ModDescriptionService : IDisposable
                 if (NBT.ItemID(compound) == null)
                 {
                     var name = NBT.GetName(compound);
+                    if (compound?.Get<NbtString>("id").StringValue == "minecraft:arrow" && name == "§aGo Back")
+                    {
+                        // this is the go back arrow of the menu, use it as marker
+                        return (new SaveAuction() { Tag = "GO_BACK", ItemName = "§aGo Back" }, new string[0]);
+                    }
                     if (compound?.Get<NbtString>("id").StringValue == "minecraft:enchanted_book")
                     {
                         // continue for bazaar orders (they don't have an id) we create a virtual one

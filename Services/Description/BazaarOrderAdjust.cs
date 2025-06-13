@@ -20,7 +20,7 @@ public class BazaarOrderAdjust : CustomModifier
     {
         var loaded = data.Loaded[nameof(BazaarOrderAdjust)].Result;
         var result = JsonConvert.DeserializeObject<StorageQuickStatus[]>(loaded).ToDictionary(x => x.ProductId);
-        var slotCount = data.auctionRepresent.Count - 9 * 5;
+        var slotCount = data.auctionRepresent.TakeWhile(x=>(x.auction?.Tag ?? "false") != "GO_BACK" ).Count();
         var offerLookup = data.auctionRepresent.Take(slotCount).Where(x => x.auction != null).ToLookup(x => (x.auction.ItemName.Contains("BUY"), x.auction.Tag));
         for (int i = 0; i < slotCount; i++)
         {
