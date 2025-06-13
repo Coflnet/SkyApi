@@ -56,6 +56,8 @@ public class FlipOnNextPage : CustomModifier
 
     private static void AddDescriptionTo(DataContainer data, ((SaveAuction auction, IEnumerable<string> desc) First, long profit, long lbinProfit, int index, string seller) bestFlip, int index)
     {
+        if(data.mods.Count <= index)
+            return; // item probably not loaded yet
         var targetItem = data.mods[index];
         var originalDesc = data.Items[index].Description;
         var itemName = data.Items[index].ItemName;
