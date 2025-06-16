@@ -7,7 +7,7 @@ using Newtonsoft.Json;
 
 namespace Coflnet.Sky.Api.Services.Description;
 
-public class BazaarOrderAdjust : CustomModifier
+public class BazaarOrderAdjust : ICustomModifier
 {
     private BazaarApi bazaarApi;
 

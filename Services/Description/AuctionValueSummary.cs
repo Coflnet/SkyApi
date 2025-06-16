@@ -5,7 +5,7 @@ using Coflnet.Sky.Commands.MC;
 
 namespace Coflnet.Sky.Api.Services.Description;
 
-public class AuctionValueSummary : CustomModifier
+public class AuctionValueSummary : ICustomModifier
 {
     public void Apply(DataContainer data)
     {

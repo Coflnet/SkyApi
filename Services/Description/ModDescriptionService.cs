@@ -59,7 +59,7 @@ public class ModDescriptionService : IDisposable
     private readonly IStateUpdateService stateService;
     private readonly ItemSkinHandler itemSkinHandler;
     private readonly IKatApi katApi;
-    private readonly ClassNameDictonary<CustomModifier> customModifiers = new();
+    private readonly ClassNameDictonary<ICustomModifier> customModifiers = new();
     private readonly DeserializedCache deserializedCache = new();
     private readonly PropertyMapper mapper = new();
     private readonly Core.Services.HypixelItemService itemService;

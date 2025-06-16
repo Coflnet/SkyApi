@@ -6,7 +6,7 @@ using Coflnet.Sky.Core;
 
 namespace Coflnet.Sky.Api.Services.Description;
 
-public class FlipOnNextPage : CustomModifier
+public class FlipOnNextPage : ICustomModifier
 {
     public virtual void Apply(DataContainer data)
     {

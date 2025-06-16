@@ -2,7 +2,7 @@ using Coflnet.Sky.Commands.MC;
 
 namespace Coflnet.Sky.Api.Services.Description;
 
-public class AttributeFusionExtenssion : CustomModifier
+public class AttributeFusionExtenssion : ICustomModifier
 {
     public void Apply(DataContainer data)
     {

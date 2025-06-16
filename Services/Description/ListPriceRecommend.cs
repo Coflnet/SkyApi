@@ -7,7 +7,7 @@ using Newtonsoft.Json;
 
 namespace Coflnet.Sky.Api.Services.Description;
 
-public class ListPriceRecommend : CustomModifier
+public class ListPriceRecommend : ICustomModifier
 {
     public void Apply(DataContainer data)
     {

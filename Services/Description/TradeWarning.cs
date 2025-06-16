@@ -4,7 +4,7 @@ using Coflnet.Sky.Commands.MC;
 using Newtonsoft.Json;
 
 namespace Coflnet.Sky.Api.Services.Description;
-public class TradeWarning : CustomModifier
+public class TradeWarning : ICustomModifier
 {
     public void Apply(DataContainer data)
     {

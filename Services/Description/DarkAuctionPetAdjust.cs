@@ -1,6 +1,6 @@
 namespace Coflnet.Sky.Api.Services.Description;
 
-public class DarkAuctionPetAdjust : CustomModifier
+public class DarkAuctionPetAdjust : ICustomModifier
 {
     public void Apply(DataContainer data)
     {

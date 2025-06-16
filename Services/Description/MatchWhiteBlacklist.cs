@@ -10,7 +10,7 @@ using Newtonsoft.Json;
 
 namespace Coflnet.Sky.Api.Services.Description;
 
-public class AuctionHouseHighlighting : CustomModifier
+public class AuctionHouseHighlighting : ICustomModifier
 {
     private ConcurrentDictionary<string, SelfUpdatingValue<FlipSettings>> settingsCache = new();
     public virtual void Apply(DataContainer data)

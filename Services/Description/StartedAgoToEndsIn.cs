@@ -4,7 +4,7 @@ using Coflnet.Sky.Commands.MC;
 
 namespace Coflnet.Sky.Api.Services.Description;
 
-public class StartedAgoToEndsIn : CustomModifier
+public class StartedAgoToEndsIn : ICustomModifier
 {
     public void Apply(DataContainer data)
     {

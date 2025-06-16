@@ -7,7 +7,7 @@ using System.Linq;
 using System.Text.RegularExpressions;
 
 namespace SkyApi.Services.Description;
-public abstract class CurrencyValueDisplay : CustomModifier
+public abstract class CurrencyValueDisplay : ICustomModifier
 {
     protected abstract string ValueSuffix { get; }
 
@@ -48,6 +48,9 @@ public abstract class CurrencyValueDisplay : CustomModifier
         data.mods[i].Insert(0, new DescModification(DescModification.ModType.REPLACE, lineId, text));
     }
 
+    /// <summary>
+    /// <inheritdoc />
+    /// </summary>
     public void Modify(ModDescriptionService.PreRequestContainer preRequest)
     {
         return;
