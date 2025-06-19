@@ -113,7 +113,7 @@ namespace Coflnet.Sky.Api.Controller
         {
             if (timestamp == default)
                 timestamp = DateTime.UtcNow;
-            return await bazaarClient.ApiBazaarItemIdSnapshotGetAsync(itemTag, timestamp.RoundDown(TimeSpan.FromSeconds(60)));
+            return await bazaarClient.ApiBazaarItemIdSnapshotGetAsync(itemTag, timestamp.AddSeconds(10).RoundDown(TimeSpan.FromSeconds(20)));
         }
 
         /// <summary>
