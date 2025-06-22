@@ -257,6 +257,16 @@ namespace Coflnet.Sky.Api.Controller
         {
             throw new CoflnetException("deprecated", "This endpoint got deprecated. This was made for tfm which doesn't use it anymore. If you do, please open a suggestion thread on our discord.");
         }
+
+        [HttpGet("unknown")]
+        public async Task<IEnumerable<FlipDetails>> GetUnknownFlips(DateTime end)
+        {
+            if (!await premiumTierService.HasPremiumPlus(this))
+                throw new CoflnetException("no_premium_plus",
+                    "Sorry this feature is only available for premium plus users.");
+            var flips = await flipService.flipTracking.GetUnknownFlipsAsync(end.AddHours(-1), end);
+            return flips.Select(FlipTrackingService.Convert);
+        }
     }
 }
 
