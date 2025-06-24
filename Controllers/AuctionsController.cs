@@ -138,7 +138,7 @@ namespace Coflnet.Sky.Api.Controller
                 result.ItemName = ItemDetails.TagToName(result.Tag);
             // order enchants
             var prices = modDescriptionService.GetEnchantBreakdown(result, modDescriptionService.DeserializedCache.BazaarItems)
-                .ToDictionary(e => e.e.Type, e => e.Item2);
+                .GroupBy(e=>e.e.Type).Select(g=>g.First()).ToDictionary(e => e.e.Type, e => e.Item2);
             var colored = EnchantColorMapper.Instance.AddColors(result);
             foreach (var item in colored.Enchantments)
             {
