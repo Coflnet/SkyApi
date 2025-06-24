@@ -46,12 +46,19 @@ public class ItemSkinHandler : BackgroundService, IItemSkinHandler
             await Task.Delay(TimeSpan.FromDays(1), stoppingToken);
         }
     }
-    
+
 
     public void StoreIfNeeded(string tag, NbtCompound compound)
     {
         if (tag == null)
             return;
+        if (tag == "ATTRIBUTE_SHARD")
+        {
+            var named = NBT.GetName(compound).Substring(2);
+            // this is a new attribute shard, we need to set the tag
+            if (Constants.NewAttributes.Contains(named))
+                tag = "SHARD_" + named.ToUpper();
+        }
         if (!skinNames.TryGetValue(tag, out var saved) || saved)
             return;
         skinNames[tag] = true;
