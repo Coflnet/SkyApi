@@ -1476,7 +1476,7 @@ public class ModDescriptionService : IDisposable
                 {
                     var named = auction.ItemName.Substring(2);
                     // this is a new attribute shard, we need to set the tag
-                    if (auction.FlatenedNBT.Count == 1 && Constants.NewAttributes.Contains(named))
+                    if (auction.FlatenedNBT.Count == 1 && Constants.ShardNames.Contains(named))
                         auction.Tag = "SHARD_" + named.ToUpper();
                 }
                 if (auction.Tier == Tier.UNKNOWN && (auction.Tag?.StartsWith("PET_") ?? false))
