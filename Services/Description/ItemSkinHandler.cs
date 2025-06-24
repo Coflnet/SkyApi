@@ -54,10 +54,10 @@ public class ItemSkinHandler : BackgroundService, IItemSkinHandler
             return;
         if (tag == "ATTRIBUTE_SHARD")
         {
-            var named = NBT.GetName(compound).Substring(2);
+            var name = NBT.GetName(compound).Substring(2);
             // this is a new attribute shard, we need to set the tag
-            if (Constants.NewAttributes.Contains(named))
-                tag = "SHARD_" + named.ToUpper();
+            if (Constants.ShardNames.Contains(name))
+                tag = "SHARD_" + name.ToUpper();
         }
         if (!skinNames.TryGetValue(tag, out var saved) || saved)
             return;
