@@ -46,7 +46,7 @@ public class TradeWarning : ICustomModifier
             }
         }
         Console.WriteLine($"trade warning send: {sendSum} receive: {receiveSum}");
-        Console.WriteLine(JsonConvert.SerializeObject(data.Items[48]));
+        Console.WriteLine(JsonConvert.SerializeObject(data.Items));
         data.mods[39].Add(new($"Send value: {data.modService.FormatNumber(sendSum)}"));
         data.mods[39].Add(new($"{McColorCodes.GRAY}Craft value: {data.modService.FormatNumber(sendCraftSum)}"));
         data.mods[39].Add(new($"Receive value: {data.modService.FormatNumber(receiveSum)}"));
