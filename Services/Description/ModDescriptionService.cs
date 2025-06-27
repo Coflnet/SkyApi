@@ -1474,7 +1474,7 @@ public class ModDescriptionService : IDisposable
                 NBT.FillFromTag(auction, compound, true);
                 if (auction.Tag == "ATTRIBUTE_SHARD")
                 {
-                    var named = auction.ItemName.Substring(2);
+                    var named = Regex.Replace(auction.ItemName, "§[0-9a-fklmnor]|SELL |BUY ","").Replace(' ', '_');
                     // this is a new attribute shard, we need to set the tag
                     if (auction.FlatenedNBT.Count == 1 && Constants.ShardNames.Contains(named))
                         auction.Tag = "SHARD_" + named.ToUpper();
