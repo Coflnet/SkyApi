@@ -6,18 +6,15 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
-using Coflnet.Kafka;
 using Coflnet.Sky.Api.Models.Mod;
 using Coflnet.Sky.Api.Services.Description;
 using Coflnet.Sky.Bazaar.Client.Api;
 using Coflnet.Sky.Bazaar.Client.Model;
-using Coflnet.Sky.Commands.Helper;
 using Coflnet.Sky.Commands.MC;
 using Coflnet.Sky.Commands.Shared;
 using Coflnet.Sky.Core;
 using Coflnet.Sky.Crafts.Client.Api;
 using Coflnet.Sky.Items.Client.Api;
-using fNbt;
 using fNbt.Tags;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -28,18 +25,6 @@ using SkyApi.Services.Description;
 using static Coflnet.Sky.Core.Services.ExoticColorService;
 
 namespace Coflnet.Sky.Api.Services;
-
-// wrapper for the deserialized cache
-public class DeserializedCache
-{
-    public Dictionary<string, Crafts.Client.Model.ProfitableCraft> Crafts = new();
-    public Dictionary<(string, Tier), Crafts.Client.Model.KatUpgradeCost> Kat = new();
-    public Dictionary<string, ItemPrice> BazaarItems = new();
-    public Dictionary<string, long> ItemPrices = new();
-    public Dictionary<string, float> NpcSellPrices = new();
-    public DateTime LastUpdate = DateTime.MinValue;
-    public bool IsUpdating = false;
-}
 
 public class ModDescriptionService : IDisposable
 {
