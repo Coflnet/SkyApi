@@ -259,10 +259,10 @@ public class ModDescriptionService : IDisposable
             logger.LogInformation("23jxhnny content: " + JsonConvert.SerializeObject(inventory));
         }
         var auctionRepresent = ConvertToAuctions(inventory);
-        var menuItemName = auctionRepresent.Last().auction?.Tag;
-        if (inventory.ChestName == "Game Menu" || menuItemName == null)
+        var hasSkyblockMenu = auctionRepresent.Any(a=>a.auction?.Tag == "SKYBLOCK_MENU");
+        if (inventory.ChestName == "Game Menu" || !hasSkyblockMenu)
         {
-            logger.LogInformation("Skipping game menu " + menuItemName);
+            logger.LogInformation("Skipping game menu " + hasSkyblockMenu);
             return new List<List<DescModification>>(auctionRepresent.Count).Select(_ => new List<DescModification>());
         }
 
