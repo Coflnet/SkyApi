@@ -38,7 +38,7 @@ namespace Coflnet.Sky.Api.Models
         /// Time it takes to upgrade
         /// </summary>
         [JsonProperty("hours")]
-        public int Hours { get; set; }
+        public double Hours { get; set; }
 
         /// <summary>
         /// Base cost of coins it takes to do the upgrade
