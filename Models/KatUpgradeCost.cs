@@ -19,6 +19,15 @@ namespace Coflnet.Sky.Api.Models
             Hours = cost.Hours;
             Cost = cost.Cost;
             Material = cost.Material;
+            Materials = new Dictionary<string, int>();
+            if(cost.Material != null)
+            Materials.Add(cost.Material, cost.Amount);
+            if(cost.Material2 != null)
+                Materials.Add(cost.Material2, cost.Amount2);
+            if(cost.Material3 != null)
+                Materials.Add(cost.Material3, cost.Amount3);
+            if(cost.Material4 != null)
+                Materials.Add(cost.Material4, cost.Amount4);
             Amount = cost.Amount;
         }
 
@@ -57,6 +66,8 @@ namespace Coflnet.Sky.Api.Models
         /// </summary>
         [JsonProperty("amount")]
         public int Amount { get; set; }
+        [JsonProperty("materials")]
+        public Dictionary<string, int> Materials { get; set; }
 
         /// <summary>
         /// Coflnet Item tag for the Pet
