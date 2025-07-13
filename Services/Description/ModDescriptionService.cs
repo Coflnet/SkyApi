@@ -259,7 +259,7 @@ public class ModDescriptionService : IDisposable
             logger.LogInformation("23jxhnny content: " + JsonConvert.SerializeObject(inventory));
         }
         var auctionRepresent = ConvertToAuctions(inventory);
-        var hasSkyblockMenu = auctionRepresent.Any(a=>a.auction?.Tag == "SKYBLOCK_MENU");
+        var hasSkyblockMenu = auctionRepresent.Any(a => a.auction?.Tag == "SKYBLOCK_MENU");
         if (inventory.ChestName == "Game Menu" || !hasSkyblockMenu)
         {
             logger.LogInformation("Skipping game menu " + hasSkyblockMenu);
@@ -823,7 +823,9 @@ public class ModDescriptionService : IDisposable
         var time = TimeSpan.FromHours(24 / price.Volume);
         if (price.AvgSellTime != 0)
             time = TimeSpan.FromMinutes(price.AvgSellTime);
-        if (time.TotalHours < 1)
+        if (time.TotalMinutes < 0)
+            builder.Append($"{McColorCodes.GRAY}{fieldName}: {McColorCodes.YELLOW}about two weeks ");
+        else if (time.TotalHours < 1)
             builder.Append($"{McColorCodes.GRAY}{fieldName}: {McColorCodes.YELLOW}{(int)time.TotalMinutes} minutes ");
         else if (time.TotalDays < 1)
             builder.Append($"{McColorCodes.GRAY}{fieldName}: {McColorCodes.YELLOW}{(int)time.TotalHours} hours ");
@@ -1459,7 +1461,7 @@ public class ModDescriptionService : IDisposable
                 NBT.FillFromTag(auction, compound, true);
                 if (auction.Tag == "ATTRIBUTE_SHARD")
                 {
-                    var named = Regex.Replace(auction.ItemName, "§[0-9a-fklmnor]|SELL |BUY ","").Replace(' ', '_');
+                    var named = Regex.Replace(auction.ItemName, "§[0-9a-fklmnor]|SELL |BUY ", "").Replace(' ', '_');
                     // this is a new attribute shard, we need to set the tag
                     if (auction.FlatenedNBT.Count == 1 && Constants.ShardNames.Contains(named))
                         auction.Tag = "SHARD_" + named.ToUpper();
