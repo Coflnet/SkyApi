@@ -76,7 +76,7 @@ public class BazaarOrderAdjust : ICustomModifier
             var slotCount = preRequest.auctionRepresent.TakeWhile(x=>(x.auction?.Tag ?? "false") != "GO_BACK" ).Count();
             var ids = preRequest.auctionRepresent.Take(slotCount).Where(x => x.auction != null)
                     .Select(x => x.auction.Tag).Distinct().ToArray();
-            var requests = ids.Select(x => bazaarApi.ApiBazaarItemIdSnapshotGetAsync(x));
+            var requests = ids.Select(x => bazaarApi.GetClosestToAsync(x));
             var result = await Task.WhenAll(requests);
             return JsonConvert.SerializeObject(result);
         });

@@ -146,7 +146,7 @@ namespace Coflnet.Sky.Api
                     var bazaarItems = di.GetRequiredService<ModDescriptionService>().DeserializedCache.BazaarItems;
                     if (bazaarItems.ContainsKey(id))
                     {
-                        var history = await di.GetRequiredService<IBazaarApi>().ApiBazaarItemIdHistoryGetAsync(id); ;
+                        var history = await di.GetRequiredService<IBazaarApi>().GetHistoryGraphAsync(id); ;
                         return history.GroupBy(a => a.Timestamp.Date).Select(s => s.First()).ToDictionary(h => h.Timestamp.Date, h => (long)h.Sell);
                     }
                     using var dbcontext = new HypixelContext();

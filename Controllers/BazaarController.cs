@@ -43,7 +43,7 @@ namespace Coflnet.Sky.Api.Controller
         [ResponseCache(Duration = 10, Location = ResponseCacheLocation.Any, NoStore = false)]
         public async Task<List<Sky.Bazaar.Client.Model.GraphResult>> HistoryGraphHour(string itemTag)
         {
-            var data = await bazaarClient.ApiBazaarItemIdHistoryGetAsync(itemTag, Ago(TimeSpan.FromHours(1)), Ago(TimeSpan.FromSeconds(1)));
+            var data = await bazaarClient.GetHistoryGraphAsync(itemTag, Ago(TimeSpan.FromHours(1)), Ago(TimeSpan.FromSeconds(1)));
             return data;
         }
 
@@ -62,7 +62,7 @@ namespace Coflnet.Sky.Api.Controller
         [ResponseCache(Duration = 600, Location = ResponseCacheLocation.Any, NoStore = false)]
         public async Task<List<Sky.Bazaar.Client.Model.GraphResult>> HistoryGraphDay(string itemTag)
         {
-            return await bazaarClient.ApiBazaarItemIdHistoryGetAsync(itemTag, Ago(TimeSpan.FromDays(1)), Ago(TimeSpan.FromMilliseconds(2)));
+            return await bazaarClient.GetHistoryGraphAsync(itemTag, Ago(TimeSpan.FromDays(1)), Ago(TimeSpan.FromMilliseconds(2)));
         }
         /// <summary>
         /// Gets the history data for display in a graph for one week ( in intervals of 2 hours)
@@ -74,7 +74,7 @@ namespace Coflnet.Sky.Api.Controller
         [ResponseCache(Duration = 3600, Location = ResponseCacheLocation.Any, NoStore = false)]
         public async Task<List<Sky.Bazaar.Client.Model.GraphResult>> HistoryGraphWeek(string itemTag)
         {
-            return await bazaarClient.ApiBazaarItemIdHistoryGetAsync(itemTag, Ago(TimeSpan.FromDays(7)), Ago(TimeSpan.FromMilliseconds(2)));
+            return await bazaarClient.GetHistoryGraphAsync(itemTag, Ago(TimeSpan.FromDays(7)), Ago(TimeSpan.FromMilliseconds(2)));
         }
 
 
@@ -90,7 +90,7 @@ namespace Coflnet.Sky.Api.Controller
         [ResponseCache(Duration = 3600, Location = ResponseCacheLocation.Any, NoStore = false, VaryByQueryKeys = new string[] { "start", "end" })]
         public async Task<List<Sky.Bazaar.Client.Model.GraphResult>> HistoryGraph(string itemTag, DateTime? start = null, DateTime? end = null)
         {
-            var result = await bazaarClient.ApiBazaarItemIdHistoryGetAsync(itemTag, 
+            var result = await bazaarClient.GetHistoryGraphAsync(itemTag, 
                 start.HasValue ? start!.Value.RoundDown(TimeSpan.FromMinutes(1)) : null, 
                 end.HasValue ? end!.Value.RoundDown(TimeSpan.FromMinutes(1)) : null);
             if(result.Count == 0)
@@ -113,7 +113,7 @@ namespace Coflnet.Sky.Api.Controller
         {
             if (timestamp == default)
                 timestamp = DateTime.UtcNow;
-            return await bazaarClient.ApiBazaarItemIdSnapshotGetAsync(itemTag, timestamp.AddSeconds(10).RoundDown(TimeSpan.FromSeconds(20)));
+            return await bazaarClient.GetClosestToAsync(itemTag, timestamp.AddSeconds(10).RoundDown(TimeSpan.FromSeconds(20)));
         }
 
         /// <summary>

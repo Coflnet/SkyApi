@@ -458,7 +458,7 @@ public class ModDescriptionService : IDisposable
             });
             TryGet(async () =>
             {
-                foreach (var item in await bazaarApi.ApiBazaarPricesGetAsync())
+                foreach (var item in await bazaarApi.GetAllPricesAsync())
                 {
                     deserializedCache.BazaarItems[item.ProductId] = item;
                 }
