@@ -133,23 +133,23 @@ public class ModDescriptionService : IDisposable
 
     private readonly ConcurrentDictionary<string, (SelfUpdatingValue<DescriptionSetting>, SelfUpdatingValue<AccountInfo>)> settings = new();
 
-    public List<Item> ProduceInventory(InventoryData modDescription, string playerId, string userId)
+    public List<Item> ProduceInventory(InventoryData inventoryData, string playerId, string userId)
     {
         try
         {
-            var items = InventoryToItems(modDescription);
+            var items = InventoryToItems(inventoryData);
             ahListChecker.CheckItems(items, playerId);
-            var inventoryhash = SHA256.Create().ComputeHash(Encoding.UTF8.GetBytes(modDescription.FullInventoryNbt));
+            var inventoryhash = SHA256.Create().ComputeHash(Encoding.UTF8.GetBytes(inventoryData.FullInventoryNbt));
             // anonymous player only ineresting if ah contains seller
             if (playerId == null && !items.Any(i => i?.Description?.Contains("Seller") ?? false))
                 return items;
-            ProduceInventory(modDescription.ChestName, playerId, userId, items);
+            ProduceInventory(inventoryData.ChestName, playerId, userId, items, inventoryData.Position);
             return items;
         }
         catch (Exception e)
         {
             logger.LogError(e, "failed to parse inventory");
-            foreach (var item in InventoryToItems(modDescription))
+            foreach (var item in InventoryToItems(inventoryData))
             {
                 try
                 {
@@ -172,7 +172,8 @@ public class ModDescriptionService : IDisposable
     /// <param name="playerId"></param>
     /// <param name="userId"></param>
     /// <param name="items"></param>
-    public void ProduceInventory(string chestName, string playerId, string userId, List<Item> items)
+    /// <param name="position"></param>
+    public void ProduceInventory(string chestName, string playerId, string userId, List<Item> items, BlockPos position = null)
     {
         stateService.Produce(playerId, new()
         {
@@ -180,7 +181,8 @@ public class ModDescriptionService : IDisposable
             Chest = new ChestView
             {
                 Name = chestName,
-                Items = items
+                Items = items,
+                Position = position
             },
             UserId = userId,
             ReceivedAt = DateTime.UtcNow
@@ -303,6 +305,10 @@ public class ModDescriptionService : IDisposable
             result = result,
             inventory = inventory
         };
+        if (inventory.Position != null)
+        {
+            Console.WriteLine($"Position: {inventory.Position.X}, {inventory.Position.Y}, {inventory.Position.Z}");
+        }
         foreach (var item in matchingModifiers)
         {
             try

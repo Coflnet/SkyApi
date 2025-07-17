@@ -17,6 +17,10 @@ public class InventoryData
     /// </summary>
     public string FullInventoryNbt;
     /// <summary>
+    /// The position of the chest (if inventory is, also, a chest)
+    /// </summary>
+    public BlockPos Position;
+    /// <summary>
     /// Nbt formatted as json like mineflayer does it
     /// </summary>
     public dynamic JsonNbt;
