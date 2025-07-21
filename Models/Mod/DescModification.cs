@@ -54,7 +54,12 @@ public class DescModification
         /// <summary>
         /// Highlight line <see cref="Line"/> with RGB color <see cref="Value"/>
         /// </summary>
-        HIGHLIGHT
+        HIGHLIGHT,
+        /// <summary>
+        /// Suggest a value to the user, which would be copied to the next open sign
+        /// It follows the syntax `Last line text: value`
+        /// </summary>
+        SUGGEST
     }
 
     /// <summary>

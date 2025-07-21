@@ -273,6 +273,14 @@ public class ModDescriptionService : IDisposable
         {
             // compute descriptions and return everything computed on error
             await ComputeDescriptions(inventory, mcName, sessionId, auctionRepresent, result);
+            if (inventory.ChestName == "Create BIN Auction")
+            {
+                var list = new List<DescModification>();
+                list.Add(new DescModification(McColorCodes.GREEN + "Creating BIN Auction"));
+                list.Add(new DescModification("Suggesting sample price"));
+                list.Add(new(DescModification.ModType.SUGGEST, 0, "starting bid: 1k"));
+                result.Add(list);
+            }
         }
         catch (Exception e)
         {
