@@ -305,10 +305,6 @@ public class ModDescriptionService : IDisposable
             result = result,
             inventory = inventory
         };
-        if (inventory.Position != null)
-        {
-            Console.WriteLine($"Position: {inventory.Position.X}, {inventory.Position.Y}, {inventory.Position.Z}");
-        }
         foreach (var item in matchingModifiers)
         {
             try
