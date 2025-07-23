@@ -182,7 +182,8 @@ public class ModDescriptionService : IDisposable
             {
                 Name = chestName,
                 Items = items,
-                Position = position
+                Position = position,
+                OpenedAt = DateTime.UtcNow
             },
             UserId = userId,
             ReceivedAt = DateTime.UtcNow
