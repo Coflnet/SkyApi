@@ -196,8 +196,21 @@ namespace Coflnet.Sky.Api
             app.UseResponseCaching();
             app.UseResponseCompression();
             app.UseIpRateLimiting();
-
-
+          /*  app.Use(async (context, next) =>
+            {
+                if (context.Request.Method == HttpMethods.Post)
+                {
+                    context.Request.EnableBuffering();
+                    context.Request.Body.Position = 0;
+                    using (var reader = new StreamReader(context.Request.Body, leaveOpen: true))
+                    {
+                        var body = await reader.ReadToEndAsync();
+                        context.Request.Body.Position = 0;
+                        logger.LogInformation($"POST Body: {body}");
+                    }
+                }
+                await next();
+            });*/
 
             app.UseEndpoints(endpoints =>
             {
