@@ -13,6 +13,28 @@ public class ListPriceRecommend : ICustomModifier
     {
         string text = GetRecommendText(data.PriceEst[13], data.modService);
         data.mods[31].Insert(0, new DescModification(DescModification.ModType.INSERT, 1, text));
+
+        var priceEst = data.PriceEst[13];
+        if(priceEst == null || priceEst.Median == 0)
+        {
+            return;
+        }
+        if (priceEst == null || priceEst.Volume <= 4)
+        {
+            data.mods.Add([
+                new DescModification("Looks like this is not sold often"),
+                new DescModification("SkyCofl won't fill in a price")
+            ]);
+            return;
+        }
+        (double target, bool fromMedian) = SniperClient.InstaSellPrice(priceEst);
+        var list = new List<DescModification>
+        {
+            new(McColorCodes.GREEN + "For this item, SkyCofl has a price"),
+            new("We will fill in the price when you open the sign"),
+            new(DescModification.ModType.SUGGEST, 0, "starting bid: " + target)
+        };
+        data.mods.Add(list);
     }
 
     public static string GetRecommendText(PriceEstimate pricing, ModDescriptionService modService)
