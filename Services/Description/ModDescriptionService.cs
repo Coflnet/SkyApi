@@ -469,9 +469,14 @@ public class ModDescriptionService : IDisposable
             });
             TryGet(async () =>
             {
-                foreach (var item in await bazaarApi.GetAllPricesAsync())
+                for (int i = 0; i < 5; i++)
                 {
-                    deserializedCache.BazaarItems[item.ProductId] = item;
+                    foreach (var item in await bazaarApi.GetAllPricesAsync())
+                    {
+                        deserializedCache.BazaarItems[item.ProductId] = item;
+                    }
+                    // bazaar api updates every 20 seconds
+                    await Task.Delay(20_000);
                 }
             });
             TryGet(async () =>
