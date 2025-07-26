@@ -27,12 +27,11 @@ public class ListPriceRecommend : ICustomModifier
             ]);
             return;
         }
-        (double target, bool fromMedian) = SniperClient.InstaSellPrice(priceEst);
         var list = new List<DescModification>
         {
             new(McColorCodes.GREEN + "For this item, SkyCofl has a price"),
             new("We will fill in the price when you open the sign"),
-            new(DescModification.ModType.SUGGEST, 0, "starting bid: " + target)
+            new(DescModification.ModType.SUGGEST, 0, "starting bid: " + ModDescriptionService.FormatPriceShort(priceEst.Median -1))
         };
         data.mods.Add(list);
     }
