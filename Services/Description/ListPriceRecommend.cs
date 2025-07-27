@@ -32,7 +32,7 @@ public class ListPriceRecommend : ICustomModifier
             new(McColorCodes.GREEN + "For this item, SkyCofl has a price" + McColorCodes.RESET),
             new("We will fill in the price"),
             new("when you open the sign"),
-            new(DescModification.ModType.SUGGEST, 0, "starting bid: " + ModDescriptionService.FormatPriceShort(priceEst.Median -1))
+            new(DescModification.ModType.SUGGEST, 0, "starting bid: " + ModDescriptionService.FormatPriceShort(priceEst.Median -1).ToLower())
         };
         data.mods.Add(list);
     }
