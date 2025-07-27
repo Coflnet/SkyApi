@@ -29,8 +29,8 @@ public class ListPriceRecommend : ICustomModifier
         }
         var list = new List<DescModification>
         {
-            new(McColorCodes.GREEN + "For this item, SkyCofl has a price"),
-            new(McColorCodes.RESET + "We will fill in the price"),
+            new(McColorCodes.GREEN + "For this item, SkyCofl has a price" + McColorCodes.RESET),
+            new("We will fill in the price"),
             new("when you open the sign"),
             new(DescModification.ModType.SUGGEST, 0, "starting bid: " + ModDescriptionService.FormatPriceShort(priceEst.Median -1))
         };
