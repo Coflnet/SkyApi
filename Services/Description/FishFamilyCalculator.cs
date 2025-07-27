@@ -37,31 +37,29 @@ public class FishFamilyCalculator : ICustomModifier
 
     public void Modify(ModDescriptionService.PreRequestContainer preRequest)
     {
-
         var nbt = NBT.File(Convert.FromBase64String(preRequest.inventory.FullInventoryNbt));
+        var existing = preRequest.auctionRepresent.Where(a=>a.auction.Tag != null).GroupBy(a => a.auction.ItemName)
+            .Select(g => g.First()).ToDictionary(x=>x.auction.Tag);
         var auctionRepresent = nbt.RootTag.Get<NbtList>("i").Select(t =>
         {
             var compound = t as NbtCompound;
             var name = NBT.GetName(compound);
+            if(existing.TryGetValue(name, out var existingAuction))
+            {
+                return existingAuction;
+            }
             return (new SaveAuction()
             {
                 ItemName = name,
-                Tag = name.Replace("§c","").ToUpper().Replace(" ", "_"),
+                Tag = name.Replace("§c", "").ToUpper().Replace(" ", "_"),
                 Tier = Tier.SPECIAL,
                 Count = 1
-            },new string[0]);
+            }, new string[0]);
         }).Take(5 * 9).ToList();
-
 
         for (int i = 0; i < 5 * 9; i++)
         {
             preRequest.auctionRepresent[i] = auctionRepresent[i];
-        }
-        
-        foreach (var auction in preRequest.auctionRepresent.Take(5 * 9))
-        {
-            var item = auction.auction;
-            Console.WriteLine($"Fish Family Calculator: {item?.ItemName} -> {item?.Tag}");
         }
     }
 }
