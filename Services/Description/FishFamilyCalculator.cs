@@ -10,13 +10,13 @@ public class FishFamilyCalculator : ICustomModifier
     public void Apply(DataContainer data)
     {
         var cheapestLeft = data.PriceEst.Zip(data.auctionRepresent, (price, auction) => (price, auction.auction?.ItemName, auction.desc))
-            .Where(x =>x.ItemName != null && x.desc != null && x.desc.Length == 0 && x.price?.Median > 0)
-            .OrderBy(x =>( x.price?.Median ?? 1_000_000) + (x.price?.Lbin.Price ?? 10_000_000))
+            .Where(x => x.ItemName != null && x.desc != null && x.desc.Length == 0 && x.price?.Median > 0)
+            .OrderBy(x => (x.price?.Median ?? 1_000_000) + (x.price?.Lbin.Price ?? 10_000_000))
             .Take(3)
             .ToList();
         var info = new List<Models.Mod.DescModification>();
         info.Add(new("Cheapest fish to add:"));
-        if(cheapestLeft.Count == 0)
+        if (cheapestLeft.Count == 0)
         {
             info.Add(new("No fish found"));
             info.Add(new($"{McColorCodes.GRAY}No auction active"));
@@ -38,26 +38,26 @@ public class FishFamilyCalculator : ICustomModifier
     public void Modify(ModDescriptionService.PreRequestContainer preRequest)
     {
         var nbt = NBT.File(Convert.FromBase64String(preRequest.inventory.FullInventoryNbt));
-        var existing = preRequest.auctionRepresent.Take(5*9).Where(a=>a.auction?.Tag != null).GroupBy(a => a.auction.Tag)
-            .Select(g => g.First()).ToDictionary(x=>x.auction.Tag);
+        var existing = preRequest.auctionRepresent.Take(5 * 9).Where(a => a.auction?.Tag != null).GroupBy(a => a.auction.Tag)
+            .Select(g => g.First()).ToDictionary(x => x.auction.Tag);
         var auctionRepresent = nbt.RootTag.Get<NbtList>("i").Select(t =>
         {
             var compound = t as NbtCompound;
             var name = NBT.GetName(compound);
-            if(name == null)
+            if (name == null)
             {
                 return (null, []);
             }
-            if (existing.TryGetValue(name, out var existingAuction))
+            var Tag = name.Replace("§c", "").ToUpper().Replace(" ", "_");
+            if (existing.TryGetValue(Tag, out var existingAuction))
             {
-                Console.WriteLine($"Found existing auction for {name}");
                 return existingAuction;
             }
             return (new SaveAuction()
             {
                 ItemName = name,
-                Tag = name.Replace("§c", "").ToUpper().Replace(" ", "_"),
                 Tier = Tier.SPECIAL,
+                Tag = Tag,
                 Count = 1
             }, new string[0]);
         }).Take(5 * 9).ToList();
