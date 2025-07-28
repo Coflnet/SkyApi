@@ -46,7 +46,7 @@ public class ListPriceRecommend : ICustomModifier
             suggestedPrice = priceInfo.LastListings.First();
             priceSource = "last listings of item";
         } else if(priceEst.Lbin.Price > priceEst.Median && priceEst.LbinKey == priceEst.ItemKey
-            && priceEst.Volume > 3 && priceEst.Volatility < 10)
+            && priceEst.Volume > 3 && (priceEst.Volatility < 10 || priceEst.Volatility < 30 && priceEst.Volume > 15))
         {
             suggestedPrice = priceEst.Lbin.Price;
             priceSource = "matching lbin";
