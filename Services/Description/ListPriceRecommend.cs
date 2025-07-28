@@ -31,8 +31,6 @@ public class ListPriceRecommend : ICustomModifier
         var list = new List<DescModification>
         {
             new(McColorCodes.GREEN + "For this item, SkyCofl has a price" + McColorCodes.RESET),
-            new("We will fill in the price"),
-            new("when you open the sign"),
             new($"{McColorCodes.GRAY}Est. time to sell: " +  ModDescriptionService.FormatTime(TimeSpan.FromMinutes(priceEst.AvgSellTime))),
         };
         if (data.inventory.Settings.DisableSuggestions)
@@ -43,6 +41,8 @@ public class ListPriceRecommend : ICustomModifier
         }
         else
         {
+            list.Add(new("We will fill in the price"));
+            list.Add(new("when you open the sign"));
             list.Add(
                 new(DescModification.ModType.SUGGEST, 0, "starting bid: " + ModDescriptionService.FormatPriceShort(priceEst.Median - 1).ToLower()));
             list.Add(new DescModification(McColorCodes.DARK_GRAY + "Disable suggestions with"));
