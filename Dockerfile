@@ -4,7 +4,7 @@ RUN git clone --depth=1 https://github.com/Coflnet/HypixelSkyblock.git dev \
     && git clone --depth=1 https://github.com/Coflnet/SkyBackendForFrontend.git \
     && git clone --depth=1 https://github.com/Coflnet/SkyFilter.git
 WORKDIR /build/sky
-RUN git clone --depth=1 https://github.com/NotEnoughUpdates/NotEnoughUpdates-REPO.git NEU-REPO \
+RUN git clone --depth=1 https://github.com/Ekwav/NotEnoughUpdates-REPO.git NEU-REPO \
     && rm -rf NEU-REPO/.git NEU-REPO/items
 COPY SkyApi.csproj SkyApi.csproj
 RUN dotnet restore
