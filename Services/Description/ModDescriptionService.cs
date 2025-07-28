@@ -519,6 +519,8 @@ public class ModDescriptionService : IDisposable
         Dictionary<string, (long, DateTime, string)> pricesPaid)
     {
         var take = 45;
+        if (auctionRepresent.Count % 9 == 1)
+            take++; // adjust for 1.21 offhand slot
         if (auctionRepresent.Count > take)
         {
             // container of some sort, only display whats in the container by taking the top
