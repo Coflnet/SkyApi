@@ -46,10 +46,15 @@ public class ListPriceRecommend : ICustomModifier
             suggestedPrice = priceInfo.LastListings.First();
             priceSource = "last listings of item";
         }
+        var generalSellTime = TimeSpan.FromMinutes(priceEst.AvgSellTime);
+        if (suggestedPrice > priceEst.Median)
+            generalSellTime = generalSellTime.Multiply(2) + TimeSpan.FromMinutes(20);
+        else if (suggestedPrice < priceEst.Median)
+            generalSellTime = generalSellTime.Divide(1.2);
         var list = new List<DescModification>
         {
             new(McColorCodes.GREEN + "For this item, SkyCofl has a price" + McColorCodes.RESET),
-            new($"{McColorCodes.GRAY}Est. time to sell: " +  ModDescriptionService.FormatTime(TimeSpan.FromMinutes(priceEst.AvgSellTime))),
+            new($"{McColorCodes.GRAY}Est. time to sell: " +  ModDescriptionService.FormatTime(generalSellTime)),
         };
         if (data.inventory.Settings.DisableSuggestions)
         {
