@@ -38,15 +38,15 @@ public class ListPriceRecommend : ICustomModifier
         if (data.inventory.Settings.DisableSuggestions)
         {
             list.Add(new DescModification("Suggested price: " + ModDescriptionService.FormatPriceShort(priceEst.Median)));
-            list.Add(new DescModification("Enable automatic filling with"));
-            list.Add(new DescModification("/cofl set loredisableSuggestions false"));
+            list.Add(new DescModification(McColorCodes.DARK_GRAY + "Enable automatic filling with"));
+            list.Add(new DescModification("/cofl set noSuggest false"));
         }
         else
         {
             list.Add(
                 new(DescModification.ModType.SUGGEST, 0, "starting bid: " + ModDescriptionService.FormatPriceShort(priceEst.Median - 1).ToLower()));
-            list.Add(new DescModification(McColorCodes.DARK_GRAY + "Disable automatic suggestions with"));
-            list.Add(new DescModification("/cofl set loreDisableSuggestions false"));
+            list.Add(new DescModification(McColorCodes.DARK_GRAY + "Disable suggestions with"));
+            list.Add(new DescModification("/cofl s noSuggest true"));
         }
         data.mods.Add(list);
     }
