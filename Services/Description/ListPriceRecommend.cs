@@ -1,8 +1,13 @@
+using System.Linq;
+using System.Threading.Tasks;
 using Coflnet.Sky.Api.Models.Mod;
 using Coflnet.Sky.Commands.MC;
 using Coflnet.Sky.Commands.Shared;
+using Coflnet.Sky.Core;
+using Coflnet.Sky.ModCommands.Client.Api;
 using Coflnet.Sky.Sniper.Client.Model;
-using Microsoft.Extensions.Logging;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 using Newtonsoft.Json;
 
 namespace Coflnet.Sky.Api.Services.Description;
@@ -28,6 +33,19 @@ public class ListPriceRecommend : ICustomModifier
             ]);
             return;
         }
+        var suggestedPrice = priceEst.Median;
+        var priceSource = "median";
+        var priceInfo = JsonConvert.DeserializeObject<PriceInfo>(data.Loaded[nameof(ListPriceRecommend)].Result);
+        if (priceInfo.Recommended != null && priceInfo.Recommended > 0)
+        {
+            suggestedPrice = priceInfo.Recommended.Value;
+            priceSource = "Flip estimate";
+        }
+        else if (priceInfo.LastListings.Count > 0)
+        {
+            suggestedPrice = priceInfo.LastListings.First();
+            priceSource = "last listings of item";
+        }
         var list = new List<DescModification>
         {
             new(McColorCodes.GREEN + "For this item, SkyCofl has a price" + McColorCodes.RESET),
@@ -35,7 +53,7 @@ public class ListPriceRecommend : ICustomModifier
         };
         if (data.inventory.Settings.DisableSuggestions)
         {
-            list.Add(new DescModification("Suggested price: " + ModDescriptionService.FormatPriceShort(priceEst.Median)));
+            list.Add(new DescModification("Suggested price: " + ModDescriptionService.FormatPriceShort(suggestedPrice)));
             list.Add(new DescModification(McColorCodes.DARK_GRAY + "Enable automatic filling with"));
             list.Add(new DescModification("/cofl set noSuggest false"));
         }
@@ -43,8 +61,9 @@ public class ListPriceRecommend : ICustomModifier
         {
             list.Add(new("We will fill in the price"));
             list.Add(new("when you open the sign"));
+            list.Add(new("Based on: " + priceSource));
             list.Add(
-                new(DescModification.ModType.SUGGEST, 0, "starting bid: " + ModDescriptionService.FormatPriceShort(priceEst.Median - 1).ToLower()));
+                new(DescModification.ModType.SUGGEST, 0, "starting bid: " + ModDescriptionService.FormatPriceShort(suggestedPrice - 1).ToLower()));
             list.Add(new DescModification(McColorCodes.DARK_GRAY + "Disable suggestions with"));
             list.Add(new DescModification("/cofl s noSuggest true"));
         }
@@ -65,6 +84,57 @@ public class ListPriceRecommend : ICustomModifier
     }
     public void Modify(ModDescriptionService.PreRequestContainer preRequest)
     {
+        var task = Task.Run(async () =>
+        {
+            var result = new PriceInfo();
+            var targetAuction = preRequest.auctionRepresent[13].auction;
+            var itemUuid = targetAuction?.FlatenedNBT.GetValueOrDefault("uuid");
+            var playerUuid = await DiHandler.GetService<PlayerName.PlayerNameService>().GetUuid(preRequest.mcName);
+            var lastListingsTask = LoadLastListings(targetAuction, playerUuid);
+            await AddFliRecommend(result, itemUuid, playerUuid);
+            result.LastListings = await lastListingsTask;
+
+            return JsonConvert.SerializeObject(result);
+        });
+        preRequest.ToLoad.Add(nameof(ListPriceRecommend), task);
         return;
+    }
+
+    private async Task AddFliRecommend(PriceInfo result, string itemUuid, string playerUuid)
+    {
+        if (itemUuid == null)
+        {
+            return;
+        }
+        var flipSent = await DiHandler.GetService<IFlipApi>().FlipForPlayerUuidItemItemUuidGetAsync(Guid.Parse(playerUuid), Guid.Parse(itemUuid));
+        if (flipSent.TryOk(out var priceRecommend))
+            result.Recommended = priceRecommend;
+    }
+
+    public class PriceInfo
+    {
+        public List<long> LastListings { get; set; } = new();
+        public long? Recommended { get; set; }
+    }
+
+    private async Task<List<long>> LoadLastListings(Core.SaveAuction targetAuction, string playerUuid)
+    {
+        if (targetAuction == null || targetAuction.ItemName == null)
+        {
+            return new List<long>();
+        }
+        var itemId = DiHandler.GetService<ItemDetails>().GetItemIdForTag(targetAuction.Tag);
+        using var scope = DiHandler.GetService<IServiceScopeFactory>().CreateScope();
+        using var context = scope.ServiceProvider.GetRequiredService<HypixelContext>();
+        var query = context.Auctions
+            .Where(a => a.ItemId == itemId && a.End > DateTime.UtcNow.AddDays(-14) && a.SellerId == context.Players.Where(p => p.UuId == playerUuid).Select(p => p.Id).FirstOrDefault())
+            .AsSplitQuery().AsNoTracking()
+            .Select(a => new
+            {
+                a.StartingBid,
+                a.Start
+            }).Take(3)
+            .ToListAsync();
+        return (await query).OrderByDescending(o => o.Start).Select(a => a.StartingBid).ToList();
     }
 }

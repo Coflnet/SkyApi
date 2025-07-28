@@ -295,6 +295,7 @@ public class ModDescriptionService : IDisposable
         public List<List<DescModification>> result;
         public InventoryDataWithSettings inventory;
         public Dictionary<string, Task<string>> ToLoad = new();
+        public string mcName;
     }
 
     private async Task ComputeDescriptions(InventoryDataWithSettings inventory, string mcName, string sessionId, List<(SaveAuction auction, string[] desc)> auctionRepresent, List<List<DescModification>> result)
@@ -304,7 +305,8 @@ public class ModDescriptionService : IDisposable
         {
             auctionRepresent = auctionRepresent,
             result = result,
-            inventory = inventory
+            inventory = inventory,
+            mcName = mcName,
         };
         foreach (var item in matchingModifiers)
         {

@@ -26,6 +26,8 @@ using AutoMapper;
 using System.Net.Http;
 using Coflnet.Sky.Bazaar.Client.Api;
 using System.Linq;
+using Coflnet.Sky.ModCommands.Client.Api;
+using Coflnet.Sky.ModCommands.Client.Extensions;
 
 namespace Coflnet.Sky.Api
 {
@@ -125,6 +127,10 @@ namespace Coflnet.Sky.Api
             {
                 return new Subscriptions.Client.Api.SubscriptionApi(Configuration["SUBSCRIPTION_BASE_URL"]);
             });
+            services.AddApi(options => options.AddApiHttpClients(c =>
+                {
+                    c.BaseAddress = new Uri(Configuration["MOD_BASE_URL"]);
+                }));
 
             services.AddSingleton<Trade.Client.Api.ITradeApi>(p =>
             {
