@@ -135,6 +135,6 @@ public class ListPriceRecommend : ICustomModifier
                 a.Start
             }).Take(3)
             .ToListAsync();
-        return (await query).OrderByDescending(o => o.Start).Select(a => a.StartingBid).ToList();
+        return (await query).OrderByDescending(o => o.Start).Where(o => o.Start > DateTime.UtcNow.AddMinutes(-30)).Select(a => a.StartingBid).ToList();
     }
 }
