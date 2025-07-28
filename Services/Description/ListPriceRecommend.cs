@@ -15,15 +15,16 @@ public class ListPriceRecommend : ICustomModifier
         data.mods[31].Insert(0, new DescModification(DescModification.ModType.INSERT, 1, text));
 
         var priceEst = data.PriceEst[13];
-        if(priceEst == null || priceEst.Median == 0)
+        if (priceEst == null || priceEst.Median == 0)
         {
             return;
         }
-        if (priceEst == null || priceEst.Volume <= 4)
+        if (priceEst == null || priceEst.Volume <= 1 || priceEst.MedianKey != priceEst.ItemKey)
         {
             data.mods.Add([
                 new DescModification("Looks like this is not sold often"),
-                new DescModification("SkyCofl won't fill in a price")
+                new DescModification("SkyCofl won't fill in a price"),
+                new DescModification($"{McColorCodes.GRAY}Estimated value: {McColorCodes.WHITE}" + ModDescriptionService.FormatPriceShort(priceEst.Median)),
             ]);
             return;
         }
@@ -32,8 +33,21 @@ public class ListPriceRecommend : ICustomModifier
             new(McColorCodes.GREEN + "For this item, SkyCofl has a price" + McColorCodes.RESET),
             new("We will fill in the price"),
             new("when you open the sign"),
-            new(DescModification.ModType.SUGGEST, 0, "starting bid: " + ModDescriptionService.FormatPriceShort(priceEst.Median -1).ToLower())
+            new($"{McColorCodes.GRAY}Est. time to sell: " +  ModDescriptionService.FormatTime(TimeSpan.FromMinutes(priceEst.AvgSellTime))),
         };
+        if (data.inventory.Settings.DisableSuggestions)
+        {
+            list.Add(new DescModification("Suggested price: " + ModDescriptionService.FormatPriceShort(priceEst.Median)));
+            list.Add(new DescModification("Enable automatic filling with"));
+            list.Add(new DescModification("/cofl set loredisableSuggestions false"));
+        }
+        else
+        {
+            list.Add(
+                new(DescModification.ModType.SUGGEST, 0, "starting bid: " + ModDescriptionService.FormatPriceShort(priceEst.Median - 1).ToLower()));
+            list.Add(new DescModification(McColorCodes.DARK_GRAY + "Disable automatic suggestions with"));
+            list.Add(new DescModification("/cofl set loreDisableSuggestions false"));
+        }
         data.mods.Add(list);
     }
 
