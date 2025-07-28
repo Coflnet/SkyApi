@@ -65,8 +65,7 @@ public class ListPriceRecommend : ICustomModifier
         else
         {
             list.Add(new("We will fill in the price"));
-            list.Add(new("when you open the sign"));
-            list.Add(new("Based on: " + priceSource));
+            list.Add(new($"Based on: {McColorCodes.WHITE}{priceSource}{McColorCodes.GRAY}"));
             list.Add(
                 new(DescModification.ModType.SUGGEST, 0, "starting bid: " + ModDescriptionService.FormatPriceShort(suggestedPrice - 1).ToLower()));
             list.Add(new DescModification(McColorCodes.DARK_GRAY + "Disable suggestions with"));
