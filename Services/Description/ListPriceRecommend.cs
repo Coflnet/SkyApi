@@ -36,7 +36,7 @@ public class ListPriceRecommend : ICustomModifier
         var suggestedPrice = priceEst.Median;
         var priceSource = "median";
         var priceInfo = JsonConvert.DeserializeObject<PriceInfo>(data.Loaded[nameof(ListPriceRecommend)].Result);
-        if (priceInfo.Recommended != null && priceInfo.Recommended > 0)
+        if (priceInfo.Recommended != null && priceInfo.Recommended > 0 && !priceInfo.WasListedBefore)
         {
             suggestedPrice = priceInfo.Recommended.Value;
             priceSource = "Flip estimate";
@@ -101,7 +101,11 @@ public class ListPriceRecommend : ICustomModifier
             var playerUuid = await DiHandler.GetService<PlayerName.PlayerNameService>().GetUuid(preRequest.mcName);
             var lastListingsTask = LoadLastListings(targetAuction, playerUuid);
             await AddFliRecommend(result, itemUuid, playerUuid);
-            result.LastListings = await lastListingsTask;
+            var recentListingsOfItem = await lastListingsTask;
+            result.LastListings = recentListingsOfItem.Where(o => o.start > DateTime.UtcNow.AddMinutes(-30)).Select(a => a.Item1).ToList();
+            var itemUid = ModDescriptionService.GetUidFromString(targetAuction.FlatenedNBT?.GetValueOrDefault("uid"));
+            var wasListedBefore = recentListingsOfItem.Any(o => o.uid == itemUid);
+            result.WasListedBefore = wasListedBefore;
 
             return JsonConvert.SerializeObject(result);
         });
@@ -124,26 +128,30 @@ public class ListPriceRecommend : ICustomModifier
     {
         public List<long> LastListings { get; set; } = new();
         public long? Recommended { get; set; }
+        public bool WasListedBefore { get; set; }
     }
 
-    private async Task<List<long>> LoadLastListings(Core.SaveAuction targetAuction, string playerUuid)
+    private async Task<List<(long, DateTime start, long uid)>> LoadLastListings(Core.SaveAuction targetAuction, string playerUuid)
     {
         if (targetAuction == null || targetAuction.ItemName == null)
         {
-            return new List<long>();
+            return new ();
         }
         var itemId = DiHandler.GetService<ItemDetails>().GetItemIdForTag(targetAuction.Tag);
         using var scope = DiHandler.GetService<IServiceScopeFactory>().CreateScope();
         using var context = scope.ServiceProvider.GetRequiredService<HypixelContext>();
+        
+        var key = DiHandler.GetService<NBT>().GetKeyId("uid");
         var query = context.Auctions
             .Where(a => a.ItemId == itemId && a.End > DateTime.UtcNow.AddDays(-14) && a.SellerId == context.Players.Where(p => p.UuId == playerUuid).Select(p => p.Id).FirstOrDefault())
             .AsSplitQuery().AsNoTracking()
             .Select(a => new
             {
                 a.StartingBid,
-                a.Start
+                a.Start,
+                uid =a.NBTLookup.Where(n => n.KeyId == key).Select(n => n.Value).FirstOrDefault()
             }).Take(3)
             .ToListAsync();
-        return (await query).OrderByDescending(o => o.Start).Where(o => o.Start > DateTime.UtcNow.AddMinutes(-30)).Select(a => a.StartingBid).ToList();
+        return (await query).OrderByDescending(o => o.Start).Select(a => (a.StartingBid, a.Start, a.uid)).ToList();
     }
 }

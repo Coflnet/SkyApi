@@ -611,7 +611,7 @@ public class ModDescriptionService : IDisposable
         }
     }
 
-    private static long GetUidFromString(string u)
+    public static long GetUidFromString(string u)
     {
         if (u.Length < 12)
             throw new CoflnetException("invalid_uuid", "One or more passed uuids are invalid (too short)");
