@@ -279,6 +279,8 @@ public class ModDescriptionService : IDisposable
             {
                 // add info about the chestname
                 result[inventory.Settings.HighlightInfo.SlotId].Add(new(DescModification.ModType.HIGHLIGHT, 0, inventory.Settings.HighlightInfo.HexColor));
+                result[inventory.Settings.HighlightInfo.SlotId].Add(new("highlighted!!!"));
+                Console.WriteLine($"Highlighting {inventory.Settings.HighlightInfo.Chestname} at {inventory.Settings.HighlightInfo.Position} with color {inventory.Settings.HighlightInfo.HexColor}");
             }
         }
         catch (Exception e)
