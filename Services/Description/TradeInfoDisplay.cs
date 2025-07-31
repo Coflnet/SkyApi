@@ -1,6 +1,7 @@
 using System.Globalization;
 using Coflnet.Sky.Api.Models.Mod;
 using Coflnet.Sky.Commands.MC;
+using Coflnet.Sky.Commands.Shared;
 using Newtonsoft.Json;
 
 namespace Coflnet.Sky.Api.Services.Description;
@@ -75,13 +76,13 @@ public class TradeInfoDisplay : ICustomModifier
             new ("Looks like you are lowballing")
         };
         data.mods.Add(extraInfo);
-        if (data.accountInfo.ExpiresAt == DateTime.UtcNow)
+        if (data.accountInfo.ExpiresAt < DateTime.UtcNow && data.accountInfo.Tier >= AccountTier.PREMIUM)
         {
             extraInfo.Add(new($"{McColorCodes.GRAY}With premium we will suggest"));
             extraInfo.Add(new($"{McColorCodes.GRAY}a lowball price automatically"));
             extraInfo.Add(new($"{McColorCodes.GRAY}looks like you don't currently"));
             extraInfo.Add(new($"{McColorCodes.GRAY}do not have SkyCofl premium :("));
-            //     return;
+            return;
         }
         extraInfo.Add(new($"{McColorCodes.GREEN}For lowballing these {receiveCount} items we"));
         extraInfo.Add(new(DescModification.ModType.SUGGEST, 0, $"----------------: " + lowballPrice));
