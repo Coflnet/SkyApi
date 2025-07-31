@@ -81,7 +81,7 @@ public class TradeInfoDisplay : ICustomModifier
             extraInfo.Add(new($"{McColorCodes.GRAY}With premium we will suggest"));
             extraInfo.Add(new($"{McColorCodes.GRAY}a lowball price automatically"));
             extraInfo.Add(new($"{McColorCodes.GRAY}looks like you don't currently"));
-            extraInfo.Add(new($"{McColorCodes.GRAY}do not have SkyCofl premium :("));
+            extraInfo.Add(new($"{McColorCodes.GRAY}have SkyCofl premium :("));
             return;
         }
         extraInfo.Add(new($"{McColorCodes.GREEN}For lowballing these {receiveCount} items we"));
