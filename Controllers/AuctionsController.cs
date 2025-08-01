@@ -342,9 +342,7 @@ namespace Coflnet.Sky.Api.Controller
         }
         /// <summary>
         /// Request an export of auction data to discord webhook
-        /// Will automatically try to unlock the export for each item tag entered (one time payment) 
-        /// After unlocking there is only a limit on the concurrent waiting exports.
-        /// Export contains contact details and inventory checks, access will be revoked if missuse is reported.
+        /// Export can contain contact details and inventory checks, access will be revoked if missuse is reported.
         /// </summary>
         /// <param name="itemTag"></param>
         /// <param name="request"></param>
@@ -358,8 +356,6 @@ namespace Coflnet.Sky.Api.Controller
                 throw new CoflnetException("premplus_required",
                            "Sorry but you need to be a premium plus member to access this data, Authorization header with google/account token");
             AssertArchiveQuery(request.Filters);
-            if (!await premiumTierService.UnlockOrCheckUnlockOfExport(this, itemTag))
-                throw new CoflnetException("unlock_required", $"Export for {itemTag} could not be started, make sure you have enough funds and create a report if you do");
             var mapped = mapper.Map<Auctions.Client.Model.ExportRequest>(request);
             mapped.ItemTag = itemTag;
             var user = await premiumTierService.GetUserOrDefault(this);
