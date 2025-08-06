@@ -10,6 +10,7 @@ public class AuctionValueSummary : ICustomModifier
     public void Apply(DataContainer data)
     {
         var sum = 0L;
+        var soldSum = 0L;
         for (int i = 0; i < 9 * 4; i++)
         {
             var item = data.Items.ElementAtOrDefault(i);
@@ -23,9 +24,12 @@ public class AuctionValueSummary : ICustomModifier
             var regexParsedPrice = Regex.Match(item.Description, @"Buy it now: §\d([\d,]+) coins");
             if (!regexParsedPrice.Success)
             {
-                var isSold = Regex.IsMatch(item.Description, @"Sold for: §\d([\d,]+) coins");
-                if (isSold)
+                var isSold = Regex.Match(item.Description, @"Sold for: §\d([\d,]+) coins");
+                if (isSold.Success)
+                {
                     data.mods[i].Add(new DescModification(DescModification.ModType.HIGHLIGHT, 1, "00ff00"));
+                    soldSum += long.Parse(isSold.Groups[1].Value, System.Globalization.NumberStyles.AllowThousands, System.Globalization.CultureInfo.InvariantCulture);
+                }
                 continue;
             }
             var value = long.Parse(regexParsedPrice.Groups[1].Value, System.Globalization.NumberStyles.AllowThousands, System.Globalization.CultureInfo.InvariantCulture);
@@ -47,6 +51,12 @@ public class AuctionValueSummary : ICustomModifier
                 data.mods[i].Add(new DescModification(DescModification.ModType.INSERT, 1, $"{McColorCodes.RED}Not lbin ({data.modService.FormatNumber(value - lbin)} higher than lbin)"));
             }
         }
+        var extra = new List<DescModification>();
+        data.mods.Add(extra);
+        if (sum > 0)
+            extra.Add(new DescModification(DescModification.ModType.APPEND, 0, $"{McColorCodes.GRAY}Unsold: §6{ModDescriptionService.FormatPriceShort(sum)}"));
+        if (soldSum > 0)
+            extra.Add(new DescModification(DescModification.ModType.APPEND, 0, $"{McColorCodes.GRAY}Sold: §6{ModDescriptionService.FormatPriceShort(soldSum)}"));
         data.mods.Last().Insert(0, new DescModification(DescModification.ModType.REPLACE, 0, $"Auctions value: §6{data.modService.FormatNumber(sum)}"));
     }
 
