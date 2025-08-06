@@ -274,12 +274,11 @@ public class ModDescriptionService : IDisposable
         {
             // compute descriptions and return everything computed on error
             await ComputeDescriptions(inventory, mcName, sessionId, auctionRepresent, result);
-            if (inventory.Settings.HighlightInfo?.Chestname == inventory.ChestName && (inventory.Settings.HighlightInfo.Position == null ||
+            if (inventory.Settings?.HighlightInfo?.Chestname == inventory.ChestName && (inventory.Settings.HighlightInfo.Position == null ||
                 (inventory.Settings.HighlightInfo?.Position?.Equals(inventory.Position) ?? false)))
             {
                 // add info about the chestname
                 result[inventory.Settings.HighlightInfo.SlotId].Add(new(DescModification.ModType.HIGHLIGHT, 0, inventory.Settings.HighlightInfo.HexColor));
-                result[inventory.Settings.HighlightInfo.SlotId].Add(new("highlighted!!!"));
                 Console.WriteLine($"Highlighting {inventory.Settings.HighlightInfo.Chestname} at {inventory.Settings.HighlightInfo.Position} with color {inventory.Settings.HighlightInfo.HexColor}");
             }
         }
@@ -287,7 +286,7 @@ public class ModDescriptionService : IDisposable
         {
             logger.LogError(e, "failed to compute descriptions");
         }
-        if (inventory.Settings.DisableHighlighting)
+        if (inventory.Settings?.DisableHighlighting ?? false)
         {
             foreach (var item in result)
             {
