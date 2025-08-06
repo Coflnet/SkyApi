@@ -1,4 +1,5 @@
 using System.Linq;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using Coflnet.Sky.Api.Client.Model;
 using Coflnet.Sky.Bazaar.Client.Api;
@@ -20,8 +21,10 @@ public class BazaarOrderAdjust : ICustomModifier
     {
         var loaded = data.Loaded[nameof(BazaarOrderAdjust)].Result;
         var result = JsonConvert.DeserializeObject<StorageQuickStatus[]>(loaded).ToDictionary(x => x.ProductId);
-        var slotCount = data.auctionRepresent.TakeWhile(x=>(x.auction?.Tag ?? "false") != "GO_BACK" ).Count();
+        var slotCount = data.auctionRepresent.TakeWhile(x => (x.auction?.Tag ?? "false") != "GO_BACK").Count();
         var offerLookup = data.auctionRepresent.Take(slotCount).Where(x => x.auction != null).ToLookup(x => (x.auction.ItemName.Contains("BUY"), x.auction.Tag));
+        var buySum = 0L;
+        var sellSum = 0L;
         for (int i = 0; i < slotCount; i++)
         {
             var auction = data.auctionRepresent[i].auction;
@@ -62,18 +65,37 @@ public class BazaarOrderAdjust : ICustomModifier
                 {
                     data.mods[i].Add(new($"{McColorCodes.RED}Multiple offers, best used ({ModDescriptionService.FormatPriceShort(price)})"));
                 }
-
+                var amount = Regex.Match(description.Where(l => l.Contains("amount: §")).FirstOrDefault("amount: §a1"), @"amount: §a([\d,]+)").Groups[1].Value;
+                var amountParsed = int.Parse(amount, System.Globalization.NumberStyles.AllowThousands, System.Globalization.CultureInfo.InvariantCulture);
+                if (isBuy)
+                {
+                    buySum += (long)(price * amountParsed);
+                }
+                else
+                {
+                    sellSum += (long)(price * amountParsed);
+                }
             }
         }
-        data.mods[data.mods.Count - 40].Add(new($"{McColorCodes.GREEN}Also checkout"));
-        data.mods[data.mods.Count - 40].Add(new($"{McColorCodes.GOLD}/cofl bazaar"));
+        var extra = new List<Models.Mod.DescModification>();
+        data.mods.Add(extra);
+        if (buySum > 0)
+            extra.Add(new(Models.Mod.DescModification.ModType.APPEND, 0, $"{McColorCodes.GRAY}Total buy: §6{ModDescriptionService.FormatPriceShort(buySum)}"));
+        if (sellSum > 0)
+            extra.Add(new(Models.Mod.DescModification.ModType.APPEND, 0, $"{McColorCodes.GRAY}Total sell: §6{ModDescriptionService.FormatPriceShort(sellSum)}"));
+
+        if (Random.Shared.NextDouble() < 0.1)
+        {
+            extra.Add(new($"{McColorCodes.GREEN}Also checkout"));
+            extra.Add(new($"{McColorCodes.GOLD}/cofl bazaar"));
+        }
     }
 
     public void Modify(ModDescriptionService.PreRequestContainer preRequest)
     {
         var task = Task.Run(async () =>
         {
-            var slotCount = preRequest.auctionRepresent.TakeWhile(x=>(x.auction?.Tag ?? "false") != "GO_BACK" ).Count();
+            var slotCount = preRequest.auctionRepresent.TakeWhile(x => (x.auction?.Tag ?? "false") != "GO_BACK").Count();
             var ids = preRequest.auctionRepresent.Take(slotCount).Where(x => x.auction != null)
                     .Select(x => x.auction.Tag).Distinct().ToArray();
             var requests = ids.Select(x => bazaarApi.GetClosestToAsync(x));
