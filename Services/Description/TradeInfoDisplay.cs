@@ -85,7 +85,7 @@ public class TradeInfoDisplay : ICustomModifier
             return;
         }
         extraInfo.Add(new($"{McColorCodes.GREEN}For lowballing these {receiveCount} items we"));
-        extraInfo.Add(new(DescModification.ModType.SUGGEST, 0, $"----------------: " + lowballPrice));
+        extraInfo.Add(new(DescModification.ModType.SUGGEST, 0, $"----------------: " + ModDescriptionService.FormatPriceShort(lowballPrice)));
         extraInfo.Add(new($"{McColorCodes.GRAY}SkyCofl recommended"));
         if (data.inventory.Settings.LowballMedUndercut == 0)
         {
