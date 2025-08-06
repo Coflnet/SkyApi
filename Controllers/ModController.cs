@@ -231,10 +231,9 @@ namespace Coflnet.Sky.Api.Controller
         /// If you have nbt format you can use the /api/price/nbt endpoint with settings to get the same
         /// </summary>
         /// <param name="items"></param>
-        /// <param name="inventory"></param>
         [Route("pricing/breakdown")]
         [HttpPost]
-        public async Task<IEnumerable<PricingBreakdwon>> GetPricingBreakdown([FromBody] ItemRepresent[] items)
+        public IEnumerable<PricingBreakdwon> GetPricingBreakdown([FromBody] ItemRepresent[] items)
         {
             IEnumerable<SaveAuction> auctions = auctionConverter.FromitemRepresent(items);
 
