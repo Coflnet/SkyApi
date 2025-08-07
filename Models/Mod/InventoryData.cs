@@ -39,6 +39,10 @@ public class InventoryDataWithSettings : InventoryData
     /// Settings of what modifications to include
     /// </summary>
     public DescriptionSetting Settings { get; set; }
+    /// <summary>
+    /// Incremental version of the client library to know supported features
+    /// </summary>
+    public int Version { get; set; }
 }
 
 public class PricingBreakdwon
