@@ -1457,6 +1457,7 @@ public class ModDescriptionService : IDisposable
                 var compound = t as NbtCompound;
                 if (compound.Count == 0)
                     return (null, new string[0]);
+                string placeAuctionTag = null;
                 if (NBT.ItemID(compound) == null)
                 {
                     var name = NBT.GetName(compound);
@@ -1469,6 +1470,10 @@ public class ModDescriptionService : IDisposable
                     {
                         // continue for bazaar orders (they don't have an id) we create a virtual one
                     }
+                    else if (name.EndsWith(" Essence"))
+                    {
+                        placeAuctionTag = name;
+                    }
                     else if (!name?.StartsWith("§8Quiver ") ?? true) // special variats are §8Quiver Flint Arrow
                         return (null, new string[0]); // skip all items without id
                     else
@@ -1478,6 +1483,9 @@ public class ModDescriptionService : IDisposable
                 var auction = new SaveAuction();
                 auction.Context = new Dictionary<string, string>();
                 NBT.FillFromTag(auction, compound, true);
+                if (placeAuctionTag != null)
+                    auction.Tag = "ESSENCE_" + Regex.Replace(placeAuctionTag, $"§[0-9a-fklmnor]|SELL |BUY | Essence", "").ToUpper();
+
                 if (auction.Tag == "ATTRIBUTE_SHARD")
                 {
                     var named = Regex.Replace(auction.ItemName, "§[0-9a-fklmnor]|SELL |BUY | Shard", "").Replace(' ', '_');
