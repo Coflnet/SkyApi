@@ -41,7 +41,7 @@ public class BazaarOrderAdjust : ICustomModifier
 
                 var price = isBuy ? allPrices.Max() : allPrices.Min();
                 var isTop = isBuy ? bazaar.SellPrice <= price : bazaar.BuyPrice >= price;
-                var isOnlyOne = offerLookup[(isBuy, auction.Tag)].Count() == 1;
+                var isOnlyOne = offerLookup[(isBuy, auction.Tag)].Count() == 1 || data.inventory.Version >= 2;
                 if (isTop)
                 {
                     var color = isOnlyOne ? "50af50" : "508f50";
