@@ -40,6 +40,12 @@ public class BazaarOrderAdjust : ICustomModifier
                     .Select(v => double.Parse(v, System.Globalization.CultureInfo.InvariantCulture)).ToArray();
 
                 var price = isBuy ? allPrices.Max() : allPrices.Min();
+                if (data.inventory.Version >= 2)
+                {
+                    price = description.Where(l => l.StartsWith("§7Price per unit: §6"))
+                        .FirstOrDefault()?.Split("§7Price per unit: §6").Last().Split(" coins").First() is string priceStr
+                        && double.TryParse(priceStr, System.Globalization.CultureInfo.InvariantCulture, out var parsedPrice) ? parsedPrice : price;
+                }
                 var isTop = isBuy ? bazaar.SellPrice <= price : bazaar.BuyPrice >= price;
                 var isOnlyOne = offerLookup[(isBuy, auction.Tag)].Count() == 1 || data.inventory.Version >= 2;
                 if (isTop)
