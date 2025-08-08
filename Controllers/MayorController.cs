@@ -18,12 +18,12 @@ namespace Coflnet.Sky.Api.Controller;
 [ResponseCache(Duration = 120, Location = ResponseCacheLocation.Any, NoStore = false)]
 public class MayorController : ControllerBase
 {
-    IElectionPeriodsApi mayorService;
+    IElectionPeriodsApiApi mayorService;
     /// <summary>
     /// Creates a new instance of <see cref="KatController"/>
     /// </summary>
     /// <param name="mayorService"></param>
-    public MayorController(IElectionPeriodsApi mayorService)
+    public MayorController(IElectionPeriodsApiApi mayorService)
     {
         this.mayorService = mayorService;
     }
@@ -35,7 +35,7 @@ public class MayorController : ControllerBase
     [Route("{year}")]
     [HttpGet]
     [ResponseCache(Duration = 3600, Location = ResponseCacheLocation.Any, NoStore = false)]
-    public async Task<ModelElectionPeriod> GetYear(int year)
+    public async Task<CoflnetSkyMayorModelsModelElectionPeriod> GetYear(int year)
     {
         return await mayorService.ElectionPeriodYearGetAsync(year);
     }
@@ -49,11 +49,11 @@ public class MayorController : ControllerBase
     [Route("")]
     [HttpGet]
     [ResponseCache(Duration = 600, Location = ResponseCacheLocation.Any, NoStore = false, VaryByQueryKeys = new string[] { "from", "to" })]
-    public async Task<IEnumerable<ModelElectionPeriod>> GetMultiple(DateTime from, DateTime to = default(DateTime))
+    public async Task<IEnumerable<CoflnetSkyMayorModelsModelElectionPeriod>> GetMultiple(DateTime from, DateTime to = default(DateTime))
     {
         if(default(DateTime) == to)
             to = DateTime.Now;
-        var range = new List<ModelElectionPeriod>();
+        var range = new List<CoflnetSkyMayorModelsModelElectionPeriod>();
         await Task.WhenAny(
             Task.Run(async () => range.AddRange(await mayorService.ElectionPeriodRangeGetAsync(from.ToUnix() * 1000, to.ToUnix() * 1000))),
             Task.Delay(2500)

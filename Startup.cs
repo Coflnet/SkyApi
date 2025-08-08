@@ -115,9 +115,9 @@ namespace Coflnet.Sky.Api
             services.AddSingleton<IRateLimitCounterStore, DistributedCacheRateLimitCounterStore>();
             services.AddSingleton<IRateLimitConfiguration, RateLimitConfiguration>();
             services.AddCoflService();
-            services.AddSingleton<Mayor.Client.Api.IElectionPeriodsApi>(a =>
+            services.AddSingleton<Mayor.Client.Api.IElectionPeriodsApiApi>(a =>
             {
-                return new Mayor.Client.Api.ElectionPeriodsApi(Configuration["MAYOR_BASE_URL"]);
+                return new Mayor.Client.Api.ElectionPeriodsApiApi(Configuration["MAYOR_BASE_URL"]);
             });
             services.AddSingleton<Proxy.Client.Api.IBaseApi>(a =>
             {

@@ -12,7 +12,7 @@ public class AuctionConverter
 {
     Dictionary<string, Enchantment.EnchantmentType> EnchantLookup = new();
 
-    IElectionPeriodsApi mayorService;
+    IElectionPeriodsApiApi mayorService;
     private ILogger<AuctionConverter> logger;
     private PropertyMapper propertyMapper = new PropertyMapper();
     private readonly Dictionary<int, string> YearToMayorName = new();
@@ -24,7 +24,7 @@ public class AuctionConverter
             "greater_backpack_data", "jumbo_backpack_data", "large_backpack_data", "medium_backpack_data", "new_year_cake_bag_data"
          ];
 
-    public AuctionConverter(IElectionPeriodsApi mayorService, ILogger<AuctionConverter> logger, MappingCenter mappingCenter, ICraftsApi craftsApi)
+    public AuctionConverter(IElectionPeriodsApiApi mayorService, ILogger<AuctionConverter> logger, MappingCenter mappingCenter, ICraftsApi craftsApi)
     {
         this.logger = logger;
         foreach (var item in Enum.GetValues<Enchantment.EnchantmentType>())
@@ -64,7 +64,7 @@ public class AuctionConverter
     {
         if (YearToMayorName.Count > 0)
             return;
-        List<Mayor.Client.Model.ModelElectionPeriod> mayors = null;
+        List<Mayor.Client.Model.CoflnetSkyMayorModelsModelElectionPeriod> mayors = null;
         try
         {
             mayors = await mayorService.ElectionPeriodRangeGetAsync(0, DateTimeOffset.UtcNow.ToUnixTimeSeconds() * 1000);
