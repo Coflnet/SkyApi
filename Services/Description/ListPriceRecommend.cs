@@ -36,6 +36,12 @@ public class ListPriceRecommend : ICustomModifier
         var suggestedPrice = priceEst.Median;
         var priceSource = "median";
         var priceInfo = JsonConvert.DeserializeObject<PriceInfo>(data.Loaded[nameof(ListPriceRecommend)].Result);
+
+        if (data.inventory.Settings.PreferLbinInSuggestions && priceEst.Lbin.Price > 0)
+        {
+            priceSource = "lbin (as configured)";
+            suggestedPrice = priceEst.Lbin.Price - 1;
+        }
         if (priceInfo.Recommended != null && priceInfo.Recommended > 0 && !priceInfo.WasListedBefore)
         {
             suggestedPrice = priceInfo.Recommended.Value;
@@ -45,12 +51,14 @@ public class ListPriceRecommend : ICustomModifier
         {
             suggestedPrice = priceInfo.LastListings.First();
             priceSource = "last listings of item";
-        } else if(priceEst.Lbin.Price > priceEst.Median && priceEst.LbinKey == priceEst.ItemKey
+        }
+        else if (priceEst.Lbin.Price > priceEst.Median && priceEst.LbinKey == priceEst.ItemKey
             && priceEst.Volume > 3 && (priceEst.Volatility < 10 || priceEst.Volatility < 30 && priceEst.Volume > 15))
         {
             suggestedPrice = (long)(priceEst.Lbin.Price * 0.995);
             priceSource = "matching lbin";
         }
+
         var generalSellTime = TimeSpan.FromMinutes(priceEst.AvgSellTime);
         if (suggestedPrice > priceEst.Median)
             generalSellTime = generalSellTime.Multiply(2) + TimeSpan.FromMinutes(20);
@@ -135,12 +143,12 @@ public class ListPriceRecommend : ICustomModifier
     {
         if (targetAuction == null || targetAuction.ItemName == null)
         {
-            return new ();
+            return new();
         }
         var itemId = DiHandler.GetService<ItemDetails>().GetItemIdForTag(targetAuction.Tag);
         using var scope = DiHandler.GetService<IServiceScopeFactory>().CreateScope();
         using var context = scope.ServiceProvider.GetRequiredService<HypixelContext>();
-        
+
         var key = DiHandler.GetService<NBT>().GetKeyId("uid");
         var query = context.Auctions
             .Where(a => a.ItemId == itemId && a.End > DateTime.UtcNow.AddDays(-14) && a.SellerId == context.Players.Where(p => p.UuId == playerUuid).Select(p => p.Id).FirstOrDefault())
@@ -149,7 +157,7 @@ public class ListPriceRecommend : ICustomModifier
             {
                 a.StartingBid,
                 a.Start,
-                uid =a.NBTLookup.Where(n => n.KeyId == key).Select(n => n.Value).FirstOrDefault()
+                uid = a.NBTLookup.Where(n => n.KeyId == key).Select(n => n.Value).FirstOrDefault()
             }).Take(3)
             .ToListAsync();
         return (await query).OrderByDescending(o => o.Start).Select(a => (a.StartingBid, a.Start, a.uid)).ToList();
