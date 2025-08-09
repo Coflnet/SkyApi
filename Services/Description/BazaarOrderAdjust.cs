@@ -71,15 +71,28 @@ public class BazaarOrderAdjust : ICustomModifier
                 {
                     data.mods[i].Add(new($"{McColorCodes.RED}Multiple offers, best used ({ModDescriptionService.FormatPriceShort(price)})"));
                 }
+                // Extract filled and total amounts
+                var filledMatch = Regex.Match(description.Where(l => l.Contains("Filled:")).FirstOrDefault(""), @"Filled: §6(\d+)§7/(\d+)");
+                var filled = filledMatch.Success ? int.Parse(filledMatch.Groups[1].Value) : 0;
+                var total = filledMatch.Success ? int.Parse(filledMatch.Groups[2].Value) : 0;
+
+                // Extract coins or items to claim
+                var claimMatch = Regex.Match(description.Where(l => l.Contains("to claim!")).FirstOrDefault(""), @"You have §6([\d,]+) (?:coins|(.+?)) §eto claim!");
+                var claimAmount = claimMatch.Success ? int.Parse(claimMatch.Groups[1].Value.Replace(",", "")) : 0;
+                var claimType = claimMatch.Groups[2].Success ? claimMatch.Groups[2].Value : "coins";
                 var amount = Regex.Match(description.Where(l => l.Contains("amount: §")).FirstOrDefault("amount: §a1"), @"amount: §a([\d,]+)").Groups[1].Value;
-                var amountParsed = int.Parse(amount, System.Globalization.NumberStyles.AllowThousands, System.Globalization.CultureInfo.InvariantCulture);
+                if (total == 0)
+                    total = int.Parse(amount.Replace(",", ""));
+                var amountParsed = total - filled;
+                if (claimType != "coins")
+                    amountParsed += claimAmount;
                 if (isBuy)
                 {
-                    buySum += (long)(price * amountParsed);
+                    buySum += (long)(price * amountParsed) ;
                 }
                 else
                 {
-                    sellSum += (long)(price * amountParsed);
+                    sellSum += (long)(price * amountParsed) + claimAmount;
                 }
             }
         }
