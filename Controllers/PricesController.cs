@@ -14,6 +14,8 @@ using Prometheus;
 using Coflnet.Sky.Api.Models.Netowrth;
 using System.Text.RegularExpressions;
 using Coflnet.Core;
+using Coflnet.Sky.PlayerName.Client.Api;
+using Coflnet.Sky.PlayerName;
 
 namespace Coflnet.Sky.Api.Controller;
 /// <summary>
@@ -171,11 +173,20 @@ public class PricesController : ControllerBase
     [Route("item/price/{itemTag}/history/year")]
     [HttpGet]
     [ResponseCache(Duration = 3600 * 2, Location = ResponseCacheLocation.Any, NoStore = false, VaryByQueryKeys = new string[] { "*" })]
-    public async Task<PricesService.PriceStatistics> GetMonthHistory(string itemTag, [FromQuery] IDictionary<string, string> query, [FromServices] PremiumTierService premiumService)
+    public async Task<PricesService.PriceStatistics> GetMonthHistory(string itemTag, [FromQuery] IDictionary<string, string> query,
+        [FromServices] PremiumTierService premiumService,
+        [FromServices] PlayerNameService playerNameApi)
     {
         if (!await premiumService.HasPremium(this))
             throw new CoflnetException("premium_required", "This endpoint is only available for premium users");
-        return await priceService.GetDetailedHistory(itemTag, DateTime.UtcNow - TimeSpan.FromDays(180), DateTime.UtcNow, itemTag == "ENCHANTED_BOOK" ? null : new Dictionary<string, string>(query));
+        var result = await priceService.GetDetailedHistory(itemTag, DateTime.UtcNow - TimeSpan.FromDays(180), DateTime.UtcNow, itemTag == "ENCHANTED_BOOK" ? null : new Dictionary<string, string>(query));
+        var playerNames = await playerNameApi.GetNames(result.RecentSamples.Select(a => a.Seller).ToList());
+        result.RecentSamples = result.RecentSamples.Select(a =>
+        {
+            a.PlayerName = playerNames.TryGetValue(a.Seller, out var name) ? name : a.Seller;
+            return a;
+        }).ToList();
+        return result;
     }
 
     /// <summary>
