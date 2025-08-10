@@ -168,6 +168,16 @@ public class PricesController : ControllerBase
         return await context.Prices.Where(p => p.ItemId == id).ToListAsync();
     }
 
+    [Route("item/price/{itemTag}/history/year")]
+    [HttpGet]
+    [ResponseCache(Duration = 3600 * 2, Location = ResponseCacheLocation.Any, NoStore = false, VaryByQueryKeys = new string[] { "*" })]
+    public async Task<PricesService.PriceStatistics> GetMonthHistory(string itemTag, [FromQuery] IDictionary<string, string> query, [FromServices] PremiumTierService premiumService)
+    {
+        if (!await premiumService.HasPremium(this))
+            throw new CoflnetException("premium_required", "This endpoint is only available for premium users");
+        return await priceService.GetDetailedHistory(itemTag, DateTime.UtcNow - TimeSpan.FromDays(180), DateTime.UtcNow, itemTag == "ENCHANTED_BOOK" ? null : new Dictionary<string, string>(query));
+    }
+
     /// <summary>
     /// Returns all available filters with all available options
     /// </summary>
@@ -185,7 +195,7 @@ public class PricesController : ControllerBase
             return fe.AvailableFilters.Where(CanGetOptions(all)).Select(f => new FilterOptions(f, all)).ToList();
         }
         var item = await itemsApi.ItemItemTagGetAsync(itemTag);
-        var allOptions = await optionsTask ??throw new ApiException("load_error", "Options not loadable");
+        var allOptions = await optionsTask ?? throw new ApiException("load_error", "Options not loadable");
         var filters = fe.FiltersFor(item);
         logger.LogInformation("filters for item {itemTag} : {filters}", itemTag, filters.Select(f => f.Name));
 
