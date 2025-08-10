@@ -179,7 +179,7 @@ public class PricesController : ControllerBase
     {
         if (!await premiumService.HasPremium(this))
             throw new CoflnetException("premium_required", "This endpoint is only available for premium users");
-        var result = await priceService.GetDetailedHistory(itemTag, DateTime.UtcNow - TimeSpan.FromDays(180), DateTime.UtcNow, itemTag == "ENCHANTED_BOOK" ? null : new Dictionary<string, string>(query));
+        var result = await priceService.GetDetailedHistory(itemTag, DateTime.UtcNow - TimeSpan.FromDays(360), DateTime.UtcNow, itemTag == "ENCHANTED_BOOK" ? null : new Dictionary<string, string>(query));
         var playerNames = await playerNameApi.GetNames(result.RecentSamples.Select(a => a.Seller).ToList());
         result.RecentSamples = result.RecentSamples.Select(a =>
         {
