@@ -76,7 +76,7 @@ public class TradeInfoDisplay : ICustomModifier
             new ("Looks like you are lowballing")
         };
         data.mods.Add(extraInfo);
-        if (data.accountInfo.ExpiresAt < DateTime.UtcNow && data.accountInfo.Tier >= AccountTier.PREMIUM)
+        if (data.accountInfo.ExpiresAt < DateTime.UtcNow || data.accountInfo.Tier < AccountTier.PREMIUM)
         {
             extraInfo.Add(new($"{McColorCodes.GRAY}With premium we will suggest"));
             extraInfo.Add(new($"{McColorCodes.GRAY}a lowball price automatically"));
