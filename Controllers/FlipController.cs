@@ -143,6 +143,16 @@ namespace Coflnet.Sky.Api.Controller
             var full = await craftsApi.GetProfitableNpcWithHttpInfoAsync();
             return Newtonsoft.Json.JsonConvert.DeserializeObject<List<ProfitableCraft>>(full.RawContent);
         }
+        /// <summary>
+        /// Discover flips using the fusion machine
+        /// </summary>
+        [Route("fusion")]
+        [HttpGet]
+        [ResponseCache(Duration = 20, Location = ResponseCacheLocation.Any, NoStore = false)]
+        public async Task<IEnumerable<Bazaar.Flipper.Client.Model.FuseFlip>> GetFusionFlips()
+        {
+            return await bazaarFlipperApi.FusionGetAsync();
+        }
 
         /// <summary>
         /// Shows you the available settings options for the socket comand subFlip,
