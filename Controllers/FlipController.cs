@@ -14,6 +14,8 @@ using System.Linq;
 using Coflnet.Sky.Api.Models.Bazaar;
 using Coflnet.Sky.Items.Client.Api;
 using Microsoft.AspNetCore.Authorization;
+using Coflnet.Sky.Crafts.Client.Api;
+using Coflnet.Sky.Crafts.Models;
 
 namespace Coflnet.Sky.Api.Controller
 {
@@ -128,6 +130,18 @@ namespace Coflnet.Sky.Api.Controller
         public async Task<IEnumerable<Bazaar.Flipper.Client.Model.BookFlip>> GetBazaarBookFlipper()
         {
             return await bazaarFlipperApi.BooksGetAsync();
+        }
+
+        /// <summary>
+        /// Get profitable npc purchase ah/bazaar sell flips
+        /// </summary>
+        [Route("npc")]
+        [HttpGet]
+        [ResponseCache(Duration = 20, Location = ResponseCacheLocation.Any, NoStore = false)]
+        public async Task<IEnumerable<ProfitableCraft>> GetNpcFlips([FromServices] ICraftsApi craftsApi)
+        {
+            var full = await craftsApi.GetProfitableNpcWithHttpInfoAsync();
+            return Newtonsoft.Json.JsonConvert.DeserializeObject<List<ProfitableCraft>>(full.RawContent);
         }
 
         /// <summary>
