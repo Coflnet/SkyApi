@@ -114,6 +114,7 @@ namespace Coflnet.Sky.Api
             services.AddSingleton<IIpPolicyStore, DistributedCacheIpPolicyStore>();
             services.AddSingleton<IRateLimitCounterStore, DistributedCacheRateLimitCounterStore>();
             services.AddSingleton<IRateLimitConfiguration, RateLimitConfiguration>();
+            services.AddSingleton<DiscordBot.Client.Api.IMessageApi>(new DiscordBot.Client.Api.MessageApi(Configuration["DISCORD_BOT_BASE_URL"]));
             services.AddCoflService();
             services.AddSingleton<Mayor.Client.Api.IElectionPeriodsApiApi>(a =>
             {

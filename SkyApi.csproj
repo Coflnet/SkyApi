@@ -17,6 +17,7 @@
 
   <ItemGroup>
     <PackageReference Include="AutoMapper.Extensions.Microsoft.DependencyInjection" Version="12.0.1" />
+    <PackageReference Include="Coflnet.DiscordBot.Client" Version="0.0.1" />
     <PackageReference Include="Coflnet.Sky.ModCommands.Client" Version="0.9.0" />
     <PackageReference Include="Coflnet.Sky.Proxy.Client" Version="1.0.0" />
     <PackageReference Include="AspNetCoreRateLimit" Version="5.0.0" />
