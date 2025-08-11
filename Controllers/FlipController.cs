@@ -13,6 +13,7 @@ using Coflnet.Sky.Bazaar.Flipper.Client.Api;
 using System.Linq;
 using Coflnet.Sky.Api.Models.Bazaar;
 using Coflnet.Sky.Items.Client.Api;
+using Microsoft.AspNetCore.Authorization;
 
 namespace Coflnet.Sky.Api.Controller
 {
@@ -90,6 +91,30 @@ namespace Coflnet.Sky.Api.Controller
                     Flip = f,
                     ItemName = names[f.ItemTag],
                     IsManipulated = isManipulated
+                };
+            });
+        }
+        /// <summary>
+        /// Spread based bazaar flips (top order to top order) with real time demand sorting
+        /// </summary>
+        /// <returns></returns>
+        [Route("bazaar/spread/deemand")]
+        [HttpGet]
+        [Authorize]
+        [ResponseCache(Duration = 20, Location = ResponseCacheLocation.Any, NoStore = false)]
+        public async Task<IEnumerable<DemandSpreadFlip>> GetDemandBazaarFlps()
+        {
+            if (!await premiumTierService.HasPremium(this))
+                throw new CoflnetException("no_premium",
+                    "Sorry this feature is only available for premium users.");
+            var flips = await bazaarFlipperApi.DemandGetAsync();
+            var names = (await itemsApi.ItemNamesGetAsync()).ToDictionary(i => i.Tag, i => i.Name);
+            return flips.Select(f =>
+            {
+                return new DemandSpreadFlip
+                {
+                    Flip = f,
+                    ItemName = names[f.ItemTag],
                 };
             });
         }

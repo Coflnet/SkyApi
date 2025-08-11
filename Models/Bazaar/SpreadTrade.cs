@@ -9,5 +9,11 @@ public class SpreadFlip
 {
     public BazaarFlip Flip { get; set; }
     public string ItemName { get; set; }
-    public bool IsManipulated { get; internal set; }
+    public bool IsManipulated { get; set; }
+}
+
+public class DemandSpreadFlip
+{
+    public DemandFlip Flip { get; set; }
+    public string ItemName { get; set; }
 }
