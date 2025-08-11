@@ -1474,6 +1474,10 @@ public class ModDescriptionService : IDisposable
                     {
                         placeAuctionTag = name;
                     }
+                    else if (name?.EndsWith("Scaffolding") ?? false)
+                    {
+                        return (new SaveAuction() { Tag = "SKYBLOCK_MENU", ItemName = name }, new string[0]);
+                    }
                     else if (!name?.StartsWith("§8Quiver ") ?? true) // special variats are §8Quiver Flint Arrow
                         return (null, new string[0]); // skip all items without id
                     else
