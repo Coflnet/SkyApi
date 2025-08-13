@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using System.Collections.Immutable;
 using System.Diagnostics;
 using System.Globalization;
 using System.Linq;
@@ -356,7 +357,7 @@ public class ModDescriptionService : IDisposable
         }
 
         var pricesPaidTask = GetPriceData(inventory, mcName, auctionRepresent);
-        var bazaarPrices = deserializedCache.BazaarItems ?? new Dictionary<string, ItemPrice>();
+        var bazaarPrices = deserializedCache.BazaarItems ?? ImmutableDictionary<string, ItemPrice>.Empty;
 
         var salesData = await pricesPaidTask;
         var pricePaid = salesData.Where(p => p.Where(s => !s.requestingUserIsSeller && s.highest > 0 && s.end < DateTime.UtcNow).Any()).ToDictionary(p => p.Key, p =>
@@ -472,10 +473,12 @@ public class ModDescriptionService : IDisposable
             {
                 for (int i = 0; i < 5; i++)
                 {
+                    var bazaarPrices = new Dictionary<string, ItemPrice>();
                     foreach (var item in await bazaarApi.GetAllPricesAsync())
                     {
-                        deserializedCache.BazaarItems[item.ProductId] = item;
+                        bazaarPrices[item.ProductId] = item;
                     }
+                    deserializedCache.BazaarItems = bazaarPrices.ToImmutableDictionary();
                     // bazaar api updates every 20 seconds
                     await Task.Delay(20_000);
                 }
@@ -521,7 +524,7 @@ public class ModDescriptionService : IDisposable
         InventoryDataWithSettings inventory,
         List<(SaveAuction auction, string[] desc)> auctionRepresent,
         List<Sniper.Client.Model.PriceEstimate> res,
-        Dictionary<string, ItemPrice> bazaarPrices,
+        ImmutableDictionary<string, ItemPrice> bazaarPrices,
         List<DescModification> mods,
         Dictionary<string, (long, DateTime, string)> pricesPaid)
     {
@@ -1202,7 +1205,7 @@ public class ModDescriptionService : IDisposable
         builder.Append($"{McColorCodes.GRAY}Spent on listing: {McColorCodes.YELLOW}{FormatPriceShort(sum)}{McColorCodes.GRAY} Last attempt {McColorCodes.BLUE}{formated}");
     }
 
-    private void AddGemValue(SaveAuction auction, StringBuilder builder, Dictionary<string, ItemPrice> bazaarPrices)
+    private void AddGemValue(SaveAuction auction, StringBuilder builder, IDictionary<string, ItemPrice> bazaarPrices)
     {
         var sum = 0L;
         foreach (var prop in auction.FlatenedNBT)
@@ -1220,13 +1223,13 @@ public class ModDescriptionService : IDisposable
 
 
 
-    private void AddEnchantCost(SaveAuction auction, StringBuilder builder, Dictionary<string, ItemPrice> bazaarPrices)
+    private void AddEnchantCost(SaveAuction auction, StringBuilder builder, IDictionary<string, ItemPrice> bazaarPrices)
     {
         long enchantCost = EnchantCost(auction, bazaarPrices);
         builder.Append($"{McColorCodes.GRAY}Enchants: {McColorCodes.YELLOW}{FormatNumber(enchantCost)} ");
     }
 
-    private long EnchantCost(SaveAuction auction, Dictionary<string, ItemPrice> bazaarPrices)
+    private long EnchantCost(SaveAuction auction, IDictionary<string, ItemPrice> bazaarPrices)
     {
         var enchants = auction.Enchantments;
         if (enchants == null || enchants.Count <= 0 || bazaarPrices == null)
@@ -1238,7 +1241,7 @@ public class ModDescriptionService : IDisposable
         return enchantCost;
     }
 
-    public IEnumerable<(Enchantment e, long)> GetEnchantBreakdown(SaveAuction auction, Dictionary<string, ItemPrice> bazaarPrices)
+    public IEnumerable<(Enchantment e, long)> GetEnchantBreakdown(SaveAuction auction, IDictionary<string, ItemPrice> bazaarPrices)
     {
         var enchants = auction.Enchantments;
         var lookup = bazaarPrices.ToDictionary(a => a.Key, a => a.Value.BuyPrice);
@@ -1289,17 +1292,17 @@ public class ModDescriptionService : IDisposable
         return $"{prefix}{timeSpan.TotalSeconds.ToString("0.#")}s";
     }
 
-    private void AddBazaarBuy(SaveAuction auction, Dictionary<string, ItemPrice> bazaarPrices, StringBuilder builder)
+    private void AddBazaarBuy(SaveAuction auction, IDictionary<string, ItemPrice> bazaarPrices, StringBuilder builder)
     {
         AddBazaar(auction, bazaarPrices, builder, "Buy", (ItemPrice p) => p.BuyPrice);
     }
 
-    private void AddBazaarSell(SaveAuction auction, Dictionary<string, ItemPrice> bazaarPrices, StringBuilder builder)
+    private void AddBazaarSell(SaveAuction auction, IDictionary<string, ItemPrice> bazaarPrices, StringBuilder builder)
     {
         AddBazaar(auction, bazaarPrices, builder, "Sell", (ItemPrice p) => p.SellPrice);
     }
 
-    private void AddBazaar(SaveAuction auction, Dictionary<string, ItemPrice> bazaarPrices, StringBuilder builder, string word, Func<ItemPrice, double> priceGet)
+    private void AddBazaar(SaveAuction auction, IDictionary<string, ItemPrice> bazaarPrices, StringBuilder builder, string word, Func<ItemPrice, double> priceGet)
     {
         var tag = GetBazaarTag(auction);
         if (bazaarPrices?.ContainsKey(tag) ?? false)

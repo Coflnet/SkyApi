@@ -1,3 +1,4 @@
+using System.Collections.Immutable;
 using Coflnet.Sky.Bazaar.Client.Model;
 using Coflnet.Sky.Core;
 
@@ -8,7 +9,7 @@ public class DeserializedCache
 {
     public Dictionary<string, Crafts.Client.Model.ProfitableCraft> Crafts = new();
     public Dictionary<(string, Tier), Crafts.Client.Model.KatUpgradeCost> Kat = new();
-    public Dictionary<string, ItemPrice> BazaarItems = new();
+    public ImmutableDictionary<string, ItemPrice> BazaarItems = ImmutableDictionary<string, ItemPrice>.Empty;
     public Dictionary<string, long> ItemPrices = new();
     public Dictionary<string, float> NpcSellPrices = new();
     public DateTime LastUpdate = DateTime.MinValue;

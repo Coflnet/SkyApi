@@ -20,6 +20,8 @@ using Coflnet.Sky.Core;
 using System.Linq;
 using FluentAssertions;
 using System.Threading;
+using System.Collections.Immutable;
+using Coflnet.Sky.Bazaar.Client.Model;
 
 namespace SkyApi.Services.Description;
 #pragma warning disable CS1591 // Missing XML comment for publicly visible type or member
@@ -127,7 +129,7 @@ public class ModDescriptionServiceTests
     [TestCase("PROMISING_PICKAXE", 0)]
     public void IgnoresEnchantOnPromising(string tag, int price)
     {
-        var enchantVal = service.GetEnchantBreakdown(new SaveAuction() { Tag = tag, Enchantments = [new Enchantment(Enchantment.EnchantmentType.efficiency, 6)] }, new()
+        var enchantVal = service.GetEnchantBreakdown(new SaveAuction() { Tag = tag, Enchantments = [new Enchantment(Enchantment.EnchantmentType.efficiency, 6)] }, new Dictionary<string,ItemPrice>()
         {
             {"SIL_EX",new(){
                 BuyPrice = 5_000_000, SellPrice = 4_900_000,

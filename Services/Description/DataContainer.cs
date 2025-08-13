@@ -1,3 +1,4 @@
+using System.Collections.Immutable;
 using System.Linq;
 using System.Threading.Tasks;
 using Coflnet.Sky.Api.Models.Mod;
@@ -13,7 +14,7 @@ public class DataContainer
     public InventoryDataWithSettings inventory;
     public List<(SaveAuction auction, string[] desc)> auctionRepresent;
     public List<Sniper.Client.Model.PriceEstimate> PriceEst;
-    public Dictionary<string, ItemPrice> bazaarPrices;
+    public ImmutableDictionary<string, ItemPrice> bazaarPrices;
     public Dictionary<string, float> NpcSellPrices;
     public List<List<DescModification>> mods;
     public Dictionary<string, (long, DateTime, string)> pricesPaid;
