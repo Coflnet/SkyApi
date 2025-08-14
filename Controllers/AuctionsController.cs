@@ -138,7 +138,7 @@ namespace Coflnet.Sky.Api.Controller
                 result.ItemName = ItemDetails.TagToName(result.Tag);
             // order enchants
             var prices = modDescriptionService.GetEnchantBreakdown(result, modDescriptionService.DeserializedCache.BazaarItems)
-                .GroupBy(e=>e.e.Type).Select(g=>g.First()).ToDictionary(e => e.e.Type, e => e.Item2);
+                .GroupBy(e => e.e.Type).Select(g => g.First()).ToDictionary(e => e.e.Type, e => e.Item2);
             var colored = EnchantColorMapper.Instance.AddColors(result);
             foreach (var item in colored.Enchantments)
             {
@@ -160,6 +160,29 @@ namespace Coflnet.Sky.Api.Controller
             if (auctionUuid.Length < 30)
                 return auctionService.GetUuid(long.Parse(auctionUuid));
             return auctionService.GetId(auctionUuid).ToString();
+        }
+
+        /// <summary>
+        /// Get a random auction from the database, built for Thomases guessing game
+        /// </summary>
+        [Route("auction/random")]
+        [HttpGet]
+        [ResponseCache(Duration = 3, Location = ResponseCacheLocation.Any, NoStore = false)]
+        public async Task<SaveAuction> GetRandomAuction()
+        {
+            var maxId = await context.Auctions.MaxAsync(a => a.Id);
+            for (int i = 0; i < 5; i++)
+            {
+                var randomId = new Random().Next(1, maxId);
+                var auction = await context.Auctions.Where(a => a.Id == randomId)
+                    .Include(a => a.Enchantments)
+                    .Include(a => a.NbtData)
+                    .Include(a => a.Bids).FirstOrDefaultAsync();
+                if (auction != null)
+                    return auction;
+            }
+
+            return null;
         }
 
         /// <summary>
