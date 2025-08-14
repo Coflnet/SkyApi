@@ -176,6 +176,7 @@ namespace Coflnet.Sky.Api.Controller
 
             var randomId = new Random().Next(1, maxId - 100_000);
             return await context.Auctions.Where(a => a.Id >= randomId && a.HighestBidAmount > 0)
+                .Take(1)
                 .Include(a => a.Enchantments)
                 .Include(a => a.NbtData)
                 .Include(a => a.Bids)
