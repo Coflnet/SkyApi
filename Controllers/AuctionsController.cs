@@ -170,21 +170,16 @@ namespace Coflnet.Sky.Api.Controller
         [ResponseCache(Duration = 3, Location = ResponseCacheLocation.Any, NoStore = false, VaryByQueryKeys = new string[] { "token" })]
         public async Task<SaveAuction> GetRandomAuction(string token)
         {
-            if(GetTokenHash(token) != "A1D897D3B8DDE4E7119F9624C6A3150E198F0A27279A505B17A1A2DF0C2D7403")
+            if (GetTokenHash(token) != "A1D897D3B8DDE4E7119F9624C6A3150E198F0A27279A505B17A1A2DF0C2D7403")
                 throw new CoflnetException("not_allowed", "You are not allowed to access this endpoint, please contact us on discord if you want to use it");
             var maxId = await context.Auctions.MaxAsync(a => a.Id);
-            for (int i = 0; i < 5; i++)
-            {
-                var randomId = new Random().Next(1, maxId);
-                var auction = await context.Auctions.Where(a => a.Id == randomId && a.HighestBidAmount > 0)
-                    .Include(a => a.Enchantments)
-                    .Include(a => a.NbtData)
-                    .Include(a => a.Bids).FirstOrDefaultAsync();
-                if (auction != null)
-                    return auction;
-            }
 
-            return null;
+            var randomId = new Random().Next(1, maxId - 100_000);
+            return await context.Auctions.Where(a => a.Id >= randomId && a.HighestBidAmount > 0)
+                .Include(a => a.Enchantments)
+                .Include(a => a.NbtData)
+                .Include(a => a.Bids)
+                .FirstOrDefaultAsync();
         }
 
         /// <summary>
