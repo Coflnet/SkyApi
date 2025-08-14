@@ -176,7 +176,7 @@ namespace Coflnet.Sky.Api.Controller
             for (int i = 0; i < 5; i++)
             {
                 var randomId = new Random().Next(1, maxId);
-                var auction = await context.Auctions.Where(a => a.Id == randomId)
+                var auction = await context.Auctions.Where(a => a.Id == randomId && a.HighestBidAmount > 0)
                     .Include(a => a.Enchantments)
                     .Include(a => a.NbtData)
                     .Include(a => a.Bids).FirstOrDefaultAsync();
