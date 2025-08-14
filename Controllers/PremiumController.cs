@@ -352,6 +352,8 @@ namespace Coflnet.Sky.Api.Controller
                 return Unauthorized("no googletoken header");
             try
             {
+                if(user.Id == 28258)
+                    throw new CoflnetException("unavailable", "No transactions available for this user");
                 var transactions = await transactionApi.TransactionUUserIdGetAsync(user.Id.ToString());
                 if (transactions == null)
                     return NotFound();
