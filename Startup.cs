@@ -69,6 +69,8 @@ namespace Coflnet.Sky.Api
                 // Set the comments path for the Swagger JSON and UI.
                 var xmlFile = $"{Assembly.GetExecutingAssembly().GetName().Name}.xml";
                 var xmlPath = Path.Combine(AppContext.BaseDirectory, xmlFile);
+
+                c.SchemaFilter<RequireNonNullablePropertiesSchemaFilter>();
                 c.IncludeXmlComments(xmlPath, true);
                 // c.CustomSchemaIds(t => t.FullName[12..].Replace("Models.","").Replace("Model.","").Replace("Client.",""));
             });
