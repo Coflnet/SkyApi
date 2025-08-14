@@ -167,9 +167,11 @@ namespace Coflnet.Sky.Api.Controller
         /// </summary>
         [Route("auction/random")]
         [HttpGet]
-        [ResponseCache(Duration = 3, Location = ResponseCacheLocation.Any, NoStore = false)]
-        public async Task<SaveAuction> GetRandomAuction()
+        [ResponseCache(Duration = 3, Location = ResponseCacheLocation.Any, NoStore = false, VaryByQueryKeys = new string[] { "token" })]
+        public async Task<SaveAuction> GetRandomAuction(string token)
         {
+            if(GetTokenHash(token) != "A1D897D3B8DDE4E7119F9624C6A3150E198F0A27279A505B17A1A2DF0C2D7403")
+                throw new CoflnetException("not_allowed", "You are not allowed to access this endpoint, please contact us on discord if you want to use it");
             var maxId = await context.Auctions.MaxAsync(a => a.Id);
             for (int i = 0; i < 5; i++)
             {
