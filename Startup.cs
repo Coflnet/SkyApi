@@ -91,6 +91,7 @@ namespace Coflnet.Sky.Api
             services.AddSingleton<Core.Services.IHypixelItemStore>(di => di.GetRequiredService<Core.Services.HypixelItemService>());
             services.AddSingleton<Core.Services.ExoticColorService>();
             services.AddSingleton<HttpClient>();
+            services.AddSingleton<FilterPobularityService>();
             services.AddSingleton<NetworthService>();
 
             services.AddSingleton<ItemSkinHandler>();

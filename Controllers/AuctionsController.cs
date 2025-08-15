@@ -296,9 +296,15 @@ namespace Coflnet.Sky.Api.Controller
         [Route("auctions/tag/{itemTag}/recent/overview")]
         [HttpGet]
         [ResponseCache(Duration = 120, Location = ResponseCacheLocation.Any, NoStore = false, VaryByQueryKeys = ["*"])]
-        public async Task<List<AuctionPreview>> GetRecent(string itemTag, [FromQuery] IDictionary<string, string> query)
+        public async Task<List<AuctionPreview>> GetRecent(string itemTag, [FromQuery] IDictionary<string, string> query, [FromServices] FilterPobularityService popularityService)
         {
             List<AuctionPreview> preview = await GetRecentFor(itemTag, query, 1);
+            var referrer = Request.Headers["Referer"].ToString();
+            if (referrer?.Contains("sky.coflnet.com") ?? false)
+                foreach (var item in query)
+                {
+                    popularityService.AddFilterUse(itemTag, item.Key);
+                }
             if (preview.Count >= 12)
                 return preview;
             preview = await GetRecentFor(itemTag, query, 14);

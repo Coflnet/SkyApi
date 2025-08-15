@@ -196,7 +196,7 @@ public class PricesController : ControllerBase
     [Route("filter/options")]
     [HttpGet]
     [ResponseCache(Duration = 3600 * 6, Location = ResponseCacheLocation.Any, NoStore = false, VaryByQueryKeys = new string[] { "itemTag" })]
-    public async Task<List<FilterOptions>> GetFilterOptions(string itemTag = "*")
+    public async Task<List<FilterOptions>> GetFilterOptions([FromServices] FilterPobularityService popularityService, string itemTag = "*")
     {
         var optionsTask = itemsApi.ItemItemTagModifiersAllGetAsync(itemTag);
         if (itemTag == "*" || string.IsNullOrEmpty(itemTag))
@@ -210,7 +210,9 @@ public class PricesController : ControllerBase
         var filters = fe.FiltersFor(item);
         logger.LogInformation("filters for item {itemTag} : {filters}", itemTag, filters.Select(f => f.Name));
 
-        return filters.Where(CanGetOptions(allOptions)).Select(f => new FilterOptions(f, allOptions)).ToList();
+        return filters.Where(CanGetOptions(allOptions))
+            .OrderByDescending(f => popularityService.GetFilterUseCount(itemTag, f.Name))
+            .Select(f => new FilterOptions(f, allOptions)).ToList();
 
         static Func<IFilter, bool> CanGetOptions(Dictionary<string, List<string>> all)
         {
