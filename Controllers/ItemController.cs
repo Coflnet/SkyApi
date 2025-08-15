@@ -118,17 +118,24 @@ namespace Coflnet.Sky.Api.Controller
         [ResponseCache(Duration = 3600 * 12, Location = ResponseCacheLocation.Any, NoStore = false)]
         public async Task<IEnumerable<Items.Client.Model.ItemPreview>> GetSimilar(string itemTag)
         {
-            var source = await itemsApi.ItemNamesGetAsync();
+            var allItems = await itemsApi.ItemsGetWithHttpInfoAsync();
+            var source = JsonConvert.DeserializeObject<List<Items.Client.Model.Item>>(allItems.RawContent.Replace("SUPREME","DIVINE"));
+            Console.WriteLine($"Found {source?.Count} items in source");
             var recipe = await craftsApi.GetRecipeAsync(itemTag);
             var search = itemTag.Truncate(10);
             if (itemTag.Contains("_"))
                 search = itemTag.Substring(0, itemTag.LastIndexOf("_"));
-            var similarName = source.Where(i => i.Tag != itemTag && i.Tag.StartsWith(search)).OrderBy(x => Random.Shared.Next()).Take(5);
+            var similarName = source.Where(i => i.Tag != itemTag && i.Tag.StartsWith(search) && (i.Flags.Value.HasFlag(Items.Client.Model.ItemFlags.AUCTION) || i.Flags.Value.HasFlag(Items.Client.Model.ItemFlags.BAZAAR))).OrderBy(x => Random.Shared.Next()).Take(5)
+                .Select(i => new Items.Client.Model.ItemPreview
+                {
+                    Name = i.Name,
+                    Tag = i.Tag
+                });
             IEnumerable<Items.Client.Model.ItemPreview> recipeBased = NewMethod(source, recipe);
             return recipeBased.Concat(similarName).Take(5);
         }
 
-        private static IEnumerable<Items.Client.Model.ItemPreview> NewMethod(List<Items.Client.Model.ItemPreview> source, Crafts.Client.Model.Recipe recipe)
+        private static IEnumerable<Items.Client.Model.ItemPreview> NewMethod(List<Items.Client.Model.Item> source, Crafts.Client.Model.Recipe recipe)
         {
             if(recipe == null)
                 return new Items.Client.Model.ItemPreview[0];
