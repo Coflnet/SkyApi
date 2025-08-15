@@ -84,6 +84,12 @@ public class ListPriceRecommend : ICustomModifier
             list.Add(new DescModification(McColorCodes.DARK_GRAY + "Disable suggestions with"));
             list.Add(new DescModification("/cofl s noSuggest true"));
         }
+        var hasAnyGems = data.auctionRepresent[13].auction.FlatenedNBT.Any(n => n.Value == "PERFECT" || n.Value == "FLAWLESS");
+        if (hasAnyGems)
+        {
+            list.Add(new DescModification(McColorCodes.RED + "You should remove gems before selling!"));
+            list.Add(new DescModification("People underpay for applied gems"));
+        }
         data.mods.Add(list);
     }
 
