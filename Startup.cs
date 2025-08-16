@@ -64,7 +64,8 @@ namespace Coflnet.Sky.Api
                     Title = "SkyApi",
                     Version = "v1",
                     Description = "Notes: PET, RUNE and POTION item tags (somtimes called ids) are expanded to include the type, eg PET_LION.<br>"
-                                + " All other Tags match with from hypixel and can be found via the search endpoint."
+                                + " All other Tags match with from hypixel and can be found via the search endpoint.<br>"
+                                + "Most of these endpoints are used for our <a href=\"https://sky.coflnet.com/flips\">Hypixel skyblock ah and bazaar flipping service</a> and may need you to have a premium account token"
                 });
                 // Set the comments path for the Swagger JSON and UI.
                 var xmlFile = $"{Assembly.GetExecutingAssembly().GetName().Name}.xml";
