@@ -8,6 +8,7 @@ using Coflnet.Sky.ModCommands.Client.Api;
 using Coflnet.Sky.Sniper.Client.Model;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
 
 namespace Coflnet.Sky.Api.Services.Description;
@@ -90,6 +91,8 @@ public class ListPriceRecommend : ICustomModifier
             list.Add(new DescModification(McColorCodes.RED + "You should remove gems before selling!"));
             list.Add(new DescModification("People underpay for applied gems"));
         }
+        DiHandler.GetService<ILogger<ListPriceRecommend>>().LogInformation("For {itemUuid} sending suggestion text {text}", 
+            data.auctionRepresent[13].auction.FlatenedNBT.GetValueOrDefault("uuid"), string.Join(", ", list.Select(l => l.Value)));
         data.mods.Add(list);
     }
 
