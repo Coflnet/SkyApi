@@ -81,7 +81,7 @@ public class ListPriceRecommend : ICustomModifier
             list.Add(new("We will fill in the price"));
             list.Add(new($"Based on: {McColorCodes.WHITE}{priceSource}{McColorCodes.GRAY}"));
             list.Add(
-                new(DescModification.ModType.SUGGEST, 0, "starting bid: " + ModDescriptionService.FormatPriceShort(suggestedPrice - 1).ToLower()));
+                new(DescModification.ModType.SUGGEST, 0, "starting bid: " + (priceSource.Contains("lin") ? suggestedPrice - 1 : ModDescriptionService.FormatPriceShort(suggestedPrice - 1).ToLower())));
             list.Add(new DescModification(McColorCodes.DARK_GRAY + "Disable suggestions with"));
             list.Add(new DescModification("/cofl s noSuggest true"));
         }
@@ -91,7 +91,7 @@ public class ListPriceRecommend : ICustomModifier
             list.Add(new DescModification(McColorCodes.RED + "You should remove gems before selling!"));
             list.Add(new DescModification("People underpay for applied gems"));
         }
-        DiHandler.GetService<ILogger<ListPriceRecommend>>().LogInformation("For {itemUuid} sending suggestion text {text}", 
+        DiHandler.GetService<ILogger<ListPriceRecommend>>().LogInformation("For {itemUuid} sending suggestion text {text}",
             data.auctionRepresent[13].auction.FlatenedNBT.GetValueOrDefault("uuid"), string.Join(", ", list.Select(l => l.Value)));
         data.mods.Add(list);
     }
