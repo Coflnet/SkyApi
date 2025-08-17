@@ -6,6 +6,7 @@ using Coflnet.Sky.Core;
 using Coflnet.Sky.Items.Client.Api;
 using fNbt.Tags;
 using Microsoft.Extensions.Hosting;
+using Newtonsoft.Json;
 
 namespace Coflnet.Sky.Api.Services;
 
@@ -16,7 +17,7 @@ public interface IItemSkinHandler
 public class ItemSkinHandler : BackgroundService, IItemSkinHandler
 {
     private Sky.Items.Client.Api.IItemsApi itemsApi;
-    private ConcurrentDictionary<string, bool> skinNames = new();
+    private ConcurrentDictionary<string, bool> skinTags = new();
     private ActivitySource activitySource;
 
     public ItemSkinHandler(IItemsApi itemsApi)
@@ -31,12 +32,13 @@ public class ItemSkinHandler : BackgroundService, IItemSkinHandler
             try
             {
                 using var activity = activitySource?.StartActivity("UpdateSkins");
-                var items = await itemsApi.ItemsNoiconGetAsync();
+                var response = await itemsApi.ItemsNoiconGetWithHttpInfoAsync();
+                var items = JsonConvert.DeserializeObject<List<Sky.Items.Client.Model.Item>>(response.RawContent.Replace("SUPREME", "DIVINE"));
                 foreach (var item in items)
                 {
-                    skinNames.TryAdd(item.Tag, false);
+                    skinTags.TryAdd(item.Tag, false);
                 }
-                Console.WriteLine($"found {skinNames.Count} items without skins");
+                Console.WriteLine($"found {skinTags.Count} items without skins");
                 items.Clear();
             }
             catch (Exception e)
@@ -54,14 +56,16 @@ public class ItemSkinHandler : BackgroundService, IItemSkinHandler
             return;
         if (tag == "ATTRIBUTE_SHARD")
         {
-            var name = NBT.GetName(compound).Substring(2).Replace(" Shard","");
+            var name = NBT.GetName(compound).Substring(2).Replace(" Shard", "").Replace(' ', '_');
             // this is a new attribute shard, we need to set the tag
             if (Constants.ShardNames.Contains(name))
                 tag = "SHARD_" + name.ToUpper();
+            else
+                Console.WriteLine($"unknown shard name {name} for {tag}");
         }
-        if (!skinNames.TryGetValue(tag, out var saved) || saved)
+        if (!skinTags.TryGetValue(tag, out var saved) || saved)
             return;
-        skinNames[tag] = true;
+        skinTags[tag] = true;
         Task.Run(async () =>
         {
             try
