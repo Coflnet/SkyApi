@@ -99,13 +99,17 @@ public class TradeInfoDisplay : ICustomModifier
 
     private static long GetAdjustedValue(short underCutPercentage, long medLowballValue, float volume)
     {
-        if (medLowballValue > 10_000_000)
+        if (medLowballValue < 10_000_000)
         {
-            underCutPercentage -= 2;
+            underCutPercentage += 2;
         }
         else if (medLowballValue > 100_000_000)
         {
-            underCutPercentage += 2;
+            underCutPercentage -= 2;
+        }
+        if (medLowballValue > 1_000_000_000)
+        {
+            underCutPercentage -= 3;
         }
         if (volume <= 1)
         {
