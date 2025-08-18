@@ -125,6 +125,24 @@ public class ModDescriptionServiceTests
         Assert.That(cost.obtainPrice, Is.EqualTo(targetPrice));
     }
 
+    [Test]
+    public void ParseDungeonChest()
+    {
+        var data = File.ReadAllText("MockObjects/dungeonChest.json");
+        var auctions = service.GetAuctionsFromNbt(data);
+        Console.WriteLine(JsonConvert.SerializeObject(auctions.Take(9 * 6), Formatting.Indented));
+        auctions[11].auction.Tag.Should().Be("ENCHANTMENT_ULTIMATE_WISDOM_1");
+        auctions[12].auction.Tag.Should().Be("ENCHANTMENT_ULTIMATE_BANK_2");
+        auctions[13].auction.Tag.Should().Be("ENCHANTMENT_ULTIMATE_LAST_STAND_1");
+        auctions[14].auction.Tag.Should().Be("ESSENCE_UNDEAD");
+        auctions[14].auction.Count.Should().Be(47);
+        auctions[15].auction.Tag.Should().Be("ESSENCE_WITHER");
+        auctions[15].auction.Count.Should().Be(31);
+        auctions[31].auction.Tag.Should().Be("SKYBLOCK_CLAIM_CHEST");
+        Coflnet.Sky.Api.Services.Description.DungeonChestInfo
+            .GetCostFromDungeonChest(auctions.Select(a => (a.auction, a.desc)).ToList()).Should().Be(1_000_000);
+    }
+
     [TestCase("DRILL", 5_000_000)]
     [TestCase("PROMISING_PICKAXE", 0)]
     public void IgnoresEnchantOnPromising(string tag, int price)

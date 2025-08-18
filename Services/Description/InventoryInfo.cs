@@ -23,8 +23,8 @@ public class InventoryInfo : ICustomModifier
     };
     public void Apply(DataContainer data)
     {
-        // if (Random.Shared.NextDouble() < 0.9)
-        //      return;
+        if (Random.Shared.NextDouble() < 0.9)
+            return;
 
         var text = Texts[Random.Shared.Next(Texts.Length)];
         var coloredText = Regex.Replace(text, @"`(/.*?)`", m => $"§b{m.Groups[1]}§r" + McColorCodes.GRAY);

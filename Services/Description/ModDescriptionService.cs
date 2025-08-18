@@ -1469,6 +1469,8 @@ public class ModDescriptionService : IDisposable
                 if (NBT.ItemID(compound) == null)
                 {
                     var name = NBT.GetName(compound);
+                    if (name != null)
+                        Console.WriteLine("found: " + name);
                     if (compound?.Get<NbtString>("id").StringValue == "minecraft:arrow" && name == "§aGo Back")
                     {
                         // this is the go back arrow of the menu, use it as marker
@@ -1480,7 +1482,16 @@ public class ModDescriptionService : IDisposable
                     }
                     else if (name.EndsWith(" Essence"))
                     {
-                        placeAuctionTag = name;
+                        placeAuctionTag = name; // bazaar essence
+                    }
+                    else if (name.Contains(" Essence §8x"))
+                    { // dugeons essence (rward chest)
+                        var parts = name.Substring(2).Split(" Essence §8x");
+                        return (new() { Tag = "ESSENCE_" + parts.First().ToUpper(), Count = int.Parse(parts.Last().Replace(",", "")) }, NBT.GetLore(compound).ToArray());
+                    }
+                    else if (name == "§aOpen Reward Chest")
+                    {
+                        return (new() { Tag = "SKYBLOCK_CLAIM_CHEST" }, NBT.GetLore(compound).ToArray());
                     }
                     else if (name?.EndsWith("Scaffolding") ?? false)
                     {
