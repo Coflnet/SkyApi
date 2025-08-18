@@ -84,8 +84,13 @@ public class TradeInfoDisplay : ICustomModifier
             extraInfo.Add(new($"{McColorCodes.GRAY}have SkyCofl premium :("));
             return;
         }
+        if (data.inventory.Settings.LowballMedUndercut == 100)
+        {
+            extraInfo.Add(new($"{McColorCodes.GRAY}You disabled lowballing suggestions"));
+            return;
+        }
         extraInfo.Add(new($"{McColorCodes.GREEN}For lowballing these {receiveCount} items we"));
-        extraInfo.Add(new(DescModification.ModType.SUGGEST, 0, $"----------------: " + ModDescriptionService.FormatPriceShort(lowballPrice)));
+        extraInfo.Add(new(DescModification.ModType.SUGGEST, 0, $"----------------: " + ModDescriptionService.FormatPriceShort(lowballPrice).ToLower()));
         extraInfo.Add(new($"{McColorCodes.GRAY}SkyCofl recommended"));
         if (data.inventory.Settings.LowballMedUndercut == 0)
         {
