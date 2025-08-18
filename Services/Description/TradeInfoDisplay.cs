@@ -90,7 +90,10 @@ public class TradeInfoDisplay : ICustomModifier
             return;
         }
         extraInfo.Add(new($"{McColorCodes.GREEN}For lowballing these {receiveCount} items we"));
-        extraInfo.Add(new(DescModification.ModType.SUGGEST, 0, $"----------------: " + ModDescriptionService.FormatPriceShort(lowballPrice).ToLower()));
+        if (data.inventory.Settings.DisableSuggestions)
+            extraInfo.Add(new($"{McColorCodes.GRAY}Recommend: {McColorCodes.AQUA}{ModDescriptionService.FormatPriceShort(lowballPrice)}"));
+        else
+            extraInfo.Add(new(DescModification.ModType.SUGGEST, 0, $"----------------: " + ModDescriptionService.FormatPriceShort(lowballPrice).ToLower()));
         extraInfo.Add(new($"{McColorCodes.GRAY}SkyCofl recommended"));
         if (data.inventory.Settings.LowballMedUndercut == 0)
         {
