@@ -1490,8 +1490,13 @@ public class ModDescriptionService : IDisposable
                 var auction = new SaveAuction();
                 auction.Context = new Dictionary<string, string>();
                 NBT.FillFromTag(auction, compound, true);
+                if (auction.ItemName == "§a§lYour Score Summary")
+                {
+                    // dungeon completion menu
+                    return (new SaveAuction() { Tag = "SKYBLOCK_MENU", ItemName = "Dungeons" }, new string[0]);
+                }
                 if (placeAuctionTag != null)
-                    auction.Tag = "ESSENCE_" + Regex.Replace(placeAuctionTag, $"§[0-9a-fklmnor]|SELL |BUY | Essence", "").ToUpper();
+                        auction.Tag = "ESSENCE_" + Regex.Replace(placeAuctionTag, $"§[0-9a-fklmnor]|SELL |BUY | Essence", "").ToUpper();
 
                 if (auction.Tag == "ATTRIBUTE_SHARD")
                 {
