@@ -68,7 +68,7 @@ public class ListPriceRecommend : ICustomModifier
         var list = new List<DescModification>
         {
             new(McColorCodes.GREEN + "For this item, SkyCofl has a price" + McColorCodes.RESET),
-            new($"{McColorCodes.GRAY}Est. time to sell: " +  ModDescriptionService.FormatTime(generalSellTime)),
+            new($"{McColorCodes.GRAY}Est. time to sell: " + ModDescriptionService.FormatTime(generalSellTime)),
         };
         if (data.inventory.Settings.DisableSuggestions)
         {
