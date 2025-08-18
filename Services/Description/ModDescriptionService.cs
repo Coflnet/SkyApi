@@ -1448,6 +1448,10 @@ public class ModDescriptionService : IDisposable
                     .Select(a => (a, a?.Context?.GetValueOrDefault("lore")?.Split("\n") ?? new string[0])).ToList();
         }
         var nbtString = inventory.FullInventoryNbt;
+        if (inventory.ChestName == "Obsidian Chest")
+        {
+            Console.WriteLine("Obsidian Chest received: " + nbtString);
+        }
         return GetAuctionsFromNbt(nbtString);
     }
 
@@ -1497,7 +1501,7 @@ public class ModDescriptionService : IDisposable
                     return (new SaveAuction() { Tag = "SKYBLOCK_MENU", ItemName = "Dungeons" }, new string[0]);
                 }
                 if (placeAuctionTag != null)
-                        auction.Tag = "ESSENCE_" + Regex.Replace(placeAuctionTag, $"§[0-9a-fklmnor]|SELL |BUY | Essence", "").ToUpper();
+                    auction.Tag = "ESSENCE_" + Regex.Replace(placeAuctionTag, $"§[0-9a-fklmnor]|SELL |BUY | Essence", "").ToUpper();
 
                 if (auction.Tag == "ATTRIBUTE_SHARD")
                 {
