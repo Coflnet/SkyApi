@@ -51,7 +51,7 @@ public class ListPriceRecommend : ICustomModifier
         else if (priceInfo.LastListings.Count > 0)
         {
             suggestedPrice = priceInfo.LastListings.First();
-            priceSource = "last listings of item";
+            priceSource = McColorCodes.GREEN +"last listings of item";
         }
         else if (priceEst.Lbin.Price > priceEst.Median && priceEst.LbinKey == priceEst.ItemKey
             && priceEst.Volume > 3 && (priceEst.Volatility < 10 || priceEst.Volatility < 30 && priceEst.Volume > 15))
