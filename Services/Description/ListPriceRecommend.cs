@@ -119,7 +119,7 @@ public class ListPriceRecommend : ICustomModifier
             var lastListingsTask = LoadLastListings(targetAuction, playerUuid);
             await AddFliRecommend(result, itemUuid, playerUuid);
             var recentListingsOfItem = await lastListingsTask;
-            result.LastListings = recentListingsOfItem.Where(o => o.start > DateTime.UtcNow.AddMinutes(-30)).Select(a => a.Item1).ToList();
+            result.LastListings = recentListingsOfItem.Where(o => o.start > DateTime.UtcNow.AddMinutes(-10) && o.compKey == targetAuction.Enchantments.Count * targetAuction.FlatenedNBT.Count()).Select(a => a.Item1).ToList();
             var itemUid = ModDescriptionService.GetUidFromString(targetAuction.FlatenedNBT?.GetValueOrDefault("uid"));
             var wasListedBefore = recentListingsOfItem.Any(o => o.uid == itemUid);
             result.WasListedBefore = wasListedBefore;
@@ -148,7 +148,7 @@ public class ListPriceRecommend : ICustomModifier
         public bool WasListedBefore { get; set; }
     }
 
-    private async Task<List<(long, DateTime start, long uid)>> LoadLastListings(Core.SaveAuction targetAuction, string playerUuid)
+    private async Task<List<(long, DateTime start, long uid, int compKey)>> LoadLastListings(Core.SaveAuction targetAuction, string playerUuid)
     {
         if (targetAuction == null || targetAuction.ItemName == null)
         {
@@ -166,9 +166,10 @@ public class ListPriceRecommend : ICustomModifier
             {
                 a.StartingBid,
                 a.Start,
+                comparisonKey = a.Enchantments.Count() * a.NBTLookup.Count(),
                 uid = a.NBTLookup.Where(n => n.KeyId == key).Select(n => n.Value).FirstOrDefault()
             }).Take(3)
             .ToListAsync();
-        return (await query).OrderByDescending(o => o.Start).Select(a => (a.StartingBid, a.Start, a.uid)).ToList();
+        return (await query).OrderByDescending(o => o.Start).Select(a => (a.StartingBid, a.Start, a.uid, a.comparisonKey)).ToList();
     }
 }
