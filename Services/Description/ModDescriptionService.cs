@@ -131,6 +131,7 @@ public class ModDescriptionService : IDisposable
         customModifiers.Add("^The Forge", new ForgeExtenssion());
         customModifiers.Add(@"^\(\d\/2\) Fish Family", new FishFamilyCalculator());
         customModifiers.Add("^Crafting", new InventoryInfo());
+        customModifiers.Add("^(Wooden|Gold|Diamond|Emerald|Obsidian|Bedrock) Chest", new DungeonChestInfo());
     }
 
     private readonly ConcurrentDictionary<string, (SelfUpdatingValue<DescriptionSetting>, SelfUpdatingValue<AccountInfo>)> settings = new();
