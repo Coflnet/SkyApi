@@ -18,6 +18,7 @@ public class InventoryInfo : ICustomModifier
         "You can enable price paid on all non stackable items with `/cofl lore`",
         "Searching for a lowballer? \n`/cofl lowball` will help you find one",
         "Have a useful idea? Post a suggestion on our discord!",
+        "Change your minimum profit for flips with `/cofl set minProfit 2m`",
         "You can search all your storage (with double chests) with `/cofl search <search term>`",
         "Found any weird/wrong thing? Post a bug-report on our discord! Also run `/cofl report <description` to help us fix it",
     };
