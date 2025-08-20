@@ -25,11 +25,20 @@ public class ListPriceRecommend : ICustomModifier
         {
             return;
         }
-        if (priceEst == null || priceEst.Volume <= 1 || priceEst.MedianKey != priceEst.ItemKey)
+        if (priceEst == null || priceEst.Volume <= 1)
         {
             data.mods.Add([
                 new DescModification("Looks like this is not sold often"),
                 new DescModification("SkyCofl won't fill in a price"),
+                new DescModification($"{McColorCodes.GRAY}Estimated value: {McColorCodes.WHITE}" + ModDescriptionService.FormatPriceShort(priceEst.Median)),
+            ]);
+            return;
+        }
+        if (priceEst.MedianKey != priceEst.ItemKey)
+        {
+            data.mods.Add([
+                new DescModification("This item has little simlar sells,"),
+                new DescModification("so we can't give you a price suggestion."),
                 new DescModification($"{McColorCodes.GRAY}Estimated value: {McColorCodes.WHITE}" + ModDescriptionService.FormatPriceShort(priceEst.Median)),
             ]);
             return;
