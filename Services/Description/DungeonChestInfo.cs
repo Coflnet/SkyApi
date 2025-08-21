@@ -20,6 +20,7 @@ public class DungeonChestInfo : ICustomModifier
             new(McColorCodes.GRAY + "Please let us know what you think"),
             new(McColorCodes.GRAY + "about the estimate on SkyCofl discord!"),
         };
+        data.mods.Add(desc);
     }
 
     public static int GetCostFromDungeonChest(List<(Core.SaveAuction auction, string[] desc)> target)
