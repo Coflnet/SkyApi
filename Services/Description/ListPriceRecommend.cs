@@ -52,7 +52,7 @@ public class ListPriceRecommend : ICustomModifier
             priceSource = "lbin (as configured)";
             suggestedPrice = priceEst.Lbin.Price - 1;
         }
-        if (priceInfo.Recommended != null && priceInfo.Recommended > 0 && !priceInfo.WasListedBefore)
+        if (priceInfo.Recommended != null && priceInfo.Recommended > 0 && !priceInfo.WasListedBefore && !priceInfo.WasChanged)
         {
             suggestedPrice = priceInfo.Recommended.Value;
             priceSource = "Flip estimate";
@@ -60,7 +60,7 @@ public class ListPriceRecommend : ICustomModifier
         else if (priceInfo.LastListings.Count > 0)
         {
             suggestedPrice = priceInfo.LastListings.First();
-            priceSource = McColorCodes.GREEN +"last listings of item";
+            priceSource = McColorCodes.GREEN + "last listings of item";
         }
         else if (priceEst.Lbin.Price > priceEst.Median && priceEst.LbinKey == priceEst.ItemKey
             && priceEst.Volume > 3 && (priceEst.Volatility < 10 || priceEst.Volatility < 30 && priceEst.Volume > 15))
@@ -126,12 +126,19 @@ public class ListPriceRecommend : ICustomModifier
             var itemUuid = targetAuction?.FlatenedNBT.GetValueOrDefault("uuid");
             var playerUuid = await DiHandler.GetService<PlayerName.PlayerNameService>().GetUuid(preRequest.mcName);
             var lastListingsTask = LoadLastListings(targetAuction, playerUuid);
-            await AddFliRecommend(result, itemUuid, playerUuid);
+            await AddFlipRecommend(result, itemUuid, playerUuid);
             var recentListingsOfItem = await lastListingsTask;
-            result.LastListings = recentListingsOfItem.Where(o => o.start > DateTime.UtcNow.AddMinutes(-10) && o.compKey == targetAuction.Enchantments.Count * targetAuction.FlatenedNBT.Count()).Select(a => a.Item1).ToList();
+            var sameItem = recentListingsOfItem.Where(o => itemUuid != null && o.FlatenedNBT.GetValueOrDefault("uuid") == itemUuid).ToList();
+            var likelyPurchase = sameItem.FirstOrDefault(o => o.AuctioneerId != targetAuction.AuctioneerId);// newest auction of same item from different player
+            if (likelyPurchase != null && ComparisonKey(likelyPurchase) != ComparisonKey(targetAuction))
+            {
+                result.WasChanged = true;
+            }
+            var sameitemListings = recentListingsOfItem.Where(o => o.AuctioneerId == targetAuction.AuctioneerId).ToList();
+
+            result.LastListings = sameitemListings.Where(o => o.Start > DateTime.UtcNow.AddMinutes(-10) && ComparisonKey(o) ==  ComparisonKey(targetAuction)).Select(a => a.StartingBid).ToList();
             var itemUid = ModDescriptionService.GetUidFromString(targetAuction.FlatenedNBT?.GetValueOrDefault("uid"));
-            var wasListedBefore = recentListingsOfItem.Any(o => o.uid == itemUid);
-            result.WasListedBefore = wasListedBefore;
+            result.WasListedBefore = sameitemListings.Any(o => o.FlatenedNBT.GetValueOrDefault("uuid") == itemUuid);
 
             return JsonConvert.SerializeObject(result);
         });
@@ -139,7 +146,12 @@ public class ListPriceRecommend : ICustomModifier
         return;
     }
 
-    private async Task AddFliRecommend(PriceInfo result, string itemUuid, string playerUuid)
+    private string ComparisonKey(Core.SaveAuction likelyPurchase)
+    {
+        return string.Join(";", likelyPurchase.FlatenedNBT.OrderBy(f => f.Key).Select(kv => $"{kv.Key}:{kv.Value}")) + likelyPurchase.Enchantments.Count;
+    }
+
+    private async Task AddFlipRecommend(PriceInfo result, string itemUuid, string playerUuid)
     {
         if (itemUuid == null)
         {
@@ -150,14 +162,18 @@ public class ListPriceRecommend : ICustomModifier
             result.Recommended = priceRecommend;
     }
 
+    /// <summary>
+    /// Holds information about pricing for an item.
+    /// </summary>
     public class PriceInfo
     {
         public List<long> LastListings { get; set; } = new();
         public long? Recommended { get; set; }
+        public bool WasChanged { get; set; }
         public bool WasListedBefore { get; set; }
     }
 
-    private async Task<List<(long, DateTime start, long uid, int compKey)>> LoadLastListings(Core.SaveAuction targetAuction, string playerUuid)
+    private async Task<List<Core.SaveAuction>> LoadLastListings(Core.SaveAuction targetAuction, string playerUuid)
     {
         if (targetAuction == null || targetAuction.ItemName == null)
         {
@@ -168,17 +184,16 @@ public class ListPriceRecommend : ICustomModifier
         using var context = scope.ServiceProvider.GetRequiredService<HypixelContext>();
 
         var key = DiHandler.GetService<NBT>().GetKeyId("uid");
+        var uidLong = ModDescriptionService.GetUidFromString(targetAuction.FlatenedNBT?.GetValueOrDefault("uuid"));
         var query = context.Auctions
-            .Where(a => a.ItemId == itemId && a.End > DateTime.UtcNow.AddDays(-14) && a.SellerId == context.Players.Where(p => p.UuId == playerUuid).Select(p => p.Id).FirstOrDefault())
+            .Where(a => a.ItemId == itemId && a.End > DateTime.UtcNow.AddDays(-14)
+                && (a.SellerId == context.Players.Where(p => p.UuId == playerUuid).Select(p => p.Id).FirstOrDefault()
+                    || a.NBTLookup.Any(n => n.KeyId == key && n.Value == uidLong)))
             .AsSplitQuery().AsNoTracking()
-            .Select(a => new
-            {
-                a.StartingBid,
-                a.Start,
-                comparisonKey = a.Enchantments.Count() * a.NBTLookup.Count(),
-                uid = a.NBTLookup.Where(n => n.KeyId == key).Select(n => n.Value).FirstOrDefault()
-            }).Take(3)
+            .Include(a => a.Enchantments)
+            .Include(a => a.NbtData)
+            .Take(10)
             .ToListAsync();
-        return (await query).OrderByDescending(o => o.Start).Select(a => (a.StartingBid, a.Start, a.uid, a.comparisonKey)).ToList();
+        return (await query).OrderByDescending(o => o.Start).ToList();
     }
 }
