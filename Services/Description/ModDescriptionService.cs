@@ -277,7 +277,8 @@ public class ModDescriptionService : IDisposable
         {
             // compute descriptions and return everything computed on error
             await ComputeDescriptions(inventory, mcName, sessionId, auctionRepresent, result);
-            if (inventory.Settings?.HighlightInfo?.Chestname == inventory.ChestName && (inventory.Settings.HighlightInfo.Position == null ||
+            if (inventory.ChestName != null && inventory.Settings?.HighlightInfo?.Chestname == inventory.ChestName &&
+                (inventory.Settings.HighlightInfo.Position == null ||
                 (inventory.Settings.HighlightInfo?.Position?.Equals(inventory.Position) ?? false)))
             {
                 // add info about the chestname
