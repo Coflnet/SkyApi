@@ -172,10 +172,10 @@ namespace Coflnet.Sky.Api.Controller
         {
             if (GetTokenHash(token) != "A1D897D3B8DDE4E7119F9624C6A3150E198F0A27279A505B17A1A2DF0C2D7403")
                 throw new CoflnetException("not_allowed", "You are not allowed to access this endpoint, please contact us on discord if you want to use it");
-            var maxId = await context.Auctions.MaxAsync(a => a.Id);
 
-            var randomId = new Random().Next(1, maxId - 100_000);
-            return await context.Auctions.Where(a => a.Id >= randomId && a.HighestBidAmount > 0)
+            // Get a random uid between -minValue and 80% of the +maxValue
+            var randomId = new Random().NextInt64(long.MinValue, (long.MaxValue/5)*4);
+            return await context.Auctions.Where(a => a.UId >= randomId && a.HighestBidAmount > 0)
                 .Take(1)
                 .Include(a => a.Enchantments)
                 .Include(a => a.NbtData)
