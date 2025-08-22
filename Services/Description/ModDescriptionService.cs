@@ -1516,10 +1516,9 @@ public class ModDescriptionService : IDisposable
 
                 if (auction.Tag == "ATTRIBUTE_SHARD")
                 {
-                    var named = Regex.Replace(auction.ItemName, "§[0-9a-fklmnor]|SELL |BUY | Shard", "").Replace(' ', '_');
                     // this is a new attribute shard, we need to set the tag
-                    if (auction.FlatenedNBT.Count == 1 && Constants.ShardNames.ContainsKey(named))
-                        auction.Tag = "SHARD_" + named.ToUpper();
+                    if (auction.FlatenedNBT.Count == 1 && TryGetShardTagFromName(auction.ItemName, out var tag))
+                        auction.Tag = "SHARD_" + tag;
                 }
                 if (auction.Tier == Tier.UNKNOWN && (auction.Tag?.StartsWith("PET_") ?? false))
                 {
@@ -1537,6 +1536,34 @@ public class ModDescriptionService : IDisposable
             }
         }).ToList();
         return auctionRepresent;
+    }
+
+    public static bool TryGetShardTagFromName(string name, out string tag)
+    {
+        var clearedname = Regex.Replace(name, "§[0-9a-fklmnor]|SELL |BUY | Shard", "").Replace(' ', '_');
+        if (Constants.ShardNames.TryGetValue(name, out var shardTag))
+            tag = "SHARD_" + shardTag.ToUpper();
+        else
+        {
+            Console.WriteLine($"unknown shard name {name}");
+            var closestDistance = Constants.ShardNames
+                .Select(s => (s, Distance: Fastenshtein.Levenshtein.Distance(name, s.Key)))
+                .OrderBy(x => x.Distance)
+                .FirstOrDefault();
+            if (closestDistance.Distance < 3)
+            {
+                tag = "SHARD_" + closestDistance.s.Value.ToUpper();
+                Console.WriteLine($"using closest shard name {tag} for {name}");
+                Constants.ShardNames[name] = closestDistance.s.Value;
+            }
+            else
+            {
+                Console.WriteLine($"unknown shard name {name}, not using it");
+                tag = null;
+                return false;
+            }
+        }
+        return true;
     }
 
     public async Task<List<Sniper.Client.Model.PriceEstimate>> GetPrices(IEnumerable<SaveAuction> auctionRepresent)

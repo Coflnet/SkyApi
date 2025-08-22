@@ -57,29 +57,10 @@ public class ItemSkinHandler : BackgroundService, IItemSkinHandler
             return;
         if (tag == "ATTRIBUTE_SHARD")
         {
-            var name = NBT.GetName(compound).Substring(2).Replace(" Shard", "");
+            var name = NBT.GetName(compound);
             // this is a new attribute shard, we need to set the tag
-            if (Constants.ShardNames.TryGetValue(name, out var shardTag))
-                tag = "SHARD_" + shardTag.ToUpper();
-            else
-            {
-                Console.WriteLine($"unknown shard name {name} for {tag}");
-                var closestDistance = Constants.ShardNames
-                    .Select(s => (s, Distance: Fastenshtein.Levenshtein.Distance(name, s.Key)))
-                    .OrderBy(x => x.Distance)
-                    .FirstOrDefault();
-                if (closestDistance.Distance < 3)
-                {
-                    tag = "SHARD_" + closestDistance.s.Value.ToUpper();
-                    Console.WriteLine($"using closest shard name {tag} for {name}");
-                    Constants.ShardNames[name] = closestDistance.s.Value;
-                }
-                else
-                {
-                    Console.WriteLine($"unknown shard name {name} for {tag}, not using it");
-                    return;
-                }
-            }
+            if (!ModDescriptionService.TryGetShardTagFromName(name, out tag))
+                return;
         }
         if (!skinTags.TryGetValue(tag, out var saved) || saved)
             return;
