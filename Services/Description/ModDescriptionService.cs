@@ -1541,20 +1541,20 @@ public class ModDescriptionService : IDisposable
     public static bool TryGetShardTagFromName(string name, out string tag)
     {
         var clearedname = Regex.Replace(name, "§[0-9a-fklmnor]|SELL |BUY | Shard", "").Replace(' ', '_');
-        if (Constants.ShardNames.TryGetValue(name, out var shardTag))
+        if (Constants.ShardNames.TryGetValue(clearedname, out var shardTag))
             tag = "SHARD_" + shardTag.ToUpper();
         else
         {
-            Console.WriteLine($"unknown shard name {name}");
+            Console.WriteLine($"unknown shard name {name}, {clearedname}");
             var closestDistance = Constants.ShardNames
-                .Select(s => (s, Distance: Fastenshtein.Levenshtein.Distance(name, s.Key)))
+                .Select(s => (s, Distance: Fastenshtein.Levenshtein.Distance(clearedname, s.Key)))
                 .OrderBy(x => x.Distance)
                 .FirstOrDefault();
             if (closestDistance.Distance < 3)
             {
                 tag = "SHARD_" + closestDistance.s.Value.ToUpper();
                 Console.WriteLine($"using closest shard name {tag} for {name}");
-                Constants.ShardNames[name] = closestDistance.s.Value;
+                Constants.ShardNames[clearedname] = closestDistance.s.Value;
             }
             else
             {
