@@ -310,7 +310,7 @@ public class ModDescriptionService : IDisposable
 
     private async Task ComputeDescriptions(InventoryDataWithSettings inventory, string mcName, string sessionId, List<(SaveAuction auction, string[] desc)> auctionRepresent, List<List<DescModification>> result)
     {
-        var matchingModifiers = customModifiers.Where(m => inventory.ChestName != null && Regex.IsMatch(inventory.ChestName, m.Key)).ToArray();
+        var matchingModifiers = customModifiers.Where(m => Regex.IsMatch(inventory.ChestName ?? "Crafting", m.Key)).ToArray();
         var preRequest = new PreRequestContainer()
         {
             auctionRepresent = auctionRepresent,
