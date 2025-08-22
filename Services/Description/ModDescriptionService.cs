@@ -1469,9 +1469,8 @@ public class ModDescriptionService : IDisposable
                 string placeAuctionTag = null;
                 if (NBT.ItemID(compound) == null)
                 {
+                    // TODO: maybe parse "§aRabbit Dog§8 - §7[21§7] §aEmployee" and "§9Rabbit Cousin§8 - §7[75§7] §9Assistant"
                     var name = NBT.GetName(compound);
-                    if (name != null)
-                        Console.WriteLine("found: " + name);
                     if (compound?.Get<NbtString>("id").StringValue == "minecraft:arrow" && name == "§aGo Back")
                     {
                         // this is the go back arrow of the menu, use it as marker
