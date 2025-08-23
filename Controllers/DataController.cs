@@ -59,8 +59,17 @@ public class DataController : ControllerBase
     public async Task<string> UploadProxied()
     {
         Request.Headers.TryGetValue("X-Request-Id", out var id);
-        // get body as string
-        var body = await new System.IO.StreamReader(Request.Body).ReadToEndAsync();
+        // Unzip the body if it is compressed
+        string body;
+        if (Request.Headers.TryGetValue("Content-Encoding", out var encoding) && encoding == "gzip")
+        {
+            using var gzipStream = new System.IO.Compression.GZipStream(Request.Body, System.IO.Compression.CompressionMode.Decompress);
+            using var reader = new System.IO.StreamReader(gzipStream);
+            var decompressedBody = await reader.ReadToEndAsync();
+            body = decompressedBody;
+        }
+        else
+            body = await new System.IO.StreamReader(Request.Body).ReadToEndAsync();
         logger.LogInformation($"Received proxy data {id} {body.Truncate(100)}");
         return "received " + id;
     }
