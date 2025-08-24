@@ -24,6 +24,8 @@ public class InventoryInfo : ICustomModifier
     };
     public void Apply(DataContainer data)
     {
+        if(data.inventory.Settings.DisableInfoIn.Contains("Crafting"))
+            return;
         if (Random.Shared.NextDouble() < 0.9)
             return;
 
