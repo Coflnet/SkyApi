@@ -40,6 +40,10 @@ public class InventoryInfo : ICustomModifier
         var result = new StringBuilder();
         var currentLine = new StringBuilder();
         var display = new List<Models.Mod.DescModification>();
+        if (data.inventory.ChestName == null) // 1.8.9 inventory
+        {
+            display.Add(new(McColorCodes.BLACK + "_______________________________§7___"));
+        }
         foreach (var word in words)
         {
             // Calculate visible length by removing color codes
@@ -59,6 +63,7 @@ public class InventoryInfo : ICustomModifier
             }
             currentLine.Append(word);
         }
+        
         display.Add(new(currentLine.ToString()));
 
         data.mods.Add(display);
