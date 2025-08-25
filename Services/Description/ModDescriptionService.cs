@@ -132,6 +132,7 @@ public class ModDescriptionService : IDisposable
         customModifiers.Add(@"^\(\d\/2\) Fish Family", new FishFamilyCalculator());
         customModifiers.Add("^Crafting", new InventoryInfo());
         customModifiers.Add("^(Wooden|Gold|Diamond|Emerald|Obsidian|Bedrock) Chest", new DungeonChestInfo());
+        customModifiers.Add("^Order options", new BazaarFlipSuggest());
     }
 
     private readonly ConcurrentDictionary<string, (SelfUpdatingValue<DescriptionSetting>, SelfUpdatingValue<AccountInfo>)> settings = new();
@@ -417,7 +418,7 @@ public class ModDescriptionService : IDisposable
                 result.Add(new());
                 continue;
             }
-            if (desc.Count() == 0)
+            if (auction == null || desc.Length == 0)
             {
                 span.Log("no desc");
                 result.Add(none);
@@ -669,7 +670,7 @@ public class ModDescriptionService : IDisposable
                                                     DataContainer data)
     {
         var mods = new List<DescModification>();
-        if (auction.Tag == null)
+        if (auction?.Tag == null)
         { //add nothing for now
             return new();
         }
@@ -1498,8 +1499,12 @@ public class ModDescriptionService : IDisposable
                     {
                         return (new SaveAuction() { Tag = "SKYBLOCK_MENU", ItemName = name }, new string[0]);
                     }
+                    else if (name == "§aFlip Order")
+                    {
+                        return (null, NBT.GetLore(compound).ToArray());
+                    }
                     else if (!name?.StartsWith("§8Quiver ") ?? true) // special variats are §8Quiver Flint Arrow
-                        return (null, new string[0]); // skip all items without id
+                        return (null, string.IsNullOrWhiteSpace(name) ? [] : NBT.GetLore(compound).ToArray()); // skip all items without id
                     else
                         // quiver arrow when selected a bow
                         return (new SaveAuction() { Tag = "SKYBLOCK_MENU", ItemName = "§8Quiver Arrow" }, new string[0]);
