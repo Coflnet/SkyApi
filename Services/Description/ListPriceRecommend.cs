@@ -136,7 +136,7 @@ public class ListPriceRecommend : ICustomModifier
             }
             var sameitemListings = recentListingsOfItem.Where(o => o.AuctioneerId == targetAuction.AuctioneerId).ToList();
 
-            result.LastListings = sameitemListings.Where(o => o.Start > DateTime.UtcNow.AddMinutes(-10) && ComparisonKey(o) ==  ComparisonKey(targetAuction)).Select(a => a.StartingBid).ToList();
+            result.LastListings = sameitemListings.Where(o => o.Start > DateTime.UtcNow.AddMinutes(-10) && ComparisonKey(o) == ComparisonKey(targetAuction)).Select(a => a.StartingBid).ToList();
             var itemUid = ModDescriptionService.GetUidFromString(targetAuction.FlatenedNBT?.GetValueOrDefault("uid"));
             result.WasListedBefore = sameitemListings.Any(o => o.FlatenedNBT.GetValueOrDefault("uuid") == itemUuid);
 

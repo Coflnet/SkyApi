@@ -1,5 +1,8 @@
 namespace Coflnet.Sky.Api.Services.Description;
 
+/// <summary>
+/// Pets in dark auction are displayed as level 100 but their price should be level 1
+/// </summary>
 public class DarkAuctionPetAdjust : ICustomModifier
 {
     public void Apply(DataContainer data)
