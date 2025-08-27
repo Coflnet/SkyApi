@@ -25,7 +25,11 @@ public class ListPriceRecommend : ICustomModifier
         {
             return;
         }
-        if (priceEst == null || priceEst.Volume <= 1)
+        var suggestedPrice = priceEst.Median;
+        var priceSource = "median";
+        var priceInfo = JsonConvert.DeserializeObject<PriceInfo>(data.Loaded[nameof(ListPriceRecommend)].Result);
+
+        if ((priceEst == null || priceEst.Volume <= 0.5) && priceInfo.Recommended.Value <= 0)
         {
             data.mods.Add([
                 new DescModification("Looks like this is not sold often"),
@@ -34,7 +38,7 @@ public class ListPriceRecommend : ICustomModifier
             ]);
             return;
         }
-        if (priceEst.MedianKey != priceEst.ItemKey)
+        if (priceEst.MedianKey != priceEst.ItemKey && priceInfo.Recommended.Value <= 0)
         {
             data.mods.Add([
                 new DescModification("This item has little simlar sells,"),
@@ -43,9 +47,6 @@ public class ListPriceRecommend : ICustomModifier
             ]);
             return;
         }
-        var suggestedPrice = priceEst.Median;
-        var priceSource = "median";
-        var priceInfo = JsonConvert.DeserializeObject<PriceInfo>(data.Loaded[nameof(ListPriceRecommend)].Result);
 
         if (data.inventory.Settings.PreferLbinInSuggestions && priceEst.Lbin.Price > 0)
         {
