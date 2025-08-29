@@ -38,7 +38,7 @@ public class InventoryInfo : ICustomModifier
         }
         var coloredText = Regex.Replace(text, @"`(/.*?)`", m => $"§b{m.Groups[1]}§r" + McColorCodes.GRAY);
 
-        if (coloredText.Contains('\n'))
+        if (coloredText.Contains('\n') || coloredText.StartsWith('['))
         {
             data.mods.Add(coloredText.Split('\n').Select(line => new Models.Mod.DescModification(line)).ToList());
             return;
@@ -52,6 +52,7 @@ public class InventoryInfo : ICustomModifier
         {
             display.Add(new(McColorCodes.BLACK + "_______________________________§7___"));
         }
+                currentLine.Insert(0, McColorCodes.GRAY);
         foreach (var word in words)
         {
             // Calculate visible length by removing color codes
@@ -59,10 +60,10 @@ public class InventoryInfo : ICustomModifier
 
             if (currentLine.Length > 0 && visibleLength + 1 + Regex.Replace(word, "§.", "").Length > 35)
             {
-                currentLine.Insert(0, McColorCodes.GRAY);
                 result.AppendLine(currentLine.ToString());
                 display.Add(new(currentLine.ToString()));
                 currentLine.Clear();
+                currentLine.Insert(0, McColorCodes.GRAY);
             }
 
             if (currentLine.Length > 0)
