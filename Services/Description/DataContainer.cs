@@ -12,7 +12,7 @@ namespace Coflnet.Sky.Api.Services.Description;
 public class DataContainer
 {
     public InventoryDataWithSettings inventory;
-    public List<(SaveAuction auction, string[] desc)> auctionRepresent;
+    public List<(Core.SaveAuction auction, string[] desc)> auctionRepresent;
     public List<Sniper.Client.Model.PriceEstimate> PriceEst;
     public ImmutableDictionary<string, ItemPrice> bazaarPrices;
     public Dictionary<string, float> NpcSellPrices;

@@ -24,12 +24,18 @@ public class InventoryInfo : ICustomModifier
     };
     public void Apply(DataContainer data)
     {
-        if(data.inventory.Settings.DisableInfoIn.Contains("Crafting"))
+        if (data.inventory.Settings.DisableInfoIn.Contains("Crafting"))
             return;
-        if (Random.Shared.NextDouble() < 0.9)
-            return;
+        // if (Random.Shared.NextDouble() < 0.9)
+        //     return;
 
         var text = Texts[Random.Shared.Next(Texts.Length)];
+        if (data.inventory.Version >= 3 && Random.Shared.NextDouble() < 0.1)
+        {
+            text = new LoreBuilder()
+                .AddText("You can drag the SkyCofl info display (this text) to somewhere else by holding `right-click` and moving the mouse")
+                .Build();
+        }
         var coloredText = Regex.Replace(text, @"`(/.*?)`", m => $"§b{m.Groups[1]}§r" + McColorCodes.GRAY);
 
         if (coloredText.Contains('\n'))
@@ -42,7 +48,7 @@ public class InventoryInfo : ICustomModifier
         var result = new StringBuilder();
         var currentLine = new StringBuilder();
         var display = new List<Models.Mod.DescModification>();
-        if (data.inventory.ChestName == null) // 1.8.9 inventory
+        if (data.inventory.ChestName == null && data.inventory.Version <= 2) // 1.8.9 inventory
         {
             display.Add(new(McColorCodes.BLACK + "_______________________________§7___"));
         }
@@ -65,8 +71,9 @@ public class InventoryInfo : ICustomModifier
             }
             currentLine.Append(word);
         }
-        
-        display.Add(new(currentLine.ToString()));
+
+        display.Add(new(new LoreBuilder()
+                .AddText(currentLine.ToString(), "Drag by holding right click").Build()));
 
         data.mods.Add(display);
     }
@@ -75,4 +82,40 @@ public class InventoryInfo : ICustomModifier
     {
         // none
     }
+}
+
+public class LoreBuilder
+{
+    private List<LoreComponent> components = new List<LoreComponent>();
+
+    public LoreBuilder AddText(string text, string hover = null, string onClick = null)
+    {
+        components.Add(new LoreComponent
+        {
+            Text = text,
+            Hover = hover,
+            OnClick = onClick
+        });
+        
+        return this;
+    }
+
+    public string Build()
+    {
+        return System.Text.Json.JsonSerializer.Serialize(components);
+    }
+}
+
+public class LoreComponent
+{
+    [System.Text.Json.Serialization.JsonPropertyName("text")]
+    public string Text { get; set; }
+
+    [System.Text.Json.Serialization.JsonPropertyName("hover")]
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public string Hover { get; set; }
+
+    [System.Text.Json.Serialization.JsonPropertyName("onClick")]
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public string OnClick { get; set; }
 }
