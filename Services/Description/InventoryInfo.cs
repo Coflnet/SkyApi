@@ -26,8 +26,8 @@ public class InventoryInfo : ICustomModifier
     {
         if (data.inventory.Settings.DisableInfoIn.Contains("Crafting"))
             return;
-        // if (Random.Shared.NextDouble() < 0.9)
-        //     return;
+        if (Random.Shared.NextDouble() < 0.9)
+            return;
 
         var text = Texts[Random.Shared.Next(Texts.Length)];
         if (data.inventory.Version >= 3 && Random.Shared.NextDouble() < 0.1)
