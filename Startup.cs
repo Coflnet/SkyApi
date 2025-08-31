@@ -28,6 +28,7 @@ using Coflnet.Sky.Bazaar.Client.Api;
 using System.Linq;
 using Coflnet.Sky.ModCommands.Client.Api;
 using Coflnet.Sky.ModCommands.Client.Extensions;
+using Mscc.GenerativeAI;
 
 namespace Coflnet.Sky.Api
 {
@@ -90,6 +91,7 @@ namespace Coflnet.Sky.Api
             services.AddSingleton<PremiumTierService>();
             services.AddSingleton<Core.Services.HypixelItemService>();
             services.AddSingleton<Core.Services.IHypixelItemStore>(di => di.GetRequiredService<Core.Services.HypixelItemService>());
+            services.AddSingleton<GoogleAI>(di=> new GoogleAI(Configuration["GOOGLE_GEMINI_API_KEY"]));
             services.AddSingleton<Core.Services.ExoticColorService>();
             services.AddSingleton<HttpClient>();
             services.AddSingleton<FilterPobularityService>();
