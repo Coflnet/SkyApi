@@ -21,7 +21,7 @@ public class BazaarInfo : ICustomModifier
         var bazaarItems = data.bazaarPrices.Keys.ToHashSet();
         var skip = data.accountInfo.Tier >= Commands.Shared.AccountTier.STARTER_PREMIUM && data.accountInfo.ExpiresAt > DateTime.UtcNow ? 0 : 3;
         var topCrafts = data.allCrafts.Values
-                .Where(c => c.CraftCost > 0 && bazaarItems.Contains(c.ItemId))
+                .Where(c => c.CraftCost > 0 && bazaarItems.Contains(c.ItemId) && c.Type == "crafting")
                 .Select(c => new
                 {
                     Craft = c,
@@ -43,13 +43,12 @@ public class BazaarInfo : ICustomModifier
             var line = new StringBuilder();
             line.Append("§a● §6");
             line.Append(craft.Craft.ItemName);
-            line.Append(FormatCoins(craft.SellPrice));
-            line.Append("§7 - Cost: §6");
+            line.Append(" " + McColorCodes.RED);
             line.Append(FormatCoins((long)craft.Craft.CraftCost));
-            line.Append("§7 - Profit: §6");
-            line.Append(FormatCoins(craft.Profit));
+            line.Append("§7 -> §6");
+            line.Append(FormatCoins(craft.SellPrice));
             var builder = new LoreBuilder()
-                .AddText(line.ToString(), "Click to view craft", $"/recipe {craft.Craft.ItemName}");
+                .AddText(line.ToString(), $"Click to view craft\nestimated profit {FormatCoins(craft.Profit)}", $"/recipe {craft.Craft.ItemName}");
             display.Add(new(builder.Build()));
         }
         display.Add(new(new LoreBuilder().AddText("","You can also drag this text by holding right click").Build()));
