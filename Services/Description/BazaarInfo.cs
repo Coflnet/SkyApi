@@ -16,8 +16,10 @@ public class BazaarInfo : ICustomModifier
 {
     public void Apply(DataContainer data)
     {
+        if(data.inventory.Settings.DisableInfoIn.Contains("Bazaar"))
+            return;
         if (data.inventory.Version < 3)
-            return; // not supported
+                return; // not supported
         var bazaarItems = data.bazaarPrices.Keys.ToHashSet();
         var skip = data.accountInfo.Tier >= Commands.Shared.AccountTier.STARTER_PREMIUM && data.accountInfo.ExpiresAt > DateTime.UtcNow ? 0 : 3;
         var topCrafts = data.allCrafts.Values
