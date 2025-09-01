@@ -23,6 +23,7 @@ public class DataContainer
     internal Dictionary<(string, Core.Tier), KatUpgradeCost> katUpgradeCost;
     internal Dictionary<string, long> itemPrices = new();
     internal Dictionary<string, ProfitableCraft> allCrafts;
+    public Dictionary<string,string> itemTagToName;
     internal AccountInfo accountInfo;
     internal ILookup<long, Flip> flips;
 

@@ -128,6 +128,7 @@ public class ModDescriptionService : IDisposable
         customModifiers.Add("^(Auctions Browser|Auctions:|You  )", new AuctionHouseHighlighting());
         customModifiers.Add("Pet - Round \\d$", new DarkAuctionPetAdjust());
         customModifiers.Add("Bazaar Orders$", new BazaarOrderAdjust(bazaarApi));
+        customModifiers.Add("^Bazaar ", new BazaarInfo());
         customModifiers.Add("^The Forge", new ForgeExtenssion());
         customModifiers.Add(@"^\(\d\/2\) Fish Family", new FishFamilyCalculator());
         customModifiers.Add("^Crafting", new InventoryInfo());
@@ -397,6 +398,7 @@ public class ModDescriptionService : IDisposable
             NpcSellPrices = deserializedCache.NpcSellPrices,
             itemListings = salesData,
             katUpgradeCost = deserializedCache.Kat,
+            itemTagToName = deserializedCache.ItemTagToName,
             PriceEst = res,
             modService = this,
             itemPrices = deserializedCache.ItemPrices,
@@ -503,6 +505,11 @@ public class ModDescriptionService : IDisposable
             {
                 await Task.Delay(20_000);
                 deserializedCache.IsUpdating = false;
+            });
+            TryGet(async () =>
+            {
+                var items = await itemsApi.ItemNamesGetAsync();
+                deserializedCache.ItemTagToName = items.ToDictionary(i => i.Tag, i => i.Name);
             });
         }
 

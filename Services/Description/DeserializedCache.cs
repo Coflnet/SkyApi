@@ -13,5 +13,6 @@ public class DeserializedCache
     public Dictionary<string, long> ItemPrices = new();
     public Dictionary<string, float> NpcSellPrices = new();
     public DateTime LastUpdate = DateTime.MinValue;
+    public Dictionary<string,string> ItemTagToName = new();
     public bool IsUpdating = false;
 }
