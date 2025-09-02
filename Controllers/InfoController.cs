@@ -36,6 +36,7 @@ public class InfoController : ControllerBase
         var priceRetrieverDelegate = new Func<string, Dictionary<string,string>, Task<string>>(async (itemTag, filters) =>
         {
             // Simulate an asynchronous operation to get the price of the item
+            filters.Remove("item"); // handle common halucination
             var price = await pricesApi.ApiItemPriceItemTagGetAsync(itemTag, filters);
             Console.WriteLine($"Retrieving price for item: {itemTag} with filters: {JsonConvert.SerializeObject(filters)}\nResult: {JsonConvert.SerializeObject(price)}");
             return $"Price summary of {itemTag} is " + JsonConvert.SerializeObject(price); // Replace with actual price retrieval logic
