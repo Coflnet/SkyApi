@@ -119,8 +119,8 @@ public class ModDescriptionService : IDisposable
         customModifiers.Add("^Manage Auctions", new AuctionValueSummary());
         customModifiers.Add("^(Auctions Browser|Auctions:)", new FlipOnNextPage());
         customModifiers.Add("^(Auctions Browser|BIN Auction View|Auctions:)|s Auctions$", new StartedAgoToEndsIn());
-    customModifiers.Add("^(Community Shop|Bits Shop)", new BitsCoinValue());
-    customModifiers.Add("^Bingo Shop", new BingoShopDisplay());
+        customModifiers.Add("^(Community Shop|Bits Shop)", new BitsCoinValue());
+        customModifiers.Add("^Bingo Shop", new BingoShopDisplay());
         customModifiers.Add("^Community Shop", new SkyblockGemsValue());
         customModifiers.Add("^Previous Fire Sales", new GenericCurrencyDisplay("SkyBlock Gems", "Gem"));
         customModifiers.Add("^(Seasonal Bundles|SkyMart Barn Skins|Taylor's Collection)", new GenericCurrencyDisplay("Gems", "Gem"));

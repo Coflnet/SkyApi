@@ -13,7 +13,7 @@ public abstract class CurrencyValueDisplay : ICustomModifier
 
     protected abstract string currencyName { get; }
 
-    public void Apply(DataContainer data)
+    public virtual void Apply(DataContainer data)
     {
         for (int i = 0; i < Math.Min(data.auctionRepresent.Count, 54); i++)
         {

@@ -18,7 +18,7 @@ public class BingoShopDisplay : SkyApi.Services.Description.CurrencyValueDisplay
     protected override string currencyName => "Bingo Point";
 
     // Hide base Apply to run both the per-item processing and the summary info
-    public new void Apply(DataContainer data)
+    public override void Apply(DataContainer data)
     {
         // Per-item: coins per Bingo Point (with prerequisite deduction)
         base.Apply(data);
