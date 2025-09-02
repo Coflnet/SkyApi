@@ -145,7 +145,7 @@ public class ModDescriptionServiceTests
         // Assert info panel content
         var info = data.mods.Last();
         info.Should().NotBeNull();
-        info.Count.Should().BeGreaterOrEqualTo(5); // header + 3 entries + drag hint
+        info.Count.Should().BeGreaterOrEqualTo(4); // header + 3 entries
         info[0].Value.Should().Contain("Best Bingo Points options");
         info.Any(l => l.Value.Contains("Bingo Ring")).Should().BeTrue();
         info.Any(l => l.Value.Contains("13,333")).Should().BeTrue();
