@@ -29,6 +29,7 @@ using System.Linq;
 using Coflnet.Sky.ModCommands.Client.Api;
 using Coflnet.Sky.ModCommands.Client.Extensions;
 using Mscc.GenerativeAI;
+using Coflnet.Sky.Api.Helper;
 
 namespace Coflnet.Sky.Api
 {
@@ -96,6 +97,7 @@ namespace Coflnet.Sky.Api
             services.AddSingleton<HttpClient>();
             services.AddSingleton<FilterPobularityService>();
             services.AddSingleton<NetworthService>();
+            services.AddScoped<AiRateLimitFilter>();
 
             services.AddSingleton<ItemSkinHandler>();
             services.AddHostedService<ItemSkinHandler>(di => di.GetService<ItemSkinHandler>());

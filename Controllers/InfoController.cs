@@ -29,8 +29,10 @@ public class InfoController : ControllerBase
     }
 
     [HttpGet("ai")]
+    [ServiceFilter(typeof(Coflnet.Sky.Api.Helper.AiRateLimitFilter))]
     public async Task<string> GetAiInfo([FromServices] GoogleAI googleAI, [FromServices] IPricesApi pricesApi, [FromServices] ISearchApi searchApi, string prompt)
     {
+
         var priceRetrieverDelegate = new Func<string, Dictionary<string,string>, Task<string>>(async (itemTag, filters) =>
         {
             // Simulate an asynchronous operation to get the price of the item
