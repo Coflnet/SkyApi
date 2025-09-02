@@ -1,5 +1,6 @@
 ﻿using Coflnet.Sky.Api.Models.Mod;
 using Coflnet.Sky.Api.Services;
+using Coflnet.Sky.Api.Services.Description;
 using Coflnet.Sky.Bazaar.Client.Api;
 using Coflnet.Sky.Commands.Shared;
 using Coflnet.Sky.Crafts.Client.Api;
@@ -55,6 +56,99 @@ public class ModDescriptionServiceTests
         service = new(Mock.Of<ICraftsApi>(), settingsService, Mock.Of<IdConverter>(), Mock.Of<IServiceScopeFactory>(),
                     Mock.Of<BazaarApi>(), playerNameService, Mock.Of<ILogger<ModDescriptionService>>(), Mock.Of<IConfiguration>(), Mock.Of<IStateUpdateService>(), sniperClient.Object,
                     itemSkinHandler, new(null, null, null), null, null, null, null, null);
+    }
+
+    [Test]
+    public void BingoShop_PerItemCoinsPerPoint_WithPrereq_IsInsertedAndCalculated()
+    {
+        // Arrange a minimal Bingo Shop data container with 3 items
+        var data = new Coflnet.Sky.Api.Services.Description.DataContainer
+        {
+            inventory = new InventoryDataWithSettings { ChestName = "Bingo Shop" },
+            Items = new List<Item>
+            {
+                new Item { ItemName = "§fBingo Talisman" },
+                new Item { ItemName = "§aBingo Ring" },
+                new Item { ItemName = "§fBingo Display" }
+            },
+            auctionRepresent = new List<(SaveAuction auction, string[] desc)>
+            {
+                (new SaveAuction { ItemName = "§fBingo Talisman" }, new []{ "§7Cost", "§6100 Bingo Points" }),
+                // Requires Bingo Talisman as prerequisite on the next line
+                (new SaveAuction { ItemName = "§aBingo Ring" }, new []{ "§7Cost", "§6150 Bingo Points", "§fBingo Talisman" }),
+                (new SaveAuction { ItemName = "§fBingo Display" }, new []{ "§7Cost", "§650 Bingo Points" })
+            },
+            PriceEst = new List<Coflnet.Sky.Sniper.Client.Model.PriceEstimate>
+            {
+                new() { Median = 1_000_000, ItemKey = "talisman", MedianKey = "talisman" },
+                new() { Median = 3_000_000, ItemKey = "ring", MedianKey = "ring" },
+                new() { Median = 10_000, ItemKey = "display", MedianKey = "display" }
+            },
+            mods = new List<List<DescModification>> { new(), new(), new() },
+            Loaded = new Dictionary<string, Task<string>>()
+        };
+        // Needed for number formatting
+        data.modService = service;
+
+        var modifier = new BingoShopDisplay();
+
+        // Act
+        modifier.Apply(data);
+
+        // Assert: ring entry has a replacement line with coins per Bingo Point after subtracting prerequisite value
+        // Ring effective value = 3,000,000 - 1,000,000 = 2,000,000; points = 150 -> 13,333 per point
+        data.mods[1].Should().NotBeEmpty();
+        var replace = data.mods[1].OfType<DescModification>().First();
+        replace.Type.Should().Be(DescModification.ModType.REPLACE);
+        replace.Value.Should().Contain("Coins per Bingo Point:");
+        replace.Value.Should().Contain("13,333");
+
+        // Assert: also created an info panel appended to mods
+        data.mods.Count.Should().Be(4); // 3 items + 1 info panel
+    }
+
+    [Test]
+    public void BingoShop_InfoPanel_ShowsTopOptionsByPerPoint()
+    {
+        // Arrange
+        var data = new Coflnet.Sky.Api.Services.Description.DataContainer
+        {
+            inventory = new InventoryDataWithSettings { ChestName = "Bingo Shop" },
+            Items = new List<Item>
+            {
+                new Item { ItemName = "§fBingo Talisman" },
+                new Item { ItemName = "§aBingo Ring" },
+                new Item { ItemName = "§fBingo Display" }
+            },
+            auctionRepresent = new List<(SaveAuction auction, string[] desc)>
+            {
+                (new SaveAuction { ItemName = "§fBingo Talisman" }, new []{ "§7Cost", "§6100 Bingo Points" }),
+                (new SaveAuction { ItemName = "§aBingo Ring" }, new []{ "§7Cost", "§6150 Bingo Points", "§fBingo Talisman" }),
+                (new SaveAuction { ItemName = "§fBingo Display" }, new []{ "§7Cost", "§650 Bingo Points" })
+            },
+            PriceEst = new List<Coflnet.Sky.Sniper.Client.Model.PriceEstimate>
+            {
+                new() { Median = 1_000_000, ItemKey = "talisman", MedianKey = "talisman" },
+                new() { Median = 3_000_000, ItemKey = "ring", MedianKey = "ring" },
+                new() { Median = 10_000, ItemKey = "display", MedianKey = "display" }
+            },
+            mods = new List<List<DescModification>> { new(), new(), new() },
+            Loaded = new Dictionary<string, Task<string>>()
+        };
+        data.modService = service;
+
+        var modifier = new BingoShopDisplay();
+
+        // Act
+        modifier.Apply(data);
+
+        // Assert info panel content
+        var info = data.mods.Last();
+        info.Should().NotBeNull();
+        info.Count.Should().BeGreaterOrEqualTo(5); // header + 3 entries + drag hint
+        info[0].Value.Should().Contain("Best Bingo Points options");
+        info.Any(l => l.Value.Contains("Bingo Ring")).Should().BeTrue();
+        info.Any(l => l.Value.Contains("13,333")).Should().BeTrue();
     }
     [Test]
     async public Task AddCoinsPerBitValue_ValidPriceAndDescription_CorrectCoinsPerBitAdded()
