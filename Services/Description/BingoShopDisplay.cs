@@ -112,7 +112,12 @@ public class BingoShopDisplay : SkyApi.Services.Description.CurrencyValueDisplay
             line.Append(" §7per point");
             if (e.IsRankUpgrade)
                 line.Append(" (unlock value)");
-            display.Add(new(line.ToString()));
+
+            // Create detailed breakdown for hover text
+            var breakdown = CreateCalculationBreakdown(data, e, userCurrentRank);
+            var builder = new LoreBuilder()
+                .AddText(line.ToString(), breakdown, null);
+            display.Add(new(builder.Build()));
         }
     }
 
@@ -283,6 +288,123 @@ public class BingoShopDisplay : SkyApi.Services.Description.CurrencyValueDisplay
                 return cost;
         }
         return 0;
+    }
+
+    /// <summary>
+    /// Creates a detailed breakdown of the calculation for the hover text
+    /// </summary>
+    private string CreateCalculationBreakdown(DataContainer data, (string Name, double PerPoint, int Index, bool IsRankUpgrade) entry, int userCurrentRank)
+    {
+        var breakdown = new StringBuilder();
+        breakdown.AppendLine($"§6{entry.Name} Calculation Breakdown");
+        breakdown.AppendLine();
+
+        if (entry.IsRankUpgrade)
+        {
+            // For rank upgrade items, show unlock value calculation
+            var desc = data.auctionRepresent[entry.Index].desc;
+            var rankUpgradeCost = ExtractBingoRankUpgradeCost(desc);
+            var rankBeingUnlocked = userCurrentRank + 1;
+            
+            breakdown.AppendLine("§eRank Upgrade Item:");
+            breakdown.AppendLine($"§7Base Cost: §c{rankUpgradeCost} Bingo Points");
+            breakdown.AppendLine($"§7Unlocks: §aⒷ Bingo Rank {ToRoman(rankBeingUnlocked)}");
+            breakdown.AppendLine($"§7Estimated Unlock Value: §6{data.modService.FormatNumber((float)entry.PerPoint)} coins");
+            breakdown.AppendLine();
+            breakdown.AppendLine("§8Rank upgrades unlock access to higher tier items");
+        }
+        else
+        {
+            // For regular items, show detailed cost breakdown
+            var desc = data.auctionRepresent[entry.Index].desc;
+            var price = data.PriceEst?[entry.Index];
+            
+            if (desc != null && price != null && HasValue(desc, out int basePoints, out int lineId))
+            {
+                // Calculate components
+                int requiredRank = GetRequiredBingoRank(desc);
+                int rankUpgradeCosts = CalculateRankUpgradeCosts(userCurrentRank, requiredRank);
+                
+                // Calculate prerequisite costs
+                long prereqValue = 0;
+                var prereqItems = new List<string>();
+                var items = data.Items;
+                if (items != null)
+                {
+                    var nameToIndex = new Dictionary<string, int>();
+                    for (int j = 0; j < items.Count; j++)
+                    {
+                        var n = items[j]?.ItemName;
+                        if (!string.IsNullOrEmpty(n) && !nameToIndex.ContainsKey(n))
+                            nameToIndex[n] = j;
+                    }
+
+                    for (int l = lineId + 1; l <= desc.Length; l++)
+                    {
+                        var idx = l - 1;
+                        if (idx < 0 || idx >= desc.Length) break;
+                        var line = desc[idx];
+                        if (string.IsNullOrWhiteSpace(line)) continue;
+
+                        if (nameToIndex.TryGetValue(line, out var preIdx) && preIdx != entry.Index)
+                        {
+                            var preEst = (preIdx >= 0 && preIdx < data.PriceEst?.Count) ? data.PriceEst[preIdx] : null;
+                            if (preEst != null && preEst.Median > 0)
+                            {
+                                prereqValue += (long)preEst.Median;
+                                prereqItems.Add($"{line}: {data.modService.FormatNumber((float)preEst.Median)} coins");
+                            }
+                        }
+                    }
+                }
+
+                var totalPointCost = basePoints + rankUpgradeCosts;
+                var effectiveValue = Math.Max(0, (long)price.Median - prereqValue);
+
+                breakdown.AppendLine("§eItem Purchase Breakdown:");
+                breakdown.AppendLine($"§7Item Value: §6{data.modService.FormatNumber((float)price.Median)} coins");
+                
+                if (prereqValue > 0)
+                {
+                    breakdown.AppendLine($"§7Prerequisite Cost: §c-{data.modService.FormatNumber((float)prereqValue)} coins");
+                    foreach (var prereq in prereqItems)
+                        breakdown.AppendLine($"  §8• {prereq}");
+                }
+                
+                breakdown.AppendLine($"§7Effective Value: §a{data.modService.FormatNumber((float)effectiveValue)} coins");
+                breakdown.AppendLine();
+                
+                breakdown.AppendLine("§eBingo Point Costs:");
+                breakdown.AppendLine($"§7Base Cost: §b{basePoints} Bingo Points");
+                
+                if (rankUpgradeCosts > 0)
+                {
+                    breakdown.AppendLine($"§7Rank Upgrade Cost: §c+{rankUpgradeCosts} Bingo Points");
+                    breakdown.AppendLine($"  §8(Current: Rank {ToRoman(userCurrentRank)}, Required: Rank {ToRoman(requiredRank)})");
+                }
+                
+                breakdown.AppendLine($"§7Total Points: §e{totalPointCost} Bingo Points");
+                breakdown.AppendLine();
+                breakdown.AppendLine($"§aFinal: §6{data.modService.FormatNumber((float)entry.PerPoint)} §7coins per point");
+            }
+        }
+
+        return breakdown.ToString().TrimEnd('\n', '\r');
+    }
+
+    /// <summary>
+    /// Converts a number to Roman numerals (1-4 only)
+    /// </summary>
+    private string ToRoman(int number)
+    {
+        return number switch
+        {
+            1 => "I",
+            2 => "II", 
+            3 => "III",
+            4 => "IV",
+            _ => number.ToString()
+        };
     }
 
     /// <summary>
