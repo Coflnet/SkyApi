@@ -20,10 +20,13 @@ public class BingoShopDisplay : SkyApi.Services.Description.CurrencyValueDisplay
     // Hide base Apply to run both the per-item processing and the summary info
     public override void Apply(DataContainer data)
     {
-        // Per-item: coins per Bingo Point (with prerequisite deduction)
+        // First, determine the user's current bingo rank
+        int userCurrentRank = GetUserCurrentBingoRank(data);
+        
+        // Per-item: coins per Bingo Point (with prerequisite deduction and rank upgrade costs)
         base.Apply(data);
 
-        var entries = new List<(string Name, double PerPoint, int Index)>();
+        var entries = new List<(string Name, double PerPoint, int Index, bool IsRankUpgrade)>();
         var items = data.Items;
         if (items == null)
             return;
@@ -43,8 +46,25 @@ public class BingoShopDisplay : SkyApi.Services.Description.CurrencyValueDisplay
             if (desc == null || price == null || desc.Length == 0)
                 continue;
 
+            // Check if this is a rank upgrade item
+            var itemName = items[i]?.ItemName ?? data.auctionRepresent[i].auction?.ItemName;
+            if (itemName != null && itemName.Contains("Upgrade Bingo Rank"))
+            {
+                var rankUpgradeCost = ExtractBingoRankUpgradeCost(desc);
+                if (rankUpgradeCost > 0)
+                {
+                    var rankPerPoint = EstimateRankUpgradeValue(rankUpgradeCost, userCurrentRank + 1);
+                    entries.Add((itemName, rankPerPoint, i, true));
+                }
+                continue;
+            }
+
             if (!HasValue(desc, out int points, out int lineId) || points <= 0)
                 continue;
+
+            // Calculate rank upgrade costs needed to purchase this item
+            int requiredRank = GetRequiredBingoRank(desc);
+            int rankUpgradeCosts = CalculateRankUpgradeCosts(userCurrentRank, requiredRank);
 
             long prereqValue = 0;
             // scan below for prerequisite items
@@ -66,11 +86,12 @@ public class BingoShopDisplay : SkyApi.Services.Description.CurrencyValueDisplay
                 }
             }
 
+            var totalPointCost = points + rankUpgradeCosts;
             var effective = Math.Max(0, (long)price.Median - prereqValue);
-            var perPoint = points > 0 ? effective / (double)points : 0;
-            var name = items[i]?.ItemName ?? data.auctionRepresent[i].auction?.ItemName ?? data.auctionRepresent[i].auction?.Tag;
+            var perPoint = totalPointCost > 0 ? effective / (double)totalPointCost : 0;
+            var name = itemName ?? data.auctionRepresent[i].auction?.Tag;
             if (perPoint > 0 && name != null)
-                entries.Add((name, perPoint, i));
+                entries.Add((name, perPoint, i, false));
         }
 
         var top = entries.OrderByDescending(e => e.PerPoint).Take(3).ToList();
@@ -89,9 +110,15 @@ public class BingoShopDisplay : SkyApi.Services.Description.CurrencyValueDisplay
             line.Append(McColorCodes.AQUA);
             line.Append(data.modService.FormatNumber((float)e.PerPoint));
             line.Append(" §7per point");
+            if (e.IsRankUpgrade)
+                line.Append(" (unlock value)");
             display.Add(new(line.ToString()));
         }
     }
+
+    /// <summary>
+    /// Processes individual lines to show coins per bingo point including rank upgrade costs
+    /// </summary>
 
     protected override void ProcessLine(DataContainer data, int i, string[] desc, PriceEstimate price)
     {
@@ -100,6 +127,13 @@ public class BingoShopDisplay : SkyApi.Services.Description.CurrencyValueDisplay
 
         if (!HasValue(desc, out int points, out int lineId) || points <= 0)
             return;
+
+        // Get user's current bingo rank for calculation
+        int userCurrentRank = GetUserCurrentBingoRank(data);
+        
+        // Calculate rank upgrade costs needed to purchase this item
+        int requiredRank = GetRequiredBingoRank(desc);
+        int rankUpgradeCosts = CalculateRankUpgradeCosts(userCurrentRank, requiredRank);
 
         // Calculate prerequisite value from other required items listed under the cost
         long prereqValue = 0;
@@ -135,10 +169,131 @@ public class BingoShopDisplay : SkyApi.Services.Description.CurrencyValueDisplay
             }
         }
 
+        var totalPointCost = points + rankUpgradeCosts;
         var effectiveValue = (double)((long)price.Median - prereqValue);
         var prefix = price.ItemKey == price.MedianKey ? "" : "~";
-        var perPoint = effectiveValue / points;
+        var perPoint = totalPointCost > 0 ? effectiveValue / totalPointCost : 0;
         var formattedPrice = $"{McColorCodes.AQUA}{prefix}{data.modService.FormatNumber((float)perPoint)}";
+        if (rankUpgradeCosts > 0)
+            formattedPrice += $" §8(+{rankUpgradeCosts} rank cost)";
         ReplaceLine(data, i, lineId, formattedPrice);
+    }
+
+    /// <summary>
+    /// Determines the user's current bingo rank from the "Upgrade Bingo Rank" item in the inventory
+    /// </summary>
+    private int GetUserCurrentBingoRank(DataContainer data)
+    {
+        var items = data.Items;
+        if (items == null) return 0;
+
+        for (int i = 0; i < Math.Min(data.auctionRepresent.Count, 54); i++)
+        {
+            var itemName = items[i]?.ItemName;
+            if (itemName != null && itemName.Contains("Upgrade Bingo Rank"))
+            {
+                var desc = data.auctionRepresent[i].desc;
+                if (desc == null) continue;
+
+                foreach (var line in desc)
+                {
+                    // Look for "Your Rank: §cNone" or "Your Rank: §aⒷ Bingo Rank I" etc
+                    if (line.Contains("Your Rank:"))
+                    {
+                        if (line.Contains("§cNone"))
+                            return 0;
+                        
+                        // Extract rank number from patterns like "§aⒷ Bingo Rank I", "§9Ⓑ Bingo Rank II", etc
+                        var rankMatch = Regex.Match(line, @"Bingo Rank (I{1,3}|IV)");
+                        if (rankMatch.Success)
+                        {
+                            var roman = rankMatch.Groups[1].Value;
+                            return roman switch
+                            {
+                                "I" => 1,
+                                "II" => 2,
+                                "III" => 3,
+                                "IV" => 4,
+                                _ => 0
+                            };
+                        }
+                    }
+                }
+            }
+        }
+        return 0; // Default if no rank info found
+    }
+
+    /// <summary>
+    /// Extracts the required bingo rank from item descriptions that contain "You must be §xⒷ Bingo Rank X"
+    /// </summary>
+    private int GetRequiredBingoRank(string[] desc)
+    {
+        foreach (var line in desc)
+        {
+            if (line.Contains("You must be") && line.Contains("Bingo Rank"))
+            {
+                var rankMatch = Regex.Match(line, @"Bingo Rank (I{1,3}|IV)");
+                if (rankMatch.Success)
+                {
+                    var roman = rankMatch.Groups[1].Value;
+                    return roman switch
+                    {
+                        "I" => 1,
+                        "II" => 2,
+                        "III" => 3,
+                        "IV" => 4,
+                        _ => 0
+                    };
+                }
+            }
+        }
+        return 0; // No rank requirement
+    }
+
+    /// <summary>
+    /// Calculates the total bingo points needed to upgrade from current rank to required rank
+    /// Rank upgrade costs: 50, 100, 150, 200 for ranks I, II, III, IV respectively
+    /// </summary>
+    private int CalculateRankUpgradeCosts(int currentRank, int requiredRank)
+    {
+        if (requiredRank <= currentRank) return 0;
+
+        int totalCost = 0;
+        var rankCosts = new[] { 50, 100, 150, 200 }; // Costs for ranks I, II, III, IV
+
+        for (int rank = currentRank + 1; rank <= requiredRank; rank++)
+        {
+            if (rank >= 1 && rank <= 4)
+                totalCost += rankCosts[rank - 1];
+        }
+
+        return totalCost;
+    }
+
+    /// <summary>
+    /// Extracts the bingo points cost from a rank upgrade item description
+    /// </summary>
+    private int ExtractBingoRankUpgradeCost(string[] desc)
+    {
+        foreach (var line in desc)
+        {
+            var match = Regex.Match(line, @"§6(\d+) Bingo Points");
+            if (match.Success && int.TryParse(match.Groups[1].Value, out int cost))
+                return cost;
+        }
+        return 0;
+    }
+
+    /// <summary>
+    /// Estimates the value of a rank upgrade based on its cost and the rank being unlocked
+    /// Higher ranks provide more value as they unlock more content
+    /// </summary>
+    private double EstimateRankUpgradeValue(int cost, int rankBeingUnlocked)
+    {
+        // Base value multiplier, adjusted by rank importance
+        var baseMultiplier = 2.5;
+        var rankMultiplier = 1.0 + (rankBeingUnlocked - 1) * 0.3; // Higher ranks are more valuable
+        return cost * baseMultiplier * rankMultiplier;
     }
 }
