@@ -7,6 +7,8 @@ using Microsoft.EntityFrameworkCore;
 using Coflnet.Sky.Commands.Shared;
 using Coflnet.Sky.Filter;
 using Coflnet.Sky.PlayerName;
+using Coflnet.Sky.Api.Services;
+using Coflnet.Sky.PlayerState.Client.Api;
 
 namespace Coflnet.Sky.Api.Controller
 {
@@ -22,6 +24,7 @@ namespace Coflnet.Sky.Api.Controller
         HypixelContext context;
         private FilterEngine filterEngine;
         private PlayerNameService playerNameApi;
+        private IPlayerStateApi playerStateApi;
         private ItemDetails itemDetails;
 
         /// <summary>
@@ -31,12 +34,13 @@ namespace Coflnet.Sky.Api.Controller
         /// <param name="filterEngine"></param>
         /// <param name="playerNameApi"></param>
         /// <param name="itemDetails"></param>
-        public PlayerController(HypixelContext context, FilterEngine filterEngine, PlayerNameService playerNameApi, ItemDetails itemDetails)
+        public PlayerController(HypixelContext context, FilterEngine filterEngine, PlayerNameService playerNameApi, ItemDetails itemDetails, IPlayerStateApi playerStateApi)
         {
             this.context = context;
             this.filterEngine = filterEngine;
             this.playerNameApi = playerNameApi;
             this.itemDetails = itemDetails;
+            this.playerStateApi = playerStateApi;
         }
 
 
@@ -138,7 +142,7 @@ namespace Coflnet.Sky.Api.Controller
                 var expression = filterEngine.GetMatchExpression(filters, true);
                 baseSelect = baseSelect.Where(expression);
             }
-            if(page < 30)
+            if (page < 30)
             {
                 var auctions = await baseSelect.OrderByDescending(a => a.Id).Take(300).ToListAsync();
                 return auctions.OrderByDescending(a => a.End)
@@ -190,7 +194,7 @@ namespace Coflnet.Sky.Api.Controller
         [HttpPost]
         public async Task<Dictionary<string, string>> GetPlayerNames([FromBody] List<string> playerUuids)
         {
-            if(playerUuids.Count > 100)
+            if (playerUuids.Count > 100)
                 throw new CoflnetException("too_many_uuids", "You can only request the names for 100 uuids at once. Please make two requests.");
             return await playerNameApi.GetNames(playerUuids);
         }
@@ -215,6 +219,19 @@ namespace Coflnet.Sky.Api.Controller
         {
             if (playerUuid.Length != 32)
                 throw new CoflnetException("invalid_uuid", "The provided string does not seem to be a valid minecraft account uuid.");
+        }
+        
+
+        /// <summary>
+        /// Returns the last know bazaar orders of a player (identifier with current mod version is player name)
+        /// </summary>
+        /// <returns></returns>
+        [Route("player/orders")]
+        [HttpGet]
+        public async Task<List<PlayerState.Client.Model.Offer>> GetPlayerOrders([FromServices] ApiKeyService keyService, string apiKey = null)
+        {
+            var keyInfo = await keyService.GetKeyInfo(this);
+            return await playerStateApi.PlayerStatePlayerIdBazaarGetAsync(keyInfo.MinecraftName);
         }
     }
 }

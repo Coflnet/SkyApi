@@ -1,10 +1,7 @@
-using System.Collections.Generic;
 using System.Threading.Tasks;
 using Coflnet.Sky.Core;
 using Microsoft.AspNetCore.Mvc;
 using Coflnet.Sky.Bazaar.Client.Api;
-using System;
-using Coflnet.Sky.PlayerState.Client.Api;
 using Microsoft.Extensions.Logging;
 
 namespace Coflnet.Sky.Api.Controller
@@ -18,18 +15,15 @@ namespace Coflnet.Sky.Api.Controller
     public class BazaarController : ControllerBase
     {
         private BazaarApi bazaarClient;
-        private IPlayerStateApi playerStateApi;
         private ILogger<BazaarController> logger;
         /// <summary>
         /// Creates a new instance of <see cref="BazaarApi"/>
         /// </summary>
         /// <param name="bazaarClient"></param>
-        /// <param name="playerStateApi"></param>
         /// <param name="logger"></param>
-        public BazaarController(BazaarApi bazaarClient, IPlayerStateApi playerStateApi, ILogger<BazaarController> logger)
+        public BazaarController(BazaarApi bazaarClient, ILogger<BazaarController> logger)
         {
             this.bazaarClient = bazaarClient;
-            this.playerStateApi = playerStateApi;
             this.logger = logger;
         }
 
@@ -90,10 +84,10 @@ namespace Coflnet.Sky.Api.Controller
         [ResponseCache(Duration = 3600, Location = ResponseCacheLocation.Any, NoStore = false, VaryByQueryKeys = new string[] { "start", "end" })]
         public async Task<List<Sky.Bazaar.Client.Model.GraphResult>> HistoryGraph(string itemTag, DateTime? start = null, DateTime? end = null)
         {
-            var result = await bazaarClient.GetHistoryGraphAsync(itemTag, 
-                start.HasValue ? start!.Value.RoundDown(TimeSpan.FromMinutes(1)) : null, 
+            var result = await bazaarClient.GetHistoryGraphAsync(itemTag,
+                start.HasValue ? start!.Value.RoundDown(TimeSpan.FromMinutes(1)) : null,
                 end.HasValue ? end!.Value.RoundDown(TimeSpan.FromMinutes(1)) : null);
-            if(result.Count == 0)
+            if (result.Count == 0)
             {
                 logger.LogInformation("No data found for {itemTag} between {start} and {end}", itemTag, start, end);
             }
@@ -116,16 +110,12 @@ namespace Coflnet.Sky.Api.Controller
             return await bazaarClient.GetClosestToAsync(itemTag, timestamp.AddSeconds(10).RoundDown(TimeSpan.FromSeconds(20)));
         }
 
-        /// <summary>
-        /// Returns the last know bazaar orders of a player (identifier with current mod version is player name)
-        /// </summary>
-        /// <param name="playerId"></param>
-        /// <returns></returns>
+        [Obsolete("Use /api/player/bazaar/orders with api key authentication")]
         [Route("player/{playerId}/orders")]
         [HttpGet]
         public async Task<List<PlayerState.Client.Model.Offer>> GetPlayerOrders(string playerId)
         {
-            return await playerStateApi.PlayerStatePlayerIdBazaarGetAsync(playerId);
+            throw new CoflnetException("obsulete", "This endpoint is obsolete, use /api/player/bazaar/orders with api key authentication");
         }
     }
 }

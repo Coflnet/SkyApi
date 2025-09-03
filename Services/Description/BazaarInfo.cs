@@ -53,7 +53,7 @@ public class BazaarInfo : ICustomModifier
                 .AddText(line.ToString(), $"Click to view craft\nestimated profit {FormatCoins(craft.Profit)}", $"/recipe {craft.Craft.ItemName}");
             display.Add(new(builder.Build()));
         }
-        display.Add(new(new LoreBuilder().AddText("test sample","You can also drag this text by holding right click", "/cofl bazaarsearch obsidian").Build()));
+        display.Add(new(new LoreBuilder().AddText("_","You can also drag this text by holding right click", "/cofl bazaarsearch obsidian").Build()));
 
         var bazaarFlips = data.Loaded[nameof(BazaarInfo)].Result;
         var deserializedFlips = Newtonsoft.Json.JsonConvert.DeserializeObject<List<BazaarFlip>>(bazaarFlips);
