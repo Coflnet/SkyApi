@@ -223,15 +223,26 @@ namespace Coflnet.Sky.Api.Controller
         
 
         /// <summary>
-        /// Returns the last know bazaar orders of a player (identifier with current mod version is player name)
+        /// Returns the last know bazaar orders of a player
         /// </summary>
         /// <returns></returns>
-        [Route("player/orders")]
+        [Route("bazaar/orders")]
         [HttpGet]
         public async Task<List<PlayerState.Client.Model.Offer>> GetPlayerOrders([FromServices] ApiKeyService keyService, string apiKey = null)
         {
             var keyInfo = await keyService.GetKeyInfo(this);
             return await playerStateApi.PlayerStatePlayerIdBazaarGetAsync(keyInfo.MinecraftName);
+        }
+        /// <summary>
+        /// Gives access to extracted player information like hotf, booster cookie expiry time, attribute levels etc.
+        /// </summary>
+        /// <returns></returns>
+        [Route("extracted")]
+        [HttpGet]
+        public async Task<PlayerState.Client.Model.ExtractedInfo> GetPlayerSate([FromServices] ApiKeyService keyService, string apiKey = null)
+        {
+            var keyInfo = await keyService.GetKeyInfo(this);
+            return (await playerStateApi.PlayerStatePlayerIdGetAsync(keyInfo.MinecraftUuid))?.ExtractedInfo;
         }
     }
 }
