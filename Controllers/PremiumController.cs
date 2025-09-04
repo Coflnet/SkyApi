@@ -372,7 +372,7 @@ namespace Coflnet.Sky.Api.Controller
         [HttpPost]
         public async Task<ActionResult<TopUpIdResponse>> PurchaseServiceSubscription(string subscriptionSlug)
         {
-            var user = await GetUserOrDefault(true);
+            var user = await GetUserOrDefault();
             if (user == default)
                 return Unauthorized("no googletoken header");
             try
