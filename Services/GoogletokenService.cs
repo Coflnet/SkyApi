@@ -95,7 +95,7 @@ public class GoogletokenService
         catch (Exception e)
         {
             logger.LogError(e, "Failed to validate google token");
-            throw new CoflnetException("invalid_token", $"{e.InnerException?.Message}");
+            throw new CoflnetException("invalid_token", $"{e.InnerException?.Message?? "The provided credential token could not be validated by google, try logging out and in again"}");
         }
     }
 }
