@@ -167,7 +167,13 @@ public class PricesController : ControllerBase
     public async Task<IEnumerable<AveragePrice>> GetFullHistory(string itemTag)
     {
         var id = itemDetails.GetItemIdForTag(itemTag, true);
-        return await context.Prices.Where(p => p.ItemId == id).ToListAsync();
+        var all = await context.Prices.Where(p => p.ItemId == id).ToListAsync();
+        if (all.Count == 0)
+        {
+            Response.Headers["X-Item-Id"] = id.ToString();
+            return Enumerable.Empty<AveragePrice>();
+        }
+        return all;
     }
 
     [Route("item/price/{itemTag}/history/year")]
