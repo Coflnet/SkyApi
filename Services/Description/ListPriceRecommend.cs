@@ -70,8 +70,10 @@ public class ListPriceRecommend : ICustomModifier
         if (currentPrice / 10 > suggestedPrice)
         {
             data.mods.Add([
-                new DescModification(McColorCodes.RED + "The current list price is way above the estimated value!"),
-                new DescModification("Double check to don't overpay fees!")
+                new ($"{McColorCodes.RED}The current list price is"),
+                new ($"{McColorCodes.RED}way above the estimated value{McColorCodes.OBFUSCATED}!{McColorCodes.RESET}"),
+                new ("Double check to don't overpay fees!"),
+                new ($"{McColorCodes.GRAY}SkyCofl value estimate is: {McColorCodes.WHITE}" + ModDescriptionService.FormatPriceShort(suggestedPrice)),
             ]);
             return;
         }
