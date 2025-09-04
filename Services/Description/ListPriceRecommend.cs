@@ -17,8 +17,27 @@ public class ListPriceRecommend : ICustomModifier
 {
     public void Apply(DataContainer data)
     {
+        var currentListPrice = data.Items[31]?.ItemName;
+        var currentPrice = 0L;
+        if (!string.IsNullOrEmpty(currentListPrice))
+        {
+            // Example input: "§fItem price: §65,000,000,000 coins"
+            // Remove Minecraft color codes (e.g. "§f") then extract the first numeric group (with commas)
+            var cleaned = System.Text.RegularExpressions.Regex.Replace(currentListPrice, "§.", "");
+            var m = System.Text.RegularExpressions.Regex.Match(cleaned, @"([\d,]+)");
+            if (m.Success)
+            {
+                var digits = m.Groups[1].Value.Replace(",", "");
+                if (!long.TryParse(digits, out currentPrice))
+                {
+                    currentPrice = 0L;
+                }
+            }
+        }
+
         string text = GetRecommendText(data.PriceEst[13], data.modService);
         data.mods[31].Insert(0, new DescModification(DescModification.ModType.INSERT, 1, text));
+
 
         var priceEst = data.PriceEst[13];
         if (priceEst == null || priceEst.Median == 0)
@@ -44,6 +63,15 @@ public class ListPriceRecommend : ICustomModifier
                 new DescModification("This item has little simlar sells,"),
                 new DescModification("so we can't give you a price suggestion."),
                 new DescModification($"{McColorCodes.GRAY}Estimated value: {McColorCodes.WHITE}" + ModDescriptionService.FormatPriceShort(priceEst.Median)),
+            ]);
+            return;
+        }
+
+        if (currentPrice / 10 > suggestedPrice)
+        {
+            data.mods.Add([
+                new DescModification(McColorCodes.RED + "The current list price is way above the estimated value!"),
+                new DescModification("Double check to don't overpay fees!")
             ]);
             return;
         }
