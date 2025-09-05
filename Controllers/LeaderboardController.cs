@@ -10,7 +10,7 @@ using Microsoft.Extensions.Logging;
 namespace Coflnet.Sky.Api.Controller;
 
 [ApiController]
-[Route("api/leaderbaord")]
+[Route("api/leaderboard")]
 public class LeaderboardController : ControllerBase
 {
     private readonly ILogger<LeaderboardController> logger;
