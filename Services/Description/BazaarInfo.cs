@@ -16,7 +16,7 @@ public class BazaarInfo : ICustomModifier
 {
     public void Apply(DataContainer data)
     {
-        if(data.inventory.Settings.DisableInfoIn.Contains("Bazaar"))
+        if(data.inventory.Settings.DisableInfoIn?.Contains("Bazaar") ?? false)
             return;
         if (data.inventory.Version < 3)
                 return; // not supported
