@@ -50,7 +50,7 @@ public class BazaarInfo : ICustomModifier
             line.Append("§7 -> §6");
             line.Append(FormatCoins(craft.SellPrice));
             var builder = new LoreBuilder()
-                .AddText(line.ToString(), $"Click to view craft\nestimated profit {FormatCoins(craft.Profit)}", $"/recipe {craft.Craft.ItemName}");
+                .AddText(line.ToString(), $"Click to view craft of {craft.Craft.ItemName}\nestimated profit {FormatCoins(craft.Profit)}", $"/recipe {craft.Craft.ItemName}");
             display.Add(new(builder.Build()));
         }
         display.Add(new(new LoreBuilder().AddText("_","You can also drag this text by holding right click", "/cofl bazaarsearch obsidian").Build()));
@@ -95,9 +95,16 @@ public class BazaarInfo : ICustomModifier
     {
         preRequest.ToLoad[nameof(BazaarInfo)] = Task.Run(async () =>
         {
-            var bazaarFlipper = DiHandler.GetService<IBazaarFlipperApi>();
-            var data = await bazaarFlipper.FlipsGetWithHttpInfoAsync();
-            return data.RawContent;
+            try
+            {
+                var bazaarFlipper = DiHandler.GetService<IBazaarFlipperApi>();
+                var data = await bazaarFlipper.FlipsGetWithHttpInfoAsync();
+                return data.RawContent;
+            } catch (Exception ex)
+            {
+                Console.WriteLine("Error fetching bazaar flips: " + ex);
+                return "[]";
+            }
         });
     }
 }

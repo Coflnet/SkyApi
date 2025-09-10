@@ -17,7 +17,7 @@ namespace Coflnet.Sky.Api.Controller;
 public class InfoController : ControllerBase
 {
     [HttpGet("updates/{year}/{month}")]
-    public async Task<IEnumerable<DiscordBot.Client.Model.DiscordMessage>> GetUpdates(int year, int month, [FromServices] IMessageApi sniperApi)
+    public async Task<IEnumerable<DiscordBot.Client.Model.DiscordMessage>> GetUpdates(int year, int month, [FromServices] IMessageApi messageApi)
     {
         if (year < 2022 || year > DateTime.UtcNow.Year)
             throw new ArgumentOutOfRangeException(nameof(year), "Year must be between 2022 and the current year.");
@@ -25,7 +25,7 @@ public class InfoController : ControllerBase
             throw new ArgumentOutOfRangeException(nameof(month), "Month must be between 1 and 12.");
 
         var dateTime = new DateTime(year, month, DateTime.DaysInMonth(year, month));
-        return await sniperApi.GetMessagesAsync("devlog", dateTime);
+        return await messageApi.GetMessagesAsync("devlog", dateTime);
     }
 
     [HttpGet("ai")]
