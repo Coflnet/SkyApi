@@ -16,10 +16,10 @@ public class BazaarInfo : ICustomModifier
 {
     public void Apply(DataContainer data)
     {
-        if(data.inventory.Settings.DisableInfoIn?.Contains("Bazaar") ?? false)
+        if (data.inventory.Settings.DisableInfoIn?.Contains("Bazaar") ?? false)
             return;
         if (data.inventory.Version < 3)
-                return; // not supported
+            return; // not supported
         var bazaarItems = data.bazaarPrices.Keys.ToHashSet();
         var skip = data.accountInfo.Tier >= Commands.Shared.AccountTier.STARTER_PREMIUM && data.accountInfo.ExpiresAt > DateTime.UtcNow ? 0 : 3;
         var topCrafts = data.allCrafts.Values
@@ -49,11 +49,10 @@ public class BazaarInfo : ICustomModifier
             line.Append(FormatCoins((long)craft.Craft.CraftCost));
             line.Append("§7 -> §6");
             line.Append(FormatCoins(craft.SellPrice));
-            var builder = new LoreBuilder()
-                .AddText(line.ToString(), $"Click to view craft of {craft.Craft.ItemName}\nestimated profit {FormatCoins(craft.Profit)}", $"/recipe {craft.Craft.ItemName}");
+            var builder = CreateCraftLore(line.ToString(), craft.Craft.ItemName, craft.Profit, $"/recipe {craft.Craft.ItemName}");
             display.Add(new(builder.Build()));
         }
-        display.Add(new(new LoreBuilder().AddText("_","You can also drag this text by holding right click", "/cofl bazaarsearch obsidian").Build()));
+        display.Add(new(new LoreBuilder().AddText("_", "You can also drag this text by holding right click", "/cofl bazaarsearch obsidian").Build()));
 
         var bazaarFlips = data.Loaded[nameof(BazaarInfo)].Result;
         var deserializedFlips = Newtonsoft.Json.JsonConvert.DeserializeObject<List<BazaarFlip>>(bazaarFlips);
@@ -70,14 +69,28 @@ public class BazaarInfo : ICustomModifier
             var line = new StringBuilder();
             line.Append("§a● §6");
             line.Append(name);
-            line.Append(" " +McColorCodes.RED);
+            line.Append(" " + McColorCodes.RED);
             line.Append(FormatCoins((long)spread.SellPrice));
-            line.Append("§7 -> " +McColorCodes.GREEN);
-            line.Append(FormatCoins((long)spread.BuyPrice));;
+            line.Append("§7 -> " + McColorCodes.GREEN);
+            line.Append(FormatCoins((long)spread.BuyPrice)); ;
             var builder = new LoreBuilder()
                 .AddText(line.ToString(), $"Click to view {McColorCodes.AQUA}{name}", $"/bz {name}");
             display.Add(new(builder.Build()));
         }
+    }
+
+    // add these helper methods to the class
+    private LoreBuilder CreateCraftLore(string rawLine, string itemName, long profit, string command)
+    {
+        var plain = StripFormatting(rawLine);
+        var hover = $"Click to view craft of {itemName}\nestimated profit {FormatCoins(profit)}";
+        return new LoreBuilder().AddText(plain, hover, command);
+    }
+
+    private string StripFormatting(string input)
+    {
+        if (string.IsNullOrEmpty(input)) return input;
+        return Regex.Replace(input, "§.", string.Empty);
     }
 
     private string FormatCoins(long coins)
@@ -100,7 +113,8 @@ public class BazaarInfo : ICustomModifier
                 var bazaarFlipper = DiHandler.GetService<IBazaarFlipperApi>();
                 var data = await bazaarFlipper.FlipsGetWithHttpInfoAsync();
                 return data.RawContent;
-            } catch (Exception ex)
+            }
+            catch (Exception ex)
             {
                 Console.WriteLine("Error fetching bazaar flips: " + ex);
                 return "[]";
