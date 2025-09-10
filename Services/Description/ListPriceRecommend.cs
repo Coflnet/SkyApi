@@ -57,7 +57,7 @@ public class ListPriceRecommend : ICustomModifier
             ]);
             return;
         }
-        if (priceEst.MedianKey != priceEst.ItemKey && priceInfo.Recommended.Value <= 0)
+        if (priceEst.MedianKey.Replace("&comb", "") != priceEst.ItemKey && priceInfo.Recommended.Value <= 0)
         {
             data.mods.Add([
                 new DescModification("This item has little simlar sells,"),
