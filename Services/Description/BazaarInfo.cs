@@ -82,15 +82,8 @@ public class BazaarInfo : ICustomModifier
     // add these helper methods to the class
     private LoreBuilder CreateCraftLore(string rawLine, string itemName, long profit, string command)
     {
-        var plain = StripFormatting(rawLine);
         var hover = $"Click to view craft of {itemName}\nestimated profit {FormatCoins(profit)}";
-        return new LoreBuilder().AddText(plain, hover, command);
-    }
-
-    private string StripFormatting(string input)
-    {
-        if (string.IsNullOrEmpty(input)) return input;
-        return Regex.Replace(input, "§.", string.Empty);
+        return new LoreBuilder().AddText(rawLine, hover, command);
     }
 
     private string FormatCoins(long coins)

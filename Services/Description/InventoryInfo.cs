@@ -52,7 +52,7 @@ public class InventoryInfo : ICustomModifier
         {
             display.Add(new(McColorCodes.BLACK + "_______________________________§7___"));
         }
-                currentLine.Insert(0, McColorCodes.GRAY);
+        currentLine.Insert(0, McColorCodes.GRAY);
         foreach (var word in words)
         {
             // Calculate visible length by removing color codes
@@ -95,10 +95,16 @@ public class LoreBuilder
         {
             Text = text,
             Hover = hover,
-            OnClick = onClick
+            OnClick = StripFormatting(onClick)
         });
-        
+
         return this;
+    }
+
+    private string StripFormatting(string input)
+    {
+        if (string.IsNullOrEmpty(input)) return input;
+        return Regex.Replace(input, "§.", string.Empty);
     }
 
     public string Build()
