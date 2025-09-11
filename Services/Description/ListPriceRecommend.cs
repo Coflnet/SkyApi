@@ -110,6 +110,19 @@ public class ListPriceRecommend : ICustomModifier
             new(McColorCodes.GREEN + "For this item, SkyCofl has a price" + McColorCodes.RESET),
             new($"{McColorCodes.GRAY}Est. time to sell: " + ModDescriptionService.FormatTime(generalSellTime)),
         };
+        if (data.inventory.Settings.SuggestQuicksell)
+        {
+            var (quickPrice, fromMedian) = SniperClient.InstaSellPrice(priceEst);
+            suggestedPrice = Math.Min(suggestedPrice, (long)quickPrice);
+            list.Add(new($"{McColorCodes.YELLOW}Quicksell enabled, reduced the recommendation"));
+            list.Add(new($"{McColorCodes.GRAY}/cofl set suggestQuicksell false, to disable"));
+        }
+        else if (priceInfo.WasListedBefore)
+        {
+            list.Add(new($"{McColorCodes.GRAY}Seems like you are relisting an item"));
+            list.Add(new($"{McColorCodes.GRAY}to sell it quickly you could enable quicksell: "));
+            list.Add(new($"{McColorCodes.GRAY}/cofl set suggestQuicksell true"));
+        }
         if (data.inventory.Settings.DisableSuggestions)
         {
             list.Add(new DescModification("Suggested price: " + ModDescriptionService.FormatPriceShort(suggestedPrice)));
