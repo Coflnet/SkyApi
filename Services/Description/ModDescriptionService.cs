@@ -130,6 +130,7 @@ public class ModDescriptionService : IDisposable
         customModifiers.Add("Pet - Round \\d$", new DarkAuctionPetAdjust());
         customModifiers.Add("Bazaar Orders$", new BazaarOrderAdjust(bazaarApi));
         customModifiers.Add("^Bazaar ", new BazaarInfo());
+        customModifiers.Add(".*➜.*", new BazaarHistoryLink());
         customModifiers.Add("^The Forge", new ForgeExtenssion());
         customModifiers.Add(@"^\(\d\/2\) Fish Family", new FishFamilyCalculator());
         customModifiers.Add("^Crafting", new InventoryInfo());
