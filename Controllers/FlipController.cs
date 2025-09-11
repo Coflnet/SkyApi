@@ -16,6 +16,7 @@ using Coflnet.Sky.Items.Client.Api;
 using Microsoft.AspNetCore.Authorization;
 using Coflnet.Sky.Crafts.Client.Api;
 using Coflnet.Sky.Crafts.Models;
+using Coflnet.Sky.Api.Models;
 
 namespace Coflnet.Sky.Api.Controller
 {
@@ -130,6 +131,30 @@ namespace Coflnet.Sky.Api.Controller
         public async Task<IEnumerable<Bazaar.Flipper.Client.Model.BookFlip>> GetBazaarBookFlipper()
         {
             return await bazaarFlipperApi.BooksGetAsync();
+        }
+        [Route("mayor")]
+        [HttpGet]
+        [ResponseCache(Duration = 20, Location = ResponseCacheLocation.Any, NoStore = false)]
+        public async Task<IEnumerable<MayorDiffFlip>> GetmayordiffFlips()
+        {
+            if(!await premiumTierService.HasPremiumPlus(this))
+                throw new CoflnetException("no_premium",
+                    "Sorry this feature is only available for premium users.");
+            var dtoFormat = await bazaarFlipperApi.MayorDiffsGetAsync();
+            var names = (await itemsApi.ItemNamesGetAsync()).ToDictionary(i => i.Tag, i => i.Name);
+            return dtoFormat.Select(f => new MayorDiffFlip
+            {
+                ItemTag = f.ItemTag,
+                ItemName = names.GetValueOrDefault(f.ItemTag) ?? f.ItemTag,
+                AverageMayorMedianDiff = f.AverageMayorMedianDiff,
+                CurrentMayor = f.CurrentMayor,
+                ExpectedPrice = f.ExpectedPrice,
+                MedianPrice = f.MedianPrice,
+                NextMayor = f.NextMayor,
+                UsedPricesAfterCurrentMayor = f.CurrentMayor == f.NextMayor,
+                UsedPricesBeforeNextMayor = f.CurrentMayor != f.NextMayor,
+                Volume = f.Volume
+            });
         }
 
         /// <summary>
