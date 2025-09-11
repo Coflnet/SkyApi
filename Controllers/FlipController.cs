@@ -338,6 +338,8 @@ namespace Coflnet.Sky.Api.Controller
             if (!await premiumTierService.HasPremiumPlus(this))
                 throw new CoflnetException("no_premium_plus",
                     "Sorry this feature is only available for premium plus users.");
+            if(end < new DateTime(2024,6,20))
+                end = DateTime.UtcNow;
             var flips = await flipService.flipTracking.GetUnknownFlipsAsync(end.AddHours(-1), end);
             return flips.Select(FlipTrackingService.Convert);
         }
