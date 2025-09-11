@@ -9,6 +9,7 @@ using Coflnet.Sky.Api.Models;
 using Coflnet.Sky.Commands.Shared;
 using Coflnet.Sky.Sniper.Client.Api;
 using Coflnet.Sky.Core;
+using Coflnet.Sky.Api.Client.Api;
 
 namespace Coflnet.Sky.Api.Controller
 {
@@ -90,17 +91,19 @@ namespace Coflnet.Sky.Api.Controller
         [Route("{itemTag}/instructions")]
         [HttpGet]
         [ResponseCache(Duration = 3600 * 12, Location = ResponseCacheLocation.Any, NoStore = false)]
-        public async Task<CraftInstruction> GetInstructions(string itemTag)
+        public async Task<CraftInstruction> GetInstructions(string itemTag, [FromServices] Items.Client.Api.IItemsApi itemApi)
         {
+            var itemNamesTask = itemApi.ItemNamesGetAsync();
             var response = await client.ExecuteAsync(new RestRequest($"Crafts/recipe/{itemTag}"));
             var recipe = JsonConvert.DeserializeObject<Dictionary<string, string>>(response.Content ?? "{}");
             var ids = recipe.Where(x=>x.Value != null).Select(x => x.Value.Split(':').First()).Where(x => x.Length >= 3).Distinct().ToList();
             var itemsOnBazaar = await pricesService.GetBazaarItems();
             var lbins = await auctionApi.ApiAuctionLbinsGetAsync();
+            var nameLookup = (await itemNamesTask).ToDictionary(x => x.Tag, x => x.Name);
             var elements = await Task.WhenAll(ids.Select(async x =>
             {
                 if (itemsOnBazaar.Contains(x))
-                    return (x, $"/item/{x}", $"/bz {x}");
+                    return (x, $"/item/{x}", $"/bz {BazaarUtils.GetSearchValue(x,nameLookup.GetValueOrDefault(x) ?? x)}");
                 var lbin = lbins.GetValueOrDefault(x);
                 if (lbin == null)
                     return (x, $"/item/{x}?range=active", $"/ah");

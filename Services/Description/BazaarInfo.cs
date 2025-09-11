@@ -65,7 +65,7 @@ public class BazaarInfo : ICustomModifier
             display.Add(new($"{McColorCodes.GOLD}SkyC{McColorCodes.AQUA}ofl {McColorCodes.GRAY}● §7Best flips on avg:"));
         foreach (var spread in biggestSpreads)
         {
-            var name = data.itemTagToName.GetValueOrDefault(spread.ItemTag) ?? spread.ItemTag;
+            var name = BazaarUtils.GetSearchValue(spread.ItemTag,data.itemTagToName.GetValueOrDefault(spread.ItemTag) ?? spread.ItemTag);
             var line = new StringBuilder();
             line.Append("§a● §6");
             line.Append(name);
