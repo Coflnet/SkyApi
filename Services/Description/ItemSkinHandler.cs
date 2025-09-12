@@ -73,9 +73,23 @@ public class ItemSkinHandler : BackgroundService, IItemSkinHandler
                 var skullUrl = NBT.SkullUrl(compound);
                 if (skullUrl == null)
                 {
-                    Console.WriteLine($"no skin found for {tag} {compound.ToString()}");
-                    //skinNames[tag] = false;
-                    return;
+                    if (compound.TryGet<NbtString>("id", out var idTag)
+                        && idTag.Value != "minecraft:player_head" && idTag.Value != "minecraft:skull"
+                        && idTag.Value.StartsWith("minecraft:"))
+                    {
+                        var itemName = idTag.Value.Substring(10);
+                        if (itemName.EndsWith("_head")) // special case for mob heads
+                            skullUrl = "https://mc-heads.net/head/MHF_" + itemName.Substring(0, itemName.Length - 5);
+                        else
+                            skullUrl = "https://sky.coflnet.com/static/icon/" + itemName.ToUpper();
+                        Console.WriteLine($"found item url {skullUrl} for {tag} from id tag");
+                    }
+                    else
+                    {
+                        Console.WriteLine($"no skin found for {tag} {compound.ToString()}");
+                        //skinNames[tag] = false;
+                        return;
+                    }
                 }
                 await itemsApi.ItemItemTagTexturePostAsync(tag, skullUrl);
                 Console.WriteLine($"updated skin for {tag} to {skullUrl}");
