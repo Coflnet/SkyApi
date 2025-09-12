@@ -86,8 +86,10 @@ public class ItemSkinHandler : BackgroundService, IItemSkinHandler
                     }
                     else
                     {
-                        Console.WriteLine($"no skin found for {tag} {compound.ToString()}");
-                        //skinNames[tag] = false;
+                        if (idTag.Value == "minecraft:skull")
+                            skinTags[tag] = false;
+                        else
+                            Console.WriteLine($"no skin found for {tag} {compound.ToString()}");
                         return;
                     }
                 }
