@@ -32,9 +32,7 @@ public class InventoryInfo : ICustomModifier
         var text = Texts[Random.Shared.Next(Texts.Length)];
         if (data.inventory.Version >= 3 && Random.Shared.NextDouble() < 0.1)
         {
-            text = new LoreBuilder()
-                .AddText("You can drag the SkyCofl info display (this text) to somewhere else by holding `right-click` and moving the mouse")
-                .Build();
+            text = "You can drag the SkyCofl info display (this text) to somewhere else by holding `right-click` and moving the mouse";
         }
         var coloredText = Regex.Replace(text, @"`(/.*?)`", m => $"§b{m.Groups[1]}§r" + McColorCodes.GRAY);
 
