@@ -1,6 +1,7 @@
 using System.Linq;
 using System.Threading.Tasks;
 using Coflnet.Sky.Api.Models.Notifications;
+using Coflnet.Sky.Api.Services;
 using Coflnet.Sky.Core;
 using Coflnet.Sky.EventBroker.Client.Api;
 using Coflnet.Sky.EventBroker.Client.Model;
@@ -76,9 +77,20 @@ public class NotificationController : ControllerBase
     /// <returns></returns>
     [Route("subscriptions")]
     [HttpPost]
-    public async Task<PublicSubscription> AddSubscription(PublicSubscription subscription)
+    public async Task<PublicSubscription> AddSubscription(PublicSubscription subscription, [FromServices] PremiumTierService premiumTierService)
     {
-        return await subscriptionsApi.SubscriptionsPostAsync(await googletokenService.GetUserId(this), subscription);
+        var userId = await googletokenService.GetUserId(this);
+        var existing = await subscriptionsApi.SubscriptionsGetAsync(userId);
+        var count = existing.Count;
+        if (count >= 10 && !await premiumTierService.HasPremium(this))
+        {
+            throw new CoflnetException("subscription_limit_reached", "You have reached the limit of 10 subscriptions. Please upgrade to Premium to add more.");
+        }
+        if (count >= 3 && !await premiumTierService.HasStarterPremium(this))
+        {
+            throw new CoflnetException("subscription_limit_reached", "You have reached the limit of 3 subscriptions. Please upgrade to (starter) Premium to add more.");
+        }
+        return await subscriptionsApi.SubscriptionsPostAsync(userId, subscription);
     }
 
     /// <summary>
