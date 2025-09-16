@@ -56,7 +56,7 @@ public class InventoryInfo : ICustomModifier
             // Calculate visible length by removing color codes
             var visibleLength = Regex.Replace(currentLine.ToString(), "§.", "").Length;
 
-            if (currentLine.Length > 0 && visibleLength + 1 + Regex.Replace(word, "§.", "").Length > 35)
+            if (currentLine.Length > 0 && visibleLength + 1 + Regex.Replace(word, "§.", "").Length > 35 || IsStartOfcommand(word))
             {
                 result.AppendLine(currentLine.ToString());
                 display.Add(new(currentLine.ToString()));
@@ -75,6 +75,11 @@ public class InventoryInfo : ICustomModifier
                 .AddText(currentLine.ToString(), "Drag by holding right click").Build()));
 
         data.mods.Add(display);
+
+        static bool IsStartOfcommand(string word)
+        { // the start of a command should be put at the start of the line as its bad to break a command up
+            return word.StartsWith("§b");
+        }
     }
 
     public void Modify(ModDescriptionService.PreRequestContainer preRequest)
