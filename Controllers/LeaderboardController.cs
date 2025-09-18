@@ -35,7 +35,7 @@ public class LeaderboardController : ControllerBase
     public async Task<List<LeaderboardEntry>> GetProfitLeaderboard(int weekOffset = 0)
     {
         if (!await premiumTierService.HasPremiumPlus(this))
-            throw new CoflnetException("prem+_required", "This endpoint is only available for Premium+ users");
+            throw new CoflnetException("no_premium_plus", "This endpoint is only available for Premium+ users");
         var entries = await scoresApi.ScoresLeaderboardSlugGetAsync(GetBoardName(weekOffset), 0, 50);
         var names = await playerNameApi.PlayerNameNamesBatchPostAsync(entries.Select(e => e.UserId).ToList());
         return entries.Select(e => new LeaderboardEntry
