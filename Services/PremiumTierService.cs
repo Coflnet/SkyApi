@@ -1,3 +1,4 @@
+using System;
 using System.Threading.Tasks;
 using Coflnet.Payments.Client.Api;
 using Coflnet.Sky.Core;
@@ -69,6 +70,14 @@ public class PremiumTierService
         if (!controllerInstance.Request.Headers.TryGetValue(HeaderName, out StringValues value)
                         && !controllerInstance.Request.Headers.TryGetValue("Authorization", out value))
             return default;
-        return await tokenService.GetUserWithToken(value);
+        
+        // Extract token from Bearer format if present
+        string token = value.ToString();
+        if (token.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase))
+        {
+            token = token.Substring("Bearer ".Length).Trim();
+        }
+        
+        return await tokenService.GetUserWithToken(token);
     }
 }

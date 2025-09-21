@@ -16,6 +16,8 @@ using System.Text.RegularExpressions;
 using Coflnet.Core;
 using Coflnet.Sky.PlayerName.Client.Api;
 using Coflnet.Sky.PlayerName;
+using Microsoft.AspNetCore.Authorization;
+using Coflnet.Sky.Api.Helper;
 
 namespace Coflnet.Sky.Api.Controller;
 /// <summary>
@@ -79,28 +81,29 @@ public class PricesController : ControllerBase
     /// stackable items are reduced to a single item
     /// </summary>
     /// <param name="itemTag">The item tag you want prices for</param>
-    /// <param name="query">Filter query</param>
+    /// <param name="filters">Filter parameters - can be added directly as query parameters (e.g., ?Reforge=Legendary&amp;Rarity=EPIC)</param>
     /// <returns></returns>
     [Route("item/price/{itemTag}")]
     [HttpGet]
     [ResponseCache(Duration = 1800, Location = ResponseCacheLocation.Any, NoStore = false, VaryByQueryKeys = new string[] { "*" })]
-    public Task<PriceSumary> GetSumary(string itemTag, [FromQuery] IDictionary<string, string> query)
+    public Task<PriceSumary> GetSumary(string itemTag, [FromQuery] IDictionary<string, string> filters = null)
     {
-        return priceService.GetSumary(itemTag, new Dictionary<string, string>(query));
+        // ASP.NET binds arbitrary query parameters into the IDictionary<string,string> filters parameter.
+    return priceService.GetSumary(itemTag, filters as Dictionary<string, string> ?? (filters == null ? null : new Dictionary<string, string>(filters)));
     }
 
     /// <summary>
     /// Gets the lowest bin by item type
     /// </summary>
     /// <param name="itemTag">The tag of the item to search for bin</param>
-    /// <param name="query"></param>
+    /// <param name="filters">Filter parameters - can be added directly as query parameters</param>
     /// <returns></returns>
     [Route("item/price/{itemTag}/bin")]
     [HttpGet]
     [ResponseCache(Duration = 120, Location = ResponseCacheLocation.Any, NoStore = false, VaryByQueryKeys = new string[] { "*" })]
-    public async Task<ActionResult<BinResponse>> GetLowestBin(string itemTag, [FromQuery] IDictionary<string, string> query)
+    public async Task<ActionResult<BinResponse>> GetLowestBin(string itemTag, [FromQuery] IDictionary<string, string> filters = null)
     {
-        var result = await priceService.GetLowestBinData(itemTag, new Dictionary<string, string>(query));
+    var result = await priceService.GetLowestBinData(itemTag, filters as Dictionary<string, string> ?? (filters == null ? null : new Dictionary<string, string>(filters)));
         return Ok(new BinResponse(result.cost, result.uuid, result.slbin));
     }
 
@@ -121,40 +124,40 @@ public class PricesController : ControllerBase
     /// Gets the price history for an item for the last 24 hours
     /// </summary>
     /// <param name="itemTag">The tag of the item</param>
-    /// <param name="query">filter query</param>
+    /// <param name="filters">Filter parameters - can be added directly as query parameters</param>
     /// <returns></returns>
     [Route("item/price/{itemTag}/history/day")]
     [HttpGet]
     [ResponseCache(Duration = 120, Location = ResponseCacheLocation.Any, NoStore = false, VaryByQueryKeys = new string[] { "*" })]
-    public async Task<IEnumerable<AveragePrice>> GetDayHistory(string itemTag, [FromQuery] IDictionary<string, string> query)
+    public async Task<IEnumerable<AveragePrice>> GetDayHistory(string itemTag, [FromQuery] IDictionary<string, string> filters = null)
     {
-        return await priceService.GetHistory(itemTag, DateTime.UtcNow - TimeSpan.FromDays(1), DateTime.UtcNow, new Dictionary<string, string>(query));
+    return await priceService.GetHistory(itemTag, DateTime.UtcNow - TimeSpan.FromDays(1), DateTime.UtcNow, filters as Dictionary<string, string> ?? (filters == null ? null : new Dictionary<string, string>(filters)));
     }
     /// <summary>
     /// Gets the price history for an item for the last 7 days
     /// </summary>
     /// <param name="itemTag">The tag of the item</param>
-    /// <param name="query">filter query</param>
+    /// <param name="filters">Filter parameters - can be added directly as query parameters</param>
     /// <returns></returns>
     [Route("item/price/{itemTag}/history/week")]
     [HttpGet]
     [ResponseCache(Duration = 1800, Location = ResponseCacheLocation.Any, NoStore = false, VaryByQueryKeys = new string[] { "*" })]
-    public async Task<IEnumerable<AveragePrice>> GetWeekHistory(string itemTag, [FromQuery] IDictionary<string, string> query)
+    public async Task<IEnumerable<AveragePrice>> GetWeekHistory(string itemTag, [FromQuery] IDictionary<string, string> filters = null)
     {
-        return await priceService.GetHistory(itemTag, DateTime.UtcNow - TimeSpan.FromDays(7), DateTime.UtcNow, new Dictionary<string, string>(query));
+    return await priceService.GetHistory(itemTag, DateTime.UtcNow - TimeSpan.FromDays(7), DateTime.UtcNow, filters as Dictionary<string, string> ?? (filters == null ? null : new Dictionary<string, string>(filters)));
     }
     /// <summary>
     /// Gets the price history for an item for one month
     /// </summary>
     /// <param name="itemTag">The tag of the item</param>
-    /// <param name="query">filter query</param>
+    /// <param name="filters">Filter parameters - can be added directly as query parameters</param>
     /// <returns></returns>
     [Route("item/price/{itemTag}/history/month")]
     [HttpGet]
     [ResponseCache(Duration = 3600 * 2, Location = ResponseCacheLocation.Any, NoStore = false, VaryByQueryKeys = new string[] { "*" })]
-    public async Task<IEnumerable<AveragePrice>> GetMonthHistory(string itemTag, [FromQuery] IDictionary<string, string> query)
+    public async Task<IEnumerable<AveragePrice>> GetMonthHistory(string itemTag, [FromQuery] IDictionary<string, string> filters = null)
     {
-        return await priceService.GetHistory(itemTag, DateTime.UtcNow - TimeSpan.FromDays(30), DateTime.UtcNow, itemTag == "ENCHANTED_BOOK" ? null : new Dictionary<string, string>(query));
+    return await priceService.GetHistory(itemTag, DateTime.UtcNow - TimeSpan.FromDays(30), DateTime.UtcNow, itemTag == "ENCHANTED_BOOK" ? null : (filters as Dictionary<string, string> ?? new Dictionary<string, string>(filters ?? new Dictionary<string,string>())));
     }
     /// <summary>
     /// Gets the price history for an item for all time
@@ -176,16 +179,26 @@ public class PricesController : ControllerBase
         return all;
     }
 
+    /// <summary>
+    /// Gets the price history for an item for one year (Premium only)
+    /// </summary>
+    /// <param name="itemTag">The tag of the item</param>
+    /// <param name="filters">Filter parameters - can be added directly as query parameters</param>
+    /// <param name="premiumService">Premium service for validation</param>
+    /// <param name="playerNameApi">Player name service for name resolution</param>
+    /// <returns></returns>
     [Route("item/price/{itemTag}/history/year")]
     [HttpGet]
+    [Authorize]
     [ResponseCache(Duration = 3600 * 2, Location = ResponseCacheLocation.Any, NoStore = false, VaryByQueryKeys = new string[] { "*" })]
-    public async Task<PricesService.PriceStatistics> GetMonthHistory(string itemTag, [FromQuery] IDictionary<string, string> query,
+    public async Task<PricesService.PriceStatistics> GetYearHistory(string itemTag,
+        [FromQuery] IDictionary<string, string> filters,
         [FromServices] PremiumTierService premiumService,
         [FromServices] PlayerNameService playerNameApi)
     {
         if (!await premiumService.HasPremium(this))
             throw new CoflnetException("premium_required", "This endpoint is only available for premium users");
-        var result = await priceService.GetDetailedHistory(itemTag, DateTime.UtcNow - TimeSpan.FromDays(360), DateTime.UtcNow, itemTag == "ENCHANTED_BOOK" ? null : new Dictionary<string, string>(query));
+    var result = await priceService.GetDetailedHistory(itemTag, DateTime.UtcNow - TimeSpan.FromDays(360), DateTime.UtcNow, itemTag == "ENCHANTED_BOOK" ? null : (filters as Dictionary<string, string> ?? new Dictionary<string, string>(filters ?? new Dictionary<string,string>())));
         var playerNames = await playerNameApi.GetNames(result.RecentSamples.Select(a => a.Seller).ToList());
         result.RecentSamples = result.RecentSamples.Select(a =>
         {
@@ -240,6 +253,11 @@ public class PricesController : ControllerBase
         }
     }
 
+    /// <summary>
+    /// Gets filter parameters for a specific item based on its properties
+    /// </summary>
+    /// <param name="item">The item to analyze for filters</param>
+    /// <returns>Dictionary of applicable filters for the item</returns>
     [Route("item/filters")]
     [HttpPost]
     public async Task<Dictionary<string, string>> GetFiltersForItem(ItemRepresent item)
@@ -340,7 +358,7 @@ public class PricesController : ControllerBase
     [Route("prices/neu")]
     [HttpGet]
     [ResponseCache(Duration = 600, Location = ResponseCacheLocation.Any, NoStore = false)]
-    public async Task<Dictionary<string, long>> GetNeuPrices()
+    public Dictionary<string, long> GetNeuPrices()
     {
         var cached = modDescriptionSerice.DeserializedCache.ItemPrices;
         return cached.Where(c => !c.Key.Contains("+")) // attributes
@@ -374,6 +392,10 @@ public class PricesController : ControllerBase
 
     }
 
+    /// <summary>
+    /// Returns price information for attribute-enhanced items (Deprecated)
+    /// </summary>
+    /// <returns>Dictionary of attribute prices by item type</returns>
     [Route("price/attributes")]
     [HttpGet]
     [Obsolete("not supported anymore, query items with filters directly via /api/item/price/{itemTag}")]

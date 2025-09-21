@@ -30,6 +30,10 @@ using Coflnet.Sky.ModCommands.Client.Api;
 using Coflnet.Sky.ModCommands.Client.Extensions;
 using Mscc.GenerativeAI;
 using Coflnet.Sky.Api.Helper;
+using Microsoft.AspNetCore.Authentication;
+using Microsoft.IdentityModel.Tokens;
+using System.Text;
+using System.Threading.Tasks;
 
 namespace Coflnet.Sky.Api
 {
@@ -59,6 +63,13 @@ namespace Coflnet.Sky.Api
         {
             services.AddControllers().AddNewtonsoftJson();
             services.AddSwaggerGenNewtonsoftSupport();
+            
+            // Add Custom Authentication that integrates with existing Google token system
+            services.AddAuthentication("CustomScheme")
+                .AddScheme<CustomAuthenticationSchemeOptions, CustomAuthenticationHandler>("CustomScheme", options => { });
+
+            services.AddAuthorization();
+            
             services.AddSwaggerGen(c =>
             {
                 c.SwaggerDoc("v1", new OpenApiInfo
@@ -69,6 +80,29 @@ namespace Coflnet.Sky.Api
                                 + " All other Tags match with hypixel and can be found via the search endpoint.<br>"
                                 + "Most of these endpoints are used for our <a href=\"https://sky.coflnet.com/flips\">Hypixel skyblock ah and bazaar flipping service</a> and may need you to have a premium account token"
                 });
+                
+                // Add JWT Authorization to Swagger
+                c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
+                {
+                    Description = "JWT Authorization header using the Bearer scheme. Example: \"Authorization: Bearer {token}\"",
+                    Name = "Authorization",
+                    In = ParameterLocation.Header,
+                    Type = SecuritySchemeType.ApiKey,
+                    Scheme = "Bearer"
+                });
+                
+                // Add Google Token Authorization to Swagger (for existing endpoints)
+                c.AddSecurityDefinition("GoogleToken", new OpenApiSecurityScheme
+                {
+                    Description = "Google Token Authorization header. Example: \"GoogleToken: {token}\"",
+                    Name = "GoogleToken",
+                    In = ParameterLocation.Header,
+                    Type = SecuritySchemeType.ApiKey
+                });
+                
+                // Apply authorization only to endpoints with [Authorize] attribute
+                c.OperationFilter<AuthorizeCheckOperationFilter>();
+                
                 // Set the comments path for the Swagger JSON and UI.
                 var xmlFile = $"{Assembly.GetExecutingAssembly().GetName().Name}.xml";
                 var xmlPath = Path.Combine(AppContext.BaseDirectory, xmlFile);
@@ -207,6 +241,7 @@ namespace Coflnet.Sky.Api
 
             app.UseCors(CORS_PLICY_NAME);
 
+            app.UseAuthentication();
             app.UseAuthorization();
 
             app.UseResponseCaching();
