@@ -54,6 +54,7 @@ public class NotificationController : ControllerBase
     /// </summary>
     [Route("targets")]
     [HttpGet]
+    [Microsoft.AspNetCore.Authorization.Authorize]
     public async Task<List<Models.Notifications.NotificationTarget>> GetNotifications()
     {
         var result = await targetsApi.TargetsUserIdGetAsync(await googletokenService.GetUserId(this));
@@ -65,6 +66,7 @@ public class NotificationController : ControllerBase
     /// </summary>
     [Route("subscriptions")]
     [HttpGet]
+    [Microsoft.AspNetCore.Authorization.Authorize]
     public async Task<List<PublicSubscription>> GetSubscriptions()
     {
         return await subscriptionsApi.SubscriptionsGetAsync(await googletokenService.GetUserId(this));
@@ -77,6 +79,7 @@ public class NotificationController : ControllerBase
     /// <returns></returns>
     [Route("subscriptions")]
     [HttpPost]
+    [Microsoft.AspNetCore.Authorization.Authorize]
     public async Task<PublicSubscription> AddSubscription(PublicSubscription subscription, [FromServices] PremiumTierService premiumTierService)
     {
         var userId = await googletokenService.GetUserId(this);
@@ -100,6 +103,7 @@ public class NotificationController : ControllerBase
     /// <returns></returns>
     [Route("subscriptions")]
     [HttpDelete]
+    [Microsoft.AspNetCore.Authorization.Authorize]
     public async Task RemoveSubscription(PublicSubscription subscription)
     {
         await subscriptionsApi.SubscriptionsDeleteAsync(await googletokenService.GetUserId(this), subscription);
@@ -112,6 +116,7 @@ public class NotificationController : ControllerBase
     /// <returns></returns>
     [Route("targets")]
     [HttpPost]
+    [Microsoft.AspNetCore.Authorization.Authorize]
     public async Task<Models.Notifications.NotificationTarget> AddTarget(Models.Notifications.NotificationTarget target)
     {
         var userId = await googletokenService.GetUserId(this);
@@ -132,6 +137,7 @@ public class NotificationController : ControllerBase
     /// <returns></returns>
     [Route("targets")]
     [HttpDelete]
+    [Microsoft.AspNetCore.Authorization.Authorize]
     public async Task RemoveTarget(Models.Notifications.NotificationTarget target)
     {
         var mapped = mapper.Map<EventBroker.Client.Model.NotificationTarget>(target);
@@ -145,6 +151,7 @@ public class NotificationController : ControllerBase
     /// <returns></returns>
     [Route("targets")]
     [HttpPut]
+    [Microsoft.AspNetCore.Authorization.Authorize]
     public async Task UpdateTarget(Models.Notifications.NotificationTarget target)
     {
         var mapped = mapper.Map<EventBroker.Client.Model.NotificationTarget>(target);
@@ -158,6 +165,7 @@ public class NotificationController : ControllerBase
     /// <returns></returns>
     [Route("targets/test")]
     [HttpPost]
+    [Microsoft.AspNetCore.Authorization.Authorize]
     public async Task SendTestNotification(Models.Notifications.NotificationTarget target)
     {
         var mapped = mapper.Map<EventBroker.Client.Model.NotificationTarget>(target);
@@ -171,6 +179,7 @@ public class NotificationController : ControllerBase
     /// <returns></returns>
     [Route("subscriptions")]
     [HttpPut]
+    [Microsoft.AspNetCore.Authorization.Authorize]
     public async Task UpdateSubscription(PublicSubscription subscription)
     {
         await subscriptionsApi.SubscriptionsPutAsync(await googletokenService.GetUserId(this), subscription);
@@ -183,6 +192,7 @@ public class NotificationController : ControllerBase
     /// <returns></returns>
     [Route("listeners")]
     [HttpPost]
+    [Microsoft.AspNetCore.Authorization.Authorize]
     public async Task<Listener> AddListener(Listener listener)
     {
         var subscription = mapper.Map<Subscription>(listener);
@@ -197,6 +207,7 @@ public class NotificationController : ControllerBase
     /// <response code="200">Returns the listeners</response>
     [Route("listeners")]
     [HttpGet]
+    [Microsoft.AspNetCore.Authorization.Authorize]
     public async Task<List<Listener>> ListListeners()
     {
         var result = (await listenerApi.SubscriptionUserIdGetAsync(await googletokenService.GetUserId(this))).Subscriptions;
@@ -210,6 +221,7 @@ public class NotificationController : ControllerBase
     /// <returns></returns>
     [Route("listeners")]
     [HttpDelete]
+    [Microsoft.AspNetCore.Authorization.Authorize]
     public async Task RemoveListener(Listener listener)
     {
         var mapped = mapper.Map<Subscription>(listener);

@@ -76,6 +76,7 @@ namespace Coflnet.Sky.Api.Controller
         /// <returns></returns>
         [Route("auth")]
         [HttpPost]
+    [Microsoft.AspNetCore.Authorization.Authorize]
         public async Task AuthConnection(string newId)
         {
             byte[] idBytes;

@@ -50,6 +50,7 @@ namespace Coflnet.Sky.Api.Controller
         /// <returns></returns>
         [Route("referred/by")]
         [HttpPost]
+    [Microsoft.AspNetCore.Authorization.Authorize]
         public async Task<IActionResult> TopupOptions([FromBody] ReferredBy args)
         {
             var user = await GetUserOrDefault();
@@ -73,6 +74,7 @@ namespace Coflnet.Sky.Api.Controller
         [Route("info")]
         [HttpGet]
         [ResponseCache(Duration = 0, Location = ResponseCacheLocation.None, NoStore = true)]
+    [Microsoft.AspNetCore.Authorization.Authorize]
         public async Task<ActionResult<ReferralInfo>> GetRefInfo()
         {
             var user = await GetUserOrDefault();

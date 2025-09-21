@@ -56,6 +56,7 @@ public class TradeController : ControllerBase
     [Route("inventory")]
     [HttpGet]
     [ResponseCache(Duration = 0, Location = ResponseCacheLocation.None, NoStore = true)]
+    [Microsoft.AspNetCore.Authorization.Authorize]
     public async Task<List<PlayerState.Client.Model.Item>> GetInventory()
     {
         GoogleUser user = await googletokenService.GetUserWithToken(this);
@@ -74,6 +75,7 @@ public class TradeController : ControllerBase
     /// </summary>
     [Route("trades")]
     [HttpPost]
+    [Microsoft.AspNetCore.Authorization.Authorize]
     public async Task CreateTrade([FromBody] List<TradeRequest> trades)
     {
         var mapped = mapper.Map<List<TradeRequest>, List<TradeRequestDTO>>(trades);
@@ -128,6 +130,7 @@ public class TradeController : ControllerBase
     /// </summary>
     [Route("trades/{id}")]
     [HttpDelete]
+    [Microsoft.AspNetCore.Authorization.Authorize]
     public async Task DeleteTrade(string id)
     {
         var numericId = hashids.DecodeLong(id).FirstOrDefault();
@@ -142,6 +145,7 @@ public class TradeController : ControllerBase
     [Route("trades/own")]
     [HttpGet]
     [ResponseCache(Duration = 0, Location = ResponseCacheLocation.None, NoStore = true)]
+    [Microsoft.AspNetCore.Authorization.Authorize]
     public async Task<List<TradeRequest>> GetMyTrades()
     {
         GoogleUser user = await googletokenService.GetUserWithToken(this);
