@@ -27,8 +27,8 @@ public class BazaarInfo : ICustomModifier
                 .Select(c => new
                 {
                     Craft = c,
-                    SellPrice = data.GetItemprice(c.ItemId),
-                    Profit = (long)(c.SellPrice - c.CraftCost)
+                    SellPrice = c.SellPrice -1,
+                    Profit = (long)(c.SellPrice * 0.99 - c.CraftCost -1)
                 })
                 .Where(c => c.Profit > 0)
                 .OrderByDescending(c => c.Profit)
@@ -48,8 +48,8 @@ public class BazaarInfo : ICustomModifier
             line.Append(" " + McColorCodes.RED);
             line.Append(FormatCoins((long)craft.Craft.CraftCost));
             line.Append("§7 -> §6");
-            line.Append(FormatCoins(craft.SellPrice));
-            var builder = CreateCraftLore(line.ToString(), craft.Craft.ItemName, craft.Profit, $"/recipe {craft.Craft.ItemName}");
+            line.Append(FormatCoins((long)craft.SellPrice));
+            var builder = CreateCraftLore(line.ToString(), craft.Craft.ItemName, craft.Profit, $"/recipe {craft.Craft.ItemName}", craft.SellPrice);
             display.Add(new(builder.Build()));
         }
         display.Add(new(new LoreBuilder().AddText("_", "You can also drag this text by holding right click", "/cofl bazaarsearch obsidian").Build()));
@@ -80,9 +80,9 @@ public class BazaarInfo : ICustomModifier
     }
 
     // add these helper methods to the class
-    private LoreBuilder CreateCraftLore(string rawLine, string itemName, long profit, string command)
+    private LoreBuilder CreateCraftLore(string rawLine, string itemName, long profit, string command, double sellPrice)
     {
-        var hover = $"Click to view craft of {itemName}\nestimated profit {FormatCoins(profit)}";
+        var hover = $"Click to view craft of {itemName}\nestimated profit {FormatCoins(profit)}{McColorCodes.GRAY}, sellorder at {McColorCodes.GOLD}{FormatCoins((long)(sellPrice - 0.1))}";
         return new LoreBuilder().AddText(rawLine, hover, command);
     }
 
