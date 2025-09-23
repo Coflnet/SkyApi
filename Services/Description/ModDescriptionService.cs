@@ -294,6 +294,12 @@ public class ModDescriptionService : IDisposable
         {
             logger.LogError(e, "failed to compute descriptions");
         }
+        ApplyCustomSettings(inventory, result);
+        return result;
+    }
+
+    private static void ApplyCustomSettings(InventoryDataWithSettings inventory, List<List<DescModification>> result)
+    {
         if (inventory.Settings?.DisableHighlighting ?? false)
         {
             foreach (var item in result)
@@ -301,7 +307,31 @@ public class ModDescriptionService : IDisposable
                 item.RemoveAll(m => m.Type == DescModification.ModType.HIGHLIGHT);
             }
         }
-        return result;
+        if (inventory.Settings?.ReplaceAquaWith != null
+        || inventory.Settings?.ReplaceGoldWith != null
+        || inventory.Settings?.ReplaceWhiteWith != null
+        || inventory.Settings?.ReplaceYellowWith != null
+        || inventory.Settings?.ReplaceGrayWith != null)
+        {
+            var startTime = DateTime.Now;
+            foreach (var item in result)
+            {
+                foreach (var mod in item)
+                {
+                    if (inventory.Settings?.ReplaceAquaWith != null)
+                        mod.Value = Regex.Replace(mod.Value, McColorCodes.AQUA, "§" + inventory.Settings.ReplaceAquaWith);
+                    if (inventory.Settings?.ReplaceGoldWith != null)
+                        mod.Value = Regex.Replace(mod.Value, McColorCodes.GOLD, "§" + inventory.Settings.ReplaceGoldWith);
+                    if (inventory.Settings?.ReplaceWhiteWith != null)
+                        mod.Value = Regex.Replace(mod.Value, McColorCodes.WHITE, "§" + inventory.Settings.ReplaceWhiteWith);
+                    if (inventory.Settings?.ReplaceYellowWith != null)
+                        mod.Value = Regex.Replace(mod.Value, McColorCodes.YELLOW, "§" + inventory.Settings.ReplaceYellowWith);
+                    if (inventory.Settings?.ReplaceGrayWith != null)
+                        mod.Value = Regex.Replace(mod.Value, McColorCodes.GRAY, "§" + inventory.Settings.ReplaceGrayWith);
+                }
+            }
+            Console.WriteLine($"Applied custom color settings in {(DateTime.Now - startTime).TotalMilliseconds}ms");
+        }
     }
 
     public class PreRequestContainer
@@ -1330,12 +1360,13 @@ public class ModDescriptionService : IDisposable
 
     private void AddVolume(SaveAuction auction, Sniper.Client.Model.PriceEstimate price, StringBuilder builder, DataContainer data)
     {
+        if (data.bazaarPrices.TryGetValue(auction.Tag, out var bazaar) && bazaar.DailySellVolume > 0)
+        {
+            builder.Append($"{McColorCodes.GRAY}Vol: {McColorCodes.YELLOW}{FormatPriceShort(bazaar.DailySellVolume)}{McColorCodes.GRAY}/{McColorCodes.YELLOW}{FormatPriceShort(bazaar.DailyBuyVolume)}");
+            return;
+        }
         if (price.MedianKey == null)
         {
-            if(data.bazaarPrices.TryGetValue(auction.Tag, out var bazaar) && bazaar.SellPrice > 0)
-            {
-                builder.Append($"{McColorCodes.GRAY}Vol: {McColorCodes.YELLOW}{FormatPriceShort(bazaar.DailySellVolume)}{McColorCodes.GRAY}/{McColorCodes.YELLOW}{FormatPriceShort(bazaar.DailyBuyVolume)}");
-            }
             return;
         }
         if (price != null && price.Median != 0)
