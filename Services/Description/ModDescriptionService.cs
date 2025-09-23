@@ -738,7 +738,7 @@ public class ModDescriptionService : IDisposable
                 builder.Append($"Item-Key: {price.ItemKey}");
                 break;
             case DescriptionField.VOLUME:
-                AddVolume(auction, price, builder);
+                AddVolume(auction, price, builder, data);
                 break;
             case DescriptionField.TAG:
                 builder.Append($"{auction.Tag} ");
@@ -1328,10 +1328,16 @@ public class ModDescriptionService : IDisposable
         }
     }
 
-    private void AddVolume(SaveAuction auction, Sniper.Client.Model.PriceEstimate price, StringBuilder builder)
+    private void AddVolume(SaveAuction auction, Sniper.Client.Model.PriceEstimate price, StringBuilder builder, DataContainer data)
     {
         if (price.MedianKey == null)
+        {
+            if(data.bazaarPrices.TryGetValue(auction.Tag, out var bazaar) && bazaar.SellPrice > 0)
+            {
+                builder.Append($"{McColorCodes.GRAY}Vol: {McColorCodes.YELLOW}{FormatPriceShort(bazaar.DailySellVolume)}{McColorCodes.GRAY}/{McColorCodes.YELLOW}{FormatPriceShort(bazaar.DailyBuyVolume)}");
+            }
             return;
+        }
         if (price != null && price.Median != 0)
             if (float.IsInfinity(price.Volume))
                 logger.LogInformation($"Volume is infinity for {auction.Tag} {price.ItemKey}");
