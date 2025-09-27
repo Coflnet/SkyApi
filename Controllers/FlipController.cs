@@ -137,7 +137,7 @@ namespace Coflnet.Sky.Api.Controller
         [ResponseCache(Duration = 20, Location = ResponseCacheLocation.Any, NoStore = false)]
         public async Task<IEnumerable<MayorDiffFlip>> GetmayordiffFlips()
         {
-            if(!await premiumTierService.HasPremiumPlus(this))
+            if (!await premiumTierService.HasPremiumPlus(this))
                 throw new CoflnetException("no_premium",
                     "Sorry this feature is only available for premium users.");
             var dtoFormat = await bazaarFlipperApi.MayorDiffsGetAsync();
@@ -167,6 +167,15 @@ namespace Coflnet.Sky.Api.Controller
         {
             var full = await craftsApi.GetProfitableNpcWithHttpInfoAsync();
             return Newtonsoft.Json.JsonConvert.DeserializeObject<List<ProfitableCraft>>(full.RawContent);
+        }
+        [Route("npc/reverse")]
+        [HttpGet]
+        [Authorize]
+        [ResponseCache(Duration = 20, Location = ResponseCacheLocation.Any, NoStore = false, VaryByQueryKeys = new string[] { "requestRefresh" })]
+        public async Task<IEnumerable<Crafts.Client.Model.NpcFlip>> GetReverseNpcFlips([FromServices] INpcApi npcApi, bool requestRefresh = false)
+        {
+            var refresh = requestRefresh && await premiumTierService.HasPremium(this);
+            return await npcApi.GetNpcFlipsAsync(refresh);
         }
         /// <summary>
         /// Discover flips using the fusion machine
@@ -338,7 +347,7 @@ namespace Coflnet.Sky.Api.Controller
             if (!await premiumTierService.HasPremiumPlus(this))
                 throw new CoflnetException("no_premium_plus",
                     "Sorry this feature is only available for premium plus users.");
-            if(end < new DateTime(2024,6,20))
+            if (end < new DateTime(2024, 6, 20))
                 end = DateTime.UtcNow;
             var flips = await flipService.flipTracking.GetUnknownFlipsAsync(end.AddHours(-1), end);
             return flips.Select(FlipTrackingService.Convert);
