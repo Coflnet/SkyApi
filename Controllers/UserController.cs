@@ -36,7 +36,7 @@ namespace Coflnet.Sky.Api.Controller
         /// <returns></returns>
         [Route("privacy")]
         [HttpGet]
-    [Microsoft.AspNetCore.Authorization.Authorize]
+        [Microsoft.AspNetCore.Authorization.Authorize]
         public async Task<ActionResult<PrivacySettings>> GetPrivacySettings()
         {
             var user = await GetUserOrDefault();
@@ -62,7 +62,7 @@ namespace Coflnet.Sky.Api.Controller
         /// <returns></returns>
         [Route("privacy")]
         [HttpPost]
-    [Microsoft.AspNetCore.Authorization.Authorize]
+        [Microsoft.AspNetCore.Authorization.Authorize]
         public async Task<ActionResult> SetPrivacySettings(PrivacySettings settings)
         {
             var user = await GetUserOrDefault();
