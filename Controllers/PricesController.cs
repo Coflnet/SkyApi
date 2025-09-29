@@ -18,6 +18,7 @@ using Coflnet.Sky.PlayerName.Client.Api;
 using Coflnet.Sky.PlayerName;
 using Microsoft.AspNetCore.Authorization;
 using Coflnet.Sky.Api.Helper;
+using Coflnet.Sky.Crafts.Client.Api;
 
 namespace Coflnet.Sky.Api.Controller;
 /// <summary>
@@ -391,6 +392,19 @@ public class PricesController : ControllerBase
             .ToDictionary(c => c.Key, c => c.Value);
 
     }
+
+    /// <summary>
+    /// Returns how much prices changed in the last 24 hours for all requested items
+    /// </summary>
+    [HttpGet("prices/change")]
+    public async Task<Dictionary<string, Crafts.Client.Model.DropStatistic>> GetPriceChanges([FromQuery] List<string> itemTags, [FromServices] IDropApi dropApi)
+    {
+        var dropData = await dropApi.GetAllDropsAsync();
+        var clearedTags = itemTags.ToHashSet();
+        return dropData.Distinct().Where(i => clearedTags.Contains(i.Tag))
+            .ToDictionary(d => d.Tag, d => d);
+    }
+    
 
     /// <summary>
     /// Returns price information for attribute-enhanced items (Deprecated)
