@@ -401,7 +401,7 @@ public class PricesController : ControllerBase
     {
         var dropData = await dropApi.GetAllDropsAsync();
         var clearedTags = itemTags.ToHashSet();
-        return dropData.Distinct().Where(i => clearedTags.Contains(i.Tag))
+        return dropData.Distinct().Where(i => clearedTags.Contains(i.Tag) || clearedTags.Count == 0)
             .ToDictionary(d => d.Tag, d => d);
     }
     
