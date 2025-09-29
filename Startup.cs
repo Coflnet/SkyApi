@@ -77,8 +77,9 @@ namespace Coflnet.Sky.Api
                     Title = "SkyApi",
                     Version = "v1",
                     Description = "Notes: PET, RUNE and POTION item tags (somtimes called ids) are expanded to include the type, eg PET_LION.<br>"
-                                + " All other Tags match with hypixel and can be found via the search endpoint.<br>"
-                                + "Most of these endpoints are used for our <a href=\"https://sky.coflnet.com/flips\">Hypixel skyblock ah and bazaar flipping service</a> and may need you to have a premium account token"
+                                + " All other Tags match with hypixel and can be found via the search endpoint, also see our <a href=\"https://sky.coflnet.com/wiki/api\">api docs</a>.<br>"
+                                + "Most of these endpoints are used for our <a href=\"https://sky.coflnet.com/flips\">Hypixel skyblock ah and bazaar flipping service</a> and may need you to have a premium account token<br>"
+                                + "Also if you use the api for a public project you are responsible for complying with our <a href=\"https://sky.coflnet.com/wiki/api#attribution\">api attribution</a>."
                 });
                 
                 // Add JWT Authorization to Swagger
