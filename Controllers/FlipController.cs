@@ -187,6 +187,16 @@ namespace Coflnet.Sky.Api.Controller
         {
             return await bazaarFlipperApi.FusionGetAsync();
         }
+        /// <summary>
+        /// Forge flips from dwarfern mines
+        /// </summary>
+        [Route("forge")]
+        [HttpGet]
+        [ResponseCache(Duration = 300, Location = ResponseCacheLocation.Any, NoStore = false)]
+        public async Task<IEnumerable<Crafts.Client.Model.ForgeFlip>> GetForgeFlips([FromServices] IForgeApi forgeApi)
+        {
+            return await forgeApi.GetAllForgeAsync();
+        }
 
         /// <summary>
         /// Shows you the available settings options for the socket comand subFlip,
