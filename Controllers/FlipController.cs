@@ -15,8 +15,8 @@ using Coflnet.Sky.Api.Models.Bazaar;
 using Coflnet.Sky.Items.Client.Api;
 using Microsoft.AspNetCore.Authorization;
 using Coflnet.Sky.Crafts.Client.Api;
-using Coflnet.Sky.Crafts.Models;
 using Coflnet.Sky.Api.Models;
+using Coflnet.Sky.Crafts.Client.Model;
 
 namespace Coflnet.Sky.Api.Controller
 {

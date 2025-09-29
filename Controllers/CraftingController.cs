@@ -3,13 +3,14 @@ using System.Threading.Tasks;
 using RestSharp;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Configuration;
-using Coflnet.Sky.Crafts.Models;
 using Newtonsoft.Json;
 using Coflnet.Sky.Api.Models;
 using Coflnet.Sky.Commands.Shared;
 using Coflnet.Sky.Sniper.Client.Api;
 using Coflnet.Sky.Core;
 using Coflnet.Sky.Api.Client.Api;
+using Coflnet.Sky.Crafts.Client.Api;
+using Coflnet.Sky.Crafts.Client.Model;
 
 namespace Coflnet.Sky.Api.Controller
 {
@@ -21,10 +22,10 @@ namespace Coflnet.Sky.Api.Controller
     [ResponseCache(Duration = 120, Location = ResponseCacheLocation.Any, NoStore = false)]
     public class CraftingController : ControllerBase
     {
-        private static RestClient client = null;
         private IProfileClient profileClient;
         private string apiUrl;
         PricesService pricesService;
+        ICraftsApi craftsApi;
         private IAuctionApi auctionApi;
         /// <summary>
         /// Creates a new instance of <see cref="CraftingController"/>
@@ -33,14 +34,15 @@ namespace Coflnet.Sky.Api.Controller
         /// <param name="pricesService"></param>
         /// <param name="profileClient"></param>
         /// <param name="auctionApi"></param>
-        public CraftingController(IConfiguration config, PricesService pricesService, IProfileClient profileClient, IAuctionApi auctionApi)
+        /// <param name="craftsApi"></param>
+        public CraftingController(IConfiguration config, PricesService pricesService, IProfileClient profileClient, IAuctionApi auctionApi, ICraftsApi craftsApi)
         {
-            if (client == null)
-                client = new RestClient(config["CRAFTS_BASE_URL"] ?? "http://" + config["CRAFTS_HOST"]);
+
             apiUrl = config["API_BASE_URL"];
             this.pricesService = pricesService;
             this.profileClient = profileClient;
             this.auctionApi = auctionApi;
+            this.craftsApi = craftsApi;
         }
 
         /// <summary>
@@ -54,8 +56,7 @@ namespace Coflnet.Sky.Api.Controller
         [ResponseCache(Duration = 60, Location = ResponseCacheLocation.Any, NoStore = false, VaryByQueryKeys = new string[] { "player", "profile" })]
         public async Task<IEnumerable<ProfitableCraft>> GetProfitable(string player = null, string profile = null)
         {
-            var response = await client.ExecuteAsync(new RestRequest("Crafts/profit"));
-            var crafts = JsonConvert.DeserializeObject<List<ProfitableCraft>>(response.Content);
+            var crafts = await craftsApi.GetProfitableAsync();
             if (profile == null)
                 return crafts;
             try
@@ -77,10 +78,9 @@ namespace Coflnet.Sky.Api.Controller
         [Route("recipe/{itemTag}")]
         [HttpGet]
         [ResponseCache(Duration = 3600 * 12, Location = ResponseCacheLocation.Any, NoStore = false)]
-        public async Task<Dictionary<string, string>> GetRecipe(string itemTag)
+        public async Task<Recipe> GetRecipe(string itemTag)
         {
-            var response = await client.ExecuteAsync(new RestRequest($"Crafts/recipe/{itemTag}"));
-            return JsonConvert.DeserializeObject<Dictionary<string, string>>(response.Content);
+            return await craftsApi.GetRecipeAsync(itemTag);
         }
 
         /// <summary>
@@ -94,8 +94,8 @@ namespace Coflnet.Sky.Api.Controller
         public async Task<CraftInstruction> GetInstructions(string itemTag, [FromServices] Items.Client.Api.IItemsApi itemApi)
         {
             var itemNamesTask = itemApi.ItemNamesGetAsync();
-            var response = await client.ExecuteAsync(new RestRequest($"Crafts/recipe/{itemTag}"));
-            var recipe = JsonConvert.DeserializeObject<Dictionary<string, string>>(response.Content ?? "{}");
+            var response = await GetRecipe(itemTag);
+            var recipe = JsonConvert.DeserializeObject<Dictionary<string, string>>(JsonConvert.SerializeObject(GetRecipe(itemTag)) ?? "{}");
             var ids = recipe.Where(x=>x.Value != null).Select(x => x.Value.Split(':').First()).Where(x => x.Length >= 3).Distinct().ToList();
             var itemsOnBazaar = await pricesService.GetBazaarItems();
             var lbins = await auctionApi.ApiAuctionLbinsGetAsync();
