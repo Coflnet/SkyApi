@@ -115,7 +115,11 @@ namespace Coflnet.Sky.Api
             services.AddAutoMapper(typeof(OrganizationProfile));
             services.AddCors(o =>
             {
-                o.AddPolicy(CORS_PLICY_NAME, p => p.AllowAnyHeader().AllowAnyMethod().AllowAnyOrigin());
+                o.AddPolicy(CORS_PLICY_NAME, p => p
+                    .AllowAnyHeader()
+                    .AllowAnyMethod()
+                    .SetIsOriginAllowed(_ => true)
+                    .AllowCredentials());
             });
 
             services.AddJaeger(Configuration, 0.001, 60);
