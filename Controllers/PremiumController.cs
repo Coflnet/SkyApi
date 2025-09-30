@@ -76,7 +76,7 @@ namespace Coflnet.Sky.Api.Controller
         /// <returns></returns>
         [Route("topup/stripe/{productSlug}")]
         [HttpPost]
-    [Microsoft.AspNetCore.Authorization.Authorize]
+        [Microsoft.AspNetCore.Authorization.Authorize]
         public async Task<ActionResult<TopUpIdResponse>> StartTopUp(string productSlug, [FromBody] TopUpArguments args)
         {
             foreach (var item in Request.Headers)
@@ -148,7 +148,7 @@ namespace Coflnet.Sky.Api.Controller
         /// <returns></returns>
         [Route("topup/paypal/{productSlug}")]
         [HttpPost]
-    [Microsoft.AspNetCore.Authorization.Authorize]
+        [Microsoft.AspNetCore.Authorization.Authorize]
         public async Task<ActionResult<TopUpIdResponse>> StartTopUpPaypal(string productSlug, [FromBody] TopUpArguments args)
         {
             var user = await GetUserOrDefault();
@@ -173,7 +173,7 @@ namespace Coflnet.Sky.Api.Controller
         /// <returns></returns>
         [Route("topup/lemonsqueezy/{productSlug}")]
         [HttpPost]
-    [Microsoft.AspNetCore.Authorization.Authorize]
+        [Microsoft.AspNetCore.Authorization.Authorize]
         public async Task<ActionResult<TopUpIdResponse>> StartTopUpLemonSqueezy(string productSlug, [FromBody] TopUpArguments args)
         {
             var user = await GetUserOrDefault();
@@ -209,7 +209,6 @@ namespace Coflnet.Sky.Api.Controller
 
         [Route("linkvertise")]
         [HttpGet]
-    [Microsoft.AspNetCore.Authorization.Authorize]
         public async Task<IActionResult> Linkvertise(string hash, string? email, [FromServices] HttpClient httpClient)
         {
             var user = await GetUserOrDefault();
@@ -262,7 +261,7 @@ namespace Coflnet.Sky.Api.Controller
         /// <returns></returns>
         [Route("service/purchase")]
         [HttpPost]
-    [Microsoft.AspNetCore.Authorization.Authorize]
+        [Microsoft.AspNetCore.Authorization.Authorize]
         public async Task<IActionResult> PurchaseService([FromBody] PurchaseArgs args)
         {
             var user = await GetUserOrDefault(true);
@@ -290,7 +289,7 @@ namespace Coflnet.Sky.Api.Controller
         [Route("premium/prices/adjusted")]
         [Obsolete("endpoint will be removed no service has adusted pricing")]
         [HttpPost]
-    [Microsoft.AspNetCore.Authorization.Authorize]
+        [Microsoft.AspNetCore.Authorization.Authorize]
         public async Task<IActionResult> PurchaseService([FromBody] IEnumerable<string> slugs)
         {
             var user = await GetUserOrDefault();
@@ -314,7 +313,7 @@ namespace Coflnet.Sky.Api.Controller
         /// <returns></returns>
         [Route("premium/user/owns")]
         [HttpPost]
-    [Microsoft.AspNetCore.Authorization.Authorize]
+        [Microsoft.AspNetCore.Authorization.Authorize]
         public async Task<ActionResult<Dictionary<string, Models.OwnerShip>>> GetOwnerShips([FromBody] List<string> slugsToTest)
         {
             var user = await GetUserOrDefault();
@@ -352,7 +351,7 @@ namespace Coflnet.Sky.Api.Controller
         /// <returns></returns>
         [Route("premium/transactions")]
         [HttpGet]
-    [Microsoft.AspNetCore.Authorization.Authorize]
+        [Microsoft.AspNetCore.Authorization.Authorize]
         public async Task<ActionResult<IEnumerable<CoinTransaction>>> GetTransactions()
         {
             var user = await GetUserOrDefault();
@@ -360,7 +359,7 @@ namespace Coflnet.Sky.Api.Controller
                 return Unauthorized("no googletoken header");
             try
             {
-                if(user.Id == 28258)
+                if (user.Id == 28258)
                     throw new CoflnetException("unavailable", "No transactions available for this user");
                 var transactions = await transactionApi.TransactionUUserIdGetAsync(user.Id.ToString());
                 if (transactions == null)
@@ -378,7 +377,7 @@ namespace Coflnet.Sky.Api.Controller
         /// <returns></returns>
         [Route("premium/subscription/{subscriptionSlug}")]
         [HttpPost]
-    [Microsoft.AspNetCore.Authorization.Authorize]
+        [Microsoft.AspNetCore.Authorization.Authorize]
         public async Task<ActionResult<TopUpIdResponse>> PurchaseServiceSubscription(string subscriptionSlug)
         {
             var user = await GetUserOrDefault();
@@ -397,7 +396,7 @@ namespace Coflnet.Sky.Api.Controller
         }
         [HttpGet]
         [Route("premium/subscription")]
-    [Microsoft.AspNetCore.Authorization.Authorize]
+        [Microsoft.AspNetCore.Authorization.Authorize]
         public async Task<ActionResult<PremiumSubscription[]>> GetSubscription()
         {
             var user = await GetUserOrDefault();
@@ -419,7 +418,7 @@ namespace Coflnet.Sky.Api.Controller
 
         [HttpDelete]
         [Route("premium/subscription/{externalId}")]
-    [Microsoft.AspNetCore.Authorization.Authorize]
+        [Microsoft.AspNetCore.Authorization.Authorize]
         public async Task<ActionResult> CancelSubscription(string externalId)
         {
             var user = await GetUserOrDefault();
