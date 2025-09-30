@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Threading.Tasks;
 using Coflnet.Sky.Api.Services;
 using Coflnet.Sky.Commands;
@@ -17,6 +18,7 @@ using Microsoft.AspNetCore.Authorization;
 using Coflnet.Sky.Crafts.Client.Api;
 using Coflnet.Sky.Api.Models;
 using Coflnet.Sky.Crafts.Client.Model;
+using Coflnet.Sky.Sniper.Client.Api;
 
 namespace Coflnet.Sky.Api.Controller
 {
@@ -33,8 +35,21 @@ namespace Coflnet.Sky.Api.Controller
         private FlipTrackingService flipService;
         private ILogger<FlipController> logger;
         private PremiumTierService premiumTierService;
-        private IBazaarFlipperApi bazaarFlipperApi;
-        private IItemsApi itemsApi;
+    private IBazaarFlipperApi bazaarFlipperApi;
+    private IItemsApi itemsApi;
+    private IAttributeApi attributeApi;
+        private static readonly Dictionary<string, int> TierOrder = new(StringComparer.OrdinalIgnoreCase)
+        {
+            ["COMMON"] = 0,
+            ["UNCOMMON"] = 1,
+            ["RARE"] = 2,
+            ["EPIC"] = 3,
+            ["LEGENDARY"] = 4,
+            ["MYTHIC"] = 5,
+            ["DIVINE"] = 6,
+            ["SPECIAL"] = 7,
+            ["VERY_SPECIAL"] = 8
+        };
 
         /// <summary>
         /// Creates a new instance of <see cref="FlipController"/>
@@ -44,14 +59,17 @@ namespace Coflnet.Sky.Api.Controller
         /// <param name="flipService"></param>
         /// <param name="logger"></param>
         /// <param name="premiumTierService"></param>
-        /// <param name="bazaarFlipperApi"></param>
+    /// <param name="bazaarFlipperApi"></param>
+    /// <param name="itemsApi"></param>
+    /// <param name="attributeApi"></param>
         public FlipController(IConfiguration config,
                               TfmService tfm,
                               FlipTrackingService flipService,
                               ILogger<FlipController> logger,
                               PremiumTierService premiumTierService,
                               IBazaarFlipperApi bazaarFlipperApi,
-                              IItemsApi itemsApi)
+                              IItemsApi itemsApi,
+                              IAttributeApi attributeApi)
         {
             this.config = config;
             this.tfm = tfm;
@@ -60,6 +78,7 @@ namespace Coflnet.Sky.Api.Controller
             this.premiumTierService = premiumTierService;
             this.bazaarFlipperApi = bazaarFlipperApi;
             this.itemsApi = itemsApi;
+            this.attributeApi = attributeApi;
         }
 
         /// <summary>
@@ -72,6 +91,54 @@ namespace Coflnet.Sky.Api.Controller
         public async Task<DateTime> GetFlipTime()
         {
             return await new NextUpdateRetriever().Get();
+        }
+
+        /// <summary>
+        /// Attribute-based craft flips
+        /// </summary>
+        /// <param name="sort">Optional sort key: profit, price, volume, age</param>
+        [Route("attribute")]
+        [HttpGet]
+        [Authorize]
+        [ResponseCache(Duration = 60, Location = ResponseCacheLocation.Any, NoStore = false, VaryByQueryKeys = new[] { "sort" })]
+        public async Task<IEnumerable<AttributeFlip>> GetAttributeFlips(string sort = "profit")
+        {
+            if (!await premiumTierService.HasPremium(this))
+                throw new CoflnetException("no_premium",
+                    "Sorry this feature is only available for premium users.");
+
+            var itemNamesTask = itemsApi.ItemNamesGetAsync();
+            var response = await attributeApi.ApiAttributeCraftsGetWithHttpInfoAsync();
+            var flips = Newtonsoft.Json.JsonConvert.DeserializeObject<List<AttributeFlip>>(response.RawContent) ?? new List<AttributeFlip>();
+            var names = (await itemNamesTask).ToDictionary(i => i.Tag, i => i.Name);
+
+            for (int i = flips.Count - 1; i >= 0; i--)
+            {
+                var flip = flips[i];
+                if (flip == null)
+                {
+                    flips.RemoveAt(i);
+                    continue;
+                }
+
+                if (ShouldFilterPetFlip(flip))
+                {
+                    flips.RemoveAt(i);
+                    continue;
+                }
+
+                flip.ItemName = BazaarUtils.GetSearchValue(flip.Tag, names.GetValueOrDefault(flip.Tag, flip.Tag));
+            }
+
+            var normalizedSort = sort?.ToLowerInvariant();
+            return normalizedSort switch
+            {
+                "price" => flips.OrderByDescending(a => a.Target),
+                "profit" or null or "" => flips.OrderByDescending(a => a.Target - a.EstimatedCraftingCost - a.AuctionPrice),
+                "vol" or "volume" => flips.OrderByDescending(a => a.Volume),
+                "age" => flips.OrderByDescending(a => a.FoundAt),
+                _ => flips
+            };
         }
 
         /// <summary>
@@ -361,6 +428,38 @@ namespace Coflnet.Sky.Api.Controller
                 end = DateTime.UtcNow;
             var flips = await flipService.flipTracking.GetUnknownFlipsAsync(end.AddHours(-1), end);
             return flips.Select(FlipTrackingService.Convert);
+        }
+
+        private static bool ShouldFilterPetFlip(AttributeFlip flip)
+        {
+            if (!NBT.IsPet(flip.Tag))
+                return false;
+
+            if (IsHigherTier(flip.StartingKey?.Tier, flip.EndingKey?.Tier))
+                return true;
+
+            var startExp = GetModifierValue(flip.StartingKey, "exp");
+            var endExp = GetModifierValue(flip.EndingKey, "exp");
+            return !string.Equals(startExp, endExp, StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static bool IsHigherTier(string startTier, string endTier)
+        {
+            if (string.IsNullOrEmpty(startTier) || string.IsNullOrEmpty(endTier))
+                return false;
+
+            if (!TierOrder.TryGetValue(startTier, out var startRank) || !TierOrder.TryGetValue(endTier, out var endRank))
+                return false;
+
+            return endRank > startRank;
+        }
+
+        private static string GetModifierValue(AttributeFlipAuctionKey key, string modifierKey)
+        {
+            if (key?.Modifiers == null)
+                return null;
+
+            return key.Modifiers.FirstOrDefault(m => string.Equals(m.Key, modifierKey, StringComparison.OrdinalIgnoreCase))?.Value;
         }
     }
 }
