@@ -397,6 +397,7 @@ public class PricesController : ControllerBase
     /// Returns how much prices changed in the last 24 hours for all requested items
     /// </summary>
     [HttpGet("prices/change")]
+    [ResponseCache(Duration = 3600, Location = ResponseCacheLocation.Any, NoStore = false, VaryByQueryKeys = new string[] { "itemTags" })]
     public async Task<Dictionary<string, Crafts.Client.Model.DropStatistic>> GetPriceChanges([FromQuery] List<string> itemTags, [FromServices] IDropApi dropApi)
     {
         var dropData = await dropApi.GetAllDropsAsync();
