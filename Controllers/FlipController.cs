@@ -201,6 +201,7 @@ namespace Coflnet.Sky.Api.Controller
         }
         [Route("mayor")]
         [HttpGet]
+        [Authorize]
         [ResponseCache(Duration = 20, Location = ResponseCacheLocation.Any, NoStore = false)]
         public async Task<IEnumerable<MayorDiffFlip>> GetmayordiffFlips()
         {
