@@ -202,10 +202,10 @@ namespace Coflnet.Sky.Api.Controller
         [Route("mayor")]
         [HttpGet]
         [Authorize]
-        [ResponseCache(Duration = 20, Location = ResponseCacheLocation.Any, NoStore = false)]
+        [ResponseCache(Duration = 600, Location = ResponseCacheLocation.Any, NoStore = false)]
         public async Task<IEnumerable<MayorDiffFlip>> GetmayordiffFlips()
         {
-            if (!await premiumTierService.HasPremiumPlus(this))
+            if (!await premiumTierService.HasPremium(this))
                 throw new CoflnetException("no_premium",
                     "Sorry this feature is only available for premium users.");
             var dtoFormat = await bazaarFlipperApi.MayorDiffsGetAsync();
