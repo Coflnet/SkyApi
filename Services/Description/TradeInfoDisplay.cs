@@ -69,8 +69,26 @@ public class TradeInfoDisplay : ICustomModifier
             data.mods[39].Insert(0, new(DescModification.ModType.REPLACE, 0, $"{McColorCodes.RED}You are sending way more coins"));
             data.mods[39].Insert(0, new(DescModification.ModType.INSERT, 1, $"{McColorCodes.RED}than you are receiving! {McColorCodes.OBFUSCATED}A"));
         }
-        if (receiveSum == 0 || !likelyLowballing)
+        if (receiveSum == 0)
+        {
             return;
+        }
+        if (data.inventory.Settings.DisableInfoIn?.Contains("Trade") ?? false)
+            return;
+        if (!likelyLowballing)
+        {
+            var youEarnPercent = (int)(100 * (receiveSum - sendSum) / (double)receiveSum);
+            var valueDisplay = new List<DescModification>()
+            {
+                new ("SkyCofl price comparison"),
+                new ($"Receive {McColorCodes.GOLD}{data.modService.FormatNumber(receiveSum)}{McColorCodes.GRAY} coins"),
+                new ($"Send {McColorCodes.GOLD}{data.modService.FormatNumber(sendSum)}{McColorCodes.GRAY} coins"),
+                new ($"You earn {McColorCodes.GREEN}{youEarnPercent}%{McColorCodes.GRAY}"),
+                new ($"{McColorCodes.GRAY}Hover items to see their worth"),
+            };
+            data.mods.Add(valueDisplay);
+            return;
+        }
         var extraInfo = new List<DescModification>()
         {
             new ("Looks like you are lowballing")
@@ -78,10 +96,23 @@ public class TradeInfoDisplay : ICustomModifier
         data.mods.Add(extraInfo);
         if (data.accountInfo.ExpiresAt < DateTime.UtcNow || data.accountInfo.Tier < AccountTier.PREMIUM)
         {
-            extraInfo.Add(new($"{McColorCodes.GRAY}With premium we will suggest"));
-            extraInfo.Add(new($"{McColorCodes.GRAY}a lowball price automatically"));
-            extraInfo.Add(new($"{McColorCodes.GRAY}looks like you don't currently"));
-            extraInfo.Add(new($"{McColorCodes.GRAY}have SkyCofl premium :("));
+            var lines = new string[]
+            {
+                "With premium we will suggest",
+                "a lowball price automatically",
+                "looks like you don't currently",
+                "have SkyCofl premium :("
+            };
+            foreach (var line in lines)
+                extraInfo.Add(new LoreBuilder()
+                    .AddText($"{McColorCodes.GRAY}With premium we will suggest",
+                        "Supporting us by buying premium\n"
+                      + "helps us pay for upkeep and servers\n"
+                      + "and gives you extra features\n"
+                      + $"{McColorCodes.YELLOW}Click to see options\n"
+                      + $"{McColorCodes.GRAY}/cofl set loreDisableIn Trade"
+                      + $"{McColorCodes.GRAY}To disable this display", "/cofl buy").BuildLine());
+
             return;
         }
         if (data.inventory.Settings.LowballMedUndercut == 100)

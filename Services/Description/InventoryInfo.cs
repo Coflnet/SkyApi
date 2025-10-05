@@ -114,6 +114,10 @@ public class LoreBuilder
     {
         return System.Text.Json.JsonSerializer.Serialize(components);
     }
+    public Models.Mod.DescModification BuildLine()
+    {
+        return new(System.Text.Json.JsonSerializer.Serialize(components));
+    }
 }
 
 public class LoreComponent
