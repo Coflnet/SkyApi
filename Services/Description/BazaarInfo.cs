@@ -72,9 +72,10 @@ public class BazaarInfo : ICustomModifier
             line.Append(" " + McColorCodes.RED);
             line.Append(FormatCoins((long)spread.SellPrice));
             line.Append("§7 -> " + McColorCodes.GREEN);
-            line.Append(FormatCoins((long)spread.BuyPrice)); ;
+            line.Append(FormatCoins((long)spread.BuyPrice));
+            var command = data.inventory.Settings.NoCookie ? $"/cofl bazaarsearch {name}" : $"/bz {name}";
             var builder = new LoreBuilder()
-                .AddText(line.ToString(), $"Click to view {McColorCodes.AQUA}{name}", $"/bz {name}");
+                .AddText(line.ToString(), $"Click to view {McColorCodes.AQUA}{name}", command);
             display.Add(new(builder.Build()));
         }
     }
