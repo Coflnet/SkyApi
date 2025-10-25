@@ -273,7 +273,8 @@ public class ModDescriptionService : IDisposable
         if (inventory.ChestName == "Game Menu" || !hasSkyblockMenu)
         {
             logger.LogInformation("Skipping game menu " + hasSkyblockMenu);
-            return new List<List<DescModification>>(auctionRepresent.Count).Select(_ => new List<DescModification>());
+            // Return an enumerable with the same number of empty modification-lists as auctions
+            return Enumerable.Range(0, auctionRepresent.Count).Select(_ => new List<DescModification>());
         }
 
         var result = new List<List<DescModification>>();
@@ -286,7 +287,13 @@ public class ModDescriptionService : IDisposable
                 (inventory.Settings.HighlightInfo?.Position?.Equals(inventory.Position) ?? false)))
             {
                 // add info about the chestname
-                result[inventory.Settings.HighlightInfo.SlotId].Add(new(DescModification.ModType.HIGHLIGHT, 0, inventory.Settings.HighlightInfo.HexColor));
+                var slotId = inventory.Settings.HighlightInfo.SlotId;
+                // ensure the result list has enough slots
+                while (result.Count <= slotId)
+                {
+                    result.Add(new List<DescModification>());
+                }
+                result[slotId].Add(new(DescModification.ModType.HIGHLIGHT, 0, inventory.Settings.HighlightInfo.HexColor));
                 Console.WriteLine($"Highlighting {inventory.Settings.HighlightInfo.Chestname} at {inventory.Settings.HighlightInfo.Position} with color {inventory.Settings.HighlightInfo.HexColor}");
             }
         }
@@ -336,11 +343,11 @@ public class ModDescriptionService : IDisposable
 
     public class PreRequestContainer
     {
-        public List<(SaveAuction auction, string[] desc)> auctionRepresent;
-        public List<List<DescModification>> result;
-        public InventoryDataWithSettings inventory;
+        public List<(SaveAuction auction, string[] desc)>? auctionRepresent;
+        public List<List<DescModification>>? result;
+        public InventoryDataWithSettings? inventory;
         public Dictionary<string, Task<string>> ToLoad = new();
-        public string mcName;
+        public string? mcName;
     }
 
     private async Task ComputeDescriptions(InventoryDataWithSettings inventory, string mcName, string sessionId, List<(SaveAuction auction, string[] desc)> auctionRepresent, List<List<DescModification>> result)
