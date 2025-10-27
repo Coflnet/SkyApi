@@ -94,7 +94,8 @@ public class ListPriceRecommend : ICustomModifier
             priceSource = McColorCodes.GREEN + "last listings of item";
         }
         else if (priceEst.Lbin.Price > priceEst.Median && priceEst.LbinKey == priceEst.ItemKey
-            && priceEst.Volume > 3 && (priceEst.Volatility < 10 || priceEst.Volatility < 30 && priceEst.Volume > 15))
+            && priceEst.Volume > 3 && (priceEst.Volatility < 10 || priceEst.Volatility < 30 && priceEst.Volume > 15)
+            && !data.inventory.Settings.PreferLbinInSuggestions)
         {
             suggestedPrice = (long)(priceEst.Lbin.Price * 0.995);
             priceSource = "matching lbin";
