@@ -13,6 +13,7 @@ using Coflnet.Sky.Api.Services;
 using Prometheus;
 using Coflnet.Sky.Commands;
 using Microsoft.Extensions.Logging;
+using Coflnet.Sky.ModCommands.Client.Api;
 
 namespace Coflnet.Sky.Api.Controller;
 /// <summary>
@@ -56,7 +57,7 @@ public class DataController : ControllerBase
     /// <returns></returns>
     [Route("proxy")]
     [HttpPost]
-    public async Task<string> UploadProxied()
+    public async Task<string> UploadProxied([FromServices] IProxyApi proxyApi)
     {
         Request.Headers.TryGetValue("X-Request-Id", out var id);
         // Unzip the body if it is compressed
@@ -71,6 +72,11 @@ public class DataController : ControllerBase
         else
             body = await new System.IO.StreamReader(Request.Body).ReadToEndAsync();
         logger.LogInformation($"Received proxy data {id} {body.Truncate(100)}");
+        await proxyApi.ApiProxyResponsePostAsync(new ModCommands.Client.Model.ProxyResponseDto()
+        {
+            ResponseBody = body,
+            Id = id,
+        });
         return "received " + id;
     }
     /// <summary>
