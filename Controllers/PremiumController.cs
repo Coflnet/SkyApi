@@ -167,6 +167,23 @@ namespace Coflnet.Sky.Api.Controller
             }
         }
 
+        [Route("topup/playstore")]
+        [HttpPost]
+        [Microsoft.AspNetCore.Authorization.Authorize]
+        public async Task<ActionResult<bool>> StartTopUpPlayStore([FromBody] GooglePlayPurchaseRequest args, [FromServices] IGooglePayApi googlePayApi)
+        {
+            var user = await GetUserOrDefault();
+            if (user == default)
+                return Unauthorized("no googletoken header");
+            var result = await googlePayApi.ApiGooglePayVerifyPostAsync(args);
+            if (!result.IsValid)
+            {
+                logger.LogWarning("Invalid google play purchase for user {userId}: {errorMessage}", user.Id, result.ErrorMessage);
+                return BadRequest(result.ErrorMessage);
+            }
+            return result.IsValid;
+        }
+
         /// <summary>
         /// Start a new topup session with lemonsqueezy
         /// </summary>
