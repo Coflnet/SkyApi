@@ -166,19 +166,34 @@ namespace Coflnet.Sky.Api.Controller
                 throw;
             }
         }
-
+        
+        
         [Route("topup/playstore")]
         [HttpPost]
         [Microsoft.AspNetCore.Authorization.Authorize]
-        public async Task<ActionResult<bool>> StartTopUpPlayStore([FromBody] GooglePlayPurchaseRequest args, [FromServices] IGooglePayApi googlePayApi)
+        public async Task<ActionResult<PlaystorTopup>> StartTopUpPlayStore()
         {
             var user = await GetUserOrDefault();
             if (user == default)
                 return Unauthorized("no googletoken header");
+            return new PlaystorTopup(){
+                UserId = user.Id.ToString()
+            };
+        }
+
+        public class PlaystorTopup
+        {
+            public string UserId { get; set; }
+        }
+
+        [Route("topup/playstore/complete")]
+        [HttpPost]
+        public async Task<ActionResult<bool>> CompleteTopUpPlayStore([FromBody] GooglePlayPurchaseRequest args, [FromServices] IGooglePayApi googlePayApi)
+        {
             var result = await googlePayApi.ApiGooglePayVerifyPostAsync(args);
             if (!result.IsValid)
             {
-                logger.LogWarning("Invalid google play purchase for user {userId}: {errorMessage}", user.Id, result.ErrorMessage);
+                logger.LogWarning("Invalid google play purchase for user {userId}: {errorMessage}", args.UserId, result.ErrorMessage);
                 return BadRequest(result.ErrorMessage);
             }
             return result.IsValid;
