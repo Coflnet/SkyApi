@@ -122,7 +122,10 @@ namespace Coflnet.Sky.Api.Controller
                 TopUpAmount = args.CoinAmount,
                 UserIp = realIp,
                 Fingerprint = fingerprint,
-                Locale = locale
+                Locale = locale,
+                CreatorCode = args.CreatorCode,
+                SuccessUrl = args.SuccessUrl,
+                CancelUrl = args.CancelUrl
             };
             return options;
         }
@@ -436,7 +439,7 @@ namespace Coflnet.Sky.Api.Controller
         [Route("premium/subscription/{subscriptionSlug}")]
         [HttpPost]
         [Microsoft.AspNetCore.Authorization.Authorize]
-        public async Task<ActionResult<TopUpIdResponse>> PurchaseServiceSubscription(string subscriptionSlug)
+        public async Task<ActionResult<TopUpIdResponse>> PurchaseServiceSubscription(string subscriptionSlug, string creatorCode = null)
         {
             var user = await GetUserOrDefault();
             if (user == default)
@@ -444,6 +447,7 @@ namespace Coflnet.Sky.Api.Controller
             try
             {
                 TopUpOptions options = GetOptions(new(), user);
+                options.CreatorCode = creatorCode;
                 var link = await topUpApi.TopUpLemonsqueezySubscribePostAsync(user.Id.ToString(), subscriptionSlug, options);
                 return Ok(link);
             }

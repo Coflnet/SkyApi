@@ -17,4 +17,8 @@ public class TopUpArguments
     /// The url to redirect to when user aborts payment
     /// </summary>
     public string CancelUrl { get; set; }
+    /// <summary>
+    /// An optional creator code to apply to the purchase
+    /// </summary>
+    public string CreatorCode { get; set; }
 }
