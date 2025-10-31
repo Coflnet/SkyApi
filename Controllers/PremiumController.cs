@@ -166,8 +166,8 @@ namespace Coflnet.Sky.Api.Controller
                 throw;
             }
         }
-        
-        
+
+
         [Route("topup/playstore")]
         [HttpPost]
         [Microsoft.AspNetCore.Authorization.Authorize]
@@ -176,7 +176,8 @@ namespace Coflnet.Sky.Api.Controller
             var user = await GetUserOrDefault();
             if (user == default)
                 return Unauthorized("no googletoken header");
-            return new PlaystorTopup(){
+            return new PlaystorTopup()
+            {
                 UserId = user.Id.ToString()
             };
         }
@@ -197,6 +198,19 @@ namespace Coflnet.Sky.Api.Controller
                 return BadRequest(result.ErrorMessage);
             }
             return result.IsValid;
+        }
+
+        [Route("topup/rates")]
+        [HttpPost]
+        [Microsoft.AspNetCore.Authorization.Authorize]
+        public async Task<ActionResult<BatchProductPricingResponse>> GetPriceRate([FromBody] BatchPricingRequest request,
+            [FromServices] ICreatorCodeApi creatorCodeApi)
+        {
+            var user = await GetUserOrDefault();
+            if (user == default)
+                return Unauthorized("no googletoken header");
+            var response = await creatorCodeApi.ApiCreatorCodePricingBatchPostAsync(request);
+            return response;
         }
 
         /// <summary>
