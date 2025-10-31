@@ -203,14 +203,26 @@ namespace Coflnet.Sky.Api.Controller
         [Route("topup/rates")]
         [HttpPost]
         [Microsoft.AspNetCore.Authorization.Authorize]
-        public async Task<ActionResult<BatchProductPricingResponse>> GetPriceRate([FromBody] BatchPricingRequest request,
+        public async Task<ActionResult<BatchProductPricingResponse>> GetPriceRate([FromBody] PricingRequest request,
             [FromServices] ICreatorCodeApi creatorCodeApi)
         {
             var user = await GetUserOrDefault();
             if (user == default)
                 return Unauthorized("no googletoken header");
-            var response = await creatorCodeApi.ApiCreatorCodePricingBatchPostAsync(request);
+            var response = await creatorCodeApi.ApiCreatorCodePricingBatchPostAsync(new()
+            {
+                CountryCode = request.CountryCode,
+                CreatorCode = request.CreatorCode,
+                ProductSlugs = request.ProductSlugs
+            });
             return response;
+        }
+
+        public class PricingRequest
+        {
+            public List<string> ProductSlugs { get; set; }
+            public string CountryCode { get; set; }
+            public string? CreatorCode { get; set; }
         }
 
         /// <summary>
