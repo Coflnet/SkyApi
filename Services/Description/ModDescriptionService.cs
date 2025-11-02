@@ -834,6 +834,9 @@ public class ModDescriptionService : IDisposable
             case DescriptionField.ColorCode:
                 AddColorCode(auction, builder);
                 break;
+            case DescriptionField.AiEstimate:
+                AddAiEstimate(auction, builder, price);
+                break;
             case DescriptionField.NONE:
                 break; // ignore
             default:
@@ -841,6 +844,16 @@ public class ModDescriptionService : IDisposable
                     logger.LogError("Invalid description type " + item);
                 break;
         }
+    }
+
+    private void AddAiEstimate(SaveAuction auction, StringBuilder builder, Sniper.Client.Model.PriceEstimate estimate)
+    {
+        if (estimate.SelfLearningEstimatedValue <= 0)
+        {
+            builder.Append($"{McColorCodes.GRAY}AI Estimate: {McColorCodes.ITALIC}none");
+            return;
+        }
+        builder.Append($"{McColorCodes.GRAY}AI Estimate: {McColorCodes.YELLOW}{estimate.SelfLearningEstimatedValue} ");
     }
 
     private void AddColorCode(SaveAuction auction, StringBuilder builder)
