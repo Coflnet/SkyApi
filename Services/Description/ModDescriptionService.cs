@@ -371,10 +371,11 @@ public class ModDescriptionService : IDisposable
                 logger.LogError(e, "failed to use custom pre modifier " + item.Key);
             }
         }
-        var pricesTask = GetPrices(auctionRepresent.Select(a => a.auction));
         CheckUpToDateCache();
 
         var (userSettings, userInfo) = await GetSettingForConid(mcName, sessionId);
+        var pricesTask = GetPrices(auctionRepresent.Select(a => a.auction), userSettings.Fields.Any(f => f.Contains(DescriptionField.AiEstimate)));
+        
         List<Item> items = new();
         try
         {
@@ -1638,9 +1639,9 @@ public class ModDescriptionService : IDisposable
         return true;
     }
 
-    public async Task<List<Sniper.Client.Model.PriceEstimate>> GetPrices(IEnumerable<SaveAuction> auctionRepresent)
+    public async Task<List<Sniper.Client.Model.PriceEstimate>> GetPrices(IEnumerable<SaveAuction> auctionRepresent, bool includeAi = false)
     {
-        return await sniperClient.GetPrices(auctionRepresent);
+        return await sniperClient.GetPrices(auctionRepresent, includeAi);
     }
 
     public string FormatNumber(double price)
