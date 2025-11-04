@@ -854,7 +854,7 @@ public class ModDescriptionService : IDisposable
             builder.Append($"{McColorCodes.GRAY}AI Estimate: {McColorCodes.ITALIC}none");
             return;
         }
-        builder.Append($"{McColorCodes.GRAY}AI Estimate: {McColorCodes.YELLOW}{estimate.SelfLearningEstimatedValue} ");
+        builder.Append($"{McColorCodes.GRAY}AI Estimate: {McColorCodes.YELLOW}{FormatNumber(estimate.SelfLearningEstimatedValue)} ");
     }
 
     private void AddColorCode(SaveAuction auction, StringBuilder builder)
