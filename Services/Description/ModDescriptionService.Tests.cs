@@ -158,7 +158,8 @@ public class ModDescriptionServiceTests
 
         var price = new Coflnet.Sky.Sniper.Client.Model.PriceEstimate { Median = 1000000, ItemKey = "item_key", MedianKey = "median_key" };
 
-        sniperClient.Setup(s => s.GetPrices(It.IsAny<IEnumerable<SaveAuction>>(), It.IsAny<bool>())).Returns<IEnumerable<SaveAuction>>(s => Task.FromResult(Enumerable.Repeat(price, s.Count()).ToList()));
+        sniperClient.Setup(s => s.GetPrices(It.IsAny<IEnumerable<SaveAuction>>(), default))
+            .Returns<IEnumerable<SaveAuction>, bool>((s, ai) => Task.FromResult(Enumerable.Repeat(price, s.Count()).ToList()));
 
         var res = await service.GetModifications(GetMockInventory(), "test", "test");
         var result = res.ToList();

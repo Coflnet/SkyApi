@@ -373,7 +373,7 @@ public class ModDescriptionService : IDisposable
         }
         CheckUpToDateCache();
 
-        var (userSettings, userInfo) = await GetSettingForConid(mcName, sessionId);
+        var (userSettings, userInfo) = await GetSettingForConid(mcName, sessionId, inventory.Settings);
         var pricesTask = GetPrices(auctionRepresent.Select(a => a.auction), userSettings.Fields.Any(f => f.Contains(DescriptionField.AiEstimate)));
         
         List<Item> items = new();
@@ -679,10 +679,10 @@ public class ModDescriptionService : IDisposable
         return NBT.UidToLong(u.Substring(u.Length - 12));
     }
 
-    private async Task<(DescriptionSetting, AccountInfo)> GetSettingForConid(string playeruuid, string sessionId)
+    private async Task<(DescriptionSetting, AccountInfo)> GetSettingForConid(string playeruuid, string sessionId, DescriptionSetting requestSettings)
     {
         if (string.IsNullOrEmpty(sessionId) && !IsDevMode)
-            return (DescriptionSetting.Default, new());
+            return (requestSettings ?? DescriptionSetting.Default, new());
         if (settings.ContainsKey(sessionId))
             return (settings[sessionId].Item1.Value, settings[sessionId].Item2.Value);
         var conId = idConverter.ComputeConnectionId(playeruuid, sessionId).Item2;
