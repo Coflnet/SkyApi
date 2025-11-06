@@ -171,21 +171,21 @@ namespace Coflnet.Sky.Api.Controller
         [Route("bazaar/spread/deemand")]
         [HttpGet]
         [Authorize]
-        [ResponseCache(Duration = 20, Location = ResponseCacheLocation.Any, NoStore = false)]
+        [ResponseCache(NoStore = true, Location = ResponseCacheLocation.None, Duration = 0)]
         public async Task<IEnumerable<DemandSpreadFlip>> GetDemandBazaarFlps()
         {
             if (!await premiumTierService.HasPremium(this))
-                throw new CoflnetException("no_premium",
-                    "Sorry this feature is only available for premium users.");
+            throw new CoflnetException("no_premium",
+                "Sorry this feature is only available for premium users.");
             var flips = await bazaarFlipperApi.DemandGetAsync();
             var names = (await itemsApi.ItemNamesGetAsync()).ToDictionary(i => i.Tag, i => i.Name);
             return flips.Select(f =>
             {
-                return new DemandSpreadFlip
-                {
-                    Flip = f,
-                    ItemName = names[f.ItemTag],
-                };
+            return new DemandSpreadFlip
+            {
+                Flip = f,
+                ItemName = names[f.ItemTag],
+            };
             });
         }
 
