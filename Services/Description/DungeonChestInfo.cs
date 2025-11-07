@@ -110,6 +110,7 @@ public class DungeonChestInfo : ICustomModifier
         desc.Add(new Models.Mod.DescModification(McColorCodes.GRAY + $"It would profit you {McColorCodes.WHITE}" + ModDescriptionService.FormatPriceShort(FlipInstance.ProfitAfterFees(medValues, coins))));
         desc.Add(new Models.Mod.DescModification(McColorCodes.GRAY + "Please let us know what you think"));
         desc.Add(new Models.Mod.DescModification(McColorCodes.GRAY + "about the estimate on SkyCofl discord!"));
+        Console.WriteLine("Dungeon chest mods: " + JsonConvert.SerializeObject(desc));
 
         data.mods.Add(desc);
     }
