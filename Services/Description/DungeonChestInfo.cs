@@ -54,7 +54,7 @@ public class DungeonChestInfo : ICustomModifier
 
         // Build a per-item breakdown: iterate over auctionRepresent and list non-null items
         var breakdown = new List<Models.Mod.DescModification>();
-        for (int i = 0; i < target.Count; i++)
+        for (int i = 0; i < 9 * 3; i++)
         {
             var entry = target[i];
             var auc = entry.auction;
@@ -68,16 +68,16 @@ public class DungeonChestInfo : ICustomModifier
             }
             else
             {
-                est = data.GetItemprice(auc.Tag);
+                var count = auc.Count <= 0 ? 1 : auc.Count;
+                est = data.GetItemprice(auc.Tag) * count;
             }
 
             // Multiply by count if present
-            var count = auc.Count <= 0 ? 1 : auc.Count;
-            var totalForItem = est * count;
+            var totalForItem = est;
 
             // Create a readable item name (fall back to tag when itemName is null/empty)
             var itemName = string.IsNullOrWhiteSpace(auc.ItemName) ? auc.Tag : auc.ItemName;
-            breakdown.Add(new Models.Mod.DescModification(McColorCodes.GRAY + itemName + " x" + count + " " + McColorCodes.WHITE + ModDescriptionService.FormatPriceShort(totalForItem)));
+            breakdown.Add(new Models.Mod.DescModification(McColorCodes.GRAY + itemName + (auc.Count > 1 ? " x" + auc.Count : "") + " " + McColorCodes.WHITE + ModDescriptionService.FormatPriceShort(totalForItem)));
         }
 
         var desc = new List<Models.Mod.DescModification>()
