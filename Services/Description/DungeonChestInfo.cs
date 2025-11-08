@@ -12,25 +12,7 @@ public class DungeonChestInfo : ICustomModifier
         // Total estimated value of chest contents (first 5 rows x 9 as before)
         var target = data.auctionRepresent.Take(5 * 9).ToList();
         Console.WriteLine("Dungeon chest content: " + JsonConvert.SerializeObject(target));
-        long medValues = 0;
-        for (int i = 0; i < target.Count; i++)
-        {
-            var auc = target[i].auction;
-            if (auc == null) continue;
-
-            long est = 0;
-            if (i < (data.PriceEst?.Count ?? 0) && data.PriceEst[i] != null)
-            {
-                est = data.PriceEst[i].Median;
-            }
-            else
-            {
-                est = data.GetItemprice(auc.Tag);
-            }
-
-            var count = auc.Count <= 0 ? 1 : auc.Count;
-            medValues += est * count;
-        }
+        long itemValueSum = 0;
 
         // Parse coin cost from the cost slot and detect whether a Dungeon Chest Key is listed
         int coins = GetCostFromDungeonChest(target);
@@ -74,6 +56,7 @@ public class DungeonChestInfo : ICustomModifier
 
             // Multiply by count if present
             var totalForItem = est;
+            itemValueSum += totalForItem;
 
             // Create a readable item name (fall back to tag when itemName is null/empty)
             var itemName = string.IsNullOrWhiteSpace(auc.ItemName) ? auc.Tag : auc.ItemName;
@@ -82,7 +65,7 @@ public class DungeonChestInfo : ICustomModifier
 
         var desc = new List<Models.Mod.DescModification>()
         {
-            new(McColorCodes.GRAY + "This chest contains items worth " + McColorCodes.WHITE + ModDescriptionService.FormatPriceShort(medValues)),
+            new(McColorCodes.GRAY + "This chest contains items worth " + McColorCodes.WHITE + ModDescriptionService.FormatPriceShort(itemValueSum)),
         };
 
         // Insert per-item breakdown (limit to a reasonable number to avoid huge lore)
@@ -107,7 +90,7 @@ public class DungeonChestInfo : ICustomModifier
             desc.Add(new Models.Mod.DescModification(McColorCodes.GRAY + "Includes Dungeon Chest Key (est) " + McColorCodes.WHITE + ModDescriptionService.FormatPriceShort(keyCost)));
         }
 
-        desc.Add(new Models.Mod.DescModification(McColorCodes.GRAY + $"It would profit you {McColorCodes.WHITE}" + ModDescriptionService.FormatPriceShort(FlipInstance.ProfitAfterFees(medValues, coins))));
+        desc.Add(new Models.Mod.DescModification(McColorCodes.GRAY + $"It would profit you {McColorCodes.WHITE}" + ModDescriptionService.FormatPriceShort(FlipInstance.ProfitAfterFees(itemValueSum, coins))));
         desc.Add(new Models.Mod.DescModification(McColorCodes.GRAY + "Please let us know what you think"));
         desc.Add(new Models.Mod.DescModification(McColorCodes.GRAY + "about the estimate on SkyCofl discord!"));
         Console.WriteLine("Dungeon chest mods: " + JsonConvert.SerializeObject(desc));
