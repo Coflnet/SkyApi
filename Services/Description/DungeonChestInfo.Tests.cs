@@ -176,8 +176,8 @@ namespace Coflnet.Sky.Api.Services.Description.Tests
             priceEst[12] = new Sniper.Client.Model.PriceEstimate { Median = 1_000_000 };
             priceEst[14] = new Sniper.Client.Model.PriceEstimate { Median = 1_000_000 };
             // essences: small per-unit medians
-            priceEst[15] = new Sniper.Client.Model.PriceEstimate { Median = 500 }; // undead essence
-            priceEst[16] = new Sniper.Client.Model.PriceEstimate { Median = 600 }; // wither essence
+            priceEst[15] = new Sniper.Client.Model.PriceEstimate { Median = 54_000 }; // undead essence
+            priceEst[16] = new Sniper.Client.Model.PriceEstimate { Median = 49_200 }; // wither essence
             data.PriceEst = priceEst;
 
             // No bazaar key in this chest; set bazaarPrices empty
