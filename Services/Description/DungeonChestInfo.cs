@@ -63,34 +63,47 @@ public class DungeonChestInfo : ICustomModifier
             breakdown.Add(new Models.Mod.DescModification(McColorCodes.GRAY + itemName + (auc.Count > 1 ? " x" + auc.Count : "") + " " + McColorCodes.WHITE + ModDescriptionService.FormatPriceShort(totalForItem)));
         }
 
-        var desc = new List<Models.Mod.DescModification>()
-        {
-            new(McColorCodes.GRAY + "This chest contains items worth " + McColorCodes.WHITE + ModDescriptionService.FormatPriceShort(itemValueSum)),
-        };
-
-        // Insert per-item breakdown (limit to a reasonable number to avoid huge lore)
+        // Build hover with detailed calculation (contents breakdown, costs, key cost and profit)
+        var hover = new System.Text.StringBuilder();
         if (breakdown.Count > 0)
         {
-            desc.Add(new Models.Mod.DescModification(McColorCodes.GRAY + "Contents breakdown:"));
-            // add up to first 20 entries to keep description concise
-            foreach (var line in breakdown.Take(20))
+            hover.AppendLine("Contents breakdown:");
+            foreach (var line in breakdown.Take(50))
             {
-                desc.Add(line);
+                // strip leading formatting codes for hover readability
+                var cleaned = System.Text.RegularExpressions.Regex.Replace(line.Value, "§.", "");
+                hover.AppendLine(cleaned);
             }
-            if (breakdown.Count > 20)
+            if (breakdown.Count > 50)
             {
-                desc.Add(new Models.Mod.DescModification(McColorCodes.GRAY + "...and more"));
+                hover.AppendLine("...and more");
             }
         }
-
-        // Show cost lines: chest coins, optional key cost, and total
-        desc.Add(new Models.Mod.DescModification(McColorCodes.GRAY + "It costs " + McColorCodes.WHITE + ModDescriptionService.FormatPriceShort(coins)));
+        hover.AppendLine();
+        hover.AppendLine("Cost lines:");
+        hover.AppendLine($"It costs {ModDescriptionService.FormatPriceShort(coins)}");
         if (hasKey)
         {
-            desc.Add(new Models.Mod.DescModification(McColorCodes.GRAY + "Includes Dungeon Chest Key (est) " + McColorCodes.WHITE + ModDescriptionService.FormatPriceShort(keyCost)));
+            hover.AppendLine($"Includes Dungeon Chest Key (est) {ModDescriptionService.FormatPriceShort(keyCost)}");
         }
 
-        desc.Add(new Models.Mod.DescModification(McColorCodes.GRAY + $"It would profit you {McColorCodes.WHITE}" + ModDescriptionService.FormatPriceShort(FlipInstance.ProfitAfterFees(itemValueSum, coins))));
+        var profit = FlipInstance.ProfitAfterFees(itemValueSum, coins);
+        hover.AppendLine();
+        hover.AppendLine($"Profit after fees: {ModDescriptionService.FormatPriceShort(profit)}");
+
+        var desc = new List<Models.Mod.DescModification>();
+        // Create the visible chest total line with hover
+        var builderTotal = new LoreBuilder().AddText(McColorCodes.GRAY + "This chest contains items worth " + McColorCodes.WHITE + ModDescriptionService.FormatPriceShort(itemValueSum), hover.ToString());
+        desc.Add(new Models.Mod.DescModification(builderTotal.Build()));
+
+        // visible cost line (short) and profit line with the same hover details
+        desc.Add(new LoreBuilder().AddText(McColorCodes.GRAY + "It costs " + McColorCodes.WHITE + ModDescriptionService.FormatPriceShort(coins),
+            hasKey ? (McColorCodes.GRAY + "Includes Dungeon Chest Key (est) " + McColorCodes.WHITE + ModDescriptionService.FormatPriceShort(keyCost)) : "").BuildLine());
+
+
+        var builderProfit = new LoreBuilder().AddText(McColorCodes.GRAY + $"It would profit you {McColorCodes.WHITE}" + ModDescriptionService.FormatPriceShort(profit), hover.ToString());
+        desc.Add(builderProfit.BuildLine());
+
         desc.Add(new Models.Mod.DescModification(McColorCodes.GRAY + "Please let us know what you think"));
         desc.Add(new Models.Mod.DescModification(McColorCodes.GRAY + "about the estimate on SkyCofl discord!"));
         Console.WriteLine("Dungeon chest mods: " + JsonConvert.SerializeObject(desc));
