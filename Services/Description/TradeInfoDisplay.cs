@@ -105,7 +105,7 @@ public class TradeInfoDisplay : ICustomModifier
             };
             foreach (var line in lines)
                 extraInfo.Add(new LoreBuilder()
-                    .AddText($"{McColorCodes.GRAY}With premium we will suggest",
+                    .AddText($"{McColorCodes.GRAY}{line}",
                         "Supporting us by buying premium\n"
                       + "helps us pay for upkeep and servers\n"
                       + "and gives you extra features\n"
