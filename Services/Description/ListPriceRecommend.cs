@@ -60,7 +60,7 @@ public class ListPriceRecommend : ICustomModifier
         if (priceEst.MedianKey.Replace("&comb", "") != priceEst.ItemKey && priceInfo.Recommended.Value <= 0)
         {
             data.mods.Add([
-                new DescModification("This item has little simlar sells,"),
+                new DescModification("item has too few similar sales"),
                 new DescModification("so we can't give you a price suggestion."),
                 new DescModification($"{McColorCodes.GRAY}Estimated value: {McColorCodes.WHITE}" + ModDescriptionService.FormatPriceShort(priceEst.Median)),
             ]);
