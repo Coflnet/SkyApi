@@ -1540,12 +1540,18 @@ public class ModDescriptionService : IDisposable
                 {
                     // TODO: maybe parse "§aRabbit Dog§8 - §7[21§7] §aEmployee" and "§9Rabbit Cousin§8 - §7[75§7] §9Assistant"
                     var name = NBT.GetName(compound);
-                    if (compound?.Get<NbtString>("id").StringValue == "minecraft:arrow" && name == "§aGo Back")
+                    var typeId = compound?.Get<NbtString>("id").StringValue;
+                    if(typeId == "minecraft:black_stained_glass_pane")
+                    {
+                        // empty slot in menu
+                        return (null, []);
+                    }
+                    if (typeId == "minecraft:arrow" && name == "§aGo Back")
                     {
                         // this is the go back arrow of the menu, use it as marker
                         return (new SaveAuction() { Tag = "GO_BACK", ItemName = "§aGo Back" }, new string[0]);
                     }
-                    if (compound?.Get<NbtString>("id").StringValue == "minecraft:enchanted_book")
+                    if (typeId == "minecraft:enchanted_book")
                     {
                         // continue for bazaar orders (they don't have an id) we create a virtual one
                     }
