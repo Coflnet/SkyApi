@@ -96,6 +96,7 @@ public class TradeInfoDisplay : ICustomModifier
         data.mods.Add(extraInfo);
         if (data.accountInfo.ExpiresAt < DateTime.UtcNow || data.accountInfo.Tier < AccountTier.PREMIUM)
         {
+            Console.WriteLine($"Lowballcheck for {data.accountInfo.UserId} no premium {data.accountInfo.Tier} expires at {data.accountInfo.ExpiresAt}");
             var lines = new string[]
             {
                 "With premium we will suggest",
