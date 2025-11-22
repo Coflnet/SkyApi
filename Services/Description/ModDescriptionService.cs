@@ -1541,7 +1541,7 @@ public class ModDescriptionService : IDisposable
                     // TODO: maybe parse "§aRabbit Dog§8 - §7[21§7] §aEmployee" and "§9Rabbit Cousin§8 - §7[75§7] §9Assistant"
                     var name = NBT.GetName(compound);
                     var typeId = compound?.Get<NbtString>("id").StringValue;
-                    if(typeId == "minecraft:black_stained_glass_pane")
+                    if(typeId == "minecraft:black_stained_glass_pane" || name == null)
                     {
                         // empty slot in menu
                         return (null, []);
