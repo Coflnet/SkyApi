@@ -700,7 +700,12 @@ public class ModDescriptionService : IDisposable
             userSettings = updatingSettings.Value;
             if (settings.Count > 1000)
             {
-                settings.Clear();
+                // Remove the oldest 100 entries (where premium expires first)
+                var toRemove = settings.OrderBy(s=>s.Value.Item2.Value.ExpiresAt).Select(s=>s.Key).Take(100).ToList();
+                foreach (var key in toRemove)
+                {
+                    settings.TryRemove(key, out _);
+                }
             }
         }
         else
