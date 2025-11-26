@@ -231,11 +231,14 @@ namespace Coflnet.Sky.Api.Controller
         [Route("npc")]
         [HttpGet]
         [ResponseCache(Duration = 20, Location = ResponseCacheLocation.Any, NoStore = false)]
-        public async Task<IEnumerable<ProfitableCraft>> GetNpcFlips([FromServices] ICraftsApi craftsApi)
+        public async Task<IEnumerable<ReverseNpcFlip>> GetNpcFlips([FromServices] INpcApi npcApi)
         {
-            var full = await craftsApi.GetProfitableNpcWithHttpInfoAsync();
-            return Newtonsoft.Json.JsonConvert.DeserializeObject<List<ProfitableCraft>>(full.RawContent);
+            return await npcApi.GetReverseNpcFlipsAsync();
         }
+
+        /// <summary>
+        /// Get reverse npc flips (buy items and instasell to npc for guranteed profit)
+        /// </summary>
         [Route("npc/reverse")]
         [HttpGet]
         [Authorize]
