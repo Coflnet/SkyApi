@@ -44,10 +44,10 @@ public class BazaarInfo : ICustomModifier
         {
             var line = new StringBuilder();
             line.Append("§a● §6");
-            line.Append(craft.Craft.ItemName);
+            line.Append(craft.Craft.ItemName.Truncate(22));
             line.Append(" " + McColorCodes.RED);
             line.Append(FormatCoins((long)craft.Craft.CraftCost));
-            line.Append("§7 -> §6");
+            line.Append(craft.Craft.ItemName.Length > 22 ? "§7>§6" : "§7 -> §6");
             line.Append(FormatCoins((long)craft.SellPrice));
             var builder = CreateCraftLore(line.ToString(), craft.Craft.ItemName, craft.Profit, $"/recipe {craft.Craft.ItemName}", craft.SellPrice);
             display.Add(new(builder.Build()));
