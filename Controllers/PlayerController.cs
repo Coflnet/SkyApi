@@ -220,7 +220,7 @@ namespace Coflnet.Sky.Api.Controller
             if (playerUuid.Length != 32)
                 throw new CoflnetException("invalid_uuid", "The provided string does not seem to be a valid minecraft account uuid.");
         }
-        
+
 
         /// <summary>
         /// Returns the last know bazaar orders of a player
@@ -232,6 +232,21 @@ namespace Coflnet.Sky.Api.Controller
         {
             var keyInfo = await keyService.GetKeyInfo(this);
             return await playerStateApi.PlayerStatePlayerIdBazaarGetAsync(keyInfo.MinecraftName);
+        }
+
+        /// <summary>
+        /// Bazaar flips a player made while using our mod
+        /// </summary>
+        /// <param name="keyService"></param>
+        /// <param name="profitApi"></param>
+        /// <param name="apiKey">Key generated from /cofl api in game</param>
+        /// <returns></returns>
+        [Route("bazaar/flips")]
+        [HttpGet]
+        public async Task<List<PlayerState.Client.Model.BazaarFlip>> GetPlayerBazaarFlips([FromServices] ApiKeyService keyService,[FromServices] IBazaarProfitApi profitApi, string apiKey = null)
+        {
+            var keyInfo = await keyService.GetKeyInfo(this);
+            return await profitApi.BazaarProfitFlipsPlayerUuidGetAsync(Guid.Parse(keyInfo.MinecraftUuid));
         }
         /// <summary>
         /// Gives access to extracted player information like hotf, booster cookie expiry time, attribute levels etc.
