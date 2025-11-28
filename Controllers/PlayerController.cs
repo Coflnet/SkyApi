@@ -243,7 +243,7 @@ namespace Coflnet.Sky.Api.Controller
         /// <returns></returns>
         [Route("bazaar/flips")]
         [HttpGet]
-        public async Task<List<PlayerState.Client.Model.BazaarFlip>> GetPlayerBazaarFlips([FromServices] ApiKeyService keyService,[FromServices] IBazaarProfitApi profitApi, string apiKey = null)
+        public async Task<List<PlayerState.Client.Model.CompletedBazaarFlip>> GetPlayerBazaarFlips([FromServices] ApiKeyService keyService,[FromServices] IBazaarProfitApi profitApi, string apiKey = null)
         {
             var keyInfo = await keyService.GetKeyInfo(this);
             return await profitApi.BazaarProfitFlipsPlayerUuidGetAsync(Guid.Parse(keyInfo.MinecraftUuid));
