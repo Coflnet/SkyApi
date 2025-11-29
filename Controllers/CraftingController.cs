@@ -95,7 +95,7 @@ namespace Coflnet.Sky.Api.Controller
         {
             var itemNamesTask = itemApi.ItemNamesGetAsync();
             var response = await GetRecipe(itemTag);
-            var recipe = JsonConvert.DeserializeObject<Dictionary<string, string>>(JsonConvert.SerializeObject(GetRecipe(itemTag)) ?? "{}");
+            var recipe = JsonConvert.DeserializeObject<Dictionary<string, string>>(JsonConvert.SerializeObject(response) ?? "{}");
             var ids = recipe.Where(x=>x.Value != null).Select(x => x.Value.Split(':').First()).Where(x => x.Length >= 3).Distinct().ToList();
             var itemsOnBazaar = await pricesService.GetBazaarItems();
             var lbins = await auctionApi.ApiAuctionLbinsGetAsync();
