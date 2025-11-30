@@ -222,6 +222,13 @@ namespace Coflnet.Sky.Api.Controller
             return response;
         }
 
+        [Route("discount/{code}")]
+        [HttpGet]
+        public async Task<ValidatedDiscount> GetDiscountCodeDetails(string code)
+        {
+            return await topUpApi.TopUpDiscountValidateGetAsync(code);
+        }
+
         public class PricingRequest
         {
             public List<string> ProductSlugs { get; set; }
