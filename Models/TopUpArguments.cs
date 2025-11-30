@@ -21,4 +21,8 @@ public class TopUpArguments
     /// An optional creator code to apply to the purchase
     /// </summary>
     public string CreatorCode { get; set; }
+    /// <summary>
+    /// An optional discount code to apply to the purchase
+    /// </summary>
+    public string Discountcode { get; set; }
 }

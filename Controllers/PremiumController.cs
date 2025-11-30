@@ -125,7 +125,8 @@ namespace Coflnet.Sky.Api.Controller
                 Locale = locale,
                 CreatorCode = args.CreatorCode,
                 SuccessUrl = args.SuccessUrl,
-                CancelUrl = args.CancelUrl
+                CancelUrl = args.CancelUrl,
+                DiscountCode = args.Discountcode
             };
             return options;
         }
