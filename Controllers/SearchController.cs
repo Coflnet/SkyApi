@@ -41,25 +41,27 @@ namespace Coflnet.Sky.Api.Controller
         /// Searches through all items, includes the rarity of items
         /// </summary>
         /// <param name="searchVal">The search term to search for</param>
+        /// <param name="expectedResults">How many results to return</param>
         /// <returns>An array of search results matching the searchValue</returns>
         [Route("item/search/{searchVal}")]
         [HttpGet]
         [ResponseCache(Duration = 3600, Location = ResponseCacheLocation.Any, NoStore = false)]
-        public async Task<List<SearchResultItem>> SearchItem(string searchVal)
+        public async Task<List<SearchResultItem>> SearchItem(string searchVal, int expectedResults = 5)
         {
-            var itemsResult = await itemsApi.ItemsSearchTermGetAsync(searchVal, 10);
+            var wantedResults = Math.Min(expectedResults, 30);
+            var itemsResult = await itemsApi.ItemsSearchTermGetAsync(searchVal, wantedResults + 5);
             var results = itemsResult?.Select(i => new SearchResultItem(new ItemDetails.ItemSearchResult()
             {
-                Name = i.Text + (i.Flags.Value.HasFlag(Sky.Items.Client.Model.ItemFlags.BAZAAR) ? " - bazaar"
-                        : i.Flags.Value.HasFlag(Sky.Items.Client.Model.ItemFlags.AUCTION) ? "" : " - not on ah"),
+                Name = i.Text + (i.Flags.Value.HasFlag(Items.Client.Model.ItemFlags.BAZAAR) ? " - bazaar"
+                        : i.Flags.Value.HasFlag(Items.Client.Model.ItemFlags.AUCTION) ? "" : " - not on ah"),
                 Tag = i.Tag,
                 IconUrl = "https://sky.coflnet.com/static/icon/" + i.Tag,
-                HitCount = i.Flags.Value.HasFlag(Sky.Items.Client.Model.ItemFlags.AUCTION) ? 50 : 0,
-                Tier = (Coflnet.Sky.Core.Tier)i.Tier - 1
+                HitCount = i.Flags.Value.HasFlag(Items.Client.Model.ItemFlags.AUCTION) ? 50 : 0,
+                Tier = (Tier)i.Tier - 1
 
             })).ToList();
-            // return 5 except if they all have the same text
-            return ExtendIfSame(results);
+            // return wantedResults except if they all have the same text
+            return ExtendIfSame(results, wantedResults);
         }
 
         private static List<SearchResultItem> ExtendIfSame(List<SearchResultItem> results, int limit = 5)
