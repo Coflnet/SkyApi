@@ -1,4 +1,5 @@
 using System.Globalization;
+using Coflnet.Payments.Client.Api;
 using Coflnet.Sky.Api.Models.Mod;
 using Coflnet.Sky.Commands.MC;
 using Coflnet.Sky.Commands.Shared;
@@ -94,32 +95,33 @@ public class TradeInfoDisplay : ICustomModifier
             new ("Looks like you are lowballing")
         };
         data.mods.Add(extraInfo);
-        if (data.accountInfo.ExpiresAt < DateTime.UtcNow || data.accountInfo.Tier < AccountTier.PREMIUM)
-        {
-            Console.WriteLine($"Lowballcheck for {data.accountInfo.UserId} no premium {data.accountInfo.Tier} expires at {data.accountInfo.ExpiresAt}");
-            var lines = new string[]
-            {
-                "With premium we will suggest",
-                "a lowball price automatically",
-                "looks like you don't currently",
-                "have SkyCofl premium :("
-            };
-            foreach (var line in lines)
-                extraInfo.Add(new LoreBuilder()
-                    .AddText($"{McColorCodes.GRAY}{line}",
-                        "Supporting us by buying premium\n"
-                      + "helps us pay for upkeep and servers\n"
-                      + "and gives you extra features\n"
-                      + $"{McColorCodes.YELLOW}Click to see options\n"
-                      + $"{McColorCodes.GRAY}/cofl set loreDisableIn Trade"
-                      + $"{McColorCodes.GRAY}To disable this display", "/cofl buy").BuildLine());
-
-            return;
-        }
         if (data.inventory.Settings.LowballMedUndercut == 100)
         {
             extraInfo.Add(new($"{McColorCodes.GRAY}You disabled lowballing suggestions"));
             return;
+        }
+        if (data.accountInfo.ExpiresAt < DateTime.UtcNow || data.accountInfo.Tier < AccountTier.PREMIUM)
+        {
+            if(string.IsNullOrEmpty(data.accountInfo.UserId))
+            {
+                NoPremium(extraInfo);
+                return;
+            }
+            Console.WriteLine($"Lowballcheck for {data.accountInfo.UserId} no premium {data.accountInfo.Tier} expires at {data.accountInfo.ExpiresAt}");
+
+            var owns = DiHandler.GetService<IUserApi>().UserUserIdOwnsUntilPostAsync(data.accountInfo.UserId.ToString(), new List<string>() { "premium" }).Result;
+            if (owns.TryGetValue("premium", out var time) && time > DateTime.Now)
+            {
+                Console.WriteLine($"User {data.accountInfo.UserId} actually has premium until {time} recovered from refresh");
+                data.accountInfo.Tier = AccountTier.PREMIUM;
+                data.accountInfo.ExpiresAt = time;
+            }
+            else
+            {
+                NoPremium(extraInfo);
+
+                return;
+            }
         }
         extraInfo.Add(new($"{McColorCodes.GREEN}For lowballing these {receiveCount} items we"));
         if (data.inventory.Settings.DisableSuggestions)
@@ -135,6 +137,25 @@ public class TradeInfoDisplay : ICustomModifier
             extraInfo.Add(new($"{McColorCodes.GRAY}/cofl set lbinUndercut 10"));
         }
 
+        static void NoPremium(List<DescModification> extraInfo)
+        {
+            var lines = new string[]
+                            {
+                "With premium we will suggest",
+                "a lowball price automatically",
+                "looks like you don't currently",
+                "have SkyCofl premium :("
+                            };
+            foreach (var line in lines)
+                extraInfo.Add(new LoreBuilder()
+                    .AddText($"{McColorCodes.GRAY}{line}",
+                        "Supporting us by buying premium\n"
+                      + "helps us pay for upkeep and servers\n"
+                      + "and gives you extra features\n"
+                      + $"{McColorCodes.YELLOW}Click to see options\n"
+                      + $"{McColorCodes.GRAY}/cofl set loreDisableIn Trade"
+                      + $"{McColorCodes.GRAY}To disable this display", "/cofl buy").BuildLine());
+        }
     }
 
     private static long GetAdjustedValue(short underCutPercentage, long medLowballValue, float volume)
