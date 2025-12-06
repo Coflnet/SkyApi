@@ -156,12 +156,86 @@ namespace Coflnet.Sky.Api
             services.AddSingleton<IConnectionMultiplexer>(provider => ConnectionMultiplexer.Connect(redisOptions));
 
             // Rate limiting 
+            // IP Rate Limiting (for public/anonymous requests)
             services.Configure<IpRateLimitOptions>(Configuration.GetSection("IpRateLimiting"));
             services.Configure<IpRateLimitPolicies>(Configuration.GetSection("IpRateLimitPolicies"));
+            
+            // Client Rate Limiting (for authenticated/premium clients with higher quotas)
+            // Premium client IDs can be configured via PREMIUM_CLIENT_IDS environment variable (comma-separated)
+            // Example: PREMIUM_CLIENT_IDS=client-id-1,client-id-2,client-id-3
+            services.Configure<ClientRateLimitOptions>(options =>
+            {
+                Configuration.GetSection("ClientRateLimiting").Bind(options);
+                // Ensure ClientWhitelist is initialized
+                options.ClientWhitelist ??= new System.Collections.Generic.List<string>();
+                // Add premium client IDs from environment variable to whitelist
+                var premiumClientIds = Configuration["PREMIUM_CLIENT_IDS"];
+                if (!string.IsNullOrEmpty(premiumClientIds))
+                {
+                    var clientIds = premiumClientIds.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+                    foreach (var clientId in clientIds)
+                    {
+                        if (!options.ClientWhitelist.Contains(clientId))
+                        {
+                            options.ClientWhitelist.Add(clientId);
+                        }
+                    }
+                }
+            });
+            services.Configure<ClientRateLimitPolicies>(options =>
+            {
+                Configuration.GetSection("ClientRateLimitPolicies").Bind(options);
+                // Ensure ClientRules is initialized
+                options.ClientRules ??= new System.Collections.Generic.List<ClientRateLimitPolicy>();
+                // Configure premium client rules from environment variable
+                // PREMIUM_CLIENT_RULES format: clientId1:period1=limit1,period2=limit2;clientId2:period1=limit1
+                // Example: PREMIUM_CLIENT_RULES=premium-client:1s=20,1m=500;vip-client:1s=50,1m=1000
+                var premiumRulesConfig = Configuration["PREMIUM_CLIENT_RULES"];
+                if (!string.IsNullOrEmpty(premiumRulesConfig))
+                {
+                    var clientConfigs = premiumRulesConfig.Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+                    foreach (var clientConfig in clientConfigs)
+                    {
+                        var parts = clientConfig.Split(':', 2);
+                        if (parts.Length != 2) continue;
+                        
+                        var clientId = parts[0].Trim();
+                        var rulesStr = parts[1].Trim();
+                        var rules = new System.Collections.Generic.List<RateLimitRule>();
+                        
+                        foreach (var ruleStr in rulesStr.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+                        {
+                            var ruleParts = ruleStr.Split('=');
+                            if (ruleParts.Length == 2 && int.TryParse(ruleParts[1], out var limit))
+                            {
+                                rules.Add(new RateLimitRule
+                                {
+                                    Endpoint = "*",
+                                    Period = ruleParts[0].Trim(),
+                                    Limit = limit
+                                });
+                            }
+                        }
+                        
+                        if (rules.Count > 0)
+                        {
+                            options.ClientRules.Add(new ClientRateLimitPolicy
+                            {
+                                ClientId = clientId,
+                                Rules = rules
+                            });
+                        }
+                    }
+                }
+            });
+            
             services.AddRedisRateLimiting();
+            services.AddHttpContextAccessor();
             services.AddSingleton<IIpPolicyStore, DistributedCacheIpPolicyStore>();
+            services.AddSingleton<IClientPolicyStore, DistributedCacheClientPolicyStore>();
             services.AddSingleton<IRateLimitCounterStore, DistributedCacheRateLimitCounterStore>();
-            services.AddSingleton<IRateLimitConfiguration, RateLimitConfiguration>();
+            // Use custom rate limit configuration that falls back to IP when no client ID is provided
+            services.AddSingleton<IRateLimitConfiguration, Helper.CustomRateLimitConfiguration>();
             services.AddSingleton<DiscordBot.Client.Api.IMessageApi>(new DiscordBot.Client.Api.MessageApi(Configuration["DISCORD_BOT_BASE_URL"]));
             services.AddCoflService();
             services.AddSingleton<Mayor.Client.Api.IElectionPeriodsApiApi>(a =>
@@ -251,7 +325,13 @@ namespace Coflnet.Sky.Api
 
             app.UseResponseCaching();
             app.UseResponseCompression();
-            app.UseIpRateLimiting();
+            // Rate limiting: Uses client ID if provided via X-ClientId header, otherwise falls back to IP
+            // Premium clients with valid IDs get higher limits as configured in ClientRateLimitPolicies
+            // Whitelisted clients (via PREMIUM_CLIENT_IDS env var) bypass rate limiting entirely
+            // Note: We only use ClientRateLimiting (not IpRateLimiting) because our CustomRateLimitConfiguration
+            // falls back to "ip:{clientIp}" when no X-ClientId header is provided, effectively giving us
+            // IP-based limiting for anonymous users while allowing premium clients to use their higher quotas
+            app.UseClientRateLimiting();
           /*  app.Use(async (context, next) =>
             {
                 if (context.Request.Method == HttpMethods.Post)
