@@ -9,6 +9,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Logging;
 using Microsoft.OpenApi.Models;
 using Prometheus;
@@ -181,6 +182,14 @@ namespace Coflnet.Sky.Api
                         }
                     }
                 }
+                // Ensure IP whitelist bypass token is present so resolver can return it.
+                // Read token from env/config if provided, otherwise use default.
+                var bypassToken = Configuration["IP_WHITELIST_BYPASS_TOKEN"];
+                if (string.IsNullOrEmpty(bypassToken)) bypassToken = "IP_WHITELIST_BYPASS";
+                if (!options.ClientWhitelist.Contains(bypassToken))
+                {
+                    options.ClientWhitelist.Add(bypassToken);
+                }
             });
             services.Configure<ClientRateLimitPolicies>(options =>
             {
@@ -235,7 +244,14 @@ namespace Coflnet.Sky.Api
             services.AddSingleton<IClientPolicyStore, DistributedCacheClientPolicyStore>();
             services.AddSingleton<IRateLimitCounterStore, DistributedCacheRateLimitCounterStore>();
             // Use custom rate limit configuration that falls back to IP when no client ID is provided
-            services.AddSingleton<IRateLimitConfiguration, Helper.CustomRateLimitConfiguration>();
+            // Pass the configured bypass token (from env) into the configuration instance
+            var bypassTokenForRegistration = Configuration["IP_WHITELIST_BYPASS_TOKEN"];
+            if (string.IsNullOrEmpty(bypassTokenForRegistration)) bypassTokenForRegistration = "IP_WHITELIST_BYPASS";
+            services.AddSingleton<IRateLimitConfiguration>(sp => new Helper.CustomRateLimitConfiguration(
+                sp.GetRequiredService<IHttpContextAccessor>(),
+                sp.GetRequiredService<IOptions<IpRateLimitOptions>>(),
+                sp.GetRequiredService<IOptions<ClientRateLimitOptions>>(),
+                bypassTokenForRegistration));
             services.AddSingleton<DiscordBot.Client.Api.IMessageApi>(new DiscordBot.Client.Api.MessageApi(Configuration["DISCORD_BOT_BASE_URL"]));
             services.AddCoflService();
             services.AddSingleton<Mayor.Client.Api.IElectionPeriodsApiApi>(a =>
