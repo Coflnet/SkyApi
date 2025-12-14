@@ -1,4 +1,4 @@
-FROM mcr.microsoft.com/dotnet/sdk:8.0 as build
+FROM mcr.microsoft.com/dotnet/sdk:10.0 as build
 WORKDIR /build
 RUN git clone --depth=1 https://github.com/Coflnet/HypixelSkyblock.git dev \
     && git clone --depth=1 https://github.com/Coflnet/SkyBackendForFrontend.git \
@@ -12,7 +12,7 @@ COPY . .
 RUN rm SkyApi.sln && dotnet test
 RUN dotnet publish -c release -o /app
 
-FROM mcr.microsoft.com/dotnet/aspnet:8.0
+FROM mcr.microsoft.com/dotnet/aspnet:10.0
 WORKDIR /app
 
 COPY --from=build /app .
