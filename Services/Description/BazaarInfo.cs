@@ -68,10 +68,10 @@ public class BazaarInfo : ICustomModifier
             var name = BazaarUtils.GetSearchValue(spread.ItemTag,data.itemTagToName.GetValueOrDefault(spread.ItemTag) ?? spread.ItemTag);
             var line = new StringBuilder();
             line.Append("§a● §6");
-            line.Append(name);
+            line.Append(name.Truncate(22));
             line.Append(" " + McColorCodes.RED);
             line.Append(FormatCoins((long)spread.SellPrice));
-            line.Append("§7 -> " + McColorCodes.GREEN);
+            line.Append(name.Length> 22 ? "§7>§6" : "§7 -> §6");
             line.Append(FormatCoins((long)spread.BuyPrice));
             var command = data.inventory.Settings.NoCookie ? $"/cofl bazaarsearch {name}" : $"/bz {name}";
             var builder = new LoreBuilder()
