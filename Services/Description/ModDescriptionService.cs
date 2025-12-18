@@ -130,7 +130,7 @@ public class ModDescriptionService : IDisposable
         customModifiers.Add("Pet - Round \\d$", new DarkAuctionPetAdjust());
         customModifiers.Add("Bazaar Orders$", new BazaarOrderAdjust(bazaarApi));
         customModifiers.Add("^Bazaar ", new BazaarInfo());
-        customModifiers.Add(".*➜.*", new BazaarHistoryLink());
+        customModifiers.Add(".*➜.*", new BazaarPriceUpdater());
         customModifiers.Add("^The Forge", new ForgeExtenssion());
         customModifiers.Add(@"^\(\d\/2\) Fish Family", new FishFamilyCalculator());
         customModifiers.Add("^Crafting", new InventoryInfo());
@@ -139,6 +139,55 @@ public class ModDescriptionService : IDisposable
     }
 
     private readonly ConcurrentDictionary<string, (SelfUpdatingValue<DescriptionSetting>, SelfUpdatingValue<AccountInfo>)> settings = new();
+
+    /// <summary>
+    /// Updates the bazaar price for an item
+    /// </summary>
+    /// <param name="itemTag">The item tag</param>
+    /// <param name="buyPrice">The new buy price</param>
+    /// <param name="sellPrice">The new sell price</param>
+    public void UpdateBazaarPrice(string itemTag, double? buyPrice, double? sellPrice)
+    {
+        if (string.IsNullOrEmpty(itemTag)) return;
+
+        if (deserializedCache.BazaarItems.TryGetValue(itemTag, out var existing))
+        {
+            bool changed = false;
+            var newPrice = new ItemPrice
+            {
+                BuyPrice = existing.BuyPrice,
+                SellPrice = existing.SellPrice
+            };
+
+            if (buyPrice.HasValue && Math.Abs(existing.BuyPrice - buyPrice.Value) > 0.01)
+            {
+                logger.LogInformation("Updating bazaar buy price for {itemTag}: {old} -> {new}", itemTag, existing.BuyPrice, buyPrice.Value);
+                newPrice.BuyPrice = buyPrice.Value;
+                changed = true;
+            }
+
+            if (sellPrice.HasValue && Math.Abs(existing.SellPrice - sellPrice.Value) > 0.01)
+            {
+                logger.LogInformation("Updating bazaar sell price for {itemTag}: {old} -> {new}", itemTag, existing.SellPrice, sellPrice.Value);
+                newPrice.SellPrice = sellPrice.Value;
+                changed = true;
+            }
+
+            if (changed)
+            {
+                deserializedCache.BazaarItems = deserializedCache.BazaarItems.SetItem(itemTag, newPrice);
+            }
+        }
+        else
+        {
+            var newPrice = new ItemPrice
+            {
+                BuyPrice = buyPrice ?? 0,
+                SellPrice = sellPrice ?? 0
+            };
+            deserializedCache.BazaarItems = deserializedCache.BazaarItems.SetItem(itemTag, newPrice);
+        }
+    }
 
     public List<Item> ProduceInventory(InventoryData inventoryData, string playerId, string userId)
     {
