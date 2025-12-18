@@ -146,7 +146,7 @@ public class ModDescriptionService : IDisposable
     /// <param name="itemTag">The item tag</param>
     /// <param name="buyPrice">The new buy price</param>
     /// <param name="sellPrice">The new sell price</param>
-    public void UpdateBazaarPrice(string itemTag, double? buyPrice, double? sellPrice)
+    public void UpdateBazaarPrice(string itemTag, double? sellPrice, double? buyPrice)
     {
         if (string.IsNullOrEmpty(itemTag)) return;
 
