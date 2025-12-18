@@ -374,15 +374,15 @@ public class ModDescriptionService : IDisposable
             {
                 foreach (var mod in item)
                 {
-                    if (inventory.Settings?.ReplaceAquaWith != null)
+                    if (!string.IsNullOrEmpty(inventory.Settings?.ReplaceAquaWith))
                         mod.Value = Regex.Replace(mod.Value, McColorCodes.AQUA, "§" + inventory.Settings.ReplaceAquaWith);
-                    if (inventory.Settings?.ReplaceGoldWith != null)
+                    if (!string.IsNullOrEmpty(inventory.Settings?.ReplaceGoldWith))
                         mod.Value = Regex.Replace(mod.Value, McColorCodes.GOLD, "§" + inventory.Settings.ReplaceGoldWith);
-                    if (inventory.Settings?.ReplaceWhiteWith != null)
+                    if (!string.IsNullOrEmpty(inventory.Settings?.ReplaceWhiteWith))
                         mod.Value = Regex.Replace(mod.Value, McColorCodes.WHITE, "§" + inventory.Settings.ReplaceWhiteWith);
-                    if (inventory.Settings?.ReplaceYellowWith != null)
+                    if (!string.IsNullOrEmpty(inventory.Settings?.ReplaceYellowWith))
                         mod.Value = Regex.Replace(mod.Value, McColorCodes.YELLOW, "§" + inventory.Settings.ReplaceYellowWith);
-                    if (inventory.Settings?.ReplaceGrayWith != null)
+                    if (!string.IsNullOrEmpty(inventory.Settings?.ReplaceGrayWith))
                         mod.Value = Regex.Replace(mod.Value, McColorCodes.GRAY, "§" + inventory.Settings.ReplaceGrayWith);
                 }
             }
