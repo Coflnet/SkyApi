@@ -2,11 +2,13 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Coflnet.Sky.Api.Models;
+using Coflnet.Sky.Api.Helper;
 using Coflnet.Sky.Core;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 
 namespace Coflnet.Sky.Api.Controller
 {
@@ -61,9 +63,19 @@ namespace Coflnet.Sky.Api.Controller
         [ResponseCache(Duration = 3600, Location = ResponseCacheLocation.Any, NoStore = false)]
         public async Task<IEnumerable<ItemMetadataElement>> GetAllItems()
         {
-            var response = await itemsApi.ItemsGetAsync();
-            return response.Select(i =>
+            var response = await itemsApi.ItemsGetWithHttpInfoAsync();
+            var settings = new JsonSerializerSettings
             {
+                Converters = new List<JsonConverter> { new FlagsEnumConverter() }
+            };
+            var items = JsonConvert.DeserializeObject<List<Sky.Items.Client.Model.Item>>(response.RawContent.Replace("SUPREME", "DIVINE"), settings);
+            return items.Select(i =>
+            {
+                if (i.Tag == "PET_SKIN_CROW_SNOW")
+                {
+                    Console.WriteLine(i.Flags?.ToString());
+                    Console.WriteLine(JsonConvert.SerializeObject(i));
+                }
                 return new ItemMetadataElement
                 {
                     Name = i.Name,
@@ -71,8 +83,7 @@ namespace Coflnet.Sky.Api.Controller
                     Flags = i.Flags ?? 0
                 };
             });
-        }
-
+        } 
         /// <summary>
         /// Batch lookup names for item tags
         /// </summary>
@@ -119,7 +130,11 @@ namespace Coflnet.Sky.Api.Controller
         public async Task<IEnumerable<Items.Client.Model.ItemPreview>> GetSimilar(string itemTag)
         {
             var allItems = await itemsApi.ItemsGetWithHttpInfoAsync();
-            var source = JsonConvert.DeserializeObject<List<Items.Client.Model.Item>>(allItems.RawContent.Replace("SUPREME","DIVINE"));
+            var settings = new JsonSerializerSettings
+            {
+                Converters = new List<JsonConverter> { new FlagsEnumConverter() }
+            };
+            var source = JsonConvert.DeserializeObject<List<Items.Client.Model.Item>>(allItems.RawContent.Replace("SUPREME", "DIVINE"), settings);
             Console.WriteLine($"Found {source?.Count} items in source");
             var recipe = await craftsApi.GetRecipeAsync(itemTag);
             var search = itemTag.Truncate(10);
@@ -134,10 +149,9 @@ namespace Coflnet.Sky.Api.Controller
             IEnumerable<Items.Client.Model.ItemPreview> recipeBased = NewMethod(source, recipe);
             return recipeBased.Concat(similarName).Take(5);
         }
-
         private static IEnumerable<Items.Client.Model.ItemPreview> NewMethod(List<Items.Client.Model.Item> source, Crafts.Client.Model.Recipe recipe)
         {
-            if(recipe == null)
+            if (recipe == null)
                 return new Items.Client.Model.ItemPreview[0];
             var allItems = new string[] { recipe.A1, recipe.A2, recipe.A3, recipe.B1, recipe.B2, recipe.B3, recipe.C1, recipe.C2, recipe.C3 };
             var recipeBased = allItems?.Select(t => t?.Split(':').First())

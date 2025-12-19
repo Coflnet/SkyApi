@@ -1,6 +1,6 @@
 using Coflnet.Sky.Items.Client.Model;
 using Newtonsoft.Json;
-using Newtonsoft.Json.Converters;
+using Coflnet.Sky.Api.Helper;
 
 namespace Coflnet.Sky.Api.Models
 {
@@ -22,7 +22,7 @@ namespace Coflnet.Sky.Api.Models
         /// <summary>
         /// Can item be auctioned, sold on bazaar or traded
         /// </summary>
-        [JsonConverter(typeof(StringEnumConverter))]
+        [JsonConverter(typeof(FlagsEnumConverter))]
         public ItemFlags Flags { get; set; }
     }
 }
