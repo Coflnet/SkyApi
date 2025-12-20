@@ -69,7 +69,6 @@ public class BazaarOrderAdjust : ICustomModifier
                     var list = isBuy
                         ? (buyOrders?.Select(s => (s.Amount, s.PricePerUnit)).TakeWhile(s => s.PricePerUnit > price) ?? Enumerable.Empty<(int Amount, double PricePerUnit)>())
                         : (sellOrders?.Select(s => (s.Amount, s.PricePerUnit)).TakeWhile(s => s.PricePerUnit < price) ?? Enumerable.Empty<(int Amount, double PricePerUnit)>());
-                    Console.WriteLine($"Found {list.Count()} better orders for {(isBuy ? "buy" : "sell")} of {auction.Tag} {JsonConvert.SerializeObject(list)} from {JsonConvert.SerializeObject(sellOrders)}");
                     var ahead = list.Sum(o => o.Amount);
                     data.mods[i].Add(new(Models.Mod.DescModification.ModType.INSERT, 2, $"{McColorCodes.RED}{ModDescriptionService.FormatPriceShort(ahead)}{McColorCodes.GRAY} available for better price "));
                 }
