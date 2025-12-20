@@ -33,11 +33,12 @@ public class BazaarOrderAdjust : ICustomModifier
             if (auction == null)
                 continue;
             var bazaar = result.GetValueOrDefault(auction.Tag);
-            var buyOrders = bazaar?.Sell;
-            var sellOrders = bazaar?.Buy;
+            var buyOrders = bazaar?.Buy.OrderByDescending(o=>o.PricePerUnit);
+            var sellOrders = bazaar?.Sell.OrderBy(o=>o.PricePerUnit);
             // New order system: derive top prices from order lists (if available)
-            var topSellPrice = sellOrders?.FirstOrDefault()?.PricePerUnit ?? 0;
-            var topBuyPrice = buyOrders?.FirstOrDefault()?.PricePerUnit ?? 0;
+            var topSellPrice =  buyOrders?.FirstOrDefault()?.PricePerUnit ?? 0;
+            var topBuyPrice = sellOrders?.FirstOrDefault()?.PricePerUnit ?? 0;
+            Console.WriteLine($"Bazaar order adjust for {auction.Tag}: top buy {topBuyPrice} top sell {topSellPrice}");
 
             if (bazaar != null && (topSellPrice != 0 || topBuyPrice != 0))
             {
@@ -66,8 +67,9 @@ public class BazaarOrderAdjust : ICustomModifier
                     var color = isOnlyOne ? "ff0000" : "af5050";
                     data.mods[i].Add(new(Models.Mod.DescModification.ModType.HIGHLIGHT, 0, color));
                     var list = isBuy
-                        ? (sellOrders?.Select(s => (s.Amount, s.PricePerUnit)).TakeWhile(s => s.PricePerUnit > price) ?? Enumerable.Empty<(int Amount, double PricePerUnit)>())
-                        : (buyOrders?.Select(s => (s.Amount, s.PricePerUnit)).TakeWhile(s => s.PricePerUnit < price) ?? Enumerable.Empty<(int Amount, double PricePerUnit)>());
+                        ? (buyOrders?.Select(s => (s.Amount, s.PricePerUnit)).TakeWhile(s => s.PricePerUnit > price) ?? Enumerable.Empty<(int Amount, double PricePerUnit)>())
+                        : (sellOrders?.Select(s => (s.Amount, s.PricePerUnit)).TakeWhile(s => s.PricePerUnit < price) ?? Enumerable.Empty<(int Amount, double PricePerUnit)>());
+                    Console.WriteLine($"Found {list.Count()} better orders for {(isBuy ? "buy" : "sell")} of {auction.Tag} {JsonConvert.SerializeObject(list)} from {JsonConvert.SerializeObject(sellOrders)}");
                     var ahead = list.Sum(o => o.Amount);
                     data.mods[i].Add(new(Models.Mod.DescModification.ModType.INSERT, 2, $"{McColorCodes.RED}{ModDescriptionService.FormatPriceShort(ahead)}{McColorCodes.GRAY} available for better price "));
                 }
