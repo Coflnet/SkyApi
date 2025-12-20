@@ -231,7 +231,10 @@ public class ListPriceRecommend : ICustomModifier
         using var context = scope.ServiceProvider.GetRequiredService<HypixelContext>();
 
         var key = DiHandler.GetService<NBT>().GetKeyId("uid");
-        var uidLong = ModDescriptionService.GetUidFromString(targetAuction.FlatenedNBT?.GetValueOrDefault("uuid"));
+        long uidLong = -1;
+        var uuid = targetAuction.FlatenedNBT?.GetValueOrDefault("uuid");
+        if (uuid != null)
+            uidLong = ModDescriptionService.GetUidFromString(uuid);
         var query = context.Auctions
             .Where(a => a.ItemId == itemId && a.End > DateTime.UtcNow.AddDays(-14)
                 && (a.SellerId == context.Players.Where(p => p.UuId == playerUuid).Select(p => p.Id).FirstOrDefault()
