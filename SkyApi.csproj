@@ -25,13 +25,13 @@
     <PackageReference Include="Coflnet.Sky.Subscriptions.Client" Version="1.0.0" />
     <PackageReference Include="Coflnet.Sky.Trade.Client" Version="0.1.4" />
     <PackageReference Include="Hashids.net" Version="1.7.0" />
-    <PackageReference Include="Microsoft.AspNetCore.Mvc.NewtonsoftJson" Version="9.0.0" />
+    <PackageReference Include="Microsoft.AspNetCore.Mvc.NewtonsoftJson" Version="9.0.11" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="8.0.22">
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
       <PrivateAssets>all</PrivateAssets>
     </PackageReference>
     <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="8.0.22" />
-    <PackageReference Include="Mscc.GenerativeAI" Version="2.9.3" />
+    <PackageReference Include="Mscc.GenerativeAI" Version="2.9.8" />
     <PackageReference Include="Pomelo.EntityFrameworkCore.MySql" Version="8.0.3" />
     <PackageReference Include="Swashbuckle.AspNetCore" Version="7.3.2" />
     <PackageReference Include="System.IdentityModel.Tokens.Jwt" Version="8.15.0" />

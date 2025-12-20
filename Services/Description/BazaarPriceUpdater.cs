@@ -1,14 +1,22 @@
 using System.Linq;
 using System.Text.RegularExpressions;
+using System.Threading.Tasks;
 using System.Globalization;
+using System.Collections.Concurrent;
 using Coflnet.Sky.Api.Models.Mod;
 using Coflnet.Sky.Api.Services.Description;
 using Coflnet.Sky.Api.Services;
+using Coflnet.Sky.Commands.Shared;
+using Coflnet.Sky.Bazaar.Client.Api;
+using Newtonsoft.Json;
+using Microsoft.Extensions.Logging;
 
 namespace Coflnet.Sky.Api.Services.Description;
 
 public class BazaarPriceUpdater : ICustomModifier
 {
+    // For tests: observe what gets posted without relying on DI mocking.
+    public static ConcurrentDictionary<string, (List<Bazaar.Client.Model.OrderEntry> buy, List<Bazaar.Client.Model.OrderEntry> sell)> LastPostedOrderBooks = new();
     public void Apply(DataContainer data)
     {
         // Check if the chest name contains ➜ symbol to filter for bazaar item screens
@@ -40,6 +48,7 @@ public class BazaarPriceUpdater : ICustomModifier
         {
             data.modService.UpdateBazaarPrice(itemTag, topBuyPrice, cheapestSellPrice);
         }
+        ExtractAndUploadOrderBook(itemTag, buyOrders.Description, sellOffers.Description);
 
         // Create a clickable link to open SkyCofl history for this item
         var loreBuilder = new LoreBuilder()
@@ -58,7 +67,7 @@ public class BazaarPriceUpdater : ICustomModifier
     public static double? ParsePrice(string description)
     {
         if (string.IsNullOrEmpty(description)) return null;
-        
+
         // Match the first price in the "Top Orders" or "Top Offers" list
         // Format: §8- §64,362.4 coins
         var match = Regex.Match(description, @"§6([\d,.]+) coins");
@@ -70,6 +79,73 @@ public class BazaarPriceUpdater : ICustomModifier
             }
         }
         return null;
+    }
+    
+    public static (double buy, double sell) ExtractAndUploadOrderBook(string tag, string buyDescription, string sellDescription)
+    {
+        // Parse buy/sell descriptions into order entries
+        var buyList = new List<Bazaar.Client.Model.OrderEntry>();
+        var sellList = new List<Bazaar.Client.Model.OrderEntry>();
+
+        if (!string.IsNullOrEmpty(buyDescription))
+        {
+            var matches = Regex.Matches(buyDescription, @"§6([\d,]+(?:\.\d+)?) coins(?:.*?§a([\d,]+)§7x)?");
+            foreach (Match m in matches)
+            {
+                if (double.TryParse(m.Groups[1].Value.Replace(",", ""), NumberStyles.Any, CultureInfo.InvariantCulture, out var price))
+                {
+                    var amount = 1;
+                    if (m.Groups[2].Success && int.TryParse(m.Groups[2].Value.Replace(",", ""), out var a))
+                        amount = a;
+                    buyList.Add(new Bazaar.Client.Model.OrderEntry() { Amount = amount, PricePerUnit = price, Timestamp = DateTime.UtcNow });
+                }
+            }
+        }
+
+        if (!string.IsNullOrEmpty(sellDescription))
+        {
+            var matches = Regex.Matches(sellDescription, @"§6([\d,]+(?:\.\d+)?) coins(?:.*?§a([\d,]+)§7x)?");
+            foreach (Match m in matches)
+            {
+                if (double.TryParse(m.Groups[1].Value.Replace(",", ""), NumberStyles.Any, CultureInfo.InvariantCulture, out var price))
+                {
+                    var amount = 1;
+                    if (m.Groups[2].Success && int.TryParse(m.Groups[2].Value.Replace(",", ""), out var a))
+                        amount = a;
+                    sellList.Add(new Bazaar.Client.Model.OrderEntry() { Amount = amount, PricePerUnit = price, Timestamp = DateTime.UtcNow });
+                }
+            }
+        }
+
+        // Determine top prices
+        var topBuy = buyList.Any() ? buyList.Max(o => o.PricePerUnit) : 0.0;
+        var cheapestSell = sellList.Any() ? sellList.Min(o => o.PricePerUnit) : 0.0;
+
+        // Post the orderbook in the background so we don't block description parsing
+        var orderBookApi = DiHandler.GetService<IOrderBookApi>();
+        Task.Run(() =>
+        {
+                try
+                {
+                    // store posted payload for tests to inspect
+                    LastPostedOrderBooks[tag] = (buyList, sellList);
+
+                    // Post the structured lists (server expects list of entries for the orderbook).
+                    orderBookApi.UpdateOrderBookAsync(new()
+                    {
+                        ItemTag = tag,
+                        BuyOrders = buyList,
+                        SellOrders = sellList
+                    }).GetAwaiter().GetResult();
+                }
+            catch (Exception ex)
+            {
+                var logger = DiHandler.GetService<Microsoft.Extensions.Logging.ILogger<BazaarPriceUpdater>>();
+                logger?.LogError(ex, "Failed to update orderbook for {tag}", tag);
+            }
+        });
+
+        return (topBuy, cheapestSell);
     }
 
     public void Modify(ModDescriptionService.PreRequestContainer preRequest)

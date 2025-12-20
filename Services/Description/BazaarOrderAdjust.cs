@@ -4,6 +4,7 @@ using System.Threading.Tasks;
 using Coflnet.Sky.Api.Client.Model;
 using Coflnet.Sky.Bazaar.Client.Api;
 using Coflnet.Sky.Commands.MC;
+using Coflnet.Sky.Commands.Shared;
 using Newtonsoft.Json;
 
 namespace Coflnet.Sky.Api.Services.Description;
@@ -20,7 +21,7 @@ public class BazaarOrderAdjust : ICustomModifier
     public void Apply(DataContainer data)
     {
         var loaded = data.Loaded[nameof(BazaarOrderAdjust)].Result;
-        var result = JsonConvert.DeserializeObject<StorageQuickStatus[]>(loaded).ToDictionary(x => x.ProductId);
+        var result = JsonConvert.DeserializeObject<Dictionary<string, Bazaar.Client.Model.OrderBook>>(loaded);
         var slotCount = data.auctionRepresent.TakeWhile(x => (x.auction?.Tag ?? "false") != "GO_BACK").Count();
         var offerLookup = data.auctionRepresent.Take(slotCount).Where(x => x.auction != null).ToLookup(x => (x.auction.ItemName.Contains("BUY"), x.auction.Tag));
         var buySum = 0L;
@@ -32,7 +33,14 @@ public class BazaarOrderAdjust : ICustomModifier
             if (auction == null)
                 continue;
             var bazaar = result.GetValueOrDefault(auction.Tag);
-            if (bazaar != null && (bazaar.SellPrice != 0 || bazaar.BuyPrice != 0))
+            var buyOrders = bazaar?.Sell;
+            var sellOrders = bazaar?.Buy;
+            // New order system: derive top prices from order lists (if available)
+            var topSellPrice = sellOrders?.FirstOrDefault()?.PricePerUnit ?? 0;
+            var topBuyPrice = buyOrders?.FirstOrDefault()?.PricePerUnit ?? 0;
+
+                    Console.WriteLine($"Processing auction {auction.Tag}: top buy {topBuyPrice} top sell {topSellPrice}");
+            if (bazaar != null && (topSellPrice != 0 || topBuyPrice != 0))
             {
                 var isBuy = auction.ItemName.Contains("BUY");
                 var allPrices = offerLookup[(isBuy, auction.Tag)].Select(x => x.desc).Where(x => x != null)
@@ -46,7 +54,7 @@ public class BazaarOrderAdjust : ICustomModifier
                         .FirstOrDefault()?.Split("§7Price per unit: §6").Last().Split(" coins").First() is string priceStr
                         && double.TryParse(priceStr, System.Globalization.CultureInfo.InvariantCulture, out var parsedPrice) ? parsedPrice : price;
                 }
-                var isTop = isBuy ? bazaar.SellPrice <= price : bazaar.BuyPrice >= price;
+                var isTop = isBuy ? topSellPrice <= price : topBuyPrice >= price;
                 var isOnlyOne = offerLookup[(isBuy, auction.Tag)].Count() == 1 || data.inventory.Version >= 2;
                 if (isTop)
                 {
@@ -58,8 +66,9 @@ public class BazaarOrderAdjust : ICustomModifier
                 {
                     var color = isOnlyOne ? "ff0000" : "af5050";
                     data.mods[i].Add(new(Models.Mod.DescModification.ModType.HIGHLIGHT, 0, color));
-                    var list = isBuy ? bazaar.SellOrders.Select(s => (s.Amount, s.PricePerUnit)).TakeWhile(s => s.PricePerUnit > price) :
-                        bazaar.BuyOrders.Select(s => (s.Amount, s.PricePerUnit)).TakeWhile(s => s.PricePerUnit < price);
+                    var list = isBuy
+                        ? (sellOrders?.Select(s => (s.Amount, s.PricePerUnit)).TakeWhile(s => s.PricePerUnit > price) ?? Enumerable.Empty<(int Amount, double PricePerUnit)>())
+                        : (buyOrders?.Select(s => (s.Amount, s.PricePerUnit)).TakeWhile(s => s.PricePerUnit < price) ?? Enumerable.Empty<(int Amount, double PricePerUnit)>());
                     var ahead = list.Sum(o => o.Amount);
                     data.mods[i].Add(new(Models.Mod.DescModification.ModType.INSERT, 2, $"{McColorCodes.RED}{ModDescriptionService.FormatPriceShort(ahead)}{McColorCodes.GRAY} available for better price "));
                 }
@@ -116,10 +125,9 @@ public class BazaarOrderAdjust : ICustomModifier
         {
             var slotCount = preRequest.auctionRepresent.TakeWhile(x => (x.auction?.Tag ?? "false") != "GO_BACK").Count();
             var ids = preRequest.auctionRepresent.Take(slotCount).Where(x => x.auction != null)
-                    .Select(x => x.auction.Tag).Distinct().ToArray();
-            var requests = ids.Select(x => bazaarApi.GetClosestToAsync(x));
-            var result = await Task.WhenAll(requests);
-            return JsonConvert.SerializeObject(result);
+                    .Select(x => x.auction.Tag).Distinct().ToList();
+            var all = await DiHandler.GetService<IOrderBookApi>().GetOrderBooksWithHttpInfoAsync(ids);
+            return all.RawContent;
         });
         preRequest.ToLoad.Add(nameof(BazaarOrderAdjust), task);
     }
