@@ -39,7 +39,6 @@ public class BazaarOrderAdjust : ICustomModifier
             var topSellPrice = sellOrders?.FirstOrDefault()?.PricePerUnit ?? 0;
             var topBuyPrice = buyOrders?.FirstOrDefault()?.PricePerUnit ?? 0;
 
-                    Console.WriteLine($"Processing auction {auction.Tag}: top buy {topBuyPrice} top sell {topSellPrice}");
             if (bazaar != null && (topSellPrice != 0 || topBuyPrice != 0))
             {
                 var isBuy = auction.ItemName.Contains("BUY");

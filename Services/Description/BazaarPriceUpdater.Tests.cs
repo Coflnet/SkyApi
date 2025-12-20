@@ -38,7 +38,7 @@ public class BazaarPriceUpdaterTests
         var buy = "§aTop Orders:\n§8- §64,362.4 coins §7each | §a475§7x";
         var sell = "§aTop Offers:\n§8- §64,500.0 coins §7each | §a100§7x";
 
-        var (topBuy, cheapestSell) = BazaarPriceUpdater.ExtractAndUploadOrderBook("TEST:1", buy, sell, null);
+        var (topBuy, cheapestSell) = BazaarPriceUpdater.ExtractAndUploadOrderBook("TEST:1", buy, sell);
 
         // give background task some time to run and populate the observable store
         System.Threading.Thread.Sleep(50);

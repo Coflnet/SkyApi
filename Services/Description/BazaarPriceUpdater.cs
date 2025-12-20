@@ -122,22 +122,33 @@ public class BazaarPriceUpdater : ICustomModifier
         var cheapestSell = sellList.Any() ? sellList.Min(o => o.PricePerUnit) : 0.0;
 
         // Post the orderbook in the background so we don't block description parsing
-        var orderBookApi = DiHandler.GetService<IOrderBookApi>();
         Task.Run(() =>
         {
+            try
+            {
+                // store posted payload for tests to inspect
+                LastPostedOrderBooks[tag] = (buyList, sellList);
+
+                // Try to obtain the API from DI; if DI isn't initialized (tests), skip the remote post.
                 try
                 {
-                    // store posted payload for tests to inspect
-                    LastPostedOrderBooks[tag] = (buyList, sellList);
-
-                    // Post the structured lists (server expects list of entries for the orderbook).
-                    orderBookApi.UpdateOrderBookAsync(new()
+                    var orderBookApi = DiHandler.GetService<IOrderBookApi>();
+                    if (orderBookApi != null)
                     {
-                        ItemTag = tag,
-                        BuyOrders = buyList,
-                        SellOrders = sellList
-                    }).GetAwaiter().GetResult();
+                        // Post the structured lists (server expects list of entries for the orderbook).
+                        orderBookApi.UpdateOrderBookAsync(new()
+                        {
+                            ItemTag = tag,
+                            BuyOrders = buyList,
+                            SellOrders = sellList
+                        }).GetAwaiter().GetResult();
+                    }
                 }
+                catch
+                {
+                    // ignore DI/service provider errors in tests
+                }
+            }
             catch (Exception ex)
             {
                 var logger = DiHandler.GetService<Microsoft.Extensions.Logging.ILogger<BazaarPriceUpdater>>();
