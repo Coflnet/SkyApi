@@ -129,7 +129,7 @@ namespace Coflnet.Sky.Api.Controller
                 .Select(i => new Items.Client.Model.ItemPreview
                 {
                     Name = i.Name,
-                    Tag = i.Tag
+                    Tag = i.Tag.Replace("-",":") // NEU items say - instead of :
                 });
             IEnumerable<Items.Client.Model.ItemPreview> recipeBased = NewMethod(source, recipe);
             return recipeBased.Concat(similarName).Take(5);
