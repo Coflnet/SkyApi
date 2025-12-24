@@ -1,0 +1,9 @@
+<Project>
+  <PropertyGroup>
+    <!-- Suppress external project reference unresolved assembly warnings (MSB3245) and conflict warnings (MSB3243)
+         These warnings come from building external projects (e.g. websocket-sharp) that target older .NET frameworks
+         and reference framework assemblies by name. The external projects are outside this repo; suppressing
+         the MSBuild warnings here reduces noise while keeping build success visible. -->
+    <NoWarn>$(NoWarn);MSB3245;MSB3243</NoWarn>
+  </PropertyGroup>
+</Project>
