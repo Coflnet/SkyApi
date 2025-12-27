@@ -424,7 +424,7 @@ public class ModDescriptionService : IDisposable
 
         var (userSettings, userInfo) = await GetSettingForConid(mcName, sessionId, inventory.Settings);
         var pricesTask = GetPrices(auctionRepresent.Select(a => a.auction), userSettings.Fields.Any(f => f.Contains(DescriptionField.AiEstimate)));
-        
+
         List<Item> items = new();
         try
         {
@@ -438,6 +438,9 @@ public class ModDescriptionService : IDisposable
         if (userSettings.Disabled)
         {
             result.AddRange(Enumerable.Repeat(new List<DescModification>(), auctionRepresent.Count));
+            if (inventory.Version >= 2 && (inventory.ChestName?.EndsWith("Menu") ?? false))
+                result.Add([new LoreBuilder().AddText($"{McColorCodes.GRAY}SkyCofl Lore disabled",
+                    "Disabled all descriptions from SkyCofl, click to reenable", "/cofl set loredisabled false").BuildLine()]);
             return;
         }
 
@@ -750,7 +753,7 @@ public class ModDescriptionService : IDisposable
             if (settings.Count > 1000)
             {
                 // Remove the oldest 100 entries (where premium expires first)
-                var toRemove = settings.OrderBy(s=>s.Value.Item2.Value.ExpiresAt).Select(s=>s.Key).Take(100).ToList();
+                var toRemove = settings.OrderBy(s => s.Value.Item2.Value.ExpiresAt).Select(s => s.Key).Take(100).ToList();
                 foreach (var key in toRemove)
                 {
                     settings.TryRemove(key, out _);
@@ -1595,7 +1598,7 @@ public class ModDescriptionService : IDisposable
                     // TODO: maybe parse "§aRabbit Dog§8 - §7[21§7] §aEmployee" and "§9Rabbit Cousin§8 - §7[75§7] §9Assistant"
                     var name = NBT.GetName(compound);
                     var typeId = compound?.Get<NbtString>("id").StringValue;
-                    if(typeId == "minecraft:black_stained_glass_pane" || name == null)
+                    if (typeId == "minecraft:black_stained_glass_pane" || name == null)
                     {
                         // empty slot in menu
                         return (null, []);
