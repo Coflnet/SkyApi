@@ -176,6 +176,10 @@ public class TradeInfoDisplay : ICustomModifier
         {
             underCutPercentage += 3;
         }
+        if(volume <= 0.4f)
+        {
+            underCutPercentage += 2;
+        }
         var total = (long)(medLowballValue * (100 - underCutPercentage) / 100.0);
         return total;
     }
