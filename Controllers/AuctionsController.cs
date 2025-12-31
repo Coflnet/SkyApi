@@ -292,6 +292,7 @@ namespace Coflnet.Sky.Api.Controller
         /// </summary>
         /// <param name="itemTag">The itemTag to get auctions for</param>
         /// <param name="query"></param>
+        /// <param name="popularityService"></param>
         /// <returns></returns>
         [Route("auctions/tag/{itemTag}/recent/overview")]
         [HttpGet]
