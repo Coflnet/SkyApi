@@ -181,7 +181,16 @@ namespace Coflnet.Sky.Api.Controller
         public async Task<string> GetPlayerName(string playerUuid)
         {
             AssertUuid(playerUuid);
-            return await playerNameApi.GetName(playerUuid) ?? "unknown!";
+            try
+            {
+                return await playerNameApi.GetName(playerUuid) ?? "unknown!";
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine("Error fetching player name for uuid " + playerUuid + ": " + e);
+                
+                return "unknown!";
+            }
         }
 
         /// <summary>
