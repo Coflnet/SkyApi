@@ -2,6 +2,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using Coflnet.Leaderboard.Client.Api;
 using Coflnet.Sky.Api.Services;
+using Coflnet.Sky.Commands;
 using Coflnet.Sky.Core;
 using Coflnet.Sky.PlayerName.Client.Api;
 using Microsoft.AspNetCore.Mvc;
@@ -13,16 +14,12 @@ namespace Coflnet.Sky.Api.Controller;
 [Route("api/leaderboard")]
 public class LeaderboardController : ControllerBase
 {
-    private readonly ILogger<LeaderboardController> logger;
-    private readonly IScoresApi scoresApi;
+    private readonly ILeaderboardService scoresApi;
     private readonly PremiumTierService premiumTierService;
-    private readonly IPlayerNameApi playerNameApi;
 
-    public LeaderboardController(ILogger<LeaderboardController> logger, IScoresApi scoresApi, IPlayerNameApi playerNameApi, PremiumTierService premiumTierService)
+    public LeaderboardController(ILeaderboardService scoresApi,  PremiumTierService premiumTierService)
     {
-        this.logger = logger;
         this.scoresApi = scoresApi;
-        this.playerNameApi = playerNameApi;
         this.premiumTierService = premiumTierService;
     }
 
@@ -36,20 +33,19 @@ public class LeaderboardController : ControllerBase
     {
         if (!await premiumTierService.HasPremiumPlus(this))
             throw new CoflnetException("no_premium_plus", "This endpoint is only available for Premium+ users");
-        var entries = await scoresApi.ScoresLeaderboardSlugGetAsync(GetBoardName(weekOffset), 0, 50);
-        var names = await playerNameApi.PlayerNameNamesBatchPostAsync(entries.Select(e => e.UserId).ToList());
+        var entries = await scoresApi.GetTopFlippers(GetBoardName(),DateTime.UtcNow.AddDays(weekOffset * -7) , 0, 50);
         return entries.Select(e => new LeaderboardEntry
         {
-            PlayerUuid = e.UserId,
-            PlayerName = names.FirstOrDefault(n => n.Key == e.UserId).Value,
+            PlayerUuid = e.PlayerId,
+            PlayerName = e.PlayerName,
             Score = e.Score,
-            TimeStamp = e.TimeStamp,
+            TimeStamp = e.Timestamp,
         }).ToList();
     }
 
-    string GetBoardName(int weekOffset)
+    string GetBoardName()
     {
-        return $"sky-flippers-{DateTime.UtcNow.AddDays(weekOffset * -7).RoundDown(TimeSpan.FromDays(7)):yyyy-MM-dd}";
+        return $"sky-flippers";
     }
 
     public class LeaderboardEntry
