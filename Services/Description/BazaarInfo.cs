@@ -16,7 +16,7 @@ public class BazaarInfo : ICustomModifier
 {
     public void Apply(DataContainer data)
     {
-        if (data.inventory.Settings.DisableInfoIn?.Contains("Bazaar") ?? false)
+        if (data.inventory.Settings.DisableInfoIn?.Contains("bazaar") ?? false)
             return;
         if (data.inventory.Version < 3)
             return; // not supported
@@ -27,8 +27,8 @@ public class BazaarInfo : ICustomModifier
                 .Select(c => new
                 {
                     Craft = c,
-                    SellPrice = c.SellPrice -1,
-                    Profit = (long)(c.SellPrice * 0.99 - c.CraftCost -1)
+                    SellPrice = c.SellPrice - 1,
+                    Profit = (long)(c.SellPrice * 0.99 - c.CraftCost - 1)
                 })
                 .Where(c => c.Profit > 0)
                 .OrderByDescending(c => c.Profit)
@@ -39,7 +39,8 @@ public class BazaarInfo : ICustomModifier
         var display = new List<DescModification>();
         data.mods.Add(display);
         if (topCrafts.Count > 0)
-            display.Add(new($"{McColorCodes.GOLD}SkyC{McColorCodes.AQUA}ofl {McColorCodes.GRAY}● §7Top Bazaar Crafts:"));
+            display.Add(new LoreBuilder().AddText($"{McColorCodes.GOLD}SkyC{McColorCodes.AQUA}ofl {McColorCodes.GRAY}● §7Top Bazaar Crafts:  ")
+                .AddText($" {McColorCodes.GRAY}x", "Disable this info display", "/cofl confirm /cofl set loreDisableInfoIn bazaar").BuildLine());
         foreach (var craft in topCrafts)
         {
             var line = new StringBuilder();
@@ -65,13 +66,13 @@ public class BazaarInfo : ICustomModifier
             display.Add(new($"{McColorCodes.GOLD}SkyC{McColorCodes.AQUA}ofl {McColorCodes.GRAY}● §7Best flips on avg:"));
         foreach (var spread in biggestSpreads)
         {
-            var name = BazaarUtils.GetSearchValue(spread.ItemTag,data.itemTagToName.GetValueOrDefault(spread.ItemTag) ?? spread.ItemTag);
+            var name = BazaarUtils.GetSearchValue(spread.ItemTag, data.itemTagToName.GetValueOrDefault(spread.ItemTag) ?? spread.ItemTag);
             var line = new StringBuilder();
             line.Append("§a● §6");
             line.Append(name.Truncate(22));
             line.Append(" " + McColorCodes.RED);
             line.Append(FormatCoins((long)spread.SellPrice));
-            line.Append(name.Length> 22 ? "§7>§6" : "§7 -> §6");
+            line.Append(name.Length > 22 ? "§7>§6" : "§7 -> §6");
             line.Append(FormatCoins((long)spread.BuyPrice));
             var command = data.inventory.Settings.NoCookie ? $"/cofl bazaarsearch {name}" : $"/bz {name}";
             var builder = new LoreBuilder()
