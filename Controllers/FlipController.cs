@@ -336,16 +336,15 @@ namespace Coflnet.Sky.Api.Controller
         public async Task TrackExternalFlip(string auctionId, string finder, int price = -1, long timeStamp = 0)
         {
             DateTime time = GetTime(timeStamp);
-            var finderParsed = finder.ToLower() == "tfm" ? LowPricedAuction.FinderType.TFM :
-                finder.ToLower() == "leiko" ? LowPricedAuction.FinderType.LEIKO : LowPricedAuction.FinderType.EXTERNAL;
+            var finderParsed = finder.ToLower() == "rust" ? LowPricedAuction.FinderType.Rust : LowPricedAuction.FinderType.EXTERNAL;
             await flipService.NewFlip(new LowPricedAuction()
             {
                 Auction = new SaveAuction() { Uuid = auctionId },
                 Finder = finderParsed,
                 TargetPrice = price
             }, time);
-            if (finder.Equals("leiko", StringComparison.CurrentCultureIgnoreCase))
-                Console.WriteLine($"LeikOwO found {auctionId} at {timeStamp}");
+            if (finder.Equals("rust", StringComparison.CurrentCultureIgnoreCase) && price > 1_000_000)
+                Console.WriteLine($"Rust found {auctionId} at {timeStamp}");
         }
 
         private static DateTime GetTime(long timeStamp)
