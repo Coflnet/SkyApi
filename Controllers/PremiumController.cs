@@ -500,6 +500,18 @@ namespace Coflnet.Sky.Api.Controller
             return Ok();
         }
 
+        [HttpPut]
+        [Route("premium/subscription/{externalId}/reactivate")]
+        [Microsoft.AspNetCore.Authorization.Authorize]
+        public async Task<ActionResult> ReactivateSubscription(string externalId)
+        {
+            var user = await GetUserOrDefault();
+            if (user == default)
+                return Unauthorized("no googletoken header");
+            await subscriptionApi.ApiSubscriptionResumeSubscriptionIdPostAsync(externalId, user.Id.ToString());
+            return Ok();
+        }
+
         private async Task<GoogleUser?> GetUserOrDefault(bool isPurchase = false)
         {
             if (!Request.Headers.TryGetValue("GoogleToken", out StringValues value)
