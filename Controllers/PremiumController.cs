@@ -508,7 +508,14 @@ namespace Coflnet.Sky.Api.Controller
             var user = await GetUserOrDefault();
             if (user == default)
                 return Unauthorized("no googletoken header");
-            await subscriptionApi.ApiSubscriptionResumeSubscriptionIdPostAsync(externalId, user.Id.ToString());
+            try
+            {
+                await subscriptionApi.ApiSubscriptionResumeSubscriptionIdPostAsync(externalId, user.Id.ToString());
+            }
+            catch (Exception e)
+            {
+                throw new CoflnetException("reactivate_failed", e.Message);
+            }
             return Ok();
         }
 
