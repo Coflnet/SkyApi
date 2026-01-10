@@ -174,7 +174,7 @@ namespace Coflnet.Sky.Api.Controller
                 throw new CoflnetException("not_allowed", "You are not allowed to access this endpoint, please contact us on discord if you want to use it");
 
             // Get a random uid between -minValue and 80% of the +maxValue
-            var randomId = new Random().NextInt64(long.MinValue, (long.MaxValue/5)*4);
+            var randomId = new Random().NextInt64(long.MinValue, (long.MaxValue / 5) * 4);
             return await context.Auctions.Where(a => a.UId >= randomId && a.HighestBidAmount > 0)
                 .Take(1)
                 .Include(a => a.Enchantments)
@@ -238,16 +238,22 @@ namespace Coflnet.Sky.Api.Controller
                 pageSize = max;
             var daysToReturn = config["MAX_SELL_LOOKBACK_ENDPOINT_DAYS"] ?? "7";
             var isSherly = GetTokenHash(token) == "9364BF7E16C578C95E0991A2618225D5B270943684EE0337B2BDEF2EC7A201E5";
-            if(isSherly)
+            if (isSherly)
             {
                 var start = DateTime.Now.RoundDown(TimeSpan.FromDays(1)) - TimeSpan.FromDays(29);
+                var idOf30DaysAgo = await context.Auctions
+                        .Where(a => a.ItemId == itemId && a.End > start && a.End < DateTime.Now)
+                        .OrderBy(a => a.End)
+                        .Select(a => a.Id)
+                        .FirstOrDefaultAsync();
                 return await context.Auctions
-                        .Where(a => a.ItemId == itemId && a.End > start && a.End < DateTime.Now && a.HighestBidAmount != 0)
+                        .Where(a => a.Id >= idOf30DaysAgo)
                         .Include(a => a.Enchantments)
                         .Include(a => a.NbtData)
                         .OrderBy(a => a.Id)
                         .Skip(page * pageSize)
-                        .Take(pageSize).ToListAsync();
+                        .Take(pageSize)
+                        .Where(a => a.End > start && a.End < DateTime.Now && a.HighestBidAmount != 0).ToListAsync();
             }
             if (!string.IsNullOrEmpty(token) && IsValidPartner(token))
                 daysToReturn = "30";
