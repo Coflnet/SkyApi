@@ -237,14 +237,23 @@ namespace Coflnet.Sky.Api.Controller
             if (pageSize < 0 || pageSize > max)
                 pageSize = max;
             var daysToReturn = config["MAX_SELL_LOOKBACK_ENDPOINT_DAYS"] ?? "7";
-            var isSage = GetTokenHash(token) == "3ED10C09944BBE8B8584B1B6026E7733B174188C3BDC9069B6DEF125373092C1";
+            var isSherly = GetTokenHash(token) == "9364BF7E16C578C95E0991A2618225D5B270943684EE0337B2BDEF2EC7A201E5";
+            if(isSherly)
+            {
+                var start = DateTime.Now.RoundDown(TimeSpan.FromDays(1)) - TimeSpan.FromDays(29);
+                return await context.Auctions
+                        .Where(a => a.ItemId == itemId && a.End > start && a.End < DateTime.Now && a.HighestBidAmount != 0)
+                        .Include(a => a.Enchantments)
+                        .Include(a => a.NbtData)
+                        .OrderBy(a => a.Id)
+                        .Skip(page * pageSize)
+                        .Take(pageSize).ToListAsync();
+            }
             if (!string.IsNullOrEmpty(token) && IsValidPartner(token))
-                daysToReturn = itemTag == "CAKE_SOUL" ? "1200" : "30";
+                daysToReturn = "30";
             var startTime = DateTime.Now.RoundDown(TimeSpan.FromHours(1)) - TimeSpan.FromDays(int.Parse(daysToReturn));
-            Console.WriteLine($"Getting history for {itemTag} from {startTime} to now, page {page}, pageSize {pageSize}, isPartner: {isPartner}, isSage: {isSage}");
+            Console.WriteLine($"Getting history for {itemTag} from {startTime} to now, page {page}, pageSize {pageSize}, isPartner: {isPartner}");
             var bidNotEqualTo = 0;
-            if (isSage && itemTag != "CAKE_SOUL")
-                throw new CoflnetException("not_allowed", "You are only allowed to download CAKE_SOUL");
             var result = await context.Auctions
                         .Where(a => a.ItemId == itemId && a.End > startTime && a.End < DateTime.Now && a.HighestBidAmount != bidNotEqualTo)
                         .Include(a => a.Enchantments)
