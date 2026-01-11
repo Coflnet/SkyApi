@@ -456,6 +456,7 @@ namespace Coflnet.Sky.Api.Controller
             {
                 TopUpOptions options = GetOptions(new(), user);
                 options.CreatorCode = creatorCode;
+                options.EnableTrial = false;
                 options.DiscountCode = discountcode;
                 var link = await topUpApi.TopUpLemonsqueezySubscribePostAsync(user.Id.ToString(), subscriptionSlug, options);
                 return Ok(link);
