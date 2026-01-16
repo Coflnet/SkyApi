@@ -5,6 +5,7 @@ using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using Coflnet.Sky.Commands.Shared;
 using Coflnet.Sky.Commands.MC;
+using Coflnet.Sky.Api.Models.Mod;
 using Newtonsoft.Json;
 
 namespace Coflnet.Sky.Api.Services.Description;
@@ -17,11 +18,15 @@ public class BoosterCookieValueInfo : ICustomModifier
 {
     private const string BitsKey = "cookiebits";
 
+    /// <summary>
+    /// Applies the booster cookie value modification to the item description.
+    /// Parses the bits value and calculates coin yield, then adds it to the description.
+    /// </summary>
     public void Apply(DataContainer data)
     {
         // Find the BOOSTER_COOKIE item (always at index 11 based on user's sample)
         var boosterCookieIndex = 11;
-        
+
         if (boosterCookieIndex >= data.auctionRepresent.Count)
             return;
 
@@ -45,19 +50,21 @@ public class BoosterCookieValueInfo : ICustomModifier
 
             var totalCoins = (long)(bits * bestOption.CoinsPerBit);
             var cookiePrice = data.GetItemprice("BOOSTER_COOKIE");
-            
+
             // Create the display information
-            var coinsDisplay = $"{McColorCodes.GOLD}{FormatCoins(totalCoins)}";
+            var coinsDisplay = $"{McColorCodes.GOLD}{ModDescriptionService.FormatPriceShort(totalCoins)}";
             var profit = totalCoins - cookiePrice;
-            var profitDisplay = profit >= 0 
-                ? $"{McColorCodes.GREEN}+{FormatCoins(profit)}" 
-                : $"{McColorCodes.RED}{FormatCoins(profit)}";
-            
-            var line = $"{McColorCodes.GRAY}Cookie value: {coinsDisplay} {McColorCodes.GRAY}(Profit: {profitDisplay}{McColorCodes.GRAY})";
+            var profitDisplay = profit >= 0
+                ? $"{McColorCodes.GREEN}+{ModDescriptionService.FormatPriceShort(profit)}"
+                : $"{McColorCodes.RED}{ModDescriptionService.FormatPriceShort(profit)}";
+
+            DescModification[] line = [new LoreBuilder().AddText($"{McColorCodes.GRAY}Bits from cookie value: {coinsDisplay} ",
+             $"{McColorCodes.GRAY}Based on buying {McColorCodes.AQUA}{bestOption.Name}\n{McColorCodes.GRAY}and selling it at market price").BuildLine(),
+            new($"{McColorCodes.GRAY}(Profit: {profitDisplay}{McColorCodes.GRAY})")];
 
             // Add this info as a new line
-            data.mods[boosterCookieIndex].Add(new(line));
-            data.mods.Add(new(){new(line)});
+            data.mods[boosterCookieIndex].Add(line.Last());
+            data.mods.Add(new(line));
         }
         catch (Exception ex)
         {
@@ -65,62 +72,60 @@ public class BoosterCookieValueInfo : ICustomModifier
         }
     }
 
+    /// <summary>
+    /// Loads the best bit-to-coin conversion rate asynchronously.
+    /// </summary>
     public void Modify(ModDescriptionService.PreRequestContainer preRequest)
     {
         preRequest.ToLoad[BitsKey] = Task.Run(async () =>
         {
-            var bitsService = DiHandler.GetService<BitService>();
-            var conversion = await bitsService.GetOptions();
-            var best = conversion.OrderByDescending(c => c.CoinsPerBit).FirstOrDefault();
-            return JsonConvert.SerializeObject(best);
+            try
+            {
+
+                var bitsService = DiHandler.GetService<BitService>();
+                var conversion = await bitsService.GetOptions();
+                var best = conversion.OrderByDescending(c => c.CoinsPerBit).FirstOrDefault();
+                return JsonConvert.SerializeObject(best);
+            }
+            catch (System.Exception e)
+            {
+                Console.WriteLine($"Error loading bit options: {e.Message}");
+                return "{}";
+            }
         });
     }
 
     /// <summary>
     /// Parses the bits value from the booster cookie lore.
-    /// Expected format: "§7You will be able to gain §b{bits}\n§bBits §7from this cookie."
+    /// Handles formats where the line break may occur between the amount and "Bits":
+    /// - "§7You will be able to gain §b5,333\n§bBits §7from this cookie."
+    /// - "§7You will be able to gain §b5,333 §bBits §7from this cookie."
     /// </summary>
     private static bool TryParseBitsFromLore(string[] description, out int bits)
     {
         bits = 0;
-        
-        foreach (var line in description)
+
+        // Combine all description lines with newlines to handle multi-line patterns
+        var combinedDesc = string.Join("\n", description);
+
+        // Remove color codes from the combined description
+        var cleaned = Regex.Replace(combinedDesc, "§.", "");
+
+        // Match pattern: "will be able to gain" -> amount -> "Bits"
+        // The amount can have commas (e.g., "5,333" or just digits)
+        // Accounts for possible newlines and whitespace between components
+        var match = Regex.Match(cleaned, @"will be able to gain\s*([\d,]+)\s*Bits", RegexOptions.IgnoreCase);
+
+        if (match.Success)
         {
-            // Look for line containing "will be able to gain" and "Bits"
-            if (line.Contains("will be able to gain") && line.Contains("Bits"))
+            var numberStr = match.Groups[1].Value.Replace(",", "");
+            if (int.TryParse(numberStr, out int parsedBits))
             {
-                // Extract the number from the line
-                // Remove color codes and extract the number
-                var cleaned = Regex.Replace(line, "§.", "").Trim();
-                
-                // Try to find a number pattern like "5,333" or "5333"
-                var match = Regex.Match(cleaned, @"(\d{1,3}(?:,\d{3})*|\d+)");
-                if (match.Success)
-                {
-                    var numberStr = match.Groups[1].Value.Replace(",", "");
-                    if (int.TryParse(numberStr, out int parsedBits))
-                    {
-                        bits = parsedBits;
-                        return true;
-                    }
-                }
+                bits = parsedBits;
+                return true;
             }
         }
-        
-        return false;
-    }
 
-    /// <summary>
-    /// Formats a coin amount for display (e.g., 1,500,000 -> "1.5M")
-    /// </summary>
-    private static string FormatCoins(long coins)
-    {
-        if (coins >= 1_000_000_000)
-            return $"{coins / 1_000_000_000.0:F1}B";
-        if (coins >= 1_000_000)
-            return $"{coins / 1_000_000.0:F1}M";
-        if (coins >= 1_000)
-            return $"{coins / 1_000.0:F1}K";
-        return coins.ToString(CultureInfo.InvariantCulture);
+        return false;
     }
 }

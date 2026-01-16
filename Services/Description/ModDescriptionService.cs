@@ -136,7 +136,7 @@ public class ModDescriptionService : IDisposable
         customModifiers.Add("^Crafting", new InventoryInfo());
         customModifiers.Add("^(Wooden|Gold|Diamond|Emerald|Obsidian|Bedrock) Chest", new DungeonChestInfo());
         customModifiers.Add("^Order options", new BazaarFlipSuggest());
-        customModifiers.Add("^Consume (Booster )?Cookie", new BoosterCookieValueInfo());
+        customModifiers.Add("^Consume Booster Cookie", new BoosterCookieValueInfo());
     }
 
     private readonly ConcurrentDictionary<string, (SelfUpdatingValue<DescriptionSetting>, SelfUpdatingValue<AccountInfo>)> settings = new();
