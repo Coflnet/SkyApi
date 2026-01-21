@@ -116,6 +116,7 @@ public class ModDescriptionService : IDisposable
     {
         customModifiers.Add("^You    ", new TradeInfoDisplay());
         customModifiers.Add("^Create BIN", new ListPriceRecommend());
+        customModifiers.Add("^Create Auction", new AuctionNoteText());
         customModifiers.Add("^Manage Auctions", new AuctionValueSummary());
         customModifiers.Add("^(Auctions Browser|Auctions:)", new FlipOnNextPage());
         customModifiers.Add("^(Auctions Browser|BIN Auction View|Auctions:)|s Auctions$", new StartedAgoToEndsIn());
