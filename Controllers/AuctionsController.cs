@@ -227,7 +227,7 @@ namespace Coflnet.Sky.Api.Controller
         [Route("auctions/tag/{itemTag}/sold")]
         [HttpGet]
         [ResponseCache(Duration = 1800, Location = ResponseCacheLocation.Any, NoStore = false, VaryByQueryKeys = ["page", "pageSize", "token"])]
-        public async Task<List<SaveAuction>> GetHistory(string itemTag, int page = 0, int pageSize = 1000, string token = null)
+        public async Task<List<SoldAuction>> GetHistory(string itemTag, int page = 0, int pageSize = 1000, string token = null)
         {
             var itemId = itemDetails.GetItemIdForTag(itemTag);
             var max = 1000;
@@ -246,7 +246,7 @@ namespace Coflnet.Sky.Api.Controller
                         .OrderBy(a => a.End)
                         .Select(a => a.Id)
                         .FirstOrDefaultAsync();
-                return await context.Auctions
+                var auctions = await context.Auctions
                         .Where(a => a.Id >= idOf30DaysAgo)
                         .Include(a => a.Enchantments)
                         .Include(a => a.NbtData)
@@ -254,6 +254,22 @@ namespace Coflnet.Sky.Api.Controller
                         .Skip(page * pageSize)
                         .Take(pageSize)
                         .Where(a => a.End > start && a.End < DateTime.Now && a.HighestBidAmount != 0).ToListAsync();
+                return auctions.Select(a => new SoldAuction
+                {
+                    Id = a.Id,
+                    Uuid = a.Uuid,
+                    Tag = a.Tag,
+                    ItemName = a.ItemName,
+                    AuctioneerId = a.AuctioneerId,
+                    StartingBid = a.StartingBid,
+                    HighestBidAmount = a.HighestBidAmount,
+                    Start = a.Start,
+                    End = a.End,
+                    Bin = a.Bin,
+                    Count = a.Count,
+                    Enchantments = a.Enchantments,
+                    ShortItemBytes = a.NbtData?.data != null ? Convert.ToBase64String(a.NbtData.data) : null
+                }).ToList();
             }
             if (!string.IsNullOrEmpty(token) && IsValidPartner(token))
                 daysToReturn = "30";
@@ -268,7 +284,22 @@ namespace Coflnet.Sky.Api.Controller
                         .Skip(page * pageSize)
                         .Take(pageSize).ToListAsync();
 
-            return result;
+            return result.Select(a => new SoldAuction
+            {
+                Id = a.Id,
+                Uuid = a.Uuid,
+                Tag = a.Tag,
+                ItemName = a.ItemName,
+                AuctioneerId = a.AuctioneerId,
+                StartingBid = a.StartingBid,
+                HighestBidAmount = a.HighestBidAmount,
+                Start = a.Start,
+                End = a.End,
+                Bin = a.Bin,
+                Count = a.Count,
+                Enchantments = a.Enchantments,
+                FlattenedNbt = a.FlatenedNBT
+            }).ToList();
         }
 
         /// <summary>
