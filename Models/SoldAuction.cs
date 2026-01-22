@@ -72,4 +72,5 @@ public class SoldAuction
     /// </summary>
     public string ShortItemBytes { get; set; }
     public Dictionary<string, string> FlattenedNbt { get; internal set; }
+    public Tier Tier { get; internal set; }
 }

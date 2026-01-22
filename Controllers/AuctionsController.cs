@@ -267,6 +267,7 @@ namespace Coflnet.Sky.Api.Controller
                     End = a.End,
                     Bin = a.Bin,
                     Count = a.Count,
+                    Tier = a.Tier,
                     Enchantments = a.Enchantments,
                     ShortItemBytes = a.NbtData?.data != null ? Convert.ToBase64String(a.NbtData.data) : null
                 }).ToList();
@@ -297,6 +298,7 @@ namespace Coflnet.Sky.Api.Controller
                 End = a.End,
                 Bin = a.Bin,
                 Count = a.Count,
+                Tier = a.Tier,
                 Enchantments = a.Enchantments,
                 FlattenedNbt = a.FlatenedNBT
             }).ToList();
