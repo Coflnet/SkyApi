@@ -11,7 +11,7 @@ public class AuctionValueSummary : ICustomModifier
     {
         var sum = 0L;
         var soldSum = 0L;
-        for (int i = 0; i < 9 * 4; i++)
+        for (int i = 0; i < data.Items.Count - 9 * 4; i++)
         {
             var item = data.Items.ElementAtOrDefault(i);
             var price = data.PriceEst.ElementAtOrDefault(i);
