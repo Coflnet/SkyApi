@@ -17,7 +17,7 @@ namespace Coflnet.Sky.Api.Controller
     /// </summary>
     [ApiController]
     [Route("api/player")]
-    [ResponseCache(Duration = 60, Location = ResponseCacheLocation.Any, NoStore = false)]
+    [ResponseCache(Duration = 60, Location = ResponseCacheLocation.Any, NoStore = false, VaryByQueryKeys = new string[] { "apiKey" })]
     public class PlayerController : ControllerBase
     {
         const int pageSize = 10;
@@ -34,6 +34,7 @@ namespace Coflnet.Sky.Api.Controller
         /// <param name="filterEngine"></param>
         /// <param name="playerNameApi"></param>
         /// <param name="itemDetails"></param>
+        /// <param name="playerStateApi"></param>
         public PlayerController(HypixelContext context, FilterEngine filterEngine, PlayerNameService playerNameApi, ItemDetails itemDetails, IPlayerStateApi playerStateApi)
         {
             this.context = context;
