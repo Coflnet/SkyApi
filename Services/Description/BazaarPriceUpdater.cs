@@ -37,7 +37,7 @@ public class BazaarPriceUpdater : ICustomModifier
 
         var slot13Item = data.Items[13];
         var itemTag = slot13Item.Tag;
-        
+
         var buyOrders = data.Items.Count > 15 ? data.Items[15] : null;
         var sellOffers = data.Items.Count > 16 ? data.Items[16] : null;
 
@@ -52,8 +52,8 @@ public class BazaarPriceUpdater : ICustomModifier
 
         // Create a clickable link to open SkyCofl history for this item
         var loreBuilder = new LoreBuilder()
-            .AddText("§7[§bopen on SkyCofl website§7]", 
-                     "Click to view price history", 
+            .AddText("§7[§bopen on SkyCofl website§7]",
+                     "Click to view price history",
                      $"https://sky.coflnet.com/item/{itemTag}");
 
         var display = new List<DescModification>
@@ -80,7 +80,7 @@ public class BazaarPriceUpdater : ICustomModifier
         }
         return null;
     }
-    
+
     public static (double buy, double sell) ExtractAndUploadOrderBook(string tag, string buyDescription, string sellDescription)
     {
         // Parse buy/sell descriptions into order entries
@@ -140,7 +140,8 @@ public class BazaarPriceUpdater : ICustomModifier
                         {
                             ItemTag = tag,
                             BuyOrders = buyList,
-                            SellOrders = sellList
+                            SellOrders = sellList,
+                            Timestamp = DateTime.UtcNow
                         }).GetAwaiter().GetResult();
                     }
                 }
