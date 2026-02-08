@@ -1044,7 +1044,11 @@ public class ModDescriptionService : IDisposable
             builder.Append($"{McColorCodes.GRAY}Obtain cost: {McColorCodes.WHITE}{FormatPriceShort(summary)}{McColorCodes.GRAY}(not craftable)");
             return;
         }
-        builder.Append($"{McColorCodes.GRAY}Full Craft Cost: {McColorCodes.YELLOW}{FormatPriceShort(summary)}");
+        
+        // Indicate which pricing mode is being used
+        bool useBuyOrderPrices = data.inventory?.Settings?.BuyOrderPrices ?? false;
+        string pricingModeText = useBuyOrderPrices ? "{BUY_ORDER}" : "";
+        builder.Append($"{McColorCodes.GRAY}Full Craft Cost: {McColorCodes.YELLOW}{FormatPriceShort(summary)} {pricingModeText}");
     }
 
     /// <summary>
@@ -1055,20 +1059,33 @@ public class ModDescriptionService : IDisposable
     /// <returns></returns>
     public (double? obtainPrice, double summary, double? craftPrice) FullCraftCost(SaveAuction auction, DataContainer data)
     {
-        (double? obtainPrice, double? craftPric) = BaseItemPrice(auction, data);
-        double summary = obtainPrice.Value + ModifierCostSum(auction, data) + EnchantCost(auction, data.bazaarPrices);
+        // Use buy order pricing if the user setting is enabled
+        bool useBuyOrderPrices = data.inventory?.Settings?.BuyOrderPrices ?? false;
+        (double? obtainPrice, double? craftPric) = BaseItemPrice(auction, data, useBuyOrderPrices);
+        double summary = obtainPrice.Value + ModifierCostSum(auction, data, useBuyOrderPrices) + EnchantCost(auction, data.bazaarPrices, useBuyOrderPrices);
         var value = (obtainPrice, summary, craftPric);
         return value;
     }
 
     private static (double lowest, double? craftPrice) BaseItemPrice(SaveAuction auction, DataContainer data)
     {
-        var craftPrice = data.allCrafts.GetValueOrDefault(auction.Tag)?.CraftCost;
-        var clean = CleanItemprice(auction, data);
+        return BaseItemPrice(auction, data, useBuyOrderPrices: false);
+    }
+
+    private static (double lowest, double? craftPrice) BaseItemPrice(SaveAuction auction, DataContainer data, bool useBuyOrderPrices)
+    {
+        var craft = data.allCrafts.GetValueOrDefault(auction.Tag);
+        var craftPrice = useBuyOrderPrices ? craft?.BuyOrderCraftCost : craft?.CraftCost;
+        var clean = CleanItemprice(auction, data, useBuyOrderPrices);
         return (Math.Min(craftPrice ?? clean, clean == 0 ? 20_000_000_000 : clean), craftPrice);
     }
 
     private static long CleanItemprice(SaveAuction auction, DataContainer data)
+    {
+        return CleanItemprice(auction, data, useBuyOrderPrices: false);
+    }
+
+    private static long CleanItemprice(SaveAuction auction, DataContainer data, bool useBuyOrderPrices)
     {
         if (NBT.IsPet(auction.Tag))
         {
@@ -1115,11 +1132,16 @@ public class ModDescriptionService : IDisposable
 
     private double ModifierCostSum(SaveAuction auction, DataContainer data)
     {
+        return ModifierCostSum(auction, data, useBuyOrderPrices: data.inventory?.Settings?.BuyOrderPrices ?? false);
+    }
+
+    private double ModifierCostSum(SaveAuction auction, DataContainer data, bool useBuyOrderPrices)
+    {
         IEnumerable<List<(string id, int amount, double coins)>> cost = GetModifiersOnItem(auction, data);
 
         var valueSum = cost.SelectMany(c => c).Select(d =>
         {
-            return data.GetItemprice(d.id) * d.amount + d.coins;
+            return data.GetItemprice(d.id, useBuyOrderPrices) * d.amount + d.coins;
         });
         return valueSum.Sum();
     }
@@ -1354,10 +1376,15 @@ public class ModDescriptionService : IDisposable
 
     private long EnchantCost(SaveAuction auction, IDictionary<string, ItemPrice> bazaarPrices)
     {
+        return EnchantCost(auction, bazaarPrices, useBuyOrderPrices: false);
+    }
+
+    private long EnchantCost(SaveAuction auction, IDictionary<string, ItemPrice> bazaarPrices, bool useBuyOrderPrices)
+    {
         var enchants = auction.Enchantments;
         if (enchants == null || enchants.Count <= 0 || bazaarPrices == null)
             return 0;
-        IEnumerable<(Enchantment e, long)> enchantValues = GetEnchantBreakdown(auction, bazaarPrices);
+        IEnumerable<(Enchantment e, long)> enchantValues = GetEnchantBreakdown(auction, bazaarPrices, useBuyOrderPrices);
         var enchantCost = enchantValues.Sum(e => e.Item2);
         if (enchantCost < 0)
             enchantCost = 0;
@@ -1366,8 +1393,13 @@ public class ModDescriptionService : IDisposable
 
     public IEnumerable<(Enchantment e, long)> GetEnchantBreakdown(SaveAuction auction, IDictionary<string, ItemPrice> bazaarPrices)
     {
+        return GetEnchantBreakdown(auction, bazaarPrices, useBuyOrderPrices: false);
+    }
+
+    public IEnumerable<(Enchantment e, long)> GetEnchantBreakdown(SaveAuction auction, IDictionary<string, ItemPrice> bazaarPrices, bool useBuyOrderPrices)
+    {
         var enchants = auction.Enchantments;
-        var lookup = bazaarPrices.ToDictionary(a => a.Key, a => a.Value.BuyPrice);
+        var lookup = bazaarPrices.ToDictionary(a => a.Key, a => useBuyOrderPrices ? a.Value.BuyPrice : a.Value.BuyPrice);
         var relevant = mapper.IrrelevantOn(auction.Tag).ToDictionary(a => a.Item1, a => a.level);
         var enchantValues = enchants.Where(e => !relevant.TryGetValue(e.Type, out var l) || l < e.Level)
                     .Select(e => (e, mapper.EnchantValue(e, auction.FlatenedNBT, lookup, auction.Tag)));
@@ -1377,6 +1409,8 @@ public class ModDescriptionService : IDisposable
     private void AddCraftcost(SaveAuction auction, DataContainer data, StringBuilder builder)
     {
         var craftPrice = data.allCrafts?.GetValueOrDefault(auction.Tag)?.CraftCost;
+        if (data.inventory.Settings.BuyOrderPrices)
+            craftPrice = data.allCrafts?.GetValueOrDefault(auction.Tag)?.BuyOrderCraftCost;
         if (craftPrice.HasValue)
         {
             if (craftPrice.Value >= int.MaxValue)

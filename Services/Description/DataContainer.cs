@@ -32,12 +32,26 @@ public class DataContainer
 
     public long GetItemprice(string itemKey)
     {
+        return GetItemprice(itemKey, useBuyOrderPrices: false);
+    }
+
+    /// <summary>
+    /// Gets the price of an item, optionally using buy order prices instead of insta-sell prices
+    /// </summary>
+    /// <param name="itemKey">The item key/tag</param>
+    /// <param name="useBuyOrderPrices">If true, uses bazaar buy price (top buy order); if false, uses sell price (lowest sell offer)</param>
+    /// <returns>The item price in coins</returns>
+    public long GetItemprice(string itemKey, bool useBuyOrderPrices)
+    {
         if (itemKey == null)
             return 0;
         if (itemPrices.TryGetValue(itemKey, out var price))
             return price;
         if (bazaarPrices.TryGetValue(itemKey, out var bazaarPrice))
-            return (long)bazaarPrice.SellPrice;
+        {
+            // Use buy price (top buy order) if buy order mode is enabled, otherwise use sell price (lowest sell offer)
+            return useBuyOrderPrices ? (long)bazaarPrice.BuyPrice : (long)bazaarPrice.SellPrice;
+        }
         return 0;
     }
 }
