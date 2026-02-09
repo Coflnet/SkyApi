@@ -16,7 +16,7 @@ public class BazaarFlipSuggest : ICustomModifier
         var previousPrice = previousPriceLine?.Split(' ')[3].Replace("§6", "").Replace("§7", "");
         // the decimal point is removed so 10,025.2 becomes 10,025, we need to fix that
         if (previousPrice != null && double.TryParse(previousPrice, CultureInfo.InvariantCulture, out var previousPriceValue) && previousPriceValue > 1_000)
-            previousPrice = ((int)previousPriceValue).ToString("N0", CultureInfo.InvariantCulture);
+            previousPrice = ((int)(previousPriceValue+0.5)).ToString("N0", CultureInfo.InvariantCulture);
         Console.WriteLine($"Bazaar flip suggest for {string.Join('\n', data.auctionRepresent[15].desc)} previous {previousPrice} top {topPriceText}");
         if (topPriceText != null && double.TryParse(topPriceText, CultureInfo.InvariantCulture, out var topPrice))
         {
