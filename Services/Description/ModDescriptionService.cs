@@ -1519,7 +1519,8 @@ public class ModDescriptionService : IDisposable
                 // https://discord.com/channels/267680588666896385/1291015754564505672/1291382816424067094
                 estimate = price.SLbin.Price * auction.Count;
             }
-            builder.Append($"{McColorCodes.GRAY}lbin: ~{FormatNumber(estimate)} {McColorCodes.DARK_GRAY}(estimate, no match found)");
+            var suffix = price.LbinKey?.EndsWith("+HV") == true ? "(higher value found)" : "(estimate, no match found)";
+            builder.Append($"{McColorCodes.GRAY}lbin: ~{FormatNumber(estimate)} {McColorCodes.DARK_GRAY}{suffix}");
         }
         if (auction.Count <= 1)
         {
