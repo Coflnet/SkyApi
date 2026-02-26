@@ -7,7 +7,7 @@ using Coflnet.Sky.Commands.Shared;
 using Coflnet.Sky.Core;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Configuration;
-using Coflnet.Leaderboard.Client.Api;
+using Coflnet.Sky.Commands.Shared;
 using Coflnet.Leaderboard.Client.Model;
 using Microsoft.Extensions.Logging;
 using Coflnet.Sky.Bazaar.Flipper.Client.Api;
@@ -448,15 +448,9 @@ namespace Coflnet.Sky.Api.Controller
             return !string.Equals(startExp, endExp, StringComparison.OrdinalIgnoreCase);
         }
 
-        private static bool IsHigherTier(string startTier, string endTier)
+        private static bool IsHigherTier(Core.Tier? startTier, Core.Tier? endTier)
         {
-            if (string.IsNullOrEmpty(startTier) || string.IsNullOrEmpty(endTier))
-                return false;
-
-            if (!TierOrder.TryGetValue(startTier, out var startRank) || !TierOrder.TryGetValue(endTier, out var endRank))
-                return false;
-
-            return endRank > startRank;
+            return endTier > startTier;
         }
 
         private static string GetModifierValue(AttributeFlipAuctionKey key, string modifierKey)
