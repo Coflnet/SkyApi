@@ -10,6 +10,8 @@ public class StartedAgoToEndsIn : ICustomModifier
     {
         if (data.itemListings.Count == 0)
             return;
+        if (data.inventory.Settings.DisableAuctionStartedTime)
+            return; // user doesn't want this feature
         for (int i = 0; i < data.auctionRepresent.Count; i++)
         {
             var item = data.auctionRepresent[i];
