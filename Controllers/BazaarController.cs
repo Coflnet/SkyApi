@@ -110,12 +110,78 @@ namespace Coflnet.Sky.Api.Controller
             return await bazaarClient.GetClosestToAsync(itemTag, timestamp.AddSeconds(10).RoundDown(TimeSpan.FromSeconds(20)));
         }
 
-        [Obsolete("Use /api/player/bazaar/orders with api key authentication")]
-        [Route("player/{playerId}/orders")]
+        /// <summary>
+        /// Exports detailed item data for a specific item, if there is no start/end specified it will return a compressed file with 20sec increments of the last 2 weeks
+        /// For longer timeframes we only keep 5min increments and return those, optionally with full orderbook for each point.
+        /// Note that this endpoint requires a google id token of an account with prem+ and is subject to strict non distribute and non profit license terms
+        /// </summary>
+        /// <param name="itemTag"></param>
+        /// <param name="premiumTierService"></param>
+        /// <param name="redis"></param>
+        /// <param name="start"></param>
+        /// <param name="end"></param>
+        /// <param name="fullOrderBook"></param>
+        /// <returns></returns>
+        [Route("{itemTag}/export")]
         [HttpGet]
-        public async Task<List<PlayerState.Client.Model.Offer>> GetPlayerOrders(string playerId)
+        [Microsoft.AspNetCore.Authorization.Authorize]
+        [ResponseCache(Duration = 0, Location = ResponseCacheLocation.None, NoStore = true)]
+        public async Task<IActionResult> Export(string itemTag,
+            [FromServices] Coflnet.Sky.Api.Services.PremiumTierService premiumTierService,
+            [FromServices] StackExchange.Redis.IConnectionMultiplexer redis,
+            DateTime? start = null, DateTime? end = null, bool fullOrderBook = false)
         {
-            throw new CoflnetException("obsulete", "This endpoint is obsolete, use /api/player/bazaar/orders with api key authentication");
+            var user = await premiumTierService.GetUserOrDefault(this);
+            if (user == null)
+            {
+                return Unauthorized();
+            }
+
+            if (!await premiumTierService.HasPremiumPlus(this))
+            {
+                throw new CoflnetException("no_premium_plus", "Sorry this feature is only available for premium+ users.");
+            }
+
+            var db = redis.GetDatabase();
+            var now = DateTimeOffset.UtcNow;
+            var windowStart = new DateTimeOffset(now.Year, now.Month, now.Day, now.Hour, (now.Minute / 5) * 5, 0, now.Offset);
+            var key = $"ratelimit:export:user:{user.Id}:{windowStart.ToUnixTimeSeconds()}";
+
+            var count = await db.StringIncrementAsync(key);
+            if (count == 1)
+            {
+                await db.KeyExpireAsync(key, TimeSpan.FromMinutes(6));
+            }
+
+            if (count > 5)
+            {
+                return StatusCode(429, "Rate limit exceeded. You can make up to 5 requests per 5 minutes.");
+            }
+
+            var data = await bazaarClient.GetDataAsync(itemTag,
+                start.HasValue ? start!.Value.RoundDown(TimeSpan.FromMinutes(1)) : null,
+                end.HasValue ? end!.Value.RoundDown(TimeSpan.FromMinutes(1)) : null, true, fullOrderBook);
+
+            Response.ContentType = "application/gzip";
+            Response.Headers["Content-Disposition"] = $"attachment; filename={itemTag}.json.gz";
+
+            await using (var gzipStream = new System.IO.Compression.GZipStream(Response.Body, System.IO.Compression.CompressionLevel.Optimal))
+            await using (var streamWriter = new System.IO.StreamWriter(gzipStream))
+            {
+                await streamWriter.WriteAsync("[");
+                bool first = true;
+                foreach (var item in data)
+                {
+                    if (!first)
+                        await streamWriter.WriteAsync(",");
+                    var json = Newtonsoft.Json.JsonConvert.SerializeObject(item);
+                    await streamWriter.WriteAsync(json);
+                    first = false;
+                }
+                await streamWriter.WriteAsync("]");
+            }
+
+            return new EmptyResult();
         }
     }
 }
