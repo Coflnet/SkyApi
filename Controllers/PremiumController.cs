@@ -208,17 +208,19 @@ namespace Coflnet.Sky.Api.Controller
         [HttpPost]
         [Microsoft.AspNetCore.Authorization.Authorize]
         public async Task<ActionResult<BatchProductPricingResponse>> GetPriceRate([FromBody] PricingRequest request,
-            [FromServices] ICreatorCodeApi creatorCodeApi)
+            [FromServices] ICreatorCodeApi creatorCodeApi, CancellationToken cancellationToken)
         {
             var user = await GetUserOrDefault();
             if (user == default)
                 return Unauthorized("no googletoken header");
+            using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            cts.CancelAfter(TimeSpan.FromSeconds(15));
             var response = await creatorCodeApi.ApiCreatorCodePricingBatchPostAsync(new()
             {
                 CountryCode = request.CountryCode,
                 CreatorCode = request.CreatorCode,
                 ProductSlugs = request.ProductSlugs
-            });
+            }, 0, cts.Token);
             return response;
         }
 
