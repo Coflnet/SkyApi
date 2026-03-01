@@ -1019,8 +1019,11 @@ public class ModDescriptionService : IDisposable
         var flips = data.flips?[listing.AuctionUid];
         if (flips == null)
             return;
-        foreach (var flip in flips)
+        var count = 0;
+        foreach (var flip in flips.GroupBy(f => f.FinderType).SelectMany(g => g.OrderByDescending(f => f.TargetPrice).Take(1).Concat(g.OrderBy(f => f.TargetPrice).Take(1))))
         {
+            if (count++ >= 4)
+                builder.Append('\n');
             builder.Append($"{McColorCodes.YELLOW}{flip.FinderType}: {McColorCodes.GRAY}{FormatPriceShort(flip.TargetPrice)} ");
         }
     }
@@ -1044,7 +1047,7 @@ public class ModDescriptionService : IDisposable
             builder.Append($"{McColorCodes.GRAY}Obtain cost: {McColorCodes.WHITE}{FormatPriceShort(summary)}{McColorCodes.GRAY}(not craftable)");
             return;
         }
-        
+
         // Indicate which pricing mode is being used
         bool useBuyOrderPrices = data.inventory?.Settings?.BuyOrderPrices ?? false;
         string pricingModeText = useBuyOrderPrices ? "{BUY_ORDER}" : "";
