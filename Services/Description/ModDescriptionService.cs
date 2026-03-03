@@ -1224,15 +1224,15 @@ public class ModDescriptionService : IDisposable
                 return new() { (mapper.GetItemKeyForGem(mod, auction.FlatenedNBT), 1, 0) };
 
             var itemIds = new List<(string id, int amount, double coins)>();
-            if (mapper.TryGetIngredients(auction.Tag, mod.Key, mod.Value, null, out var items))
-                foreach (var item in items)
-                {
-                    itemIds.Add((item, 1, 0));
-                }
             if (mod.Key == "upgrade_level" || mod.Key == "dungeon_item_level" && !auction.FlatenedNBT.TryGetValue("upgrade_level", out _))
             {
                 itemIds.Add((null, 0, EstStarCost(auction.Tag, int.Parse(mod.Value))));
             }
+            else if (mapper.TryGetIngredients(auction.Tag, mod.Key, mod.Value, null, out var items))
+                foreach (var item in items)
+                {
+                    itemIds.Add((item, 1, 0));
+                }
             if (Constants.AttributeKeys.Contains(mod.Key))
             {
                 // check for combo
