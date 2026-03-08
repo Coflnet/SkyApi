@@ -136,10 +136,26 @@ namespace Coflnet.Sky.Api.Controller
             {
                 return Unauthorized();
             }
-
             if (!await premiumTierService.HasPremiumPlus(this))
             {
-                throw new CoflnetException("no_premium_plus", "Sorry this feature is only available for premium+ users.");
+                if (await premiumTierService.HasPremium(this))
+                {
+                    if (start.Value < DateTime.UtcNow.AddDays(-180))
+                    {
+                        if (start.Value == default)
+                        {
+                            // if no start time is specified we return the last 2 weeks, so we can allow that for prem users
+                        }
+                        else
+                            throw new CoflnetException("no_premium_plus", "Sorry for exports of more than half a year you require prem+");
+                    }
+                    else
+                    {
+                        // let the request through
+                    }
+                }
+                else
+                    throw new CoflnetException("no_premium_plus", "Sorry this feature is only available for premium+ users.");
             }
 
             var db = redis.GetDatabase();
