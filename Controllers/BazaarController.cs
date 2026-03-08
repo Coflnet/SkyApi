@@ -136,18 +136,14 @@ namespace Coflnet.Sky.Api.Controller
             {
                 return Unauthorized();
             }
+            var startTime = start ?? DateTime.UtcNow.AddDays(-14).AddSeconds(1);
             if (!await premiumTierService.HasPremiumPlus(this))
             {
                 if (await premiumTierService.HasPremium(this))
                 {
-                    if (start.Value < DateTime.UtcNow.AddDays(-180))
+                    if (startTime < DateTime.UtcNow.AddDays(-180))
                     {
-                        if (start.Value == default)
-                        {
-                            // if no start time is specified we return the last 2 weeks, so we can allow that for prem users
-                        }
-                        else
-                            throw new CoflnetException("no_premium_plus", "Sorry for exports of more than half a year you require prem+");
+                        throw new CoflnetException("no_premium_plus", "Sorry for exports of more than half a year you require prem+");
                     }
                     else
                     {
