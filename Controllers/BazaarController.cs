@@ -3,6 +3,8 @@ using Coflnet.Sky.Core;
 using Microsoft.AspNetCore.Mvc;
 using Coflnet.Sky.Bazaar.Client.Api;
 using Microsoft.Extensions.Logging;
+using System.IO.Compression;
+using System.Timers;
 
 namespace Coflnet.Sky.Api.Controller
 {
@@ -124,7 +126,7 @@ namespace Coflnet.Sky.Api.Controller
         /// <returns></returns>
         [Route("{itemTag}/export")]
         [HttpGet]
-        [Microsoft.AspNetCore.Authorization.Authorize]
+       // [Microsoft.AspNetCore.Authorization.Authorize]
         [ResponseCache(Duration = 0, Location = ResponseCacheLocation.None, NoStore = true)]
         public async Task<IActionResult> Export(string itemTag,
             [FromServices] Coflnet.Sky.Api.Services.PremiumTierService premiumTierService,
@@ -174,26 +176,55 @@ namespace Coflnet.Sky.Api.Controller
                 start.HasValue ? start!.Value.RoundDown(TimeSpan.FromMinutes(1)) : null,
                 end.HasValue ? end!.Value.RoundDown(TimeSpan.FromMinutes(1)) : null, true, fullOrderBook);
 
-            Response.ContentType = "application/gzip";
-            Response.Headers["Content-Disposition"] = $"attachment; filename={itemTag}.json.gz";
+            // Create temp file
+            var tempDir = System.IO.Path.GetTempPath();
+            var tempFileName = $"{System.IO.Path.GetRandomFileName()}.zip";
+            var tempFilePath = System.IO.Path.Combine(tempDir, tempFileName);
 
-            await using (var gzipStream = new System.IO.Compression.GZipStream(Response.Body, System.IO.Compression.CompressionLevel.Optimal))
-            await using (var streamWriter = new System.IO.StreamWriter(gzipStream))
+            // Write ZIP to temp file
+            using (var fileStream = System.IO.File.Create(tempFilePath))
+            using (var zip = new ZipArchive(fileStream, ZipArchiveMode.Create, leaveOpen: false))
             {
-                await streamWriter.WriteAsync("[");
-                bool first = true;
-                foreach (var item in data)
+                var entry = zip.CreateEntry($"{itemTag}.json", CompressionLevel.Optimal);
+                using (var entryStream = entry.Open())
+                using (var streamWriter = new System.IO.StreamWriter(entryStream))
                 {
-                    if (!first)
-                        await streamWriter.WriteAsync(",");
-                    var json = Newtonsoft.Json.JsonConvert.SerializeObject(item);
-                    await streamWriter.WriteAsync(json);
-                    first = false;
+                    await streamWriter.WriteAsync("[");
+                    bool first = true;
+                    foreach (var item in data)
+                    {
+                        if (!first)
+                            await streamWriter.WriteAsync(",");
+                        var json = Newtonsoft.Json.JsonConvert.SerializeObject(item);
+                        await streamWriter.WriteAsync(json);
+                        first = false;
+                    }
+                    await streamWriter.WriteAsync("]");
+                    await streamWriter.FlushAsync();
                 }
-                await streamWriter.WriteAsync("]");
             }
 
-            return new EmptyResult();
+            // Schedule deletion after 10 minutes
+            var timer = new System.Timers.Timer(TimeSpan.FromMinutes(10).TotalMilliseconds);
+            timer.Elapsed += (s, e) =>
+            {
+                try
+                {
+                    if (System.IO.File.Exists(tempFilePath))
+                        System.IO.File.Delete(tempFilePath);
+                }
+                catch (Exception ex)
+                {
+                    logger.LogError(ex, "Failed to delete temp file {tempFile}", tempFilePath);
+                }
+                timer.Dispose();
+            };
+            timer.AutoReset = false;
+            timer.Start();
+
+            // Return file
+            var fileBytes = await System.IO.File.ReadAllBytesAsync(tempFilePath);
+            return File(fileBytes, "application/zip", $"{itemTag}.zip");
         }
     }
 }
