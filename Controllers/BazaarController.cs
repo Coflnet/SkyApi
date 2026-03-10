@@ -5,6 +5,7 @@ using Coflnet.Sky.Bazaar.Client.Api;
 using Microsoft.Extensions.Logging;
 using System.IO.Compression;
 using System.Timers;
+using Microsoft.AspNetCore.Http;
 
 namespace Coflnet.Sky.Api.Controller
 {
@@ -126,8 +127,12 @@ namespace Coflnet.Sky.Api.Controller
         /// <returns></returns>
         [Route("{itemTag}/export")]
         [HttpGet]
-       // [Microsoft.AspNetCore.Authorization.Authorize]
+        [Microsoft.AspNetCore.Authorization.Authorize]
         [ResponseCache(Duration = 0, Location = ResponseCacheLocation.None, NoStore = true)]
+        [Produces("application/zip")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(StatusCodes.Status429TooManyRequests)]
         public async Task<IActionResult> Export(string itemTag,
             [FromServices] Coflnet.Sky.Api.Services.PremiumTierService premiumTierService,
             [FromServices] StackExchange.Redis.IConnectionMultiplexer redis,
