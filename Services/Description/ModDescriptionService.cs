@@ -136,6 +136,7 @@ public class ModDescriptionService : IDisposable
         customModifiers.Add(@"^\(\d\/2\) Fish Family", new FishFamilyCalculator());
         customModifiers.Add("^Crafting", new InventoryInfo());
         customModifiers.Add("^(Wooden|Gold|Diamond|Emerald|Obsidian|Bedrock) Chest", new DungeonChestInfo());
+        customModifiers.Add("Paid Chest", new KuudraChestInfo());
         customModifiers.Add("^Order options", new BazaarFlipSuggest());
         customModifiers.Add("^Consume Booster Cookie", new BoosterCookieValueInfo());
     }
