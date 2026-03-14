@@ -138,6 +138,7 @@ namespace Coflnet.Sky.Api
             services.AddSingleton<HttpClient>();
             services.AddSingleton<FilterPobularityService>();
             services.AddSingleton<NetworthService>();
+            services.AddSingleton<IScrapingDetectionService, ScrapingDetectionService>();
             services.AddScoped<AiRateLimitFilter>();
 
             services.AddSingleton<ItemSkinHandler>();
@@ -347,6 +348,29 @@ namespace Coflnet.Sky.Api
             // Note: We only use ClientRateLimiting (not IpRateLimiting) because our CustomRateLimitConfiguration
             // falls back to "ip:{clientIp}" when no X-ClientId header is provided, effectively giving us
             // IP-based limiting for anonymous users while allowing premium clients to use their higher quotas
+            app.Use(async (context, next) =>
+            {
+                var scrapingDetector = context.RequestServices.GetService<IScrapingDetectionService>();
+                if (scrapingDetector != null && scrapingDetector.IsBanned(context))
+                {
+                    context.Response.StatusCode = 403;
+                    context.Response.ContentType = "text/plain";
+                    await context.Response.WriteAsync("You have been permanently blocked for continuous scraping.\nFor high request api access please get in touch and subscribe to prem+.");
+                    return;
+                }
+
+                await next();
+
+                if (context.Response.StatusCode == 429)
+                {
+                    if (scrapingDetector != null)
+                    {
+                        // Fire and forget
+                        _ = System.Threading.Tasks.Task.Run(() => scrapingDetector.RecordRateLimitExceededAsync(context));
+                    }
+                }
+            });
+
             app.UseClientRateLimiting();
           /*  app.Use(async (context, next) =>
             {
