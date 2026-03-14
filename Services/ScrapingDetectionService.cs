@@ -11,22 +11,31 @@ namespace Coflnet.Sky.Api.Services
     {
         bool IsBanned(HttpContext context);
         Task RecordRateLimitExceededAsync(HttpContext context);
+        void TrackRequest(HttpContext context);
     }
 
     public class ScrapingDetectionService : IScrapingDetectionService
     {
+        private class SubnetTracker
+        {
+            public int TotalRequests;
+            public readonly ConcurrentDictionary<string, byte> ActiveIps = new ConcurrentDictionary<string, byte>();
+            public int UserAgentAnomalies;
+        }
+
         private readonly ILogger<ScrapingDetectionService> _logger;
-        // Keep track of IP addresses and how many times they have exceeded limits.
+        
+        // Tracking for 429 Rate Limit Exceeds
         private readonly ConcurrentDictionary<string, int> _ipViolationCounts = new ConcurrentDictionary<string, int>();
-        // Keep track of subnets (first 3 octets of IPv4 or /48 for IPv6) to detect proxy rotation.
         private readonly ConcurrentDictionary<string, int> _subnetViolationCounts = new ConcurrentDictionary<string, int>();
-        // A set of permanently banned IP addresses.
-        private readonly ConcurrentDictionary<string, bool> _bannedIps = new ConcurrentDictionary<string, bool>(
-            StringComparer.Ordinal
-        );
-        private readonly ConcurrentDictionary<string, bool> _bannedSubnets = new ConcurrentDictionary<string, bool>(
-            StringComparer.Ordinal
-        );
+        
+        // Permanent ban lists
+        private readonly ConcurrentDictionary<string, bool> _bannedIps = new ConcurrentDictionary<string, bool>(StringComparer.Ordinal);
+        private readonly ConcurrentDictionary<string, bool> _bannedSubnets = new ConcurrentDictionary<string, bool>(StringComparer.Ordinal);
+
+        // Tracking for distributed proxy pools below individual IP rate limits
+        private readonly ConcurrentDictionary<string, SubnetTracker> _subnetVelocity = new ConcurrentDictionary<string, SubnetTracker>(StringComparer.Ordinal);
+        private long _currentMinuteWindow = DateTimeOffset.UtcNow.ToUnixTimeSeconds() / 60;
 
         private const int MaxViolationsBeforeBan = 500; 
         private const int MaxSubnetViolationsBeforeBan = 3000;
@@ -100,6 +109,76 @@ namespace Coflnet.Sky.Api.Services
             }
 
             return Task.CompletedTask;
+        }
+
+        public void TrackRequest(HttpContext context)
+        {
+            var path = context.Request.Path.Value ?? string.Empty;
+            
+            // Exclude typically high-volume legitimate endpoint
+            if (path.StartsWith("/api/description/modifications", StringComparison.OrdinalIgnoreCase) || 
+                path.StartsWith("/description/modifications", StringComparison.OrdinalIgnoreCase))
+            {
+                return;
+            }
+
+            var ip = GetClientIp(context);
+            if (string.IsNullOrEmpty(ip)) return;
+
+            var subnet = GetSubnet(ip);
+            if (string.IsNullOrEmpty(subnet)) return;
+
+            // Shift sliding window
+            var currentMinute = DateTimeOffset.UtcNow.ToUnixTimeSeconds() / 60;
+            long oldWindow = _currentMinuteWindow;
+            if (oldWindow != currentMinute)
+            {
+                if (System.Threading.Interlocked.CompareExchange(ref _currentMinuteWindow, currentMinute, oldWindow) == oldWindow)
+                {
+                    _subnetVelocity.Clear();
+                }
+            }
+
+            var tracker = _subnetVelocity.GetOrAdd(subnet, _ => new SubnetTracker());
+            var count = System.Threading.Interlocked.Increment(ref tracker.TotalRequests);
+            tracker.ActiveIps.TryAdd(ip, 0);
+
+            // User-Agent Fingerprinting
+            string ua = context.Request.Headers["User-Agent"].ToString().ToLowerInvariant();
+            if (string.IsNullOrWhiteSpace(ua) || 
+                ua.Contains("python-requests") || 
+                ua.Contains("go-http-client") || 
+                ua.Contains("axios") || 
+                ua.Contains("node-fetch"))
+            {
+                System.Threading.Interlocked.Increment(ref tracker.UserAgentAnomalies);
+                // Mild penalty for missing/bot UA, applying directly to standard limit counts
+                _ipViolationCounts.AddOrUpdate(ip, 2, (_, c) => c + 2); 
+            }
+
+            int activeIpCount = tracker.ActiveIps.Count;
+
+            // Thresholds for Proxy Pool detection:
+            // 400 requests/minute distributed evenly across 5+ unique IPs in the same /24 subnet -> Proxy pool
+            if (activeIpCount >= 5 && count > 400) 
+            {
+                _bannedSubnets.TryAdd(subnet, true);
+                _logger.LogWarning("Subnet {Subnet} permanently banned: Distributed PROXY POOL scraper ({Count} req/min, {Ips} IPs).", subnet, count, activeIpCount);
+                foreach (var activeIp in tracker.ActiveIps.Keys)
+                {
+                    _bannedIps.TryAdd(activeIp, true);
+                }
+            }
+            // 200 requests/minute mostly using problematic generic Bot/Scraper HTTP Client user-agents over multiple IPs
+            else if (activeIpCount >= 2 && tracker.UserAgentAnomalies > 150)
+            {
+                _bannedSubnets.TryAdd(subnet, true);
+                _logger.LogWarning("Subnet {Subnet} permanently banned: BOTNET/SCRAPER via anomalous User-Agent ({Anomalies} anon-req/min, {Ips} IPs).", subnet, tracker.UserAgentAnomalies, activeIpCount);
+                foreach (var activeIp in tracker.ActiveIps.Keys)
+                {
+                    _bannedIps.TryAdd(activeIp, true);
+                }
+            }
         }
 
         private string GetClientIp(HttpContext context)

@@ -359,6 +359,11 @@ namespace Coflnet.Sky.Api
                     return;
                 }
 
+                if (scrapingDetector != null)
+                {
+                    scrapingDetector.TrackRequest(context);
+                }
+
                 await next();
 
                 if (context.Response.StatusCode == 429)
