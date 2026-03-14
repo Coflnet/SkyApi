@@ -4,6 +4,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 
 namespace Coflnet.Sky.Api.Services
 {
@@ -37,19 +38,54 @@ namespace Coflnet.Sky.Api.Services
         private readonly ConcurrentDictionary<string, SubnetTracker> _subnetVelocity = new ConcurrentDictionary<string, SubnetTracker>(StringComparer.Ordinal);
         private long _currentMinuteWindow = DateTimeOffset.UtcNow.ToUnixTimeSeconds() / 60;
 
+        private readonly AspNetCoreRateLimit.ClientRateLimitOptions _clientRateLimitOptions;
+        private readonly AspNetCoreRateLimit.ClientRateLimitPolicies _clientRateLimitPolicies;
+
         private const int MaxViolationsBeforeBan = 500; 
         private const int MaxSubnetViolationsBeforeBan = 3000;
 
-        public ScrapingDetectionService(ILogger<ScrapingDetectionService> logger)
+        public ScrapingDetectionService(
+            ILogger<ScrapingDetectionService> logger,
+            IOptions<AspNetCoreRateLimit.ClientRateLimitOptions> clientRateLimitOptions = null,
+            IOptions<AspNetCoreRateLimit.ClientRateLimitPolicies> clientRateLimitPolicies = null)
         {
             _logger = logger;
+            _clientRateLimitOptions = clientRateLimitOptions?.Value;
+            _clientRateLimitPolicies = clientRateLimitPolicies?.Value;
+
             // Pre-ban requested IPs
             _bannedIps.TryAdd("45.74.244.124", true);
             _bannedIps.TryAdd("77.179.164.33", true);
         }
 
+        private bool IsExempt(HttpContext context)
+        {
+            if (_clientRateLimitOptions == null) return false;
+
+            var clientIdHeader = _clientRateLimitOptions.ClientIdHeader ?? "X-ClientId";
+            if (context.Request.Headers.TryGetValue(clientIdHeader, out var clientIds))
+            {
+                var clientId = clientIds.FirstOrDefault();
+                if (!string.IsNullOrEmpty(clientId))
+                {
+                    if (_clientRateLimitOptions.ClientWhitelist != null && _clientRateLimitOptions.ClientWhitelist.Contains(clientId))
+                    {
+                        return true;
+                    }
+
+                    if (_clientRateLimitPolicies?.ClientRules != null && _clientRateLimitPolicies.ClientRules.Any(r => r.ClientId == clientId))
+                    {
+                        return true;
+                    }
+                }
+            }
+            return false;
+        }
+
         public bool IsBanned(HttpContext context)
         {
+            if (IsExempt(context)) return false;
+
             var ip = GetClientIp(context);
             if (string.IsNullOrEmpty(ip)) return false;
 
@@ -71,6 +107,8 @@ namespace Coflnet.Sky.Api.Services
 
         public Task RecordRateLimitExceededAsync(HttpContext context)
         {
+            if (IsExempt(context)) return Task.CompletedTask;
+
             var ip = GetClientIp(context);
             if (string.IsNullOrEmpty(ip)) return Task.CompletedTask;
 
@@ -113,6 +151,8 @@ namespace Coflnet.Sky.Api.Services
 
         public void TrackRequest(HttpContext context)
         {
+            if (IsExempt(context)) return;
+
             var path = context.Request.Path.Value ?? string.Empty;
             
             // Exclude typically high-volume legitimate endpoint
