@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Primitives;
 using Coflnet.Payments.Client.Model;
 using Coflnet.Sky.Api.Models;
+using Coflnet.Sky.Api.Services;
 using System.Threading;
 using System.Net.Http;
 using System.Text;
@@ -528,6 +529,45 @@ namespace Coflnet.Sky.Api.Controller
                 && !Request.Headers.TryGetValue("Authorization", out value))
                 return null;
             return await tokenService.GetUserWithToken(value, isPurchase);
+        }
+
+        /// <summary>
+        /// Check if the caller's IP is currently blacklisted
+        /// </summary>
+        [HttpGet]
+        [Route("blacklist/status")]
+        public IActionResult GetBlacklistStatus([FromServices] IScrapingDetectionService scrapingDetector)
+        {
+            var ip = GetClientIp();
+            var banned = !string.IsNullOrEmpty(ip) && scrapingDetector.IsIpBanned(ip);
+            return Ok(new { ip, banned });
+        }
+
+        /// <summary>
+        /// Unblock the caller's IP. Requires Premium+ subscription.
+        /// </summary>
+        [HttpPost]
+        [Route("blacklist/unblock")]
+        public async Task<IActionResult> UnblockIp([FromServices] IScrapingDetectionService scrapingDetector, [FromServices] PremiumTierService premiumTierService)
+        {
+            if (!await premiumTierService.HasPremiumPlus(this))
+                return StatusCode(403, new { error = "premium_plus_required", message = "You need an active Premium+ subscription to unblock your IP.", premiumUrl = "https://sky.coflnet.com/premium" });
+
+            var ip = GetClientIp();
+            if (string.IsNullOrEmpty(ip))
+                return BadRequest(new { error = "no_ip", message = "Could not determine your IP address." });
+
+            var wasUnbanned = scrapingDetector.UnbanIp(ip);
+            return Ok(new { ip, unblocked = true, wasBanned = wasUnbanned });
+        }
+
+        private string GetClientIp()
+        {
+            if (Request.Headers.TryGetValue("CF-Connecting-IP", out var cfIp))
+                return cfIp.ToString().Split(',').First().Trim();
+            if (Request.Headers.TryGetValue("X-Forwarded-For", out var xff))
+                return xff.ToString().Split(',').First().Trim();
+            return HttpContext.Connection.RemoteIpAddress?.ToString();
         }
     }
 }

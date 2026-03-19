@@ -353,10 +353,35 @@ namespace Coflnet.Sky.Api
                 var scrapingDetector = context.RequestServices.GetService<IScrapingDetectionService>();
                 if (scrapingDetector != null && scrapingDetector.IsBanned(context))
                 {
-                    context.Response.StatusCode = 403;
-                    context.Response.ContentType = "text/plain";
-                    await context.Response.WriteAsync("You have been permanently blocked for continuous scraping.\nFor high request api access please get in touch and subscribe to prem+.");
-                    return;
+                    // Premium+ users can bypass the ban and get auto-unbanned
+                    if (await scrapingDetector.IsPremiumPlusAsync(context))
+                    {
+                        var ip = context.Request.Headers.TryGetValue("CF-Connecting-IP", out var cfIp)
+                            ? cfIp.ToString().Split(',').First().Trim()
+                            : context.Request.Headers.TryGetValue("X-Forwarded-For", out var xff)
+                                ? xff.ToString().Split(',').First().Trim()
+                                : context.Connection.RemoteIpAddress?.ToString();
+                        if (!string.IsNullOrEmpty(ip))
+                        {
+                            scrapingDetector.UnbanIp(ip);
+                            logger.LogInformation("Premium+ user auto-unbanned IP {Ip}", ip);
+                        }
+                    }
+                    else
+                    {
+                        context.Response.StatusCode = 403;
+                        context.Response.ContentType = "application/json";
+                        var banResponse = new
+                        {
+                            error = "blocked",
+                            message = "Your IP has been blocked for exceeding rate limits.",
+                            resolution = "Subscribe to Premium+ to unblock your IP and get higher rate limits.",
+                            premiumUrl = "https://sky.coflnet.com/premium",
+                            docsUrl = "https://sky.coflnet.com/wiki/api-access"
+                        };
+                        await context.Response.WriteAsync(System.Text.Json.JsonSerializer.Serialize(banResponse));
+                        return;
+                    }
                 }
 
                 if (scrapingDetector != null)

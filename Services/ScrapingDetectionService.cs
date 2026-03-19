@@ -13,6 +13,9 @@ namespace Coflnet.Sky.Api.Services
         bool IsBanned(HttpContext context);
         Task RecordRateLimitExceededAsync(HttpContext context);
         void TrackRequest(HttpContext context);
+        Task<bool> IsPremiumPlusAsync(HttpContext context);
+        bool UnbanIp(string ip);
+        bool IsIpBanned(string ip);
     }
 
     public class ScrapingDetectionService : IScrapingDetectionService
@@ -25,6 +28,8 @@ namespace Coflnet.Sky.Api.Services
         }
 
         private readonly ILogger<ScrapingDetectionService> _logger;
+        private readonly GoogletokenService _tokenService;
+        private readonly Coflnet.Payments.Client.Api.UserApi _userApi;
         
         // Tracking for 429 Rate Limit Exceeds
         private readonly ConcurrentDictionary<string, int> _ipViolationCounts = new ConcurrentDictionary<string, int>();
@@ -44,18 +49,43 @@ namespace Coflnet.Sky.Api.Services
         private const int MaxViolationsBeforeBan = 500; 
         private const int MaxSubnetViolationsBeforeBan = 3000;
 
+        private static readonly HashSet<string> ExemptPaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            "/api/topup/options",
+            "/api/premium/user/owns",
+            "/api/premium/subscription",
+            "/api/premium/transactions",
+            "/api/service/purchase",
+        };
+
         public ScrapingDetectionService(
             ILogger<ScrapingDetectionService> logger,
+            GoogletokenService tokenService = null,
+            Coflnet.Payments.Client.Api.UserApi userApi = null,
             IOptions<AspNetCoreRateLimit.ClientRateLimitOptions> clientRateLimitOptions = null,
             IOptions<AspNetCoreRateLimit.ClientRateLimitPolicies> clientRateLimitPolicies = null)
         {
             _logger = logger;
+            _tokenService = tokenService;
+            _userApi = userApi;
             _clientRateLimitOptions = clientRateLimitOptions?.Value;
             _clientRateLimitPolicies = clientRateLimitPolicies?.Value;
 
             // Pre-ban requested IPs
             _bannedIps.TryAdd("45.74.244.124", true);
             _bannedIps.TryAdd("77.179.164.33", true);
+        }
+
+        private bool IsExemptPath(HttpContext context)
+        {
+            var path = context.Request.Path.Value ?? string.Empty;
+            // Allow premium endpoints needed to purchase/verify prem+
+            if (ExemptPaths.Any(p => path.StartsWith(p, StringComparison.OrdinalIgnoreCase)))
+                return true;
+            // Allow topup payment endpoints (stripe, paypal, lemonsqueezy, playstore)
+            if (path.StartsWith("/api/topup/", StringComparison.OrdinalIgnoreCase))
+                return true;
+            return false;
         }
 
         private bool IsExempt(HttpContext context)
@@ -219,6 +249,48 @@ namespace Coflnet.Sky.Api.Services
                     _bannedIps.TryAdd(activeIp, true);
                 }
             }
+        }
+
+        public async Task<bool> IsPremiumPlusAsync(HttpContext context)
+        {
+            if (_tokenService == null || _userApi == null) return false;
+            string token = null;
+            if (context.Request.Headers.TryGetValue("GoogleToken", out var gt))
+                token = gt.ToString();
+            else if (context.Request.Headers.TryGetValue("Authorization", out var auth))
+                token = auth.ToString();
+            if (string.IsNullOrEmpty(token)) return false;
+            if (token.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase))
+                token = token.Substring("Bearer ".Length).Trim();
+            try
+            {
+                var user = await _tokenService.GetUserWithToken(token);
+                if (user == null) return false;
+                var owns = await _userApi.UserUserIdOwnsUntilPostAsync(
+                    user.Id.ToString(), new System.Collections.Generic.List<string> { "premium_plus" }, 0);
+                return owns.TryGetValue("premium_plus", out var time) && time > DateTime.Now;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogDebug(ex, "Premium+ check failed for scraping exemption");
+                return false;
+            }
+        }
+
+        public bool UnbanIp(string ip)
+        {
+            if (string.IsNullOrEmpty(ip)) return false;
+            var removed = _bannedIps.TryRemove(ip, out _);
+            _ipViolationCounts.TryRemove(ip, out _);
+            return removed;
+        }
+
+        public bool IsIpBanned(string ip)
+        {
+            if (string.IsNullOrEmpty(ip)) return false;
+            if (_bannedIps.ContainsKey(ip)) return true;
+            var subnet = GetSubnet(ip);
+            return subnet != null && _bannedSubnets.ContainsKey(subnet);
         }
 
         private string GetClientIp(HttpContext context)
