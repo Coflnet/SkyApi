@@ -238,40 +238,8 @@ namespace Coflnet.Sky.Api.Controller
                 pageSize = max;
             var daysToReturn = config["MAX_SELL_LOOKBACK_ENDPOINT_DAYS"] ?? "7";
             var isSherly = GetTokenHash(token) == "9364BF7E16C578C95E0991A2618225D5B270943684EE0337B2BDEF2EC7A201E5";
-            if (isSherly)
-            {
-                var start = DateTime.Now.RoundDown(TimeSpan.FromDays(1)) - TimeSpan.FromDays(29);
-                var idOf30DaysAgo = await context.Auctions
-                        .Where(a => a.ItemId == itemId && a.End > start && a.End < DateTime.Now)
-                        .OrderBy(a => a.End)
-                        .Select(a => a.Id)
-                        .FirstOrDefaultAsync();
-                var auctions = await context.Auctions
-                        .Where(a => a.Id >= idOf30DaysAgo)
-                        .Include(a => a.Enchantments)
-                        .Include(a => a.NbtData)
-                        .OrderBy(a => a.Id)
-                        .Skip(page * pageSize)
-                        .Take(pageSize)
-                        .Where(a => a.End > start && a.End < DateTime.Now && a.HighestBidAmount != 0).ToListAsync();
-                return auctions.Select(a => new SoldAuction
-                {
-                    Id = a.Id,
-                    Uuid = a.Uuid,
-                    Tag = a.Tag,
-                    ItemName = a.ItemName,
-                    AuctioneerId = a.AuctioneerId,
-                    StartingBid = a.StartingBid,
-                    HighestBidAmount = a.HighestBidAmount,
-                    Start = a.Start,
-                    End = a.End,
-                    Bin = a.Bin,
-                    Count = a.Count,
-                    Tier = a.Tier,
-                    Enchantments = a.Enchantments,
-                    ShortItemBytes = a.NbtData?.data != null ? Convert.ToBase64String(a.NbtData.data) : null
-                }).ToList();
-            }
+            var isZander = GetTokenHash(token) == "FCA4798A3D8F604E340727A7899B069C83FD3AB11401E5AA18DB80AF086A0F5E";
+
             if (!string.IsNullOrEmpty(token) && IsValidPartner(token))
                 daysToReturn = "30";
             var startTime = DateTime.Now.RoundDown(TimeSpan.FromHours(1)) - TimeSpan.FromDays(int.Parse(daysToReturn));
