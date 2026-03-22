@@ -85,6 +85,14 @@ namespace Coflnet.Sky.Api.Services
             // Allow topup payment endpoints (stripe, paypal, lemonsqueezy, playstore)
             if (path.StartsWith("/api/topup/", StringComparison.OrdinalIgnoreCase))
                 return true;
+            // Allow specific controller endpoints
+            if (path.StartsWith("/api/search/", StringComparison.OrdinalIgnoreCase) ||
+                path.StartsWith("/api/mod/", StringComparison.OrdinalIgnoreCase) ||
+                path.StartsWith("/api/premium/", StringComparison.OrdinalIgnoreCase) ||
+                path.StartsWith("/api/user/", StringComparison.OrdinalIgnoreCase) ||
+                path.StartsWith("/api/info/", StringComparison.OrdinalIgnoreCase) ||
+                path.StartsWith("/api/trade/", StringComparison.OrdinalIgnoreCase))
+                return true;
             return false;
         }
 
