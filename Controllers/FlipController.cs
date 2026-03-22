@@ -259,6 +259,31 @@ namespace Coflnet.Sky.Api.Controller
             return await bazaarFlipperApi.FusionGetAsync();
         }
         /// <summary>
+        /// Discover multi-step flips using the fusion machine (up to 3 levels deep).
+        /// Requires at least starter premium.
+        /// </summary>
+        [Route("fusion/multistep")]
+        [HttpGet]
+        [Authorize]
+        [ResponseCache(Duration = 20, Location = ResponseCacheLocation.Any, NoStore = false)]
+        public async Task<IEnumerable<Bazaar.Flipper.Client.Model.FuseFlip>> GetMultiStepFusionFlips()
+        {
+            if (!await premiumTierService.HasStarterPremium(this))
+                return new[] { new Bazaar.Flipper.Client.Model.FuseFlip() { Output = "Requires starter premium or better" } };
+            // TODO: uncomment after bumping Coflnet.Sky.Bazaar.Flipper.Client to 0.7.0
+            return await bazaarFlipperApi.FusionMultistepGetAsync();
+        }
+        /// <summary>
+        /// Copper flips - buy greenhouse crops from bazaar, analyze for copper
+        /// </summary>
+        [Route("copper")]
+        [HttpGet]
+        [ResponseCache(Duration = 60, Location = ResponseCacheLocation.Any, NoStore = false)]
+        public async Task<IEnumerable<Bazaar.Flipper.Client.Model.CopperFlip>> GetCopperFlips()
+        {
+            return await bazaarFlipperApi.CopperGetAsync();
+        }
+        /// <summary>
         /// Forge flips from dwarfern mines
         /// </summary>
         [Route("forge")]

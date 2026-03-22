@@ -26,7 +26,7 @@ namespace Coflnet.Sky.Api.Helper
                                       "- GoogleToken: {token}\n\n" +
                                       "See https://sky.coflnet.com/api for documentation.";
 
-                operation.Responses.Add("401", new OpenApiResponse
+                operation.Responses.TryAdd("401", new OpenApiResponse
                 {
                     Description = "Unauthorized",
                     Content = new Dictionary<string, OpenApiMediaType>
@@ -48,7 +48,7 @@ namespace Coflnet.Sky.Api.Helper
                     }
                 });
 
-                operation.Responses.Add("403", new OpenApiResponse { Description = "Forbidden" });
+                operation.Responses.TryAdd("403", new OpenApiResponse { Description = "Forbidden" });
 
                 operation.Security = new List<OpenApiSecurityRequirement>
                 {
