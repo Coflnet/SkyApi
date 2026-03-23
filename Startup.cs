@@ -353,18 +353,19 @@ namespace Coflnet.Sky.Api
                 var scrapingDetector = context.RequestServices.GetService<IScrapingDetectionService>();
                 if (scrapingDetector != null && scrapingDetector.IsBanned(context))
                 {
+                    var clientIp = context.Request.Headers.TryGetValue("CF-Connecting-IP", out var cfIp)
+                        ? cfIp.ToString().Split(',').First().Trim()
+                        : context.Request.Headers.TryGetValue("X-Forwarded-For", out var xff)
+                            ? xff.ToString().Split(',').First().Trim()
+                            : context.Connection.RemoteIpAddress?.ToString();
+
                     // Premium+ users can bypass the ban and get auto-unbanned
                     if (await scrapingDetector.IsPremiumPlusAsync(context))
                     {
-                        var ip = context.Request.Headers.TryGetValue("CF-Connecting-IP", out var cfIp)
-                            ? cfIp.ToString().Split(',').First().Trim()
-                            : context.Request.Headers.TryGetValue("X-Forwarded-For", out var xff)
-                                ? xff.ToString().Split(',').First().Trim()
-                                : context.Connection.RemoteIpAddress?.ToString();
-                        if (!string.IsNullOrEmpty(ip))
+                        if (!string.IsNullOrEmpty(clientIp))
                         {
-                            scrapingDetector.UnbanIp(ip);
-                            logger.LogInformation("Premium+ user auto-unbanned IP {Ip}", ip);
+                            scrapingDetector.UnbanIp(clientIp);
+                            logger.LogInformation("Premium+ user auto-unbanned IP {Ip}", clientIp);
                         }
                     }
                     else
@@ -374,7 +375,7 @@ namespace Coflnet.Sky.Api
                         var banResponse = new
                         {
                             error = "blocked",
-                            message = "Your IP has been blocked for exceeding rate limits.",
+                            message = $"Your IP ({clientIp}) has been blocked for exceeding rate limits.",
                             resolution = "Subscribe to Premium+ to unblock your IP and get higher rate limits.",
                             premiumUrl = "https://sky.coflnet.com/premium",
                             docsUrl = "https://sky.coflnet.com/wiki/api-access"
