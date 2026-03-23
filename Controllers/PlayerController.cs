@@ -78,11 +78,11 @@ namespace Coflnet.Sky.Api.Controller
                             b.Auction.Uuid,
                             b.Auction.ItemName,
                             b.Auction.Tag,
-                            b.Auction.HighestBidAmount,
-                            b.Auction.End,
-                            b.Amount,
-                            b.Auction.StartingBid,
-                            b.Auction.Bin
+                            HighestBidAmount = (long?)b.Auction.HighestBidAmount,
+                            End = (DateTime?)b.Auction.End,
+                            Amount = (long?)b.Amount,
+                            StartingBid = (long?)b.Auction.StartingBid,
+                            Bin = (bool?)b.Auction.Bin
 
                         }).GroupBy(b => b.Uuid)
                     .Select(bid => new
@@ -102,14 +102,14 @@ namespace Coflnet.Sky.Api.Controller
             var aggregatedBids = playerBids
                         .Select(b => new BidResult()
                         {
-                            HighestBid = b.HighestBid == 0 && b.Bin ? b.HighestOwnBid : b.HighestBid,
+                            HighestBid = (b.HighestBid ?? 0) == 0 && (b.Bin ?? false) ? (b.HighestOwnBid ?? 0) : (b.HighestBid ?? 0),
                             AuctionId = b.Key,
-                            End = b.End,
-                            HighestOwnBid = b.HighestOwnBid,
+                            End = b.End ?? DateTime.MinValue,
+                            HighestOwnBid = b.HighestOwnBid ?? 0,
                             ItemName = b.ItemName,
                             Tag = b.Tag,
-                            StartingBid = b.StartBid,
-                            Bin = b.Bin
+                            StartingBid = b.StartBid ?? 0,
+                            Bin = b.Bin ?? false
                         })
                         .OrderByDescending(b => b.End)
                         .ToList();
