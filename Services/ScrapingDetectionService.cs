@@ -42,12 +42,14 @@ namespace Coflnet.Sky.Api.Services
         // Tracking for distributed proxy pools below individual IP rate limits
         private readonly ConcurrentDictionary<string, SubnetTracker> _subnetVelocity = new ConcurrentDictionary<string, SubnetTracker>(StringComparer.Ordinal);
         private long _currentMinuteWindow = DateTimeOffset.UtcNow.ToUnixTimeSeconds() / 60;
+        private long _lastViolationCountDecayHour = DateTimeOffset.UtcNow.ToUnixTimeSeconds() / 3600;
 
         private readonly AspNetCoreRateLimit.ClientRateLimitOptions _clientRateLimitOptions;
         private readonly AspNetCoreRateLimit.ClientRateLimitPolicies _clientRateLimitPolicies;
 
         private const int MaxViolationsBeforeBan = 500; 
         private const int MaxSubnetViolationsBeforeBan = 3000;
+        private const int ViolationCountDecayPerHour = 50;
 
         private static readonly HashSet<string> ExemptPaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
         {
@@ -147,6 +149,8 @@ namespace Coflnet.Sky.Api.Services
         {
             if (IsExempt(context)) return Task.CompletedTask;
 
+            DecayViolationCountsIfNeeded();
+
             var ip = GetClientIp(context);
             if (string.IsNullOrEmpty(ip)) return Task.CompletedTask;
 
@@ -190,6 +194,8 @@ namespace Coflnet.Sky.Api.Services
         public void TrackRequest(HttpContext context)
         {
             if (IsExempt(context)) return;
+
+            DecayViolationCountsIfNeeded();
 
             var path = context.Request.Path.Value ?? string.Empty;
             
@@ -299,6 +305,36 @@ namespace Coflnet.Sky.Api.Services
             if (_bannedIps.ContainsKey(ip)) return true;
             var subnet = GetSubnet(ip);
             return subnet != null && _bannedSubnets.ContainsKey(subnet);
+        }
+
+        private void DecayViolationCountsIfNeeded()
+        {
+            var currentHour = DateTimeOffset.UtcNow.ToUnixTimeSeconds() / 3600;
+            var lastHour = _lastViolationCountDecayHour;
+            
+            if (currentHour > lastHour)
+            {
+                if (System.Threading.Interlocked.CompareExchange(ref _lastViolationCountDecayHour, currentHour, lastHour) == lastHour)
+                {
+                    // Decay all violation counts by 50 per hour passed
+                    var hoursPassed = currentHour - lastHour;
+                    var decayAmount = (int)(ViolationCountDecayPerHour * hoursPassed);
+                    
+                    foreach (var ip in _ipViolationCounts.Keys)
+                    {
+                        _ipViolationCounts.AddOrUpdate(ip, 0, (_, count) => Math.Max(0, count - decayAmount));
+                        if (_ipViolationCounts.TryGetValue(ip, out var newCount) && newCount == 0)
+                        {
+                            _ipViolationCounts.TryRemove(ip, out _);
+                        }
+                    }
+                    
+                    foreach (var subnet in _subnetViolationCounts.Keys)
+                    {
+                        _subnetViolationCounts.AddOrUpdate(subnet, 0, (_, count) => Math.Max(0, count - decayAmount));
+                    }
+                }
+            }
         }
 
         private string GetClientIp(HttpContext context)
