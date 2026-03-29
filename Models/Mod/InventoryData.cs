@@ -19,7 +19,7 @@ public class InventoryData
     /// <summary>
     /// The position of the chest (if inventory is, also, a chest)
     /// </summary>
-    public BlockPos Position;
+    public Coflnet.Sky.Core.BlockPos Position;
     /// <summary>
     /// Nbt formatted as json like mineflayer does it
     /// </summary>
