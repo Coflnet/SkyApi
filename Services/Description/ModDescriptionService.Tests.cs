@@ -56,6 +56,7 @@ public class ModDescriptionServiceTests
         service = new(Mock.Of<ICraftsApi>(), settingsService, Mock.Of<IdConverter>(), Mock.Of<IServiceScopeFactory>(),
                     Mock.Of<BazaarApi>(), playerNameService, Mock.Of<ILogger<ModDescriptionService>>(), Mock.Of<IConfiguration>(), Mock.Of<IStateUpdateService>(), sniperClient.Object,
                     itemSkinHandler, new(null, null, null), null, null, null, null, null);
+        ModDescriptionService.RegisterAdditionalShards();
     }
 
     [Test]
@@ -294,6 +295,17 @@ public class ModDescriptionServiceTests
          Assert.That(14, Is.EqualTo(breakdown.Count()), JsonConvert.SerializeObject(breakdown, Formatting.Indented));
          Assert.That(breakdown.Select(b => b.ItemTag), Has.Member("IMPLOSION_SCROLL"));
      }
+
+    [Test]
+    [TestCase("§5Nessie Shard", "SHARD_NESSIE")]
+    [TestCase("§5Littlefoot Shard", "SHARD_LITTLEFOOT")]
+    [TestCase("§5Minotaur Shard", "SHARD_MINOTAUR")]
+    public void TryGetShardTagFromName_ReturnsCorrectTag(string name, string expectedTag)
+    {
+        var result = ModDescriptionService.TryGetShardTagFromName(name, out var tag);
+        result.Should().BeTrue();
+        tag.Should().Be(expectedTag);
+    }
 
      [Test]
      public void ParsesAttributesFromItem()

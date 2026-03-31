@@ -314,6 +314,9 @@ namespace Coflnet.Sky.Api
         /// </summary>
         public void Configure(IApplicationBuilder app, IWebHostEnvironment env, ILogger<Startup> logger, IMapper mapper)
         {
+            // Add shards added in Hypixel SkyBlock 0.24.3
+            ModDescriptionService.RegisterAdditionalShards();
+
             app.UseExceptionHandler(errorApp =>
             {
                 ErrorHandler.Add(logger, errorApp, "api");

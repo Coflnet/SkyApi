@@ -1743,6 +1743,19 @@ public class ModDescriptionService : IDisposable
         return true;
     }
 
+    /// <summary>
+    /// Registers additional shard name mappings that are not yet part of the upstream Constants.ShardNames.
+    /// Call this during application startup before concurrent access begins, and in test setup.
+    /// </summary>
+    public static void RegisterAdditionalShards()
+    {
+        // Shards added in Hypixel SkyBlock 0.24.3
+        if (!Constants.ShardNames.ContainsKey("Nessie"))
+            Constants.ShardNames["Nessie"] = "NESSIE";
+        if (!Constants.ShardNames.ContainsKey("Littlefoot"))
+            Constants.ShardNames["Littlefoot"] = "LITTLEFOOT";
+    }
+
     public async Task<List<Sniper.Client.Model.PriceEstimate>> GetPrices(IEnumerable<SaveAuction> auctionRepresent, bool includeAi = false)
     {
         return await sniperClient.GetPrices(auctionRepresent, includeAi);
