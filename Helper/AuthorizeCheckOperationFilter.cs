@@ -1,7 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.OpenApi.Models;
+using Microsoft.OpenApi;
 using Swashbuckle.AspNetCore.SwaggerGen;
-using Microsoft.OpenApi.Any;
+using System.Text.Json.Nodes;
 using System.Collections.Generic;
 using System.Linq;
 
@@ -33,17 +33,17 @@ namespace Coflnet.Sky.Api.Helper
                     {
                         ["application/json"] = new OpenApiMediaType
                         {
-                            Schema = new OpenApiSchema { Type = "object", Properties = new Dictionary<string, OpenApiSchema>
+                            Schema = new OpenApiSchema { Type = JsonSchemaType.Object, Properties = new Dictionary<string, IOpenApiSchema>
                                 {
-                                    ["message"] = new OpenApiSchema { Type = "string" }
+                                    ["message"] = new OpenApiSchema { Type = JsonSchemaType.String }
                                 }
                             },
-                            Example = new OpenApiString("{\"message\": \"" + instructionText.Replace("\n", "\\n") + "\"}")
+                            Example = JsonNode.Parse("{\"message\": \"" + instructionText.Replace("\n", "\\n") + "\"}")
                         },
                         ["text/plain"] = new OpenApiMediaType
                         {
-                            Schema = new OpenApiSchema { Type = "string" },
-                            Example = new OpenApiString(instructionText)
+                            Schema = new OpenApiSchema { Type = JsonSchemaType.String },
+                            Example = JsonValue.Create(instructionText)
                         }
                     }
                 });
@@ -55,28 +55,14 @@ namespace Coflnet.Sky.Api.Helper
                     new OpenApiSecurityRequirement
                     {
                         [
-                            new OpenApiSecurityScheme
-                            {
-                                Reference = new OpenApiReference
-                                {
-                                    Type = ReferenceType.SecurityScheme,
-                                    Id = "Bearer"
-                                }
-                            }
-                        ] = new[] { "" }
+                            new OpenApiSecuritySchemeReference("Bearer", null)
+                        ] = new List<string> { "" }
                     },
                     new OpenApiSecurityRequirement
                     {
                         [
-                            new OpenApiSecurityScheme
-                            {
-                                Reference = new OpenApiReference
-                                {
-                                    Type = ReferenceType.SecurityScheme,
-                                    Id = "GoogleToken"
-                                }
-                            }
-                        ] = new[] { "" }
+                            new OpenApiSecuritySchemeReference("GoogleToken", null)
+                        ] = new List<string> { "" }
                     }
                 };
             }

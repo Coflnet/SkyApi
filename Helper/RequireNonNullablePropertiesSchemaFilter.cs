@@ -1,12 +1,12 @@
 #nullable enable
 namespace Coflnet.Sky.Core;
-using Microsoft.OpenApi.Models;
+using Microsoft.OpenApi;
 using Swashbuckle.AspNetCore.SwaggerGen;
 using System.Linq;
 
 public class RequireNonNullablePropertiesSchemaFilter : ISchemaFilter
 {
-    public void Apply(OpenApiSchema schema, SchemaFilterContext context)
+    public void Apply(IOpenApiSchema schema, SchemaFilterContext context)
     {
         if (schema.Properties == null)
             return;
