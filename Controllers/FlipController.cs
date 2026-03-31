@@ -154,15 +154,20 @@ namespace Coflnet.Sky.Api.Controller
             var names = (await itemsApi.ItemNamesGetAsync()).ToDictionary(i => i.Tag, i => i.Name);
             return flips.Select(f =>
             {
+                if (!names.TryGetValue(f.ItemTag, out var itemName))
+                {
+                    logger.LogWarning("Item tag {ItemTag} not found in item names dictionary", f.ItemTag);
+                    return null;
+                }
                 var profitmargin = f.BuyPrice / f.MedianBuyPrice;
                 var isManipulated = profitmargin > 2 || profitmargin > 1.5 && f.BuyPrice > 7_500_000;
                 return new SpreadFlip
                 {
                     Flip = f,
-                    ItemName = names[f.ItemTag],
+                    ItemName = itemName,
                     IsManipulated = isManipulated
                 };
-            });
+            }).Where(f => f != null);
         }
         /// <summary>
         /// Spread based bazaar flips (top order to top order) with real time demand sorting
@@ -181,12 +186,17 @@ namespace Coflnet.Sky.Api.Controller
             var names = (await itemsApi.ItemNamesGetAsync()).ToDictionary(i => i.Tag, i => i.Name);
             return flips.Select(f =>
             {
+            if (!names.TryGetValue(f.ItemTag, out var itemName))
+            {
+                logger.LogWarning("Item tag {ItemTag} not found in item names dictionary", f.ItemTag);
+                return null;
+            }
             return new DemandSpreadFlip
             {
                 Flip = f,
-                ItemName = names[f.ItemTag],
+                ItemName = itemName,
             };
-            });
+            }).Where(f => f != null);
         }
 
         /// <summary>
