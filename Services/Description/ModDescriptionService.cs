@@ -378,15 +378,15 @@ public class ModDescriptionService : IDisposable
                 foreach (var mod in item)
                 {
                     if (!string.IsNullOrEmpty(inventory.Settings?.ReplaceAquaWith))
-                        mod.Value = Regex.Replace(mod.Value, McColorCodes.AQUA, "§" + inventory.Settings.ReplaceAquaWith);
+                        mod.Value = mod.Value.Replace(McColorCodes.AQUA, "§" + inventory.Settings.ReplaceAquaWith);
                     if (!string.IsNullOrEmpty(inventory.Settings?.ReplaceGoldWith))
-                        mod.Value = Regex.Replace(mod.Value, McColorCodes.GOLD, "§" + inventory.Settings.ReplaceGoldWith);
+                        mod.Value = mod.Value.Replace(McColorCodes.GOLD, "§" + inventory.Settings.ReplaceGoldWith);
                     if (!string.IsNullOrEmpty(inventory.Settings?.ReplaceWhiteWith))
-                        mod.Value = Regex.Replace(mod.Value, McColorCodes.WHITE, "§" + inventory.Settings.ReplaceWhiteWith);
+                        mod.Value = mod.Value.Replace(McColorCodes.WHITE, "§" + inventory.Settings.ReplaceWhiteWith);
                     if (!string.IsNullOrEmpty(inventory.Settings?.ReplaceYellowWith))
-                        mod.Value = Regex.Replace(mod.Value, McColorCodes.YELLOW, "§" + inventory.Settings.ReplaceYellowWith);
+                        mod.Value = mod.Value.Replace(McColorCodes.YELLOW, "§" + inventory.Settings.ReplaceYellowWith);
                     if (!string.IsNullOrEmpty(inventory.Settings?.ReplaceGrayWith))
-                        mod.Value = Regex.Replace(mod.Value, McColorCodes.GRAY, "§" + inventory.Settings.ReplaceGrayWith);
+                        mod.Value = mod.Value.Replace(McColorCodes.GRAY, "§" + inventory.Settings.ReplaceGrayWith);
                 }
             }
             Console.WriteLine($"Applied custom color settings in {(DateTime.Now - startTime).TotalMilliseconds}ms");
@@ -1466,9 +1466,9 @@ public class ModDescriptionService : IDisposable
     private void AddBazaar(SaveAuction auction, IDictionary<string, ItemPrice> bazaarPrices, StringBuilder builder, string word, Func<ItemPrice, double> priceGet)
     {
         var tag = GetBazaarTag(auction);
-        if (bazaarPrices?.ContainsKey(tag) ?? false)
+        if (bazaarPrices?.TryGetValue(tag, out var bazaarItem) ?? false)
         {
-            var price = priceGet(bazaarPrices[tag]);
+            var price = priceGet(bazaarItem);
             if (auction.Count > 1)
                 builder.Append($"{McColorCodes.GRAY}{word}: {McColorCodes.GOLD}{FormatPriceShort(price * auction.Count)} ({FormatPriceShort(price)} each)");
             else
