@@ -35,8 +35,8 @@ public class BazaarPriceUpdater : ICustomModifier
         if (data.Items.Count <= 13 || data.Items[13] == null || string.IsNullOrEmpty(data.Items[13].Tag))
             return;
 
-        var slot13Item = data.Items[13];
-        var itemTag = slot13Item.Tag;
+        var (auction, _) = data.auctionRepresent[13];
+        var itemTag = auction?.Tag;
 
         var buyOrders = data.Items.Count > 15 ? data.Items[15] : null;
         var sellOffers = data.Items.Count > 16 ? data.Items[16] : null;
