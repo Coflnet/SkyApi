@@ -4,7 +4,6 @@ using Microsoft.AspNetCore.Mvc;
 using Coflnet.Sky.Bazaar.Client.Api;
 using Microsoft.Extensions.Logging;
 using System.IO.Compression;
-using System.Timers;
 using Microsoft.AspNetCore.Http;
 
 namespace Coflnet.Sky.Api.Controller
@@ -177,25 +176,35 @@ namespace Coflnet.Sky.Api.Controller
                 return StatusCode(429, "Rate limit exceeded. You can make up to 5 requests per 5 minutes.");
             }
 
-            var data = await bazaarClient.GetDataAsync(itemTag,
-                start.HasValue ? start!.Value.RoundDown(TimeSpan.FromMinutes(1)) : null,
-                end.HasValue ? end!.Value.RoundDown(TimeSpan.FromMinutes(1)) : null, true, fullOrderBook);
+            // Stream the zip directly to the response to avoid holding everything in memory
+            var cancellationToken = HttpContext.RequestAborted;
+            Response.ContentType = "application/zip";
+            Response.Headers["Content-Disposition"] = $"attachment; filename=\"{itemTag}.zip\"";
 
-            // Create temp file
-            var tempDir = System.IO.Path.GetTempPath();
-            var tempFileName = $"{System.IO.Path.GetRandomFileName()}.zip";
-            var tempFilePath = System.IO.Path.Combine(tempDir, tempFileName);
+            var endTime = end ?? DateTime.UtcNow;
+            var chunkSize = TimeSpan.FromDays(30);
 
-            // Write ZIP to temp file
-            using (var fileStream = System.IO.File.Create(tempFilePath))
-            using (var zip = new ZipArchive(fileStream, ZipArchiveMode.Create, leaveOpen: false))
+            await using (var zip = new ZipArchive(Response.Body, ZipArchiveMode.Create, leaveOpen: true))
             {
                 var entry = zip.CreateEntry($"{itemTag}.json", CompressionLevel.Optimal);
-                using (var entryStream = entry.Open())
-                using (var streamWriter = new System.IO.StreamWriter(entryStream))
+                await using var entryStream = entry.Open();
+                await using var streamWriter = new System.IO.StreamWriter(entryStream);
+
+                await streamWriter.WriteAsync("[");
+                bool first = true;
+                var currentStart = startTime;
+
+                while (currentStart < endTime)
                 {
-                    await streamWriter.WriteAsync("[");
-                    bool first = true;
+                    cancellationToken.ThrowIfCancellationRequested();
+                    var chunkEnd = currentStart + chunkSize;
+                    if (chunkEnd > endTime) chunkEnd = endTime;
+
+                    var data = await bazaarClient.GetDataAsync(itemTag,
+                        currentStart.RoundDown(TimeSpan.FromMinutes(1)),
+                        chunkEnd.RoundDown(TimeSpan.FromMinutes(1)),
+                        true, fullOrderBook, cancellationToken: cancellationToken);
+
                     foreach (var item in data)
                     {
                         if (!first)
@@ -204,32 +213,16 @@ namespace Coflnet.Sky.Api.Controller
                         await streamWriter.WriteAsync(json);
                         first = false;
                     }
-                    await streamWriter.WriteAsync("]");
-                    await streamWriter.FlushAsync();
+
+                    await streamWriter.FlushAsync(cancellationToken);
+                    currentStart = chunkEnd;
                 }
+
+                await streamWriter.WriteAsync("]");
+                await streamWriter.FlushAsync(cancellationToken);
             }
 
-            // Schedule deletion after 10 minutes
-            var timer = new System.Timers.Timer(TimeSpan.FromMinutes(10).TotalMilliseconds);
-            timer.Elapsed += (s, e) =>
-            {
-                try
-                {
-                    if (System.IO.File.Exists(tempFilePath))
-                        System.IO.File.Delete(tempFilePath);
-                }
-                catch (Exception ex)
-                {
-                    logger.LogError(ex, "Failed to delete temp file {tempFile}", tempFilePath);
-                }
-                timer.Dispose();
-            };
-            timer.AutoReset = false;
-            timer.Start();
-
-            // Return file
-            var fileBytes = await System.IO.File.ReadAllBytesAsync(tempFilePath);
-            return File(fileBytes, "application/zip", $"{itemTag}.zip");
+            return new EmptyResult();
         }
     }
 }
