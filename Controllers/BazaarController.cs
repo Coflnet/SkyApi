@@ -78,6 +78,7 @@ namespace Coflnet.Sky.Api.Controller
         /// <summary>
         /// Gets the history data for display in a graph
         /// </summary>
+        /// <param name="premiumTierService"></param>
         /// <param name="itemTag">What item to get data for</param>
         /// <param name="start"></param>
         /// <param name="end"></param>
@@ -85,8 +86,19 @@ namespace Coflnet.Sky.Api.Controller
         [Route("{itemTag}/history")]
         [HttpGet]
         [ResponseCache(Duration = 3600, Location = ResponseCacheLocation.Any, NoStore = false, VaryByQueryKeys = new string[] { "start", "end" })]
-        public async Task<List<Sky.Bazaar.Client.Model.GraphResult>> HistoryGraph(string itemTag, DateTime? start = null, DateTime? end = null)
+        public async Task<List<Sky.Bazaar.Client.Model.GraphResult>> HistoryGraph(
+            [FromServices] Coflnet.Sky.Api.Services.PremiumTierService premiumTierService,
+            string itemTag, DateTime? start = null, DateTime? end = null)
         {
+            if (start.HasValue && end.HasValue && end.Value.AddDays(-1) < start.Value && end.Value.AddDays(365) < DateTime.UtcNow)
+            {
+                // for short timeframes over a year ago this request needs to have a prem+ token
+                var user = await premiumTierService.GetUserOrDefault(this);
+                if (user == null || !await premiumTierService.HasPremiumPlus(this))
+                {
+                    throw new CoflnetException("no_premium_plus", "Sorry for custom timeframes of over a year ago you require prem+");
+                }
+            }
             var result = await bazaarClient.GetHistoryGraphAsync(itemTag,
                 start.HasValue ? start!.Value.RoundDown(TimeSpan.FromMinutes(1)) : null,
                 end.HasValue ? end!.Value.RoundDown(TimeSpan.FromMinutes(1)) : null);
