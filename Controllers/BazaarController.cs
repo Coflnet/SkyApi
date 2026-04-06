@@ -5,6 +5,7 @@ using Coflnet.Sky.Bazaar.Client.Api;
 using Microsoft.Extensions.Logging;
 using System.IO.Compression;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Http.Features;
 
 namespace Coflnet.Sky.Api.Controller
 {
@@ -128,7 +129,6 @@ namespace Coflnet.Sky.Api.Controller
         [HttpGet]
         [Microsoft.AspNetCore.Authorization.Authorize]
         [ResponseCache(Duration = 0, Location = ResponseCacheLocation.None, NoStore = true)]
-        [Produces("application/zip")]
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status401Unauthorized)]
         [ProducesResponseType(StatusCodes.Status429TooManyRequests)]
@@ -176,68 +176,81 @@ namespace Coflnet.Sky.Api.Controller
                 return StatusCode(429, "Rate limit exceeded. You can make up to 5 requests per 5 minutes.");
             }
 
-            // Write ZIP to temp file in chunks to keep memory low
+            // Use small chunks: fullOrderBook responses are ~14MB/day, without ~1MB/day
             var cancellationToken = HttpContext.RequestAborted;
             var endTime = end ?? DateTime.UtcNow;
-            var chunkSize = TimeSpan.FromDays(30);
-            var tempFilePath = System.IO.Path.Combine(System.IO.Path.GetTempPath(), $"{System.IO.Path.GetRandomFileName()}.zip");
+            var chunkSize = fullOrderBook ? TimeSpan.FromDays(2) : TimeSpan.FromDays(14);
 
-            try
+            // Disable response buffering so bytes flow to the client immediately,
+            // preventing Cloudflare from timing out on long-running exports
+            HttpContext.Features.Get<IHttpResponseBodyFeature>()?.DisableBuffering();
+            // ZipArchive.Dispose() writes the central directory synchronously
+            var syncIoFeature = HttpContext.Features.Get<IHttpBodyControlFeature>();
+            if (syncIoFeature != null) syncIoFeature.AllowSynchronousIO = true;
+
+            Response.StatusCode = 200;
+            Response.ContentType = "application/zip";
+            Response.Headers.ContentDisposition = $"attachment; filename=\"{itemTag}.zip\"";
+            // Send headers immediately so Cloudflare knows the response has started
+            await Response.StartAsync(cancellationToken);
+
+            // Stream the zip directly to the response body chunk by chunk
+            using (var zip = new ZipArchive(Response.Body, ZipArchiveMode.Create, leaveOpen: true))
             {
-                using (var fileStream = System.IO.File.Create(tempFilePath))
-                using (var zip = new ZipArchive(fileStream, ZipArchiveMode.Create, leaveOpen: false))
+                var entry = zip.CreateEntry($"{itemTag}.json", CompressionLevel.Fastest);
+                using var entryStream = entry.Open();
+                using var streamWriter = new System.IO.StreamWriter(entryStream);
+
+                await streamWriter.WriteAsync("[");
+                bool first = true;
+                var currentStart = startTime;
+
+                while (currentStart < endTime)
                 {
-                    var entry = zip.CreateEntry($"{itemTag}.json", CompressionLevel.Optimal);
-                    using var entryStream = entry.Open();
-                    using var streamWriter = new System.IO.StreamWriter(entryStream);
+                    cancellationToken.ThrowIfCancellationRequested();
+                    var chunkEnd = currentStart + chunkSize;
+                    if (chunkEnd > endTime) chunkEnd = endTime;
 
-                    await streamWriter.WriteAsync("[");
-                    bool first = true;
-                    var currentStart = startTime;
-
-                    while (currentStart < endTime)
+                    List<Sky.Bazaar.Client.Model.AggregatedQuickStatus> data;
+                    try
                     {
-                        cancellationToken.ThrowIfCancellationRequested();
-                        var chunkEnd = currentStart + chunkSize;
-                        if (chunkEnd > endTime) chunkEnd = endTime;
-
-                        var data = await bazaarClient.GetDataAsync(itemTag,
+                        data = await bazaarClient.GetDataAsync(itemTag,
                             currentStart.RoundDown(TimeSpan.FromMinutes(1)),
                             chunkEnd.RoundDown(TimeSpan.FromMinutes(1)),
                             true, fullOrderBook, cancellationToken: cancellationToken);
-
-                        foreach (var item in data)
-                        {
-                            if (!first)
-                                await streamWriter.WriteAsync(",");
-                            var json = Newtonsoft.Json.JsonConvert.SerializeObject(item);
-                            await streamWriter.WriteAsync(json);
-                            first = false;
-                        }
-
-                        await streamWriter.FlushAsync(cancellationToken);
+                    }
+                    catch (Coflnet.Sky.Bazaar.Client.Client.ApiException) when (!cancellationToken.IsCancellationRequested)
+                    {
+                        // If a chunk fails (e.g. upstream timeout), skip it and continue
+                        logger.LogWarning("Bazaar API chunk failed for {itemTag} {start}-{end}, skipping",
+                            itemTag, currentStart, chunkEnd);
                         currentStart = chunkEnd;
+                        continue;
                     }
 
-                    await streamWriter.WriteAsync("]");
+                    foreach (var item in data)
+                    {
+                        if (!first)
+                            await streamWriter.WriteAsync(",");
+                        var json = Newtonsoft.Json.JsonConvert.SerializeObject(item);
+                        await streamWriter.WriteAsync(json);
+                        first = false;
+                    }
+
+                    // Flush through to Response.Body after each chunk to keep the connection alive
                     await streamWriter.FlushAsync(cancellationToken);
+                    await Response.Body.FlushAsync(cancellationToken);
+                    currentStart = chunkEnd;
                 }
 
-                // Clean up temp file after response completes
-                Response.OnCompleted(() =>
-                {
-                    try { System.IO.File.Delete(tempFilePath); } catch { }
-                    return Task.CompletedTask;
-                });
+                await streamWriter.WriteAsync("]");
+                await streamWriter.FlushAsync(cancellationToken);
+            }
 
-                // PhysicalFile streams from disk without loading into memory
-                return PhysicalFile(tempFilePath, "application/zip", $"{itemTag}.zip");
-            }
-            catch
-            {
-                try { System.IO.File.Delete(tempFilePath); } catch { }
-                throw;
-            }
+            // ZipArchive.Dispose wrote the central directory but didn't flush
+            await Response.Body.FlushAsync(cancellationToken);
+            await Response.CompleteAsync();
+            return new EmptyResult();
         }
     }
 }
