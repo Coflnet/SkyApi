@@ -176,53 +176,68 @@ namespace Coflnet.Sky.Api.Controller
                 return StatusCode(429, "Rate limit exceeded. You can make up to 5 requests per 5 minutes.");
             }
 
-            // Stream the zip directly to the response to avoid holding everything in memory
+            // Write ZIP to temp file in chunks to keep memory low
             var cancellationToken = HttpContext.RequestAborted;
-            Response.ContentType = "application/zip";
-            Response.Headers["Content-Disposition"] = $"attachment; filename=\"{itemTag}.zip\"";
-
             var endTime = end ?? DateTime.UtcNow;
             var chunkSize = TimeSpan.FromDays(30);
+            var tempFilePath = System.IO.Path.Combine(System.IO.Path.GetTempPath(), $"{System.IO.Path.GetRandomFileName()}.zip");
 
-            await using (var zip = new ZipArchive(Response.Body, ZipArchiveMode.Create, leaveOpen: true))
+            try
             {
-                var entry = zip.CreateEntry($"{itemTag}.json", CompressionLevel.Optimal);
-                await using var entryStream = entry.Open();
-                await using var streamWriter = new System.IO.StreamWriter(entryStream);
-
-                await streamWriter.WriteAsync("[");
-                bool first = true;
-                var currentStart = startTime;
-
-                while (currentStart < endTime)
+                using (var fileStream = System.IO.File.Create(tempFilePath))
+                using (var zip = new ZipArchive(fileStream, ZipArchiveMode.Create, leaveOpen: false))
                 {
-                    cancellationToken.ThrowIfCancellationRequested();
-                    var chunkEnd = currentStart + chunkSize;
-                    if (chunkEnd > endTime) chunkEnd = endTime;
+                    var entry = zip.CreateEntry($"{itemTag}.json", CompressionLevel.Optimal);
+                    using var entryStream = entry.Open();
+                    using var streamWriter = new System.IO.StreamWriter(entryStream);
 
-                    var data = await bazaarClient.GetDataAsync(itemTag,
-                        currentStart.RoundDown(TimeSpan.FromMinutes(1)),
-                        chunkEnd.RoundDown(TimeSpan.FromMinutes(1)),
-                        true, fullOrderBook, cancellationToken: cancellationToken);
+                    await streamWriter.WriteAsync("[");
+                    bool first = true;
+                    var currentStart = startTime;
 
-                    foreach (var item in data)
+                    while (currentStart < endTime)
                     {
-                        if (!first)
-                            await streamWriter.WriteAsync(",");
-                        var json = Newtonsoft.Json.JsonConvert.SerializeObject(item);
-                        await streamWriter.WriteAsync(json);
-                        first = false;
+                        cancellationToken.ThrowIfCancellationRequested();
+                        var chunkEnd = currentStart + chunkSize;
+                        if (chunkEnd > endTime) chunkEnd = endTime;
+
+                        var data = await bazaarClient.GetDataAsync(itemTag,
+                            currentStart.RoundDown(TimeSpan.FromMinutes(1)),
+                            chunkEnd.RoundDown(TimeSpan.FromMinutes(1)),
+                            true, fullOrderBook, cancellationToken: cancellationToken);
+
+                        foreach (var item in data)
+                        {
+                            if (!first)
+                                await streamWriter.WriteAsync(",");
+                            var json = Newtonsoft.Json.JsonConvert.SerializeObject(item);
+                            await streamWriter.WriteAsync(json);
+                            first = false;
+                        }
+
+                        await streamWriter.FlushAsync(cancellationToken);
+                        currentStart = chunkEnd;
                     }
 
+                    await streamWriter.WriteAsync("]");
                     await streamWriter.FlushAsync(cancellationToken);
-                    currentStart = chunkEnd;
                 }
 
-                await streamWriter.WriteAsync("]");
-                await streamWriter.FlushAsync(cancellationToken);
-            }
+                // Clean up temp file after response completes
+                Response.OnCompleted(() =>
+                {
+                    try { System.IO.File.Delete(tempFilePath); } catch { }
+                    return Task.CompletedTask;
+                });
 
-            return new EmptyResult();
+                // PhysicalFile streams from disk without loading into memory
+                return PhysicalFile(tempFilePath, "application/zip", $"{itemTag}.zip");
+            }
+            catch
+            {
+                try { System.IO.File.Delete(tempFilePath); } catch { }
+                throw;
+            }
         }
     }
 }
