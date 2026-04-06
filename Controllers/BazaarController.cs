@@ -164,9 +164,9 @@ namespace Coflnet.Sky.Api.Controller
             var now = DateTimeOffset.UtcNow;
             var windowStart = new DateTimeOffset(now.Year, now.Month, now.Day, now.Hour, (now.Minute / 5) * 5, 0, now.Offset);
             var key = $"ratelimit:export:user:{user.Id}:{windowStart.ToUnixTimeSeconds()}";
-
-            var count = await db.StringIncrementAsync(key);
-            if (count == 1)
+            var amount = fullOrderBook ? 3 : 1; // full order book exports are more expensive, so they get a lower rate limit
+            var count = await db.StringIncrementAsync(key, amount);
+            if (count == amount)
             {
                 await db.KeyExpireAsync(key, TimeSpan.FromMinutes(6));
             }
