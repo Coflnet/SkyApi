@@ -523,6 +523,18 @@ namespace Coflnet.Sky.Api.Controller
             return Ok();
         }
 
+        [HttpPut]
+        [Route("premium/subscription/{externalId}/switch")]
+        [Microsoft.AspNetCore.Authorization.Authorize]
+        public async Task<ActionResult> SwitchSubscriptionTier(string externalId, [FromQuery] string targetProductSlug)
+        {
+            var user = await GetUserOrDefault();
+            if (user == default)
+                return Unauthorized("no googletoken header");
+            await subscriptionApi.ApiSubscriptionSubscriptionIdSwitchPutAsync(externalId, user.Id.ToString(), targetProductSlug);
+            return Ok();
+        }
+
         private async Task<GoogleUser?> GetUserOrDefault(bool isPurchase = false)
         {
             if (!Request.Headers.TryGetValue("GoogleToken", out StringValues value)
