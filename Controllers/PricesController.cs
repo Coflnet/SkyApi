@@ -238,6 +238,8 @@ public class PricesController : ControllerBase
         var dictFilters = filters as Dictionary<string, string> ?? (filters == null ? null : new Dictionary<string, string>(filters));
         if (itemTag == "ENCHANTED_BOOK" && days > 7)
             dictFilters = null;
+        if (dictFilters != null)
+            dictFilters.Remove("days");
 
         return await priceService.GetAdvancedAnalysis(itemTag, DateTime.UtcNow - TimeSpan.FromDays(days), DateTime.UtcNow, dictFilters);
     }
