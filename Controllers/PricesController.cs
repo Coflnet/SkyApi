@@ -210,47 +210,36 @@ public class PricesController : ControllerBase
     }
 
     /// <summary>
-    /// Gets advanced analysis (volume clustering and sell speed by price) for the last day.
-    /// Free for all users.
+    /// Gets advanced analysis (volume clustering and sell speed by price) for the specified duration.
+    /// Durations up to 7 days are free. 30 days requires starter premium, 365 days requires premium.
     /// </summary>
-    [Route("item/price/{itemTag}/analysis/day")]
+    [Route("item/price/{itemTag}/analysis")]
     [HttpGet]
     [ResponseCache(Duration = 300, Location = ResponseCacheLocation.Any, NoStore = false, VaryByQueryKeys = new string[] { "*" })]
-    public async Task<PricesService.AdvancedAnalysisResult> GetDayAnalysis(string itemTag, [FromQuery] IDictionary<string, string> filters = null)
+    public async Task<PricesService.AdvancedAnalysisResult> GetAnalysis(string itemTag,
+        [FromQuery] int days = 7,
+        [FromQuery] IDictionary<string, string> filters = null,
+        [FromServices] PremiumTierService premiumService = null)
     {
-        return await priceService.GetAdvancedAnalysis(itemTag, DateTime.UtcNow - TimeSpan.FromDays(1), DateTime.UtcNow,
-            filters as Dictionary<string, string> ?? (filters == null ? null : new Dictionary<string, string>(filters)));
-    }
+        if (days < 1) days = 1;
+        if (days > 365) days = 365;
 
-    /// <summary>
-    /// Gets advanced analysis (volume clustering and sell speed by price) for the last week.
-    /// Free for all users.
-    /// </summary>
-    [Route("item/price/{itemTag}/analysis/week")]
-    [HttpGet]
-    [ResponseCache(Duration = 1800, Location = ResponseCacheLocation.Any, NoStore = false, VaryByQueryKeys = new string[] { "*" })]
-    public async Task<PricesService.AdvancedAnalysisResult> GetWeekAnalysis(string itemTag, [FromQuery] IDictionary<string, string> filters = null)
-    {
-        return await priceService.GetAdvancedAnalysis(itemTag, DateTime.UtcNow - TimeSpan.FromDays(7), DateTime.UtcNow,
-            filters as Dictionary<string, string> ?? (filters == null ? null : new Dictionary<string, string>(filters)));
-    }
+        if (days > 7 && days <= 30)
+        {
+            if (!await premiumService.HasStarterPremium(this))
+                throw new CoflnetException("premium_required", "Analysis beyond 7 days requires at least Starter Premium");
+        }
+        else if (days > 30)
+        {
+            if (!await premiumService.HasPremium(this))
+                throw new CoflnetException("premium_required", "Analysis beyond 30 days requires Premium");
+        }
 
-    /// <summary>
-    /// Gets advanced analysis (volume clustering and sell speed by price) for the last month.
-    /// Requires at least starter premium.
-    /// </summary>
-    [Route("item/price/{itemTag}/analysis/month")]
-    [HttpGet]
-    [Authorize]
-    [ResponseCache(Duration = 3600, Location = ResponseCacheLocation.Any, NoStore = false, VaryByQueryKeys = new string[] { "*" })]
-    public async Task<PricesService.AdvancedAnalysisResult> GetMonthAnalysis(string itemTag,
-        [FromQuery] IDictionary<string, string> filters,
-        [FromServices] PremiumTierService premiumService)
-    {
-        if (!await premiumService.HasStarterPremium(this))
-            throw new CoflnetException("premium_required", "Monthly analysis requires at least Starter Premium");
-        return await priceService.GetAdvancedAnalysis(itemTag, DateTime.UtcNow - TimeSpan.FromDays(30), DateTime.UtcNow,
-            itemTag == "ENCHANTED_BOOK" ? null : (filters as Dictionary<string, string> ?? new Dictionary<string, string>(filters ?? new Dictionary<string, string>())));
+        var dictFilters = filters as Dictionary<string, string> ?? (filters == null ? null : new Dictionary<string, string>(filters));
+        if (itemTag == "ENCHANTED_BOOK" && days > 7)
+            dictFilters = null;
+
+        return await priceService.GetAdvancedAnalysis(itemTag, DateTime.UtcNow - TimeSpan.FromDays(days), DateTime.UtcNow, dictFilters);
     }
 
     /// <summary>
