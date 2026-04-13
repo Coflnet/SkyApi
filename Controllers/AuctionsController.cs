@@ -481,9 +481,10 @@ namespace Coflnet.Sky.Api.Controller
         public async Task<IEnumerable<ItemSell>> GetUidHistory(string uid)
         {
             var numericId = GetUidFromString(uid);
-            var key = fe.NbtInstance.GetKeyId("uid");
+            var uidKey = fe.NbtInstance.GetKeyId("uid");
+            var heldItemUuidKey = fe.NbtInstance.GetKeyId("heldItemUuid");
             var result = await context.Auctions
-                        .Where(a => a.NBTLookup.Where(l => l.KeyId == key && l.Value == numericId).Any())
+                        .Where(a => a.NBTLookup.Where(l => (l.KeyId == uidKey || l.KeyId == heldItemUuidKey) && l.Value == numericId).Any())
                         .Where(a => a.HighestBidAmount > 0)
                         .Select(a => new
                         {
