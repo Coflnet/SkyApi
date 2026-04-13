@@ -210,6 +210,50 @@ public class PricesController : ControllerBase
     }
 
     /// <summary>
+    /// Gets advanced analysis (volume clustering and sell speed by price) for the last day.
+    /// Free for all users.
+    /// </summary>
+    [Route("item/price/{itemTag}/analysis/day")]
+    [HttpGet]
+    [ResponseCache(Duration = 300, Location = ResponseCacheLocation.Any, NoStore = false, VaryByQueryKeys = new string[] { "*" })]
+    public async Task<PricesService.AdvancedAnalysisResult> GetDayAnalysis(string itemTag, [FromQuery] IDictionary<string, string> filters = null)
+    {
+        return await priceService.GetAdvancedAnalysis(itemTag, DateTime.UtcNow - TimeSpan.FromDays(1), DateTime.UtcNow,
+            filters as Dictionary<string, string> ?? (filters == null ? null : new Dictionary<string, string>(filters)));
+    }
+
+    /// <summary>
+    /// Gets advanced analysis (volume clustering and sell speed by price) for the last week.
+    /// Free for all users.
+    /// </summary>
+    [Route("item/price/{itemTag}/analysis/week")]
+    [HttpGet]
+    [ResponseCache(Duration = 1800, Location = ResponseCacheLocation.Any, NoStore = false, VaryByQueryKeys = new string[] { "*" })]
+    public async Task<PricesService.AdvancedAnalysisResult> GetWeekAnalysis(string itemTag, [FromQuery] IDictionary<string, string> filters = null)
+    {
+        return await priceService.GetAdvancedAnalysis(itemTag, DateTime.UtcNow - TimeSpan.FromDays(7), DateTime.UtcNow,
+            filters as Dictionary<string, string> ?? (filters == null ? null : new Dictionary<string, string>(filters)));
+    }
+
+    /// <summary>
+    /// Gets advanced analysis (volume clustering and sell speed by price) for the last month.
+    /// Requires at least starter premium.
+    /// </summary>
+    [Route("item/price/{itemTag}/analysis/month")]
+    [HttpGet]
+    [Authorize]
+    [ResponseCache(Duration = 3600, Location = ResponseCacheLocation.Any, NoStore = false, VaryByQueryKeys = new string[] { "*" })]
+    public async Task<PricesService.AdvancedAnalysisResult> GetMonthAnalysis(string itemTag,
+        [FromQuery] IDictionary<string, string> filters,
+        [FromServices] PremiumTierService premiumService)
+    {
+        if (!await premiumService.HasStarterPremium(this))
+            throw new CoflnetException("premium_required", "Monthly analysis requires at least Starter Premium");
+        return await priceService.GetAdvancedAnalysis(itemTag, DateTime.UtcNow - TimeSpan.FromDays(30), DateTime.UtcNow,
+            itemTag == "ENCHANTED_BOOK" ? null : (filters as Dictionary<string, string> ?? new Dictionary<string, string>(filters ?? new Dictionary<string, string>())));
+    }
+
+    /// <summary>
     /// Returns all available filters with all available options
     /// </summary>
     /// <returns></returns>
