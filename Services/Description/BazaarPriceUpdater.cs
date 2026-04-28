@@ -4,12 +4,14 @@ using System.Threading.Tasks;
 using System.Globalization;
 using System.Collections.Concurrent;
 using Coflnet.Sky.Api.Models.Mod;
+using Coflnet.Sky.Api.Models;
 using Coflnet.Sky.Api.Services.Description;
 using Coflnet.Sky.Api.Services;
 using Coflnet.Sky.Commands.Shared;
 using Coflnet.Sky.Bazaar.Client.Api;
 using Newtonsoft.Json;
 using Microsoft.Extensions.Logging;
+using StackExchange.Redis;
 
 namespace Coflnet.Sky.Api.Services.Description;
 
@@ -49,6 +51,7 @@ public class BazaarPriceUpdater : ICustomModifier
             data.modService.UpdateBazaarPrice(itemTag, topBuyPrice, cheapestSellPrice);
         }
         ExtractAndUploadOrderBook(itemTag, buyOrders.Description, sellOffers.Description);
+        PublishInstaSellIntentIfApplicable(data, itemTag);
 
         // Create a clickable link to open SkyCofl history for this item
         var loreBuilder = new LoreBuilder()
@@ -158,6 +161,77 @@ public class BazaarPriceUpdater : ICustomModifier
         });
 
         return (topBuy, cheapestSell);
+    }
+
+    private static void PublishInstaSellIntentIfApplicable(DataContainer data, string? itemTag)
+    {
+        if (string.IsNullOrWhiteSpace(itemTag)
+            || string.IsNullOrWhiteSpace(data.accountInfo?.UserId)
+            || !HasImmediateSellIntent(data, itemTag, out var inventoryAmount))
+        {
+            return;
+        }
+
+        Task.Run(async () =>
+        {
+            try
+            {
+                var redis = DiHandler.GetService<IConnectionMultiplexer>();
+                if (redis == null)
+                {
+                    return;
+                }
+
+                var dedupeKey = $"bazaar:intent:{data.accountInfo.UserId}:{itemTag}";
+                var db = redis.GetDatabase();
+                var wasNew = await db.StringSetAsync(dedupeKey, "1", TimeSpan.FromSeconds(15), when: When.NotExists);
+                if (!wasNew)
+                {
+                    return;
+                }
+
+                var signal = new BazaarSignalEvent
+                {
+                    Type = BazaarSignalTypes.InstaSellIntent,
+                    ItemTag = itemTag,
+                    UserId = data.accountInfo.UserId,
+                    InventoryAmount = inventoryAmount,
+                    Timestamp = DateTime.UtcNow,
+                    Source = "SkyApi"
+                };
+
+                await redis.GetSubscriber().PublishAsync(
+                    RedisChannel.Literal(BazaarSignalChannels.LiveSignals),
+                    JsonConvert.SerializeObject(signal));
+            }
+            catch (Exception ex)
+            {
+                var logger = DiHandler.GetService<Microsoft.Extensions.Logging.ILogger<BazaarPriceUpdater>>();
+                logger?.LogError(ex, "Failed to publish bazaar insta-sell intent for {tag}", itemTag);
+            }
+        });
+    }
+
+    private static bool HasImmediateSellIntent(DataContainer data, string itemTag, out int inventoryAmount)
+    {
+        inventoryAmount = 0;
+        var hasSellButton = data.Items.Count > 11
+            && data.Items[11]?.ItemName?.Contains("Sell Instantly", StringComparison.OrdinalIgnoreCase) == true;
+        if (!hasSellButton)
+        {
+            return false;
+        }
+
+        for (var slot = 54; slot < data.Items.Count; slot++)
+        {
+            var item = data.Items[slot];
+            if (item?.Tag == itemTag)
+            {
+                inventoryAmount += Math.Max(1, (int)item.Count);
+            }
+        }
+
+        return inventoryAmount > 0;
     }
 
     public void Modify(ModDescriptionService.PreRequestContainer preRequest)
