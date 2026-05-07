@@ -13,46 +13,67 @@ public class KuudraChestInfo : ICustomModifier
     {
         // Total estimated value of chest contents
         var target = data.auctionRepresent.Take(30).ToList();
+        Console.WriteLine("Kuudra chest content: " + JsonConvert.SerializeObject(target));
         long itemValueSum = 0;
 
-        // Try to determine key type
-        var typeLine = data.auctionRepresent.ElementAtOrDefault(31).desc?.LastOrDefault() ?? 
-                       data.auctionRepresent.FirstOrDefault(i => i.auction?.ItemName?.Contains("Kuudra Key", StringComparison.OrdinalIgnoreCase) == true).auction?.ItemName;
+        // Try to determine key type from the claim chest lore first, then fall back to other lore or item names.
+        var typeLine = GetDetectedKeyLine(data.auctionRepresent);
 
         long keyCost = GetKeyCost(typeLine, data);
 
         // Build a per-item breakdown: iterate over auctionRepresent and list non-null items
         var breakdown = new List<Models.Mod.DescModification>();
+        var debugBreakdown = new List<object>();
         for (int i = 0; i < 30; i++)
         {
             if (i >= target.Count) continue;
             var entry = target[i];
             var auc = entry.auction;
-            if (auc == null || string.IsNullOrWhiteSpace(auc.ItemName) || auc.ItemName.Trim() == "") continue;
+            if (auc == null) continue;
+
+            var resolvedTag = ResolveItemTag(auc);
+            var count = GetEffectiveCount(auc);
+            var itemName = GetDisplayName(auc, resolvedTag);
+            if (string.IsNullOrWhiteSpace(itemName) && string.IsNullOrWhiteSpace(resolvedTag))
+            {
+                debugBreakdown.Add(new
+                {
+                    Slot = i,
+                    RawTag = auc.Tag,
+                    RawItemName = auc.ItemName,
+                    RawCount = auc.Count,
+                    ResolvedTag = resolvedTag,
+                    Count = count,
+                    entry.desc,
+                    Skipped = true,
+                    Reason = "Missing item name and tag"
+                });
+                continue;
+            }
 
             // Determine estimated price for this item
             long est = 0;
+            bool usedPriceEstimate = false;
             if (i < (data.PriceEst?.Count ?? 0) && data.PriceEst[i] != null)
             {
                 est = data.PriceEst[i].Median;
+                usedPriceEstimate = true;
             }
-            else if (!string.IsNullOrEmpty(auc.Tag))
+            else if (!string.IsNullOrEmpty(resolvedTag))
             {
-                var count = auc.Count <= 0 ? 1 : auc.Count;
-                est = data.GetItemprice(auc.Tag) * count;
+                est = data.GetItemprice(resolvedTag) * count;
             }
 
             // Handle essence
-            if (auc.ItemName.Contains("Essence", StringComparison.OrdinalIgnoreCase))
+            if (IsEssenceItem(auc.ItemName, resolvedTag))
             {
-                if (int.TryParse(auc.ItemName.Split('x').LastOrDefault()?.Trim(), out var essenceCount))
+                var essenceTag = resolvedTag ?? GetEssenceTag(auc.ItemName);
+                if (!string.IsNullOrEmpty(essenceTag))
                 {
-                    var tag = auc.Tag ?? GetEssenceTag(auc.ItemName);
-                    if (!string.IsNullOrEmpty(tag))
-                    {
-                        var essencePrice = data.GetItemprice(tag);
-                        est = essencePrice * essenceCount;
-                    }
+                    var essencePrice = data.GetItemprice(essenceTag);
+                    if (essencePrice > 0 || est == 0)
+                        est = essencePrice * count;
+                    resolvedTag = essenceTag;
                 }
             }
 
@@ -60,9 +81,21 @@ public class KuudraChestInfo : ICustomModifier
             var totalForItem = est;
             itemValueSum += totalForItem;
 
-            // Create a readable item name (fall back to tag when itemName is null/empty)
-            var itemName = string.IsNullOrWhiteSpace(auc.ItemName) ? auc.Tag : auc.ItemName;
-            breakdown.Add(new Models.Mod.DescModification(McColorCodes.GRAY + itemName + (auc.Count > 1 && !itemName.Contains("x" + auc.Count) ? " x" + auc.Count : "") + " " + McColorCodes.WHITE + ModDescriptionService.FormatPriceShort(totalForItem)));
+            debugBreakdown.Add(new
+            {
+                Slot = i,
+                RawTag = auc.Tag,
+                RawItemName = auc.ItemName,
+                RawCount = auc.Count,
+                ResolvedTag = resolvedTag,
+                DisplayName = itemName,
+                Count = count,
+                UsedPriceEstimate = usedPriceEstimate,
+                EstimatedValue = totalForItem,
+                entry.desc
+            });
+
+            breakdown.Add(new Models.Mod.DescModification(McColorCodes.GRAY + itemName + GetQuantitySuffix(itemName, count) + " " + McColorCodes.WHITE + ModDescriptionService.FormatPriceShort(totalForItem)));
         }
 
         var hover = new System.Text.StringBuilder();
@@ -105,10 +138,142 @@ public class KuudraChestInfo : ICustomModifier
         desc.Add(new Models.Mod.DescModification(McColorCodes.GRAY + "Please let us know what you think"));
         desc.Add(new Models.Mod.DescModification(McColorCodes.GRAY + "about the estimate on SkyCofl discord!"));
 
+        Console.WriteLine("Kuudra chest output breakdown: " + JsonConvert.SerializeObject(new
+        {
+            DetectedKey = typeLine,
+            KeyCost = keyCost,
+            ItemValueSum = itemValueSum,
+            Profit = profit,
+            Items = debugBreakdown,
+            Output = desc.Select(line => line.Value).ToList()
+        }));
+
         data.mods.Add(desc);
     }
 
-    private string GetEssenceTag(string itemName)
+    private static string GetDetectedKeyLine(List<(Core.SaveAuction auction, string[] desc)> auctionRepresent)
+    {
+        if (auctionRepresent == null || auctionRepresent.Count == 0)
+            return null;
+
+        var chestLore = auctionRepresent.FirstOrDefault(entry => entry.auction?.Tag == "SKYBLOCK_CLAIM_CHEST").desc;
+        var keyLine = FindKuudraKeyLine(chestLore);
+        if (!string.IsNullOrEmpty(keyLine))
+            return keyLine;
+
+        foreach (var entry in auctionRepresent)
+        {
+            keyLine = FindKuudraKeyLine(entry.desc);
+            if (!string.IsNullOrEmpty(keyLine))
+                return keyLine;
+
+            if (ContainsKuudraKey(entry.auction?.ItemName))
+                return entry.auction.ItemName;
+        }
+
+        return null;
+    }
+
+    private static string FindKuudraKeyLine(IEnumerable<string> desc)
+    {
+        return desc?.FirstOrDefault(ContainsKuudraKey);
+    }
+
+    private static bool ContainsKuudraKey(string value)
+    {
+        return !string.IsNullOrWhiteSpace(value)
+            && value.IndexOf("Kuudra Key", StringComparison.OrdinalIgnoreCase) >= 0;
+    }
+
+    private static string ResolveItemTag(Core.SaveAuction auction)
+    {
+        if (auction == null)
+            return null;
+
+        if (!string.IsNullOrEmpty(auction.Tag))
+            return auction.Tag;
+
+        if (IsEssenceItem(auction.ItemName, auction.Tag))
+            return GetEssenceTag(auction.ItemName);
+
+        if (TryResolveShardTag(auction.ItemName, out var shardTag))
+            return shardTag;
+
+        return null;
+    }
+
+    private static bool TryResolveShardTag(string itemName, out string shardTag)
+    {
+        shardTag = null;
+        if (string.IsNullOrWhiteSpace(itemName) || itemName.IndexOf("Shard", StringComparison.OrdinalIgnoreCase) < 0)
+            return false;
+
+        return ModDescriptionService.TryGetShardTagFromName(TrimCountSuffix(itemName), out shardTag);
+    }
+
+    private static int GetEffectiveCount(Core.SaveAuction auction)
+    {
+        if (auction == null)
+            return 0;
+
+        var parsedCount = TryParseTrailingCount(auction.ItemName);
+        if (parsedCount > 0)
+            return parsedCount;
+
+        return auction.Count > 0 ? auction.Count : 1;
+    }
+
+    private static int TryParseTrailingCount(string itemName)
+    {
+        if (string.IsNullOrWhiteSpace(itemName))
+            return 0;
+
+        var cleaned = System.Text.RegularExpressions.Regex.Replace(itemName, "§.", "");
+        var match = System.Text.RegularExpressions.Regex.Match(cleaned, @" x(?<count>[0-9,]+)$");
+        if (!match.Success)
+            return 0;
+
+        return int.TryParse(match.Groups["count"].Value.Replace(",", ""), out var parsedCount)
+            ? parsedCount
+            : 0;
+    }
+
+    private static string TrimCountSuffix(string itemName)
+    {
+        if (string.IsNullOrWhiteSpace(itemName))
+            return itemName;
+
+        return System.Text.RegularExpressions.Regex.Replace(itemName, @"\s*§.[xX][0-9,]+$", string.Empty);
+    }
+
+    private static bool IsEssenceItem(string itemName, string tag)
+    {
+        return (!string.IsNullOrEmpty(tag) && tag.StartsWith("ESSENCE_", StringComparison.OrdinalIgnoreCase))
+            || (!string.IsNullOrWhiteSpace(itemName) && itemName.IndexOf("Essence", StringComparison.OrdinalIgnoreCase) >= 0);
+    }
+
+    private static string GetDisplayName(Core.SaveAuction auction, string resolvedTag)
+    {
+        if (!string.IsNullOrWhiteSpace(auction?.ItemName))
+            return auction.ItemName;
+
+        return resolvedTag ?? auction?.Tag;
+    }
+
+    private static string GetQuantitySuffix(string itemName, int count)
+    {
+        if (count <= 1)
+            return string.Empty;
+
+        var cleanedName = string.IsNullOrWhiteSpace(itemName)
+            ? string.Empty
+            : System.Text.RegularExpressions.Regex.Replace(itemName, "§.", "");
+        return cleanedName.Contains("x" + count, StringComparison.OrdinalIgnoreCase)
+            ? string.Empty
+            : " x" + count;
+    }
+
+    private static string GetEssenceTag(string itemName)
     {
         if (string.IsNullOrEmpty(itemName)) return null;
         var lower = itemName.ToLowerInvariant();
