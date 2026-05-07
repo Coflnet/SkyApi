@@ -128,6 +128,10 @@ namespace Coflnet.Sky.Api
             services.AddSingleton<GoogletokenService>();
             services.AddSingleton<ApiKeyService>();
             services.AddSingleton<AuctionService>();
+            services.AddHttpClient("DonutApi", client =>
+            {
+                client.BaseAddress = new Uri(Configuration["DONUT_API_BASE_URL"] ?? "http://donutapi.donut.svc.cluster.local:8000");
+            });
             services.AddDbContext<HypixelContext>();
             services.AddTransient<KatService>();
             services.AddSingleton<PremiumTierService>();
@@ -143,6 +147,7 @@ namespace Coflnet.Sky.Api
 
             services.AddSingleton<ItemSkinHandler>();
             services.AddHostedService<ItemSkinHandler>(di => di.GetService<ItemSkinHandler>());
+            services.AddSingleton<DonutModDescriptionService>();
             services.AddResponseCaching();
             services.AddResponseCompression();
             var redisOptions = ConfigurationOptions.Parse(Configuration["REDIS_HOST"]);

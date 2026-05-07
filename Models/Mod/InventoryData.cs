@@ -28,6 +28,10 @@ public class InventoryData
     /// Id of the sender to identify and or contact
     /// </summary>
     public string SenderContactId;
+    /// <summary>
+    /// Optional server context for non-Hypixel integrations.
+    /// </summary>
+    public string Server;
 }
 
 /// <summary>
