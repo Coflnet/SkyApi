@@ -251,10 +251,108 @@ public class KuudraChestInfoTests
         Assert.That(data.mods, Is.Not.Empty);
         var joined = string.Join("\n", data.mods.Last().Select(mod => mod.Value));
 
-    Assert.That(joined, Does.Contain("Blazing Fortune Attribute Shard"));
+        Assert.That(joined, Does.Contain("Blazing Fortune Attribute Shard"));
         Assert.That(joined, Does.Contain("Kraken Shard"));
 
         var expectedTotal = ModDescriptionService.FormatPriceShort(310_000 + 2_016_000 + 22_764 + 450_000);
         Assert.That(joined, Does.Contain(expectedTotal));
+    }
+
+    [Test]
+    public void KuudraChestInfo_HotChestUsesClaimChestShardNameAndHotKeyCost()
+    {
+        Assert.That(ModDescriptionService.TryGetShardTagFromName("§6Kraken Shard", out var krakenTag), Is.True);
+
+        var auctionRepresent = new List<(Core.SaveAuction auction, string[] desc)>();
+
+        while (auctionRepresent.Count < 11)
+            auctionRepresent.Add((null, Array.Empty<string>()));
+
+        auctionRepresent.Add((new Core.SaveAuction { Tag = "TERROR_LEGGINGS", ItemName = "§6Terror Leggings §6✪✪", Count = 1 }, new[] {
+            "§7§eClick the chest below to purchase",
+            "§ethese rewards!"
+        }));
+        auctionRepresent.Add((new Core.SaveAuction { Tag = "KUUDRA_TENTACLE", ItemName = "§9Kuudra Tentacle", Count = 1 }, new[] {
+            "§eRight-click to view recipes!",
+            "",
+            "§9§lRARE",
+            "",
+            "§7§eClick the chest below to purchase",
+            "§ethese rewards!"
+        }));
+        auctionRepresent.Add((new Core.SaveAuction { Tag = "ESSENCE_CRIMSON", ItemName = null, Count = 250 }, new[] {
+            "§7Crimson Essence can be used to",
+            "§7convert some items into Dungeon",
+            "§7items and upgrade them!"
+        }));
+        auctionRepresent.Add((new Core.SaveAuction { Tag = "KUUDRA_TEETH", ItemName = "§5Kuudra Teeth", Count = 1 }, new[] {
+            "§7§7Also known as mandibles."
+        }));
+        auctionRepresent.Add((null, new[] {
+            "§6Vitality §8(Global)",
+            "§7Grants §82§4§4+20 §4♨ Vitality§7.",
+            "",
+            "§7Owned: §b3 Shards",
+            "",
+            "§7§eClick the chest below to purchase",
+            "§ethese rewards!"
+        }));
+
+        while (auctionRepresent.Count < 31)
+            auctionRepresent.Add((null, Array.Empty<string>()));
+
+        auctionRepresent.Add((new Core.SaveAuction { Tag = "SKYBLOCK_CLAIM_CHEST", ItemName = "§aOpen Reward Chest" }, new[] {
+            "§7Contents",
+            "§6Terror Leggings §6✪✪",
+            "§9Kuudra Tentacle",
+            "§dCrimson Essence §8x250",
+            "§5Kuudra Teeth",
+            "§6Kraken Shard",
+            "",
+            "§7Cost",
+            "§5Hot Kuudra Key",
+            "",
+            "§eClick to open!"
+        }));
+
+        while (auctionRepresent.Count < 40)
+            auctionRepresent.Add((null, Array.Empty<string>()));
+
+        var priceEst = Enumerable.Repeat<Sniper.Client.Model.PriceEstimate>(null, auctionRepresent.Count).ToList();
+        priceEst[11] = new Sniper.Client.Model.PriceEstimate { Median = 214_085 };
+        priceEst[12] = new Sniper.Client.Model.PriceEstimate { Median = 3_446_438 };
+        priceEst[13] = new Sniper.Client.Model.PriceEstimate { Median = 252_000 };
+        priceEst[14] = new Sniper.Client.Model.PriceEstimate { Median = 7_588 };
+
+        var data = new DataContainer
+        {
+            auctionRepresent = auctionRepresent,
+            PriceEst = priceEst,
+            bazaarPrices = ImmutableDictionary<string, ItemPrice>.Empty
+                .Add("CORRUPTED_NETHER_STAR", new ItemPrice { SellPrice = 20_250, BuyPrice = 20_000 })
+                .Add("ENCHANTED_RED_SAND", new ItemPrice { SellPrice = 2_000, BuyPrice = 1_900 })
+                .Add("ENCHANTED_MYCELIUM", new ItemPrice { SellPrice = 1_347, BuyPrice = 1_300 }),
+            itemPrices = new Dictionary<string, long>
+            {
+                [krakenTag] = 184_826
+            },
+            mods = new List<List<DescModification>>()
+        };
+
+        var service = new KuudraChestInfo();
+
+        service.Apply(data);
+
+        Assert.That(data.mods, Is.Not.Empty);
+        var joined = string.Join("\n", data.mods.Last().Select(mod => mod.Value));
+
+        var expectedTotal = ModDescriptionService.FormatPriceShort(214_085 + 3_446_438 + 252_000 + 7_588 + 184_826);
+        var expectedCost = ModDescriptionService.FormatPriceShort(400_000 + 6 * 1_347 + 2 * 20_250);
+
+        Assert.That(joined, Does.Contain("Detected Key: Hot Kuudra Key"));
+        Assert.That(joined, Does.Contain("Crimson Essence x250"));
+        Assert.That(joined, Does.Contain("Kraken Shard"));
+        Assert.That(joined, Does.Contain(expectedTotal));
+        Assert.That(joined, Does.Contain(expectedCost));
     }
 }
