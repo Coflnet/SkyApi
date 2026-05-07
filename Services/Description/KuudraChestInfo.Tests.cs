@@ -162,7 +162,99 @@ public class KuudraChestInfoTests
 
         var expectedTotal = ModDescriptionService.FormatPriceShort(100_000 + 100 * 500 + 2 * 20_000);
         Assert.That(joined, Does.Contain(expectedTotal));
-        Assert.That(joined, Does.Contain("ESSENCE_CRIMSON x100"));
+        Assert.That(joined, Does.Contain("Crimson Essence x100"));
         Assert.That(joined, Does.Contain("Kraken Shard"));
+    }
+
+    [Test]
+    public void KuudraChestInfo_IncludesLoreOnlyAttributeShards()
+    {
+        const string blazingFortuneTag = "ATTRIBUTE_SHARD+blazing_fortune;1";
+        Assert.That(ModDescriptionService.TryGetShardTagFromName("§6Kraken Shard", out var krakenTag), Is.True);
+
+        var auctionRepresent = new List<(Core.SaveAuction auction, string[] desc)>();
+
+        while (auctionRepresent.Count < 11)
+            auctionRepresent.Add((null, Array.Empty<string>()));
+
+        auctionRepresent.Add((null, new[] {
+            "§6Blazing Fortune §8(Fishing)",
+            "§7Grants §81§b§b+10 §b✯ Magic Find §7on §c♆",
+            "§cMagmatic §7mobs.",
+            "",
+            "§7Owned: §b0 Shards",
+            "",
+            "§7§eClick the chest below to purchase",
+            "§ethese rewards!"
+        }));
+        auctionRepresent.Add((new Core.SaveAuction { Tag = "ESSENCE_CRIMSON", ItemName = null, Count = 2000 }, new[] {
+            "§7Crimson Essence can be used to",
+            "§7convert some items into Dungeon",
+            "§7items and upgrade them!"
+        }));
+        auctionRepresent.Add((new Core.SaveAuction { Tag = "KUUDRA_TEETH", ItemName = "§5Kuudra Teeth", Count = 3 }, new[] {
+            "§7§7Also known as mandibles."
+        }));
+        auctionRepresent.Add((null, new[] {
+            "§6Vitality §8(Global)",
+            "§7Grants §82§4§4+20 §4♨ Vitality§7.",
+            "",
+            "§7Owned: §b15 Shards",
+            "",
+            "§7§eClick the chest below to purchase",
+            "§ethese rewards!"
+        }));
+
+        while (auctionRepresent.Count < 31)
+            auctionRepresent.Add((null, Array.Empty<string>()));
+
+        auctionRepresent.Add((new Core.SaveAuction { Tag = "SKYBLOCK_CLAIM_CHEST", ItemName = "§aOpen Reward Chest" }, new[] {
+            "§7Contents",
+            "§6Blazing Fortune Attribute Shard",
+            "§dCrimson Essence §8x2000",
+            "§5Kuudra Teeth",
+            "§6Kraken Shard §8x1",
+            "",
+            "§7Cost",
+            "§6Infernal Kuudra Key",
+            "",
+            "§eClick to open!"
+        }));
+
+        while (auctionRepresent.Count < 40)
+            auctionRepresent.Add((null, Array.Empty<string>()));
+
+        var priceEst = Enumerable.Repeat<Sniper.Client.Model.PriceEstimate>(null, auctionRepresent.Count).ToList();
+        priceEst[12] = new Sniper.Client.Model.PriceEstimate { Median = 2_016_000 };
+        priceEst[13] = new Sniper.Client.Model.PriceEstimate { Median = 22_764 };
+
+        var data = new DataContainer
+        {
+            auctionRepresent = auctionRepresent,
+            PriceEst = priceEst,
+            bazaarPrices = ImmutableDictionary<string, ItemPrice>.Empty
+                .Add("CORRUPTED_NETHER_STAR", new ItemPrice { SellPrice = 20_000, BuyPrice = 19_000 })
+                .Add("ENCHANTED_RED_SAND", new ItemPrice { SellPrice = 3_000, BuyPrice = 2_900 })
+                .Add("ENCHANTED_MYCELIUM", new ItemPrice { SellPrice = 1_347, BuyPrice = 1_300 }),
+            itemPrices = new Dictionary<string, long>
+            {
+                [blazingFortuneTag] = 310_000,
+                [krakenTag] = 450_000
+            },
+            mods = new List<List<DescModification>>()
+        };
+
+        var service = new KuudraChestInfo();
+
+        service.Apply(data);
+
+        Assert.That(data.mods, Is.Not.Empty);
+        var joined = string.Join("\n", data.mods.Last().Select(mod => mod.Value));
+
+    Assert.That(joined, Does.Contain("Blazing Fortune Attribute Shard"));
+        Assert.That(joined, Does.Contain("Kraken Shard"));
+
+        var expectedTotal = ModDescriptionService.FormatPriceShort(310_000 + 2_016_000 + 22_764 + 450_000);
+        Assert.That(joined, Does.Contain(expectedTotal));
     }
 }

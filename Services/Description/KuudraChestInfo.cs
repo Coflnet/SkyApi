@@ -14,6 +14,7 @@ public class KuudraChestInfo : ICustomModifier
         // Total estimated value of chest contents
         var target = data.auctionRepresent.Take(30).ToList();
         Console.WriteLine("Kuudra chest content: " + JsonConvert.SerializeObject(target));
+        var claimChestContents = GetClaimChestContentNames(data.auctionRepresent);
         long itemValueSum = 0;
 
         // Try to determine key type from the claim chest lore first, then fall back to other lore or item names.
@@ -24,16 +25,38 @@ public class KuudraChestInfo : ICustomModifier
         // Build a per-item breakdown: iterate over auctionRepresent and list non-null items
         var breakdown = new List<Models.Mod.DescModification>();
         var debugBreakdown = new List<object>();
+        int claimContentIndex = 0;
         for (int i = 0; i < 30; i++)
         {
             if (i >= target.Count) continue;
             var entry = target[i];
-            var auc = entry.auction;
-            if (auc == null) continue;
+            var claimContentName = IsPotentialRewardEntry(entry)
+                ? claimChestContents.ElementAtOrDefault(claimContentIndex++)
+                : null;
+            var auc = entry.auction ?? TryCreateSyntheticAuctionFromLore(entry.desc, claimContentName);
+            if (auc == null)
+            {
+                if ((entry.desc?.Length ?? 0) > 0)
+                {
+                    debugBreakdown.Add(new
+                    {
+                        Slot = i,
+                        RawTag = entry.auction?.Tag,
+                        RawItemName = entry.auction?.ItemName,
+                        RawCount = entry.auction?.Count ?? 0,
+                        ClaimContentName = claimContentName,
+                        Count = 0,
+                        entry.desc,
+                        Skipped = true,
+                        Reason = "Unable to parse lore-only entry"
+                    });
+                }
+                continue;
+            }
 
             var resolvedTag = ResolveItemTag(auc);
             var count = GetEffectiveCount(auc);
-            var itemName = GetDisplayName(auc, resolvedTag);
+            var itemName = GetDisplayName(auc, resolvedTag, claimContentName);
             if (string.IsNullOrWhiteSpace(itemName) && string.IsNullOrWhiteSpace(resolvedTag))
             {
                 debugBreakdown.Add(new
@@ -42,6 +65,7 @@ public class KuudraChestInfo : ICustomModifier
                     RawTag = auc.Tag,
                     RawItemName = auc.ItemName,
                     RawCount = auc.Count,
+                    ClaimContentName = claimContentName,
                     ResolvedTag = resolvedTag,
                     Count = count,
                     entry.desc,
@@ -84,12 +108,14 @@ public class KuudraChestInfo : ICustomModifier
             debugBreakdown.Add(new
             {
                 Slot = i,
-                RawTag = auc.Tag,
-                RawItemName = auc.ItemName,
-                RawCount = auc.Count,
+                RawTag = entry.auction?.Tag,
+                RawItemName = entry.auction?.ItemName,
+                RawCount = entry.auction?.Count ?? 0,
+                ClaimContentName = claimContentName,
                 ResolvedTag = resolvedTag,
                 DisplayName = itemName,
                 Count = count,
+                Synthetic = entry.auction == null,
                 UsedPriceEstimate = usedPriceEstimate,
                 EstimatedValue = totalForItem,
                 entry.desc
@@ -144,6 +170,7 @@ public class KuudraChestInfo : ICustomModifier
             KeyCost = keyCost,
             ItemValueSum = itemValueSum,
             Profit = profit,
+            ClaimChestContents = claimChestContents,
             Items = debugBreakdown,
             Output = desc.Select(line => line.Value).ToList()
         }));
@@ -183,6 +210,136 @@ public class KuudraChestInfo : ICustomModifier
     {
         return !string.IsNullOrWhiteSpace(value)
             && value.IndexOf("Kuudra Key", StringComparison.OrdinalIgnoreCase) >= 0;
+    }
+
+    private static bool IsPotentialRewardEntry((Core.SaveAuction auction, string[] desc) entry)
+    {
+        return entry.auction != null || (entry.desc?.Length ?? 0) > 0;
+    }
+
+    private static List<string> GetClaimChestContentNames(List<(Core.SaveAuction auction, string[] desc)> auctionRepresent)
+    {
+        var claimChestLore = auctionRepresent?.FirstOrDefault(entry => entry.auction?.Tag == "SKYBLOCK_CLAIM_CHEST").desc;
+        if (claimChestLore == null)
+            return new List<string>();
+
+        bool inContentsSection = false;
+        var contentNames = new List<string>();
+        foreach (var line in claimChestLore)
+        {
+            if (string.IsNullOrWhiteSpace(line))
+                continue;
+
+            var cleanedLine = System.Text.RegularExpressions.Regex.Replace(line, "§.", string.Empty);
+            if (cleanedLine.Equals("Contents", StringComparison.OrdinalIgnoreCase))
+            {
+                inContentsSection = true;
+                continue;
+            }
+
+            if (cleanedLine.Equals("Cost", StringComparison.OrdinalIgnoreCase))
+                break;
+
+            if (inContentsSection)
+                contentNames.Add(line);
+        }
+
+        return contentNames;
+    }
+
+    private static Core.SaveAuction TryCreateSyntheticAuctionFromLore(IEnumerable<string> desc, string claimContentName)
+    {
+        var claimContentAuction = TryCreateSyntheticAuctionFromClaimContent(claimContentName);
+        if (claimContentAuction != null)
+            return claimContentAuction;
+
+        if (!TryCreateSyntheticShardFromLore(desc, out var shardAuction))
+            return null;
+
+        return shardAuction;
+    }
+
+    private static Core.SaveAuction TryCreateSyntheticAuctionFromClaimContent(string claimContentName)
+    {
+        if (string.IsNullOrWhiteSpace(claimContentName))
+            return null;
+
+        if (claimContentName.IndexOf("Attribute Shard", StringComparison.OrdinalIgnoreCase) >= 0)
+        {
+            var attributeKey = NormalizeAttributeKey(claimContentName);
+            if (!Coflnet.Sky.Core.Constants.AttributeKeys.Contains(attributeKey))
+                return null;
+
+            return new Core.SaveAuction
+            {
+                Tag = $"ATTRIBUTE_SHARD+{attributeKey};1",
+                ItemName = claimContentName,
+                Count = 1
+            };
+        }
+
+        if (!TryResolveShardTag(claimContentName, out var shardTag))
+            return null;
+
+        return new Core.SaveAuction
+        {
+            Tag = shardTag,
+            ItemName = claimContentName,
+            Count = 1
+        };
+    }
+
+    private static bool TryCreateSyntheticShardFromLore(IEnumerable<string> desc, out Core.SaveAuction shardAuction)
+    {
+        shardAuction = null;
+        if (!IsLikelyShardLore(desc))
+            return false;
+
+        var shardName = ExtractShardNameFromLore(desc);
+        if (string.IsNullOrWhiteSpace(shardName))
+            return false;
+
+        var attributeKey = NormalizeAttributeKey(shardName);
+        if (!Coflnet.Sky.Core.Constants.AttributeKeys.Contains(attributeKey))
+            return false;
+
+        shardAuction = new Core.SaveAuction
+        {
+            Tag = $"ATTRIBUTE_SHARD+{attributeKey};1",
+            ItemName = EnsureShardSuffix(shardName),
+            Count = 1
+        };
+        return true;
+    }
+
+    private static bool IsLikelyShardLore(IEnumerable<string> desc)
+    {
+        return desc?.Any(line => !string.IsNullOrWhiteSpace(line)
+            && line.IndexOf("Owned:", StringComparison.OrdinalIgnoreCase) >= 0
+            && line.IndexOf("Shards", StringComparison.OrdinalIgnoreCase) >= 0) == true;
+    }
+
+    private static string ExtractShardNameFromLore(IEnumerable<string> desc)
+    {
+        var firstLine = desc?.FirstOrDefault(line => !string.IsNullOrWhiteSpace(line));
+        if (string.IsNullOrWhiteSpace(firstLine))
+            return null;
+
+        return System.Text.RegularExpressions.Regex.Replace(firstLine, @"\s*(?:§.)?\([^)]*\)$", string.Empty).Trim();
+    }
+
+    private static string EnsureShardSuffix(string shardName)
+    {
+        return shardName.IndexOf("Shard", StringComparison.OrdinalIgnoreCase) >= 0
+            ? shardName
+            : shardName + " Shard";
+    }
+
+    private static string NormalizeAttributeKey(string shardName)
+    {
+        var cleaned = System.Text.RegularExpressions.Regex.Replace(shardName, "§.", string.Empty);
+        cleaned = System.Text.RegularExpressions.Regex.Replace(cleaned, @"\s+Attribute Shard$", string.Empty, System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+        return cleaned.Replace(' ', '_').ToLowerInvariant();
     }
 
     private static string ResolveItemTag(Core.SaveAuction auction)
@@ -252,10 +409,13 @@ public class KuudraChestInfo : ICustomModifier
             || (!string.IsNullOrWhiteSpace(itemName) && itemName.IndexOf("Essence", StringComparison.OrdinalIgnoreCase) >= 0);
     }
 
-    private static string GetDisplayName(Core.SaveAuction auction, string resolvedTag)
+    private static string GetDisplayName(Core.SaveAuction auction, string resolvedTag, string claimContentName)
     {
         if (!string.IsNullOrWhiteSpace(auction?.ItemName))
             return auction.ItemName;
+
+        if (!string.IsNullOrWhiteSpace(claimContentName))
+            return claimContentName;
 
         return resolvedTag ?? auction?.Tag;
     }
