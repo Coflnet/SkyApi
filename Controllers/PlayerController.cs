@@ -9,6 +9,7 @@ using Coflnet.Sky.Filter;
 using Coflnet.Sky.PlayerName;
 using Coflnet.Sky.Api.Services;
 using Coflnet.Sky.PlayerState.Client.Api;
+using Microsoft.AspNetCore.Authorization;
 
 namespace Coflnet.Sky.Api.Controller
 {
@@ -26,6 +27,8 @@ namespace Coflnet.Sky.Api.Controller
         private PlayerNameService playerNameApi;
         private IPlayerStateApi playerStateApi;
         private ItemDetails itemDetails;
+        private readonly GoogletokenService googletokenService;
+        private readonly McConnect.Api.IConnectApi connectApi;
 
         /// <summary>
         /// Creates a new instance of <see cref="PlayerController"/>
@@ -35,13 +38,17 @@ namespace Coflnet.Sky.Api.Controller
         /// <param name="playerNameApi"></param>
         /// <param name="itemDetails"></param>
         /// <param name="playerStateApi"></param>
-        public PlayerController(HypixelContext context, FilterEngine filterEngine, PlayerNameService playerNameApi, ItemDetails itemDetails, IPlayerStateApi playerStateApi)
+        /// <param name="googletokenService"></param>
+        /// <param name="connectApi"></param>
+        public PlayerController(HypixelContext context, FilterEngine filterEngine, PlayerNameService playerNameApi, ItemDetails itemDetails, IPlayerStateApi playerStateApi, GoogletokenService googletokenService, McConnect.Api.IConnectApi connectApi)
         {
             this.context = context;
             this.filterEngine = filterEngine;
             this.playerNameApi = playerNameApi;
             this.itemDetails = itemDetails;
             this.playerStateApi = playerStateApi;
+            this.googletokenService = googletokenService;
+            this.connectApi = connectApi;
         }
 
 
@@ -163,6 +170,51 @@ namespace Coflnet.Sky.Api.Controller
                     .ToList();
         }
 
+        /// <summary>
+        /// Export all recorded auctions for the specified player as JSON.
+        /// The authenticated caller must have that player verified (connected via mod).
+        /// </summary>
+        /// <param name="playerUuid">The uuid of the player</param>
+        /// <returns>All available auctions for the verified player</returns>
+        [Route("{playerUuid}/auctions/export")]
+        [HttpGet]
+        [Authorize]
+        [ResponseCache(Duration = 0, Location = ResponseCacheLocation.None, NoStore = true)]
+        public async Task<List<SoldAuction>> ExportPlayerAuctions(string playerUuid)
+        {
+            AssertUuid(playerUuid);
+            var user = await googletokenService.GetUserWithToken(this);
+            var verifiedUuid = await GetVerifiedPlayerUuid(user);
+            if (!string.Equals(verifiedUuid, playerUuid, StringComparison.OrdinalIgnoreCase))
+                throw new CoflnetException("not_verified_for_player", "You can only export auctions for your verified minecraft account");
+
+            var auctions = await context.Auctions
+                        .AsNoTracking()
+                        .Where(a => a.AuctioneerId == playerUuid)
+                        .Include(a => a.Enchantments)
+                        .Include(a => a.NbtData)
+                        .OrderByDescending(a => a.End)
+                        .ToListAsync();
+
+            return auctions.Select(a => new SoldAuction
+            {
+                Id = a.Id,
+                Uuid = a.Uuid,
+                Tag = a.Tag,
+                ItemName = a.ItemName,
+                AuctioneerId = a.AuctioneerId,
+                StartingBid = a.StartingBid,
+                HighestBidAmount = a.HighestBidAmount,
+                Start = a.Start,
+                End = a.End,
+                Bin = a.Bin,
+                Count = a.Count,
+                Tier = a.Tier,
+                Enchantments = a.Enchantments,
+                FlattenedNbt = a.FlatenedNBT
+            }).ToList();
+        }
+
         private int ExtractItemIdFromFilter(Dictionary<string, string> filters, string itemTag)
         {
             var itemId = itemDetails.GetItemIdForTag(itemTag);
@@ -229,6 +281,16 @@ namespace Coflnet.Sky.Api.Controller
         {
             if (playerUuid.Length != 32)
                 throw new CoflnetException("invalid_uuid", "The provided string does not seem to be a valid minecraft account uuid.");
+        }
+
+        private async Task<string> GetVerifiedPlayerUuid(GoogleUser user)
+        {
+            var mcUser = await connectApi.ConnectUserUserIdGetAsync(user.Id.ToString());
+            var uuid = mcUser.Accounts.Where(a => a.Verified).OrderByDescending(a => a.LastRequestedAt).FirstOrDefault()?.AccountUuid;
+            if (uuid == null)
+                throw new CoflnetException("no_verified_account", "You need to verify on a minecraft account with our mod first");
+
+            return uuid.Trim('"');
         }
 
 
