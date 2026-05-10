@@ -10,6 +10,49 @@ namespace Coflnet.Sky.Api.Services.Description.Tests;
 
 public class KuudraChestInfoTests
 {
+    [TestCase("Basic Kuudra Key", 160_000 + 2 * 2_000 + 2 * 20_000)]
+    [TestCase("Hot Kuudra Key", 320_000 + 6 * 2_000 + 2 * 20_000)]
+    [TestCase("Burning Kuudra Key", 600_000 + 20 * 2_000 + 2 * 20_000)]
+    [TestCase("Fiery Kuudra Key", 1_200_000 + 60 * 2_000 + 2 * 20_000)]
+    [TestCase("Infernal Kuudra Key", 2_400_000 + 120 * 2_000 + 2 * 20_000)]
+    public void KuudraChestInfo_UsesUpdatedBaseCoinCostPerTier(string keyLine, long expectedCost)
+    {
+        var auctionRepresent = new List<(Core.SaveAuction auction, string[] desc)>();
+
+        while (auctionRepresent.Count < 31)
+            auctionRepresent.Add((null, Array.Empty<string>()));
+
+        auctionRepresent.Add((new Core.SaveAuction { Tag = "SKYBLOCK_CLAIM_CHEST", ItemName = "§aOpen Reward Chest" }, new[] {
+            "§7Contents",
+            "",
+            "§7Cost",
+            keyLine,
+            "",
+            "§eClick to open!"
+        }));
+
+        var data = new DataContainer
+        {
+            auctionRepresent = auctionRepresent,
+            PriceEst = Enumerable.Repeat<Sniper.Client.Model.PriceEstimate>(null, auctionRepresent.Count).ToList(),
+            bazaarPrices = ImmutableDictionary<string, ItemPrice>.Empty
+                .Add("CORRUPTED_NETHER_STAR", new ItemPrice { SellPrice = 20_000, BuyPrice = 19_000 })
+                .Add("ENCHANTED_RED_SAND", new ItemPrice { SellPrice = 3_000, BuyPrice = 2_900 })
+                .Add("ENCHANTED_MYCELIUM", new ItemPrice { SellPrice = 2_000, BuyPrice = 1_900 }),
+            mods = new List<List<DescModification>>()
+        };
+
+        var service = new KuudraChestInfo();
+
+        service.Apply(data);
+
+        Assert.That(data.mods, Is.Not.Empty);
+        var joined = string.Join("\n", data.mods.Last().Select(mod => mod.Value));
+
+        Assert.That(joined, Does.Contain($"Detected Key: {keyLine}"));
+        Assert.That(joined, Does.Contain($"Key Cost (est): {ModDescriptionService.FormatPriceShort(expectedCost)}"));
+    }
+
     [Test]
     public void KuudraChestInfo_UsesClaimChestLoreToDetectInfernalKey()
     {
@@ -85,8 +128,8 @@ public class KuudraChestInfoTests
         var added = data.mods.Last();
         var joined = string.Join("\n", added.Select(mod => mod.Value));
 
-        var expectedInfernalCost = ModDescriptionService.FormatPriceShort(3_000_000 + 120 * 2_000 + 2 * 20_000);
-        var unexpectedBasicCost = ModDescriptionService.FormatPriceShort(200_000 + 2 * 2_000 + 2 * 20_000);
+        var expectedInfernalCost = ModDescriptionService.FormatPriceShort(2_400_000 + 120 * 2_000 + 2 * 20_000);
+        var unexpectedBasicCost = ModDescriptionService.FormatPriceShort(160_000 + 2 * 2_000 + 2 * 20_000);
 
         Assert.That(joined, Does.Contain("Detected Key: Infernal Kuudra Key"));
         Assert.That(joined, Does.Contain($"Key Cost (est): {expectedInfernalCost}"));
@@ -347,7 +390,7 @@ public class KuudraChestInfoTests
         var joined = string.Join("\n", data.mods.Last().Select(mod => mod.Value));
 
         var expectedTotal = ModDescriptionService.FormatPriceShort(214_085 + 3_446_438 + 252_000 + 7_588 + 184_826);
-        var expectedCost = ModDescriptionService.FormatPriceShort(400_000 + 6 * 1_347 + 2 * 20_250);
+        var expectedCost = ModDescriptionService.FormatPriceShort(320_000 + 6 * 1_347 + 2 * 20_250);
 
         Assert.That(joined, Does.Contain("Detected Key: Hot Kuudra Key"));
         Assert.That(joined, Does.Contain("Crimson Essence x250"));

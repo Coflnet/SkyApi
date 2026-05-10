@@ -9,6 +9,12 @@ namespace Coflnet.Sky.Api.Services.Description;
 
 public class KuudraChestInfo : ICustomModifier
 {
+    private const long BasicKeyBaseCoins = 160_000;
+    private const long HotKeyBaseCoins = 320_000;
+    private const long BurningKeyBaseCoins = 600_000;
+    private const long FieryKeyBaseCoins = 1_200_000;
+    private const long InfernalKeyBaseCoins = 2_400_000;
+
     public void Apply(DataContainer data)
     {
         // Total estimated value of chest contents
@@ -463,18 +469,18 @@ public class KuudraChestInfo : ICustomModifier
         catch { }
 
         if (string.IsNullOrEmpty(typeLine))
-            return 200_000 + 2 * materialPrice + 2 * starPrice; // Default to basic Kuudra Key
+            return BasicKeyBaseCoins + 2 * materialPrice + 2 * starPrice; // Default to basic Kuudra Key
 
         if (typeLine.Contains("Infernal", StringComparison.OrdinalIgnoreCase))
-            return 3_000_000 + 120 * materialPrice + 2 * starPrice;
+            return InfernalKeyBaseCoins + 120 * materialPrice + 2 * starPrice;
         if (typeLine.Contains("Fiery", StringComparison.OrdinalIgnoreCase))
-            return 1_500_000 + 60 * materialPrice + 2 * starPrice;
+            return FieryKeyBaseCoins + 60 * materialPrice + 2 * starPrice;
         if (typeLine.Contains("Burning", StringComparison.OrdinalIgnoreCase))
-            return 750_000 + 20 * materialPrice + 2 * starPrice;
+            return BurningKeyBaseCoins + 20 * materialPrice + 2 * starPrice;
         if (typeLine.Contains("Hot", StringComparison.OrdinalIgnoreCase))
-            return 400_000 + 6 * materialPrice + 2 * starPrice;
+            return HotKeyBaseCoins + 6 * materialPrice + 2 * starPrice;
 
-        return 200_000 + 2 * materialPrice + 2 * starPrice; // Basic Kuudra Key
+        return BasicKeyBaseCoins + 2 * materialPrice + 2 * starPrice; // Basic Kuudra Key
     }
 
     public void Modify(ModDescriptionService.PreRequestContainer preRequest)
