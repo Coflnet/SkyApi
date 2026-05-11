@@ -12,10 +12,12 @@ and [jaeger](https://github.com/open-telemetry/opentelemetry-dotnet/blob/main/sr
 The API supports both IP-based rate limiting (for public/anonymous requests) and Client-based rate limiting (for authenticated clients with higher quotas).
 
 #### IP Rate Limiting (Default)
-By default, all requests are rate limited by IP address. The default limits are configured in `appsettings.json` under `IpRateLimiting`.
+By default, all requests are rate limited by IP address. The shipped defaults in `appsettings.json` under `IpRateLimiting` are `30 requests / 10 seconds` and `100 requests / minute`, and both windows apply concurrently.
 
-#### Client Rate Limiting (Premium Clients)
-Premium clients can bypass IP rate limits by passing a client ID header (`X-ClientId`). 
+The middleware only emits `X-Rate-Limit-*` headers for the longest matching window. With the default configuration that usually means the `1m` rule, so callers can still hit the `10s` burst rule without seeing a separate burst header set ahead of time.
+
+#### Client Rate Limiting (Custom / Premium Clients)
+Custom clients can use a client ID header (`X-ClientId`) to receive their own quotas or bypass the default IP bucket entirely. This is configured separately from normal user authentication via `Authorization: Bearer` or `GoogleToken`.
 
 **Environment Variables for Client Rate Limiting:**
 
@@ -42,7 +44,8 @@ curl -H "X-ClientId: your-client-id" https://api.example.com/api/endpoint
 ```
 
 **How it works:**
-1. If a request contains the `X-ClientId` header and the client ID is in `PREMIUM_CLIENT_IDS`, no rate limits apply
-2. If the client ID has custom rules configured via `PREMIUM_CLIENT_RULES`, those limits apply
-3. If no client ID is provided or it doesn't match any rules, IP-based rate limits apply
+1. All requests start with the default limits of `30 requests / 10 seconds` and `100 requests / minute`
+2. If a request contains the `X-ClientId` header and the client ID is in `PREMIUM_CLIENT_IDS`, no rate limits apply
+3. If the client ID has custom rules configured via `PREMIUM_CLIENT_RULES`, those limits apply
+4. If no client ID is provided or it doesn't match any rules, IP-based rate limits apply
 
