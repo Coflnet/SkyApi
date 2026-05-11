@@ -18,6 +18,10 @@ namespace Coflnet.Sky.Api.Services;
 public class DonutModDescriptionService
 {
     private static readonly DescModification[] EmptyMods = Array.Empty<DescModification>();
+    private const string StrongMatchHighlightColor = "2ea043";
+    private const string WeakMatchHighlightColor = "d29922";
+    private const string UnmatchedHighlightColor = "f85149";
+    private const string UnavailableHighlightColor = "8b949e";
 
     private readonly IHttpClientFactory httpClientFactory;
     private readonly ILogger<DonutModDescriptionService> logger;
@@ -46,10 +50,13 @@ public class DonutModDescriptionService
         if (items.Count == 0)
             return result;
 
+        var auctionPage = DonutInventoryItemParser.ParseAuctionPageNumber(inventory.ChestName);
+        LogParsedItems(inventory.ChestName, auctionPage, items);
+
         DonutItemPriceResponse? response;
         try
         {
-            response = await RequestPrices(items);
+            response = await RequestPrices(items, auctionPage);
         }
         catch (Exception e)
         {
@@ -58,7 +65,22 @@ public class DonutModDescriptionService
         }
 
         if (response?.Items == null || response.Items.Count == 0)
+        {
+            logger.LogWarning("DonutApi returned no price items for chest {ChestName} page {AuctionPage}", inventory.ChestName, auctionPage);
             return result;
+        }
+
+        if (response.Items.Count != items.Count)
+        {
+            logger.LogWarning(
+                "DonutApi response item count mismatch for chest {ChestName} page {AuctionPage}: requested {RequestedCount}, received {ReceivedCount}",
+                inventory.ChestName,
+                auctionPage,
+                items.Count,
+                response.Items.Count);
+        }
+
+        LogPriceResponse(items, response.Items);
 
         var priceIndex = 0;
         for (var slotIndex = 0; slotIndex < slots.Count; slotIndex++)
@@ -72,17 +94,27 @@ public class DonutModDescriptionService
         return result;
     }
 
-    private async Task<DonutItemPriceResponse?> RequestPrices(List<DonutItemPriceRequestItem> items)
+    private async Task<DonutItemPriceResponse?> RequestPrices(List<DonutItemPriceRequestItem> items, int? auctionPage)
     {
         using var client = httpClientFactory.CreateClient("DonutApi");
+        logger.LogInformation(
+            "Requesting Donut mod prices from {DonutApiBaseUrl} for page {AuctionPage} with {ItemCount} items",
+            client.BaseAddress,
+            auctionPage,
+            items.Count);
         using var request = new HttpRequestMessage(HttpMethod.Post, "/api/donut/items/prices")
         {
-            Content = new StringContent(JsonConvert.SerializeObject(new DonutItemPriceRequest { Items = items }), Encoding.UTF8, "application/json")
+            Content = new StringContent(JsonConvert.SerializeObject(new DonutItemPriceRequest
+            {
+                Items = items,
+                AuctionPage = auctionPage
+            }), Encoding.UTF8, "application/json")
         };
         using var response = await client.SendAsync(request);
         if (!response.IsSuccessStatusCode)
         {
-            logger.LogWarning("DonutApi returned {StatusCode} for mod price request", response.StatusCode);
+            var errorBody = await response.Content.ReadAsStringAsync();
+            logger.LogWarning("DonutApi returned {StatusCode} for mod price request: {Body}", response.StatusCode, errorBody);
             return null;
         }
 
@@ -104,7 +136,7 @@ public class DonutModDescriptionService
     {
         try
         {
-            return itemParser.Parse(inventory?.FullInventoryNbt);
+            return itemParser.Parse(inventory?.FullInventoryNbt, inventory?.ChestName);
         }
         catch (Exception e)
         {
@@ -120,14 +152,20 @@ public class DonutModDescriptionService
         var hasPriceInfo = priceInfo != null
             && string.IsNullOrWhiteSpace(priceInfo.Error)
             && priceInfo.MedianPrice > 0;
+        var matchIndicator = GetMatchIndicator(priceInfo);
 
-        if (!hasMapInfo && !hasPriceInfo && !hasMatchedAuction)
+        if (!hasMapInfo && !hasPriceInfo && !hasMatchedAuction && matchIndicator == null)
             return EmptyMods;
 
-        var modifications = new List<DescModification>
-        {
-            new(string.Empty)
-        };
+        var modifications = new List<DescModification>();
+
+        if (matchIndicator != null)
+            modifications.Add(new(DescModification.ModType.HIGHLIGHT, -1, matchIndicator.HighlightColor));
+
+        modifications.Add(new(string.Empty));
+
+        if (matchIndicator != null)
+            modifications.Add(new($"{McColorCodes.GRAY}Donut match: {matchIndicator.ColorCode}{matchIndicator.Label}"));
 
         if (item.MapId.HasValue)
         {
@@ -139,8 +177,9 @@ public class DonutModDescriptionService
         if (priceInfo?.MatchedAuction != null)
         {
             modifications.Add(new($"{McColorCodes.GRAY}Listing: {McColorCodes.GOLD}{ModDescriptionService.FormatPriceShort((double)priceInfo.MatchedAuction.Price)}"));
-            if (!string.IsNullOrWhiteSpace(priceInfo.MatchedAuction.SellerName))
-                modifications.Add(new($"{McColorCodes.GRAY}Seller: {McColorCodes.YELLOW}{priceInfo.MatchedAuction.SellerName}"));
+            var sellerDisplay = GetSellerDisplay(priceInfo.MatchedAuction);
+            if (!string.IsNullOrWhiteSpace(sellerDisplay))
+                modifications.Add(new($"{McColorCodes.GRAY}Seller: {McColorCodes.YELLOW}{sellerDisplay}"));
         }
 
         if (!hasPriceInfo)
@@ -168,10 +207,107 @@ public class DonutModDescriptionService
         return modifications;
     }
 
+    private void LogParsedItems(string? chestName, int? auctionPage, IReadOnlyList<DonutItemPriceRequestItem> items)
+    {
+        logger.LogInformation(
+            "Parsed {ItemCount} Donut auction candidates from chest {ChestName} page {AuctionPage}",
+            items.Count,
+            chestName,
+            auctionPage);
+
+        foreach (var item in items)
+        {
+            logger.LogInformation(
+                "Donut candidate slot={Slot} itemId={ItemId} name={DisplayName} count={Count} visiblePrice={VisiblePrice} sellerHint={SellerUuidHint} mapId={MapId} copyId={CopyId} extraData={ExtraData}",
+                item.Slot,
+                item.ItemId,
+                item.DisplayName,
+                item.Count,
+                item.VisiblePrice,
+                item.SellerUuidHint,
+                item.MapId,
+                item.CopyId,
+                item.ExtraData == null || item.ExtraData.Count == 0 ? string.Empty : JsonConvert.SerializeObject(item.ExtraData));
+        }
+    }
+
+    private void LogPriceResponse(IReadOnlyList<DonutItemPriceRequestItem> items, IReadOnlyList<DonutItemPriceInfo> responseItems)
+    {
+        for (var index = 0; index < items.Count; index++)
+        {
+            var item = items[index];
+            var responseItem = index < responseItems.Count ? responseItems[index] : null;
+            logger.LogInformation(
+                "Donut result slot={Slot} itemId={ItemId} matched={Matched} matchKind={MatchKind} listingPrice={ListingPrice} seller={SellerName} median={MedianPrice} priceSource={PriceSource} exactAttributeSales={ExactAttributeTransactionCount} hasMapContent={HasMapContent} error={Error}",
+                item.Slot,
+                item.ItemId,
+                responseItem?.MatchedAuction != null,
+                responseItem?.MatchedAuction?.MatchKind,
+                responseItem?.MatchedAuction?.Price,
+                responseItem?.MatchedAuction?.SellerName,
+                responseItem?.MedianPrice,
+                responseItem?.PriceSource,
+                responseItem?.ExactAttributeTransactionCount,
+                responseItem?.HasMapContent,
+                responseItem?.Error);
+        }
+    }
+
+    private static MatchIndicator? GetMatchIndicator(DonutItemPriceInfo? priceInfo)
+    {
+        if (priceInfo == null)
+            return new MatchIndicator("unavailable", McColorCodes.GRAY, UnavailableHighlightColor);
+
+        if (priceInfo.MatchedAuction != null)
+        {
+            var formattedKind = FormatMatchKind(priceInfo.MatchedAuction.MatchKind);
+            if (IsWeakMatch(priceInfo.MatchedAuction.MatchKind))
+                return new MatchIndicator($"matched ({formattedKind})", McColorCodes.GOLD, WeakMatchHighlightColor);
+
+            return new MatchIndicator($"matched ({formattedKind})", McColorCodes.GREEN, StrongMatchHighlightColor);
+        }
+
+        return new MatchIndicator("no match", McColorCodes.RED, UnmatchedHighlightColor);
+    }
+
+    private static bool IsWeakMatch(string? matchKind)
+    {
+        if (string.IsNullOrWhiteSpace(matchKind))
+            return false;
+
+        return matchKind.EndsWith("-order", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(matchKind, "heuristic", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static string FormatMatchKind(string? matchKind)
+    {
+        if (string.IsNullOrWhiteSpace(matchKind))
+            return "matched";
+
+        return matchKind.Replace('-', ' ');
+    }
+
+    private static string? GetSellerDisplay(MatchedAuctionInfo matchedAuction)
+    {
+        if (!string.IsNullOrWhiteSpace(matchedAuction.SellerName) && !string.IsNullOrWhiteSpace(matchedAuction.SellerUuid))
+            return $"{matchedAuction.SellerName} {McColorCodes.DARK_GRAY}({matchedAuction.SellerUuid}){McColorCodes.YELLOW}";
+
+        if (!string.IsNullOrWhiteSpace(matchedAuction.SellerName))
+            return matchedAuction.SellerName;
+
+        if (!string.IsNullOrWhiteSpace(matchedAuction.SellerUuid))
+            return matchedAuction.SellerUuid;
+
+        return null;
+    }
+
     private sealed class DonutItemPriceRequest
     {
         [JsonProperty("items")]
         public List<DonutItemPriceRequestItem> Items { get; init; } = new();
+
+        [JsonProperty("auctionPage")]
+        public int? AuctionPage { get; init; }
     }
 
     private sealed class DonutItemPriceResponse
@@ -194,8 +330,14 @@ public class DonutModDescriptionService
         [JsonProperty("transactionCount")]
         public int TransactionCount { get; init; }
 
+        [JsonProperty("exactAttributeTransactionCount")]
+        public int ExactAttributeTransactionCount { get; init; }
+
         [JsonProperty("volume")]
         public long Volume { get; init; }
+
+        [JsonProperty("priceSource")]
+        public string? PriceSource { get; init; }
 
         [JsonProperty("hasMapContent")]
         public bool HasMapContent { get; init; }
@@ -212,10 +354,18 @@ public class DonutModDescriptionService
         [JsonProperty("auctionId")]
         public string AuctionId { get; init; } = string.Empty;
 
+        [JsonProperty("sellerUuid")]
+        public string SellerUuid { get; init; } = string.Empty;
+
         [JsonProperty("sellerName")]
         public string? SellerName { get; init; }
 
         [JsonProperty("price")]
         public decimal Price { get; init; }
+
+        [JsonProperty("matchKind")]
+        public string MatchKind { get; init; } = string.Empty;
     }
+
+    private sealed record MatchIndicator(string Label, string ColorCode, string HighlightColor);
 }

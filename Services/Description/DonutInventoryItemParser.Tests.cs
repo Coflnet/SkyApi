@@ -6,6 +6,26 @@ namespace Coflnet.Sky.Api.Services.Description.Tests;
 [TestFixture]
 public class DonutInventoryItemParserTests
 {
+    [TestCase("ᴀᴜᴄᴛɪᴏɴ (Page 1)", 0, true)]
+    [TestCase("ᴀᴜᴄᴛɪᴏɴ (Page 1)", 44, true)]
+    [TestCase("ᴀᴜᴄᴛɪᴏɴ (Page 1)", 47, false)]
+    [TestCase("ᴀᴜᴄᴛɪᴏɴ (Page 1)", 81, false)]
+    [TestCase("Auction House", 0, false)]
+    [TestCase("Your Items", 0, false)]
+    [TestCase(null, 0, false)]
+    public void ShouldMatchAuctionSlot_OnlyAllowsAuctionListingSlots(string? chestName, int slot, bool expected)
+    {
+        Assert.That(DonutInventoryItemParser.ShouldMatchAuctionSlot(chestName, slot), Is.EqualTo(expected));
+    }
+
+    [TestCase("ᴀᴜᴄᴛɪᴏɴ (Page 1)", 1)]
+    [TestCase("Auction (Page 12)", 12)]
+    [TestCase("Auction House", null)]
+    public void ParseAuctionPageNumber_ReadsPageNumbers(string? chestName, int? expectedPage)
+    {
+        Assert.That(DonutInventoryItemParser.ParseAuctionPageNumber(chestName), Is.EqualTo(expectedPage));
+    }
+
     [Test]
     public void ParseSlot_ReadsTrimFromModernComponents()
     {
@@ -188,6 +208,76 @@ public class DonutInventoryItemParserTests
         Assert.That(slot.Item.ObservedAtUnixMs, Is.EqualTo(1778096515448L));
         Assert.That(slot.Item.CooldownUntilUnixMs, Is.EqualTo(1772453068281L));
         Assert.That(slot.Item.AuctionSecurity, Is.EqualTo(1));
+    }
+
+    [Test]
+    public void ParseSlot_MergesStoredEnchantments()
+    {
+        var slot = DonutInventoryItemParser.ParseSlot(
+            new NbtCompound(string.Empty)
+            {
+                new NbtString("id", "minecraft:enchanted_book"),
+                new NbtInt("count", 1),
+                new NbtCompound("components")
+                {
+                    new NbtCompound("minecraft:stored_enchantments")
+                    {
+                        new NbtInt("minecraft:unbreaking", 3)
+                    }
+                }
+            });
+
+        Assert.That(slot.Item, Is.Not.Null);
+        Assert.That(slot.Item!.Enchants, Is.Not.Null);
+        Assert.That(slot.Item.Enchants!["unbreaking"], Is.EqualTo(3));
+    }
+
+    [Test]
+    public void ParseSlot_ReadsMatchingExtraData()
+    {
+        var slot = DonutInventoryItemParser.ParseSlot(
+            new NbtCompound(string.Empty)
+            {
+                new NbtString("id", "minecraft:splash_potion"),
+                new NbtInt("count", 1),
+                new NbtCompound("components")
+                {
+                    new NbtInt("minecraft:damage", 9),
+                    new NbtInt("minecraft:repair_cost", 7),
+                    new NbtCompound("minecraft:potion_contents")
+                    {
+                        new NbtString("potion", "minecraft:long_invisibility")
+                    },
+                    new NbtCompound("minecraft:custom_data")
+                    {
+                        new NbtCompound("VV|Protocol1_21_11To26_1|original_hashes")
+                        {
+                            new NbtInt("0", -952227886),
+                            new NbtInt("6", 946104624),
+                            new NbtInt("11", -1456672447),
+                            new NbtInt("49", -1873371881),
+                            new NbtInt("id", 1291),
+                            new NbtIntArray("removed")
+                        },
+                        new NbtCompound("PublicBukkitValues")
+                        {
+                            new NbtLong("minecraft:expirable", 1778312006616L),
+                            new NbtLong("minecraft:amethystdriller", 1778312006616L),
+                            new NbtInt("minecraft:auctionsecurity", 1),
+                            new NbtLong("minecraft:wi", 1778158946639L)
+                        }
+                    }
+                }
+            });
+
+        Assert.That(slot.Item, Is.Not.Null);
+        Assert.That(slot.Item!.ExtraData, Is.Not.Null);
+        Assert.That(slot.Item.ExtraData!["potionId"], Is.EqualTo("long_invisibility"));
+        Assert.That(slot.Item.ExtraData["damage"], Is.EqualTo(9));
+        Assert.That(slot.Item.ExtraData["repairCost"], Is.EqualTo(7));
+        Assert.That(slot.Item.ExtraData["originalHashes"], Is.EqualTo("0=-952227886;11=-1456672447;49=-1873371881;6=946104624;id=1291;removed="));
+        Assert.That(slot.Item.ExtraData["pbv:expirable"], Is.EqualTo(1778312006616L));
+        Assert.That(slot.Item.ExtraData["pbv:amethystdriller"], Is.EqualTo(1778312006616L));
     }
 
     private static NbtList CreateCompoundList(string name, params NbtCompound[] entries)

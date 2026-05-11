@@ -14,8 +14,16 @@ namespace Coflnet.Sky.Api.Services;
 internal sealed class DonutInventoryItemParser
 {
     private static readonly Regex VisiblePriceRegex = new(@"\$\s*(?<amount>[0-9][0-9,]*(?:\.[0-9]+)?)(?<suffix>[KMBT]?)", RegexOptions.Compiled | RegexOptions.IgnoreCase);
+    private static readonly Regex AuctionPageRegex = new(@"\bpage\s+(?<page>\d+)\b", RegexOptions.Compiled | RegexOptions.IgnoreCase);
+    private static readonly HashSet<string> IgnoredPublicBukkitMatcherKeys = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "minecraft:auctionsecurity",
+        "minecraft:checkcdown",
+        "minecraft:gownerctid",
+        "minecraft:wi"
+    };
 
-    public IReadOnlyList<ParsedInventorySlot> Parse(string? fullInventoryNbt)
+    public IReadOnlyList<ParsedInventorySlot> Parse(string? fullInventoryNbt, string? chestName = null)
     {
         if (string.IsNullOrWhiteSpace(fullInventoryNbt))
             return Array.Empty<ParsedInventorySlot>();
@@ -25,7 +33,49 @@ internal sealed class DonutInventoryItemParser
         if (itemList == null)
             return Array.Empty<ParsedInventorySlot>();
 
-        return itemList.Select(tag => ParseSlot(tag as NbtCompound)).ToList();
+        return itemList.Select(tag => ParseInventorySlot(chestName, tag as NbtCompound)).ToList();
+    }
+
+    internal static bool IsAuctionPage(string? chestName)
+    {
+        if (string.IsNullOrWhiteSpace(chestName))
+            return false;
+
+        var trimmed = chestName.Trim();
+        var looksLikeAuctionPage = trimmed.StartsWith("ᴀᴜᴄᴛɪᴏɴ", StringComparison.Ordinal)
+            || trimmed.StartsWith("auction", StringComparison.OrdinalIgnoreCase);
+
+        return looksLikeAuctionPage && ParseAuctionPageNumber(trimmed).HasValue;
+    }
+
+    internal static int? ParseAuctionPageNumber(string? chestName)
+    {
+        if (string.IsNullOrWhiteSpace(chestName))
+            return null;
+
+        var match = AuctionPageRegex.Match(chestName);
+        if (!match.Success)
+            return null;
+
+        return int.TryParse(match.Groups["page"].Value, NumberStyles.Integer, CultureInfo.InvariantCulture, out var page)
+            ? page
+            : null;
+    }
+
+    internal static bool ShouldMatchAuctionSlot(string? chestName, int? slot)
+    {
+        return IsAuctionPage(chestName) && slot is >= 0 and <= 44;
+    }
+
+    private static ParsedInventorySlot ParseInventorySlot(string? chestName, NbtCompound? compound)
+    {
+        var parsedSlot = ParseSlot(compound);
+        if (parsedSlot.Item == null)
+            return parsedSlot;
+
+        return ShouldMatchAuctionSlot(chestName, parsedSlot.Slot)
+            ? parsedSlot
+            : new ParsedInventorySlot { Slot = parsedSlot.Slot };
     }
 
     internal static ParsedInventorySlot ParseSlot(NbtCompound? compound)
@@ -40,6 +90,7 @@ internal sealed class DonutInventoryItemParser
         var components = compound.Get<NbtCompound>("components");
         var lore = ParseLore(components) ?? NBT.GetLore(compound)?.OfType<string>().Where(static line => !string.IsNullOrWhiteSpace(line)).ToList();
         var publicBukkitValues = GetPublicBukkitValues(components);
+        var extraData = ParseExtraData(compound, components, publicBukkitValues);
 
         var item = new DonutItemPriceRequestItem
         {
@@ -55,7 +106,8 @@ internal sealed class DonutInventoryItemParser
             ObservedAtUnixMs = GetLongValue(publicBukkitValues, "minecraft:wi"),
             CooldownUntilUnixMs = GetLongValue(publicBukkitValues, "minecraft:checkcdown"),
             AuctionSecurity = GetNumericValue(publicBukkitValues, "minecraft:auctionsecurity"),
-            Trim = ParseTrim(compound)
+            Trim = ParseTrim(compound),
+            ExtraData = extraData
         };
 
         var enchants = ParseEnchants(compound);
@@ -111,11 +163,19 @@ internal sealed class DonutInventoryItemParser
 
     private static Dictionary<string, int>? ParseComponentEnchants(NbtCompound? components)
     {
-        var enchantments = components?.Get<NbtCompound>("minecraft:enchantments");
-        if (enchantments == null)
-            return null;
-
         var parsed = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+
+        AddComponentEnchants(parsed, components?.Get<NbtCompound>("minecraft:enchantments"));
+        AddComponentEnchants(parsed, components?.Get<NbtCompound>("minecraft:stored_enchantments"));
+
+        return parsed.Count == 0 ? null : parsed;
+    }
+
+    private static void AddComponentEnchants(Dictionary<string, int> parsed, NbtCompound? enchantments)
+    {
+        if (enchantments == null)
+            return;
+
         foreach (var tag in enchantments.Tags)
         {
             if (tag is not NbtTag enchantTag || enchantTag.Name == null)
@@ -127,8 +187,6 @@ internal sealed class DonutInventoryItemParser
 
             parsed[NormalizeNamespacedValue(enchantTag.Name)] = level.Value;
         }
-
-        return parsed.Count == 0 ? null : parsed;
     }
 
     internal static int? ParseMapId(NbtCompound compound)
@@ -233,6 +291,98 @@ internal sealed class DonutInventoryItemParser
         return components?
             .Get<NbtCompound>("minecraft:custom_data")?
             .Get<NbtCompound>("PublicBukkitValues");
+    }
+
+    private static Dictionary<string, object>? ParseExtraData(NbtCompound compound, NbtCompound? components, NbtCompound? publicBukkitValues)
+    {
+        var extraData = new Dictionary<string, object>(StringComparer.OrdinalIgnoreCase);
+
+        var potionId = ParsePotionId(components);
+        if (!string.IsNullOrWhiteSpace(potionId))
+            extraData["potionId"] = potionId;
+
+        var damage = ParseDamage(compound, components);
+        if (damage.HasValue)
+            extraData["damage"] = damage.Value;
+
+        var repairCost = ParseRepairCost(compound, components);
+        if (repairCost.HasValue)
+            extraData["repairCost"] = repairCost.Value;
+
+        var originalHashes = ParseOriginalHashes(components);
+        if (!string.IsNullOrWhiteSpace(originalHashes))
+            extraData["originalHashes"] = originalHashes;
+
+        if (publicBukkitValues != null)
+        {
+            foreach (var tag in publicBukkitValues.Tags)
+            {
+                if (tag?.Name == null || IgnoredPublicBukkitMatcherKeys.Contains(tag.Name))
+                    continue;
+
+                var value = ParseTagValue(tag);
+                if (value == null)
+                    continue;
+
+                extraData[$"pbv:{NormalizeNamespacedValue(tag.Name)}"] = value;
+            }
+        }
+
+        return extraData.Count == 0 ? null : extraData;
+    }
+
+    private static string? ParsePotionId(NbtCompound? components)
+    {
+        return NormalizeTrimValue(components?.Get<NbtCompound>("minecraft:potion_contents")?.Get<NbtString>("potion")?.StringValue);
+    }
+
+    private static int? ParseDamage(NbtCompound compound, NbtCompound? components)
+    {
+        return GetNumericValue(components, "minecraft:damage")
+            ?? GetNumericValue(compound.Get<NbtCompound>("tag"), "Damage");
+    }
+
+    private static int? ParseRepairCost(NbtCompound compound, NbtCompound? components)
+    {
+        return GetNumericValue(components, "minecraft:repair_cost")
+            ?? GetNumericValue(compound.Get<NbtCompound>("tag"), "RepairCost");
+    }
+
+    private static string? ParseOriginalHashes(NbtCompound? components)
+    {
+        var customData = components?.Get<NbtCompound>("minecraft:custom_data");
+        var originalHashes = customData?.Tags
+            .OfType<NbtCompound>()
+            .FirstOrDefault(static tag => tag.Name?.Contains("original_hashes", StringComparison.OrdinalIgnoreCase) == true);
+        if (originalHashes == null)
+            return null;
+
+        var parts = originalHashes.Tags
+            .OrderBy(static tag => tag.Name, StringComparer.Ordinal)
+            .Select(static tag => tag switch
+            {
+                NbtInt nbtInt when !string.IsNullOrWhiteSpace(nbtInt.Name) => $"{nbtInt.Name}={nbtInt.IntValue}",
+                NbtIntArray nbtIntArray when !string.IsNullOrWhiteSpace(nbtIntArray.Name) => $"{nbtIntArray.Name}={string.Join(',', nbtIntArray.IntArrayValue)}",
+                _ => null
+            })
+            .Where(static part => !string.IsNullOrWhiteSpace(part))
+            .Select(static part => part!)
+            .ToArray();
+
+        return parts.Length == 0 ? null : string.Join(";", parts);
+    }
+
+    private static object? ParseTagValue(NbtTag tag)
+    {
+        return tag switch
+        {
+            NbtString nbtString when !string.IsNullOrWhiteSpace(nbtString.StringValue) => nbtString.StringValue,
+            NbtLong nbtLong => nbtLong.LongValue,
+            NbtInt nbtInt => nbtInt.IntValue,
+            NbtShort nbtShort => nbtShort.ShortValue,
+            NbtByte nbtByte => nbtByte.ByteValue,
+            _ => null
+        };
     }
 
     private static long? ParseVisiblePrice(IEnumerable<string>? lore)
@@ -374,6 +524,9 @@ internal sealed class DonutItemPriceRequestItem
 
     [JsonProperty("trim")]
     public DonutItemTrim? Trim { get; init; }
+
+    [JsonProperty("extraData")]
+    public Dictionary<string, object>? ExtraData { get; init; }
 }
 
 internal sealed class DonutItemTrim
