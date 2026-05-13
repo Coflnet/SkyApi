@@ -1503,7 +1503,7 @@ public class ModDescriptionService : IDisposable
         builder.Append($"{McColorCodes.GRAY}Med: {McColorCodes.AQUA}{prefix}{FormatNumber(price.Median)} ");
         if (auction.Count > 1)
         {
-            builder.Append($"({FormatNumber(price.Median / auction.Count)} each)");
+            builder.Append($"({FormatNumber((float)price.Median / auction.Count)} each)");
         }
     }
 
@@ -1530,7 +1530,7 @@ public class ModDescriptionService : IDisposable
         {
             return;
         }
-        builder.Append($"({FormatNumber(estimate / auction.Count)} each)");
+        builder.Append($"({FormatNumber((float)estimate / auction.Count)} each)");
     }
 
     private static string GetBazaarTag(SaveAuction auction)
