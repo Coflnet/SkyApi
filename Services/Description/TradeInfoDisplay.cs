@@ -136,6 +136,18 @@ public class TradeInfoDisplay : ICustomModifier
             extraInfo.Add(new($"{McColorCodes.GRAY}/cofl set medUndercut 10"));
             extraInfo.Add(new($"{McColorCodes.GRAY}/cofl set lbinUndercut 10"));
         }
+        else
+        {
+            var medSetting = data.inventory.Settings.LowballMedUndercut;
+            var lbinSetting = data.inventory.Settings.LowballLbinUndercut;
+            extraInfo.Add(new LoreBuilder()
+                .AddText($"{McColorCodes.GRAY}Undercut: med {medSetting}% / lbin {lbinSetting}%",
+                    $"{McColorCodes.GRAY}Median undercut: {medSetting}%\n"
+                  + $"{McColorCodes.GRAY}LBIN undercut: {lbinSetting}%\n\n"
+                  + $"{McColorCodes.GRAY}Adjust with:\n"
+                  + $"{McColorCodes.GRAY}/cofl set medUndercut <value>\n"
+                  + $"{McColorCodes.GRAY}/cofl set lbinUndercut <value>", "/cofl set").BuildLine());
+        }
 
         static void NoPremium(List<DescModification> extraInfo)
         {
