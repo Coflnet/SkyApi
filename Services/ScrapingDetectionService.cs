@@ -2,6 +2,7 @@ using System;
 using System.Collections.Concurrent;
 using System.Linq;
 using System.Threading.Tasks;
+using Coflnet.Sky.Api.Helper;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -46,6 +47,7 @@ namespace Coflnet.Sky.Api.Services
 
         private readonly AspNetCoreRateLimit.ClientRateLimitOptions _clientRateLimitOptions;
         private readonly AspNetCoreRateLimit.ClientRateLimitPolicies _clientRateLimitPolicies;
+        private readonly AspNetCoreRateLimit.IpRateLimitOptions _ipRateLimitOptions;
 
         private const int MaxViolationsBeforeBan = 500; 
         private const int MaxSubnetViolationsBeforeBan = 3000;
@@ -65,13 +67,15 @@ namespace Coflnet.Sky.Api.Services
             GoogletokenService tokenService = null,
             Coflnet.Payments.Client.Api.UserApi userApi = null,
             IOptions<AspNetCoreRateLimit.ClientRateLimitOptions> clientRateLimitOptions = null,
-            IOptions<AspNetCoreRateLimit.ClientRateLimitPolicies> clientRateLimitPolicies = null)
+            IOptions<AspNetCoreRateLimit.ClientRateLimitPolicies> clientRateLimitPolicies = null,
+            IOptions<AspNetCoreRateLimit.IpRateLimitOptions> ipRateLimitOptions = null)
         {
             _logger = logger;
             _tokenService = tokenService;
             _userApi = userApi;
             _clientRateLimitOptions = clientRateLimitOptions?.Value;
             _clientRateLimitPolicies = clientRateLimitPolicies?.Value;
+            _ipRateLimitOptions = ipRateLimitOptions?.Value;
 
             // Pre-ban requested IPs
             _bannedIps.TryAdd("45.74.244.124", true);
@@ -100,6 +104,13 @@ namespace Coflnet.Sky.Api.Services
 
         private bool IsExempt(HttpContext context)
         {
+            var realIpHeader = _ipRateLimitOptions?.RealIpHeader ?? "CF-Connecting-IP";
+            var whitelistIp = RequestIpUtility.ResolveWhitelistIp(context, realIpHeader);
+            if (RequestIpUtility.IsIpWhitelisted(whitelistIp, _ipRateLimitOptions?.IpWhitelist))
+            {
+                return true;
+            }
+
             if (_clientRateLimitOptions == null) return false;
 
             var clientIdHeader = _clientRateLimitOptions.ClientIdHeader ?? "X-ClientId";
@@ -293,17 +304,19 @@ namespace Coflnet.Sky.Api.Services
 
         public bool UnbanIp(string ip)
         {
-            if (string.IsNullOrEmpty(ip)) return false;
-            var removed = _bannedIps.TryRemove(ip, out _);
-            _ipViolationCounts.TryRemove(ip, out _);
+            var normalizedIp = RequestIpUtility.NormalizeIp(ip);
+            if (string.IsNullOrEmpty(normalizedIp)) return false;
+            var removed = _bannedIps.TryRemove(normalizedIp, out _);
+            _ipViolationCounts.TryRemove(normalizedIp, out _);
             return removed;
         }
 
         public bool IsIpBanned(string ip)
         {
-            if (string.IsNullOrEmpty(ip)) return false;
-            if (_bannedIps.ContainsKey(ip)) return true;
-            var subnet = GetSubnet(ip);
+            var normalizedIp = RequestIpUtility.NormalizeIp(ip);
+            if (string.IsNullOrEmpty(normalizedIp)) return false;
+            if (_bannedIps.ContainsKey(normalizedIp)) return true;
+            var subnet = GetSubnet(normalizedIp);
             return subnet != null && _bannedSubnets.ContainsKey(subnet);
         }
 
@@ -339,22 +352,14 @@ namespace Coflnet.Sky.Api.Services
 
         private string GetClientIp(HttpContext context)
         {
-            if (context.Request.Headers.TryGetValue("CF-Connecting-IP", out var realIp) && !string.IsNullOrEmpty(realIp))
-            {
-                return realIp.ToString().Split(',').First().Trim();
-            }
-
-            if (context.Request.Headers.TryGetValue("X-Forwarded-For", out var forwardedFor) && !string.IsNullOrEmpty(forwardedFor))
-            {
-                return forwardedFor.ToString().Split(',').First().Trim();
-            }
-
-            return context.Connection.RemoteIpAddress?.ToString();
+            var realIpHeader = _ipRateLimitOptions?.RealIpHeader ?? "CF-Connecting-IP";
+            return RequestIpUtility.ResolveClientIp(context, realIpHeader);
         }
 
         private string GetSubnet(string ip)
         {
-            if (!System.Net.IPAddress.TryParse(ip, out var parsedIp)) return null;
+            var normalizedIp = RequestIpUtility.NormalizeIp(ip);
+            if (!System.Net.IPAddress.TryParse(normalizedIp, out var parsedIp)) return null;
 
             var bytes = parsedIp.GetAddressBytes();
             if (parsedIp.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork)

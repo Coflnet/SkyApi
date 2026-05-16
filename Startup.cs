@@ -362,11 +362,9 @@ namespace Coflnet.Sky.Api
                 var scrapingDetector = context.RequestServices.GetService<IScrapingDetectionService>();
                 if (scrapingDetector != null && scrapingDetector.IsBanned(context))
                 {
-                    var clientIp = context.Request.Headers.TryGetValue("CF-Connecting-IP", out var cfIp)
-                        ? cfIp.ToString().Split(',').First().Trim()
-                        : context.Request.Headers.TryGetValue("X-Forwarded-For", out var xff)
-                            ? xff.ToString().Split(',').First().Trim()
-                            : context.Connection.RemoteIpAddress?.ToString();
+                    var ipRateLimitOptions = context.RequestServices.GetService<IOptions<IpRateLimitOptions>>()?.Value;
+                    var realIpHeader = ipRateLimitOptions?.RealIpHeader ?? "CF-Connecting-IP";
+                    var clientIp = RequestIpUtility.ResolveClientIp(context, realIpHeader);
 
                     // Premium+ users can bypass the ban and get auto-unbanned
                     if (await scrapingDetector.IsPremiumPlusAsync(context))
