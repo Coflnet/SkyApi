@@ -1,4 +1,7 @@
 using System.Globalization;
+using System.Linq;
+using System.Text;
+using System.Text.RegularExpressions;
 using Coflnet.Payments.Client.Api;
 using Coflnet.Sky.Api.Models.Mod;
 using Coflnet.Sky.Commands.MC;
@@ -12,6 +15,7 @@ namespace Coflnet.Sky.Api.Services.Description;
 /// </summary>
 public class TradeInfoDisplay : ICustomModifier
 {
+    /// <inheritdoc />
     public void Apply(DataContainer data)
     {
         var index = 0;
@@ -20,6 +24,14 @@ public class TradeInfoDisplay : ICustomModifier
         long receiveCount = 0L;
         var likelyLowballing = true;
         var lowballPrice = 0L;
+        var worstCaseLowballPrice = 0L;
+        long aiReceiveSum = 0L;
+        var settings = data.inventory.Settings;
+        var showBreakdown = !settings.LowballHideBreakdown;
+        var showWorstCase = !settings.LowballHideWorstCase;
+        var nonExactPct = (int)settings.LowballNonExactExtraPct;
+        var worstCasePct = (int)settings.LowballWorstCaseExtraPct;
+        var itemBreakdown = new List<LowballItemBreakdown>();
         foreach (var sniperPrice in data.PriceEst)
         {
             var i = index++;
@@ -52,12 +64,29 @@ public class TradeInfoDisplay : ICustomModifier
                 receiveSum += value;
                 if (value > 0)
                     receiveCount++;
-                long medianVal = GetAdjustedValue(data.inventory.Settings.LowballMedUndercut, sniperPrice?.Median ?? 0, sniperPrice?.Volume ?? 0);
-                long lbinVal = GetAdjustedValue(data.inventory.Settings.LowballLbinUndercut, sniperPrice?.Lbin?.Price ?? 0, sniperPrice?.Volume ?? 0);
-                if (lbinVal < medianVal && lbinVal != 0)
-                    lowballPrice += lbinVal;
-                else
-                    lowballPrice += medianVal;
+                var volume = sniperPrice?.Volume ?? 0;
+                var aiVal = (long)(sniperPrice?.SelfLearningEstimatedValue ?? 0);
+                aiReceiveSum += aiVal;
+                var medianEstimate = GetAdjustedValueBreakdown(settings.LowballMedUndercut, sniperPrice?.Median ?? 0, volume,
+                    IsExactMatch(sniperPrice?.MedianKey, sniperPrice?.ItemKey), nonExactPct, showWorstCase ? worstCasePct : 0);
+                var lbinEstimate = GetAdjustedValueBreakdown(settings.LowballLbinUndercut, sniperPrice?.Lbin?.Price ?? 0, volume,
+                    IsExactMatch(sniperPrice?.LbinKey, sniperPrice?.ItemKey), nonExactPct, showWorstCase ? worstCasePct : 0);
+
+                var useLbin = lbinEstimate.Recommended > 0 && (medianEstimate.Recommended == 0 || lbinEstimate.Recommended < medianEstimate.Recommended);
+                var selectedEstimate = useLbin ? lbinEstimate : medianEstimate;
+                lowballPrice += selectedEstimate.Recommended;
+                worstCaseLowballPrice += selectedEstimate.WorstCase;
+
+                if (showBreakdown && selectedEstimate.Recommended > 0)
+                {
+                    itemBreakdown.Add(new LowballItemBreakdown(
+                        Regex.Replace(item?.ItemName ?? item?.Tag ?? $"slot-{i}", "§.", string.Empty),
+                        volume,
+                        medianEstimate,
+                        lbinEstimate,
+                        useLbin ? "lbin" : "median",
+                        aiVal));
+                }
             }
         }
         Console.WriteLine($"trade warning send: {sendSum} receive: {receiveSum}");
@@ -128,7 +157,11 @@ public class TradeInfoDisplay : ICustomModifier
             extraInfo.Add(new($"{McColorCodes.GRAY}Recommend: {McColorCodes.AQUA}{ModDescriptionService.FormatPriceShort(lowballPrice)}"));
         else
             extraInfo.Add(new(DescModification.ModType.SUGGEST, 0, $"----------------: " + ModDescriptionService.FormatPriceShort(lowballPrice).ToLower()));
-        extraInfo.Add(new($"{McColorCodes.GRAY}SkyCofl recommended"));
+        var breakdownHover = BuildLowballBreakdownHover(itemBreakdown, lowballPrice, worstCaseLowballPrice,
+            aiReceiveSum, receiveCount, showWorstCase, nonExactPct > 0, showBreakdown);
+        extraInfo.Add(new LoreBuilder()
+            .AddText($"{McColorCodes.GRAY}SkyCofl recommended", breakdownHover, "/cofl set")
+            .BuildLine());
         if (data.inventory.Settings.LowballMedUndercut == 0)
         {
             extraInfo.Add(new($"{McColorCodes.GRAY}Adjust median and lbin undercut"));
@@ -148,6 +181,19 @@ public class TradeInfoDisplay : ICustomModifier
                   + $"{McColorCodes.GRAY}/cofl set medUndercut <value>\n"
                   + $"{McColorCodes.GRAY}/cofl set lbinUndercut <value>", "/cofl set").BuildLine());
         }
+
+        extraInfo.Add(new LoreBuilder()
+            .AddText($"{McColorCodes.GRAY}Lowball detail settings",
+                $"{McColorCodes.GRAY}Non-exact penalty: {McColorCodes.WHITE}{nonExactPct}%\n"
+              + $"{McColorCodes.GRAY}  /cofl set lorelbNonExactPct <0-10>\n\n"
+              + $"{McColorCodes.GRAY}Worst-case extra %: {McColorCodes.WHITE}{worstCasePct}%\n"
+              + $"{McColorCodes.GRAY}  /cofl set lorelbWorstCasePct <0-15>\n\n"
+              + $"{McColorCodes.GRAY}Hide per-item breakdown:\n"
+                            + $"{McColorCodes.GRAY}  /cofl set lorelbHideBreakdown true\n\n"
+              + $"{McColorCodes.GRAY}Hide worst-case total:\n"
+              + $"{McColorCodes.GRAY}  /cofl set lorelbHideWorstCase true",
+                "/cofl set")
+            .BuildLine());
 
         static void NoPremium(List<DescModification> extraInfo)
         {
@@ -170,32 +216,121 @@ public class TradeInfoDisplay : ICustomModifier
         }
     }
 
-    private static long GetAdjustedValue(short underCutPercentage, long medLowballValue, float volume)
+    private static string BuildLowballBreakdownHover(
+        List<LowballItemBreakdown> itemBreakdown,
+        long lowballPrice,
+        long worstCaseLowballPrice,
+        long aiReceiveSum,
+        long receiveCount,
+        bool showWorstCase,
+        bool nonExactPenaltyEnabled,
+        bool showBreakdown)
     {
+        var hover = new StringBuilder();
+        hover.AppendLine($"{McColorCodes.GRAY}Calculation: price * (100 - undercut)%");
+        hover.AppendLine($"{McColorCodes.GRAY}Items valued: {receiveCount}");
+        hover.AppendLine($"{McColorCodes.GRAY}Recommended: {McColorCodes.WHITE}{ModDescriptionService.FormatPriceShort(lowballPrice)}");
+        if (showWorstCase && worstCaseLowballPrice < lowballPrice)
+            hover.AppendLine($"{McColorCodes.GRAY}Worst-case:  {McColorCodes.YELLOW}{ModDescriptionService.FormatPriceShort(worstCaseLowballPrice)}");
+        if (aiReceiveSum > 0)
+        {
+            hover.AppendLine($"{McColorCodes.GRAY}AI estimate: {McColorCodes.AQUA}{ModDescriptionService.FormatPriceShort(aiReceiveSum)}");
+            var nonExactCount = itemBreakdown.Count(b => !(b.SelectedSource == "lbin" ? b.Lbin : b.Median).ExactMatch);
+            if (nonExactCount > 0)
+                hover.AppendLine($"{McColorCodes.DARK_GRAY}{nonExactCount} item(s) used AI due to no exact price match");
+        }
+        else if (itemBreakdown.Any(b => !(b.SelectedSource == "lbin" ? b.Lbin : b.Median).ExactMatch))
+        {
+            hover.AppendLine($"{McColorCodes.DARK_GRAY}Some items have no exact price match");
+            hover.AppendLine($"{McColorCodes.DARK_GRAY}Enable AI estimate: /cofl lore add AiEstimate");
+        }
+        hover.AppendLine();
+
+        if (!showBreakdown)
+        {
+            hover.Append($"{McColorCodes.GRAY}Per-item breakdown hidden");
+            return hover.ToString().TrimEnd();
+        }
+
+        if (itemBreakdown.Count == 0)
+        {
+            hover.Append($"{McColorCodes.GRAY}No priced receive-items found.");
+            return hover.ToString().TrimEnd();
+        }
+
+        foreach (var bd in itemBreakdown.Take(6))
+        {
+            var chosen = bd.SelectedSource == "lbin" ? bd.Lbin : bd.Median;
+            var exactMark = chosen.ExactMatch ? string.Empty : $" {McColorCodes.RED}~";
+            hover.AppendLine($"{McColorCodes.WHITE}{bd.ItemName}{McColorCodes.GRAY} ({bd.SelectedSource}){exactMark}");
+            hover.AppendLine($"{McColorCodes.GRAY}  vol {bd.Volume:0.##} | med {ModDescriptionService.FormatPriceShort(bd.Median.InputValue)}->{ModDescriptionService.FormatPriceShort(bd.Median.Recommended)} ({bd.Median.AppliedUndercut}%)");
+            hover.AppendLine($"{McColorCodes.GRAY}  lbin {ModDescriptionService.FormatPriceShort(bd.Lbin.InputValue)}->{ModDescriptionService.FormatPriceShort(bd.Lbin.Recommended)} ({bd.Lbin.AppliedUndercut}%)");
+            if (showWorstCase && chosen.WorstCase < chosen.Recommended)
+                hover.AppendLine($"{McColorCodes.GRAY}  worst {McColorCodes.YELLOW}{ModDescriptionService.FormatPriceShort(chosen.WorstCase)}");
+            if (bd.AiEstimate > 0)
+                hover.AppendLine($"{McColorCodes.GRAY}  AI    {McColorCodes.AQUA}{ModDescriptionService.FormatPriceShort(bd.AiEstimate)}");
+            hover.AppendLine();
+        }
+
+        if (itemBreakdown.Count > 6)
+            hover.AppendLine($"{McColorCodes.GRAY}...and {itemBreakdown.Count - 6} more items");
+
+        hover.AppendLine($"{McColorCodes.DARK_GRAY}Low vol (+3/+2%), price band (+/-2/3%), non-exact (+{(nonExactPenaltyEnabled ? "custom" : "0")}%)");
+        return hover.ToString().TrimEnd();
+    }
+
+    private static AdjustedValueEstimate GetAdjustedValueBreakdown(
+        short underCutPercentage, long medLowballValue, float volume,
+        bool exactMatch, int nonExactPct, int worstCaseExtraPct)
+    {
+        var appliedUndercut = (int)underCutPercentage;
+        var valueBandAdjustment = 0;
+        var volumeAdjustment = 0;
         if (medLowballValue < 10_000_000)
         {
-            underCutPercentage += 2;
+            appliedUndercut += 2;
+            valueBandAdjustment += 2;
         }
         else if (medLowballValue > 100_000_000)
         {
-            underCutPercentage -= 2;
+            appliedUndercut -= 2;
+            valueBandAdjustment -= 2;
         }
         if (medLowballValue > 1_000_000_000)
         {
-            underCutPercentage -= 3;
+            appliedUndercut -= 3;
+            valueBandAdjustment -= 3;
         }
         if (volume <= 1)
         {
-            underCutPercentage += 3;
+            appliedUndercut += 3;
+            volumeAdjustment += 3;
         }
-        if(volume <= 0.4f)
+        if (volume <= 0.4f)
         {
-            underCutPercentage += 2;
+            appliedUndercut += 2;
+            volumeAdjustment += 2;
         }
-        var total = (long)(medLowballValue * (100 - underCutPercentage) / 100.0);
-        return total;
+        var nonExactAdjustment = (!exactMatch && nonExactPct > 0) ? nonExactPct : 0;
+        appliedUndercut += nonExactAdjustment;
+
+        var recommended = medLowballValue <= 0 ? 0L : (long)(medLowballValue * (100 - appliedUndercut) / 100.0);
+        // worst-case: simulate volume dropping below 0.4 threshold when currently above it
+        var worstCaseUndercut = appliedUndercut + (volume > 0.4f && worstCaseExtraPct > 0 ? worstCaseExtraPct : 0);
+        var worstCase = medLowballValue <= 0 ? 0L : (long)(medLowballValue * (100 - worstCaseUndercut) / 100.0);
+
+        return new AdjustedValueEstimate(medLowballValue, recommended, worstCase, exactMatch, appliedUndercut,
+            valueBandAdjustment, volumeAdjustment, nonExactAdjustment);
     }
 
+    private static bool IsExactMatch(string sourceKey, string itemKey)
+    {
+        return !string.IsNullOrEmpty(sourceKey)
+            && !string.IsNullOrEmpty(itemKey)
+            && sourceKey.Replace("&comb", string.Empty) == itemKey;
+    }
+
+    /// <inheritdoc />
     public void Modify(ModDescriptionService.PreRequestContainer preRequest)
     {
         return;
@@ -215,4 +350,22 @@ public class TradeInfoDisplay : ICustomModifier
 
         return (long)(parsed);
     }
+
+    private sealed record AdjustedValueEstimate(
+        long InputValue,
+        long Recommended,
+        long WorstCase,
+        bool ExactMatch,
+        int AppliedUndercut,
+        int ValueBandAdjustment,
+        int VolumeAdjustment,
+        int NonExactAdjustment);
+
+    private sealed record LowballItemBreakdown(
+        string ItemName,
+        float Volume,
+        AdjustedValueEstimate Median,
+        AdjustedValueEstimate Lbin,
+        string SelectedSource,
+        long AiEstimate);
 }
