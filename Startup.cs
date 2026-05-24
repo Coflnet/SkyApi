@@ -113,7 +113,7 @@ namespace Coflnet.Sky.Api
                 c.IncludeXmlComments(xmlPath, true);
                 // c.CustomSchemaIds(t => t.FullName[12..].Replace("Models.","").Replace("Model.","").Replace("Client.",""));
             });
-            services.AddAutoMapper(typeof(OrganizationProfile));
+            services.AddAutoMapper(_ => { }, typeof(OrganizationProfile).Assembly);
             services.AddCors(o =>
             {
                 o.AddPolicy(CORS_PLICY_NAME, p => p

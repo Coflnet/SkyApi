@@ -1,4 +1,5 @@
 global using System;
+using Coflnet.Security.OpenBao;
 using System.Runtime.InteropServices;
 using AspNetCoreRateLimit;
 using Microsoft.AspNetCore.Hosting;
@@ -46,6 +47,7 @@ namespace Coflnet.Sky.Api
 
         public static IHostBuilder CreateHostBuilder(string[] args) =>
             Host.CreateDefaultBuilder(args)
+                .ConfigureAppConfiguration((_, config) => config.AddOpenBaoFromEnvironment())
                 .ConfigureWebHostDefaults(webBuilder =>
                 {
                     webBuilder.UseStartup<Startup>();
