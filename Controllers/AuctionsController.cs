@@ -215,7 +215,38 @@ namespace Coflnet.Sky.Api.Controller
             return result;
         }
         /// <summary>
-        /// Get a batch of 1000 auctions that sold in the last week for any kind of processing.
+        /// Filter all currently active auctions across every item.
+        /// Intended for offer research (e.g. find every active auction matching a given filter set).
+        /// Backed by a separate active-only database that stays in sync with the live auction house.
+        /// </summary>
+        /// <param name="query">Filter dictionary, plus optional <c>page</c>, <c>pageSize</c> and <c>orderBy</c>.</param>
+        /// <param name="activeAuctionFilterService">Injected filter service.</param>
+        /// <returns>Matching active auctions (paged).</returns>
+        [Route("auctions/active/filter")]
+        [HttpGet]
+        [ResponseCache(Duration = 30, Location = ResponseCacheLocation.Any, NoStore = false, VaryByQueryKeys = ["*"])]
+        public async Task<List<SaveAuction>> GetActiveFiltered(
+            [FromQuery] IDictionary<string, string> query,
+            [FromServices] ActiveAuctionFilterService activeAuctionFilterService)
+        {
+            int page = 0;
+            int pageSize = 50;
+            var filters = query?.ToDictionary(entry => entry.Key, entry => entry.Value) ?? new Dictionary<string, string>();
+            if (filters.TryGetValue("page", out var pageStr))
+            {
+                int.TryParse(pageStr, out page);
+                filters.Remove("page");
+            }
+            if (filters.TryGetValue("pageSize", out var sizeStr))
+            {
+                int.TryParse(sizeStr, out pageSize);
+                filters.Remove("pageSize");
+            }
+            filters.Remove("orderBy");
+            var offset = Math.Max(0, page) * Math.Clamp(pageSize, 1, 500);
+            return (await activeAuctionFilterService.QueryAuctions(filters, pageSize, offset)).ToList();
+        }
+        /// <summary>
         /// Please credit us with providing data for whatever you are doing.
         /// You can also manually request a review to get older data on the discord.
         /// </summary>
