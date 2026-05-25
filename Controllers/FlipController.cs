@@ -19,6 +19,7 @@ using Coflnet.Sky.Crafts.Client.Api;
 using Coflnet.Sky.Api.Models;
 using Coflnet.Sky.Crafts.Client.Model;
 using Coflnet.Sky.Sniper.Client.Api;
+using Microsoft.AspNetCore.Http;
 
 namespace Coflnet.Sky.Api.Controller
 {
@@ -212,15 +213,25 @@ namespace Coflnet.Sky.Api.Controller
         [Route("mayor")]
         [HttpGet]
         [Authorize]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(StatusCodes.Status403Forbidden)]
         [ResponseCache(Duration = 600, Location = ResponseCacheLocation.Any, NoStore = false)]
-        public async Task<IEnumerable<MayorDiffFlip>> GetmayordiffFlips()
+        public async Task<ActionResult<IEnumerable<MayorDiffFlip>>> GetmayordiffFlips()
         {
             if (!await premiumTierService.HasPremium(this))
-                throw new CoflnetException("no_premium",
-                    "Sorry this feature is only available for premium users.");
+            {
+                return StatusCode(StatusCodes.Status403Forbidden, new
+                {
+                    slug = "no_premium",
+                    message = "Sorry this feature requires premium.",
+                    premiumUrl = "https://sky.coflnet.com/premium"
+                });
+            }
+
             var dtoFormat = await bazaarFlipperApi.MayorDiffsGetAsync();
             var names = (await itemsApi.ItemNamesGetAsync()).ToDictionary(i => i.Tag, i => i.Name);
-            return dtoFormat.Select(f => new MayorDiffFlip
+            return Ok(dtoFormat.Select(f => new MayorDiffFlip
             {
                 ItemTag = f.ItemTag,
                 ItemName = names.GetValueOrDefault(f.ItemTag) ?? f.ItemTag,
@@ -232,7 +243,7 @@ namespace Coflnet.Sky.Api.Controller
                 UsedPricesAfterCurrentMayor = f.CurrentMayor == f.NextMayor,
                 UsedPricesBeforeNextMayor = f.CurrentMayor != f.NextMayor,
                 Volume = f.Volume
-            });
+            }));
         }
 
         /// <summary>
