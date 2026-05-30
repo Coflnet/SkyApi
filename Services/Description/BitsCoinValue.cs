@@ -6,6 +6,7 @@ public class BitsCoinValue : CurrencyValueDisplay
 {
     /// <summary>
     /// Display suffix to search for to parse
+    /// </summary>
     protected override string ValueSuffix => "Bits";
     /// <summary>
     /// Per unit name

@@ -27,19 +27,30 @@ using static Coflnet.Sky.Core.Services.ExoticColorService;
 
 namespace Coflnet.Sky.Api.Services;
 
+/// <summary>
+/// Service for generating mod-enhanced item descriptions for Skyblock items,
+/// including auction data, bazaar prices, enchantments, modifiers, and crafting costs.
+/// </summary>
 public class ModDescriptionService : IDisposable
 {
-    private static readonly string BitsRegexPattern = @".*?(\d*\.?\d+|\d{1,3}(,\d{3})*(\.\d+)?) Bits.*";
-
+    /// <summary>
+    /// Gets a value indicating whether the service is running in development mode.
+    /// </summary>
     public static bool IsDevMode { get; } = System.Net.Dns.GetHostName().Contains("ekwav");
     private readonly ICraftsApi craftsApi;
     private readonly ISniperClient sniperClient;
     private readonly AhListChecker ahListChecker;
+    /// <summary>
+    /// The settings service used to retrieve user configuration for mod descriptions.
+    /// </summary>
     public readonly SettingsService settingsService;
     private readonly IdConverter idConverter;
     private readonly IServiceScopeFactory scopeFactory;
     private readonly BazaarApi bazaarApi;
     private readonly PlayerName.PlayerNameService playerNameService;
+    /// <summary>
+    /// The logger instance for this service.
+    /// </summary>
     public ILogger<ModDescriptionService> logger;
     private readonly IConfiguration config;
     private readonly IStateUpdateService stateService;
@@ -53,6 +64,9 @@ public class ModDescriptionService : IDisposable
     private readonly IItemsApi itemsApi;
     private readonly Core.Services.ExoticColorService exoticColorService;
 
+    /// <summary>
+    /// Gets the deserialized cache containing bazaar items, item prices, and crafts.
+    /// </summary>
     public DeserializedCache DeserializedCache => deserializedCache;
 
     /// <summary>
@@ -74,6 +88,7 @@ public class ModDescriptionService : IDisposable
     /// <param name="itemService"></param>
     /// <param name="trackerApi"></param>
     /// <param name="itemsApi"></param>
+    /// <param name="exoticColorService"></param>
     public ModDescriptionService(ICraftsApi craftsApi,
                                  SettingsService settingsService,
                                  IdConverter idConverter,
@@ -192,6 +207,13 @@ public class ModDescriptionService : IDisposable
         }
     }
 
+    /// <summary>
+    /// Produces a list of <see cref="Item"/> objects from inventory data, enriched with auction highlights and descriptions.
+    /// </summary>
+    /// <param name="inventoryData">The raw inventory data containing the NBT and chest name.</param>
+    /// <param name="playerId">The UUID of the player viewing the inventory.</param>
+    /// <param name="userId">The Coflnet user ID associated with the player.</param>
+    /// <returns>A list of processed <see cref="Item"/> objects with descriptions applied.</returns>
     public List<Item> ProduceInventory(InventoryData inventoryData, string playerId, string userId)
     {
         try
@@ -393,12 +415,31 @@ public class ModDescriptionService : IDisposable
         }
     }
 
+    /// <summary>
+    /// Container holding pre-computed data for a mod description request,
+    /// including auction representations, results, inventory, and player name.
+    /// </summary>
     public class PreRequestContainer
     {
+        /// <summary>
+        /// The auction representations derived from the inventory NBT.
+        /// </summary>
         public List<(SaveAuction auction, string[] desc)>? auctionRepresent;
+        /// <summary>
+        /// The resulting description modifications per auction.
+        /// </summary>
         public List<List<DescModification>>? result;
+        /// <summary>
+        /// The inventory data with user settings.
+        /// </summary>
         public InventoryDataWithSettings? inventory;
+        /// <summary>
+        /// Tasks for loading additional data keyed by identifier.
+        /// </summary>
         public Dictionary<string, Task<string>> ToLoad = new();
+        /// <summary>
+        /// The Minecraft username of the player.
+        /// </summary>
         public string? mcName;
     }
 
@@ -727,6 +768,12 @@ public class ModDescriptionService : IDisposable
         }
     }
 
+    /// <summary>
+    /// Converts a string-based unique identifier to a 64-bit long by extracting the last 12 characters.
+    /// </summary>
+    /// <param name="u">The string identifier, must be at least 12 characters long.</param>
+    /// <returns>A 64-bit integer representation of the UID.</returns>
+    /// <exception cref="CoflnetException">Thrown when the input string is shorter than 12 characters.</exception>
     public static long GetUidFromString(string u)
     {
         if (u.Length < 12)
@@ -1150,6 +1197,11 @@ public class ModDescriptionService : IDisposable
         return valueSum.Sum();
     }
 
+    /// <summary>
+    /// Breaks down the value of an auction item into its crafting component costs.
+    /// </summary>
+    /// <param name="auction">The auction whose item value should be broken down.</param>
+    /// <returns>An enumerable of <see cref="CraftPrice"/> representing each crafting component and its cost.</returns>
     public IEnumerable<CraftPrice> GetItemValueBreakdown(SaveAuction auction)
     {
         var data = new DataContainer
@@ -1200,6 +1252,13 @@ public class ModDescriptionService : IDisposable
     }
 
     private static readonly DateTime UnlockIntroduction = new DateTime(2021, 9, 4);
+    /// <summary>
+    /// Gets the modifiers (gemstones, enchantments, reforge stones, etc.) applied to an auction item
+    /// along with their estimated costs.
+    /// </summary>
+    /// <param name="auction">The auction whose modifiers to analyze.</param>
+    /// <param name="data">The data container with current market prices.</param>
+    /// <returns>An enumerable of modifier groups, each containing items with id, amount, and coin cost.</returns>
     public IEnumerable<List<(string id, int amount, double coins)>> GetModifiersOnItem(SaveAuction auction, DataContainer data)
     {
         if (auction.ItemCreatedAt < UnlockIntroduction && !auction.FlatenedNBT.ContainsKey("unlocked_slots"))
@@ -1295,6 +1354,11 @@ public class ModDescriptionService : IDisposable
         return cost;
     }
 
+    /// <summary>
+    /// Gets the current price for an item, checking cached item prices first, then bazaar sell prices.
+    /// </summary>
+    /// <param name="itemKey">The item tag or key to look up.</param>
+    /// <returns>The item price in coins, or 0 if not found.</returns>
     public long GetItemprice(string itemKey)
     {
         if (itemKey == null)
@@ -1395,11 +1459,24 @@ public class ModDescriptionService : IDisposable
         return enchantCost;
     }
 
+    /// <summary>
+    /// Gets the enchantment cost breakdown for an auction item using sell order prices.
+    /// </summary>
+    /// <param name="auction">The auction whose enchantments to evaluate.</param>
+    /// <param name="bazaarPrices">Current bazaar prices for enchantment materials.</param>
+    /// <returns>An enumerable of enchantments paired with their estimated costs.</returns>
     public IEnumerable<(Enchantment e, long)> GetEnchantBreakdown(SaveAuction auction, IDictionary<string, ItemPrice> bazaarPrices)
     {
         return GetEnchantBreakdown(auction, bazaarPrices, useBuyOrderPrices: false);
     }
 
+    /// <summary>
+    /// Gets the enchantment cost breakdown for an auction item, optionally using buy order prices.
+    /// </summary>
+    /// <param name="auction">The auction whose enchantments to evaluate.</param>
+    /// <param name="bazaarPrices">Current bazaar prices for enchantment materials.</param>
+    /// <param name="useBuyOrderPrices">If true, uses buy order prices instead of sell order prices.</param>
+    /// <returns>An enumerable of enchantments paired with their estimated costs.</returns>
     public IEnumerable<(Enchantment e, long)> GetEnchantBreakdown(SaveAuction auction, IDictionary<string, ItemPrice> bazaarPrices, bool useBuyOrderPrices)
     {
         var enchants = auction.Enchantments;
@@ -1440,6 +1517,11 @@ public class ModDescriptionService : IDisposable
         }
     }
 
+    /// <summary>
+    /// Formats a <see cref="TimeSpan"/> into a human-readable string with days, hours, minutes, or seconds.
+    /// </summary>
+    /// <param name="timeSpan">The time span to format.</param>
+    /// <returns>A formatted string like "1.5d", "2h", "30m", or "45s".</returns>
     public static string FormatTime(TimeSpan timeSpan)
     {
         var prefix = timeSpan.TotalSeconds < 0 ? "-" : "";
@@ -1546,6 +1628,11 @@ public class ModDescriptionService : IDisposable
         return tag;
     }
 
+    /// <summary>
+    /// Generates mod-enhanced description strings for all items in the given inventory.
+    /// </summary>
+    /// <param name="inventory">The inventory data with user settings.</param>
+    /// <returns>An enumerable of string arrays, each containing the description lines for one item.</returns>
     public async Task<IEnumerable<string[]>> GetDescriptions(InventoryDataWithSettings inventory)
     {
         var auctionRepresent = ConvertToAuctions(inventory);
@@ -1623,6 +1710,11 @@ public class ModDescriptionService : IDisposable
         return GetAuctionsFromNbt(nbtString);
     }
 
+    /// <summary>
+    /// Parses a base64-encoded NBT string into a list of <see cref="SaveAuction"/> objects with their descriptions.
+    /// </summary>
+    /// <param name="nbtString">The base64-encoded NBT data containing item entries.</param>
+    /// <returns>A list of tuples, each containing an auction and its description lines.</returns>
     public List<(SaveAuction auction, string[] desc)> GetAuctionsFromNbt(string nbtString)
     {
         var nbt = NBT.File(Convert.FromBase64String(nbtString));
@@ -1715,6 +1807,12 @@ public class ModDescriptionService : IDisposable
         return auctionRepresent;
     }
 
+    /// <summary>
+    /// Attempts to resolve a shard item tag from its display name using fuzzy matching.
+    /// </summary>
+    /// <param name="name">The display name of the shard.</param>
+    /// <param name="tag">When this method returns, contains the resolved shard tag if found; otherwise, null.</param>
+    /// <returns>true if a matching shard tag was found; otherwise, false.</returns>
     public static bool TryGetShardTagFromName(string name, out string tag)
     {
         var clearedname = Regex.Replace(name, "§[0-9a-fklmnor]|SELL |BUY | Shard", "").Replace(' ', '_');
@@ -1743,11 +1841,22 @@ public class ModDescriptionService : IDisposable
         return true;
     }
 
+    /// <summary>
+    /// Retrieves price estimates for a collection of auctions from the sniper service.
+    /// </summary>
+    /// <param name="auctionRepresent">The auctions to get price estimates for.</param>
+    /// <param name="includeAi">If true, includes AI-based price estimates.</param>
+    /// <returns>A list of <see cref="Sniper.Client.Model.PriceEstimate"/> for the given auctions.</returns>
     public async Task<List<Sniper.Client.Model.PriceEstimate>> GetPrices(IEnumerable<SaveAuction> auctionRepresent, bool includeAi = false)
     {
         return await sniperClient.GetPrices(auctionRepresent, includeAi);
     }
 
+    /// <summary>
+    /// Formats a numeric price into a human-readable string with thousand separators.
+    /// </summary>
+    /// <param name="price">The price value to format.</param>
+    /// <returns>A formatted string with one decimal place for values under 1000, or no decimals otherwise.</returns>
     public string FormatNumber(double price)
     {
         if (price < 1_000)
@@ -1755,6 +1864,11 @@ public class ModDescriptionService : IDisposable
         return string.Format(CultureInfo.InvariantCulture, "{0:n0}", price);
     }
 
+    /// <summary>
+    /// Extracts the "Buy it now" price from a set of item description lines.
+    /// </summary>
+    /// <param name="desc">The item description lines to search.</param>
+    /// <returns>The BIN price in coins, or 0 if not found.</returns>
     public long GetAuctionPrice(IEnumerable<string> desc)
     {
         return desc.Where(x => x.StartsWith(McColorCodes.GRAY + "Buy it now: §"))
