@@ -7,6 +7,8 @@ This project should be deployed within a container.
 See appsettings.json  
 and [jaeger](https://github.com/open-telemetry/opentelemetry-dotnet/blob/main/src/OpenTelemetry.Exporter.Jaeger/README.md#environment-variables)
 
+Container-based deployments should keep configuration in environment variables or mounted secrets instead of editing files inside the image.
+
 ### Rate Limiting
 
 The API supports both IP-based rate limiting (for public/anonymous requests) and Client-based rate limiting (for authenticated clients with higher quotas).
