@@ -1,4 +1,5 @@
 using System.Linq;
+#nullable enable
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using System.Globalization;
@@ -15,10 +16,16 @@ using StackExchange.Redis;
 
 namespace Coflnet.Sky.Api.Services.Description;
 
+/// <summary>
+/// Updates bazaar prices by parsing order book descriptions from in-game screens.
+/// </summary>
 public class BazaarPriceUpdater : ICustomModifier
 {
-    // For tests: observe what gets posted without relying on DI mocking.
+    /// <summary>
+    /// Stores the last posted order books for testing and observation.
+    /// </summary>
     public static ConcurrentDictionary<string, (List<Bazaar.Client.Model.OrderEntry> buy, List<Bazaar.Client.Model.OrderEntry> sell)> LastPostedOrderBooks = new();
+    /// <inheritdoc/>
     public void Apply(DataContainer data)
     {
         // Check if the chest name contains ➜ symbol to filter for bazaar item screens
@@ -67,6 +74,11 @@ public class BazaarPriceUpdater : ICustomModifier
         data.mods.Add(display);
     }
 
+    /// <summary>
+    /// Parses a coin price from a description string.
+    /// </summary>
+    /// <param name="description">The description text containing a coin price.</param>
+    /// <returns>The parsed price, or null if no price was found.</returns>
     public static double? ParsePrice(string description)
     {
         if (string.IsNullOrEmpty(description)) return null;
@@ -84,6 +96,13 @@ public class BazaarPriceUpdater : ICustomModifier
         return null;
     }
 
+    /// <summary>
+    /// Extracts buy and sell order book data from descriptions and uploads them for price tracking.
+    /// </summary>
+    /// <param name="tag">The bazaar item tag.</param>
+    /// <param name="buyDescription">The buy order description text.</param>
+    /// <param name="sellDescription">The sell order description text.</param>
+    /// <returns>A tuple containing the parsed buy and sell prices.</returns>
     public static (double buy, double sell) ExtractAndUploadOrderBook(string tag, string buyDescription, string sellDescription)
     {
         // Parse buy/sell descriptions into order entries
@@ -227,6 +246,7 @@ public class BazaarPriceUpdater : ICustomModifier
             var item = data.Items[slot];
             if (item?.Tag == itemTag)
             {
+    /// <inheritdoc/>
                 inventoryAmount += Math.Max(1, (int)item.Count);
             }
         }

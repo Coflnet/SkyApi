@@ -7,11 +7,19 @@ using Microsoft.Extensions.Primitives;
 
 namespace Coflnet.Sky.Api.Services;
 
+/// <summary>
+/// Service for checking premium tier membership and unlocking premium features.
+/// </summary>
 public class PremiumTierService
 {
     private GoogletokenService tokenService;
     private UserApi userApi;
 
+    /// <summary>
+    /// Initializes a new instance of the <see cref="PremiumTierService"/> class.
+    /// </summary>
+    /// <param name="tokenService">The Google token service for user authentication.</param>
+    /// <param name="userApi">The user API for querying ownership.</param>
     public PremiumTierService(GoogletokenService tokenService, UserApi userApi)
     {
         this.tokenService = tokenService;
@@ -22,14 +30,23 @@ public class PremiumTierService
     /// </summary>
     public readonly string HeaderName = "GoogleToken";
 
+    /// <summary>
+    /// Checks whether the requesting user has a premium subscription.
+    /// </summary>
     public async Task<bool> HasPremium(ControllerBase controllerInstance)
     {
         return await OwnsProduct(controllerInstance, "premium");
     }
+    /// <summary>
+    /// Checks whether the requesting user has a premium_plus subscription.
+    /// </summary>
     public async Task<bool> HasPremiumPlus(ControllerBase controllerInstance)
     {
         return await OwnsProduct(controllerInstance, "premium_plus");
     }
+    /// <summary>
+    /// Checks whether the requesting user has a starter premium subscription.
+    /// </summary>
     public async Task<bool> HasStarterPremium(ControllerBase controllerInstance)
     {
         var name = "starter_premium";
@@ -45,6 +62,12 @@ public class PremiumTierService
         return owns.TryGetValue(name, out var time) && time > DateTime.Now;
     }
 
+    /// <summary>
+    /// Unlocks or checks the unlock status of an export feature for the given item.
+    /// </summary>
+    /// <param name="controllerInstance">The controller making the request.</param>
+    /// <param name="itemId">The item identifier to unlock or check.</param>
+    /// <returns>true if the export is unlocked or was already unlocked; otherwise false.</returns>
     public async Task<bool> UnlockOrCheckUnlockOfExport(ControllerBase controllerInstance, string itemId)
     {
         GoogleUser googleUser = await GetUserOrDefault(controllerInstance);
@@ -65,6 +88,11 @@ public class PremiumTierService
         return false;
     }
 
+    /// <summary>
+    /// Gets the authenticated user from the request headers, or default if not authenticated.
+    /// </summary>
+    /// <param name="controllerInstance">The controller making the request.</param>
+    /// <returns>The authenticated Google user, or null if not found.</returns>
     public async Task<GoogleUser> GetUserOrDefault(ControllerBase controllerInstance)
     {
         if (!controllerInstance.Request.Headers.TryGetValue(HeaderName, out StringValues value)

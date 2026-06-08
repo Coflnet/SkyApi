@@ -7,7 +7,6 @@ using Coflnet.Sky.Commands.Shared;
 using Coflnet.Sky.Core;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Configuration;
-using Coflnet.Sky.Commands.Shared;
 using Coflnet.Leaderboard.Client.Model;
 using Microsoft.Extensions.Logging;
 using Coflnet.Sky.Bazaar.Flipper.Client.Api;
@@ -210,6 +209,9 @@ namespace Coflnet.Sky.Api.Controller
         {
             return await bazaarFlipperApi.BooksGetAsync();
         }
+        /// <summary>
+        /// Gets mayor-differential flips showing price changes after mayor election results.
+        /// </summary>
         [Route("mayor")]
         [HttpGet]
         [Authorize]
@@ -469,6 +471,10 @@ namespace Coflnet.Sky.Api.Controller
             throw new CoflnetException("deprecated", "This endpoint got deprecated. This was made for tfm which doesn't use it anymore. If you do, please open a suggestion thread on our discord.");
         }
 
+        /// <summary>
+        /// Gets unknown flips that were not matched to known item patterns.
+        /// </summary>
+        /// <param name="end">The end time for the query window.</param>
         [HttpGet("unknown")]
         public async Task<IEnumerable<FlipDetails>> GetUnknownFlips(DateTime end)
         {

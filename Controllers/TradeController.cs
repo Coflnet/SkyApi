@@ -1,4 +1,5 @@
 using System.Linq;
+#nullable enable
 using System.Threading.Tasks;
 using AutoMapper;
 using Coflnet.Sky.Api.Models;
@@ -31,6 +32,9 @@ public class TradeController : ControllerBase
     private readonly IMapper mapper;
     Hashids hashids = new Hashids("CoflnetSkyTrades", 8);
 
+    /// <summary>
+    /// Initializes a new instance of the <see cref="TradeController"/> class.
+    /// </summary>
     public TradeController(ILogger<TradeController> logger,
                            IPlayerStateApi playerStateApi,
                            GoogletokenService googletokenService,

@@ -34,6 +34,7 @@ public class NotificationController : ControllerBase
     /// <param name="subscriptionsApi"></param>
     /// <param name="targetsApi"></param>
     /// <param name="listenerApi"></param>
+    /// <param name="mapper"></param>
     public NotificationController(ILogger<NotificationController> logger,
                            GoogletokenService googletokenService,
                            ISubscriptionsApi subscriptionsApi,
@@ -76,6 +77,7 @@ public class NotificationController : ControllerBase
     /// Adds a new subscription
     /// </summary>
     /// <param name="subscription"></param>
+    /// <param name="premiumTierService"></param>
     /// <returns></returns>
     [Route("subscriptions")]
     [HttpPost]

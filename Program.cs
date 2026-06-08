@@ -1,8 +1,7 @@
 global using System;
 using Coflnet.Security.OpenBao;
-using System.Runtime.InteropServices;
-using AspNetCoreRateLimit;
-using Microsoft.AspNetCore.Hosting;
+using Coflnet.Sky.Core;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 
@@ -29,6 +28,7 @@ namespace Coflnet.Sky.Api
             });
             
             var host = CreateHostBuilder(args).Build();
+            HypixelContext.SetConfiguration(host.Services.GetRequiredService<IConfiguration>());
             
             // Seed rate limit policies from configuration
             using (var scope = host.Services.CreateScope())

@@ -43,7 +43,8 @@ namespace Coflnet.Sky.Api.Controller
         /// <param name="flipperService"></param>
         /// <param name="playerName"></param>
         /// <param name="sniperApi"></param>
-        /// <param name="settingsService"></param>
+        /// <param name="donutDescriptionService"></param>
+    /// <param name="settingsService"></param>
         /// <param name="tokenService"></param>
         /// <param name="logger"></param>
         /// <param name="auctionConverter"></param>

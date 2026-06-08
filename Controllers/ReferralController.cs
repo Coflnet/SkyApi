@@ -1,4 +1,5 @@
 using System.Threading.Tasks;
+#nullable enable
 using Microsoft.AspNetCore.Mvc;
 using Coflnet.Sky.Referral.Client.Api;
 using Coflnet.Sky.Core;
@@ -34,6 +35,7 @@ namespace Coflnet.Sky.Api.Controller
         /// <param name="premiumService"></param>
         /// <param name="db"></param>
         /// <param name="connectApi"></param>
+        /// <param name="playerNameApi"></param>
         public ReferralController(IReferralApi refApi, GoogletokenService premiumService, HypixelContext db, McConnect.Api.IConnectApi connectApi, IPlayerNameApi playerNameApi)
         {
             this.refApi = refApi;

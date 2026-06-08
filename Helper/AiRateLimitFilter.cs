@@ -1,4 +1,5 @@
 using System;
+#nullable enable
 using System.Linq;
 using System.Net;
 using System.Threading.Tasks;
@@ -20,12 +21,18 @@ namespace Coflnet.Sky.Api.Helper
         private readonly ILogger<AiRateLimitFilter> _logger;
         private const int DAILY_LIMIT = 10;
 
+        /// <summary>
+        /// Initializes a new instance of the <see cref="AiRateLimitFilter"/> class.
+        /// </summary>
+        /// <param name="redis">The Redis connection multiplexer for rate limit state.</param>
+        /// <param name="logger">The logger instance.</param>
         public AiRateLimitFilter(IConnectionMultiplexer redis, ILogger<AiRateLimitFilter> logger)
         {
             _redis = redis;
             _logger = logger;
         }
 
+        /// <inheritdoc/>
         public async Task OnActionExecutionAsync(ActionExecutingContext context, ActionExecutionDelegate next)
         {
             try
