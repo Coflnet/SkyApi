@@ -1,56 +1,40 @@
 global using System;
+using System.Runtime.InteropServices;
+using AspNetCoreRateLimit;
 using Coflnet.Security.OpenBao;
 using Coflnet.Sky.Core;
+using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
 
-namespace Coflnet.Sky.Api
+var builder = WebApplication.CreateBuilder(args);
+
+// Add OpenBao configuration (must be added before Startup configures services)
+builder.Configuration.AddOpenBaoFromEnvironment();
+
+var startup = new Coflnet.Sky.Api.Startup(builder.Configuration);
+startup.ConfigureServices(builder.Services);
+
+var app = builder.Build();
+
+HypixelContext.SetConfiguration(app.Services.GetRequiredService<IConfiguration>());
+
+// Seed rate limit policies from configuration
+using (var scope = app.Services.CreateScope())
 {
-    public class Program
-    {
-        public static async System.Threading.Tasks.Task Main(string[] args)
-        {
-            using var sigin = PosixSignalRegistration.Create(PosixSignal.SIGINT, context =>
-            {
-                Console.WriteLine("SIGINT received!");
-                Environment.Exit(0);
-            });
-            using var sigterm = PosixSignalRegistration.Create(PosixSignal.SIGTERM, context =>
-            {
-                Console.WriteLine("SIGTERM received!");
-                Environment.Exit(0);
-            });
-            using var sigquit = PosixSignalRegistration.Create(PosixSignal.SIGQUIT, context =>
-            {
-                Console.WriteLine("SIGQUIT received!");
-                Environment.Exit(0);
-            });
-            
-            var host = CreateHostBuilder(args).Build();
-            HypixelContext.SetConfiguration(host.Services.GetRequiredService<IConfiguration>());
-            
-            // Seed rate limit policies from configuration
-            using (var scope = host.Services.CreateScope())
-            {
-                // Seed IP rate limit policies
-                var ipPolicyStore = scope.ServiceProvider.GetRequiredService<IIpPolicyStore>();
-                await ipPolicyStore.SeedAsync();
-                
-                // Seed Client rate limit policies (for premium clients)
-                var clientPolicyStore = scope.ServiceProvider.GetRequiredService<IClientPolicyStore>();
-                await clientPolicyStore.SeedAsync();
-            }
-            
-            await host.RunAsync();
-        }
-
-        public static IHostBuilder CreateHostBuilder(string[] args) =>
-            Host.CreateDefaultBuilder(args)
-                .ConfigureAppConfiguration((_, config) => config.AddOpenBaoFromEnvironment())
-                .ConfigureWebHostDefaults(webBuilder =>
-                {
-                    webBuilder.UseStartup<Startup>();
-                });
-    }
+    // Seed IP rate limit policies
+    var ipPolicyStore = scope.ServiceProvider.GetRequiredService<IIpPolicyStore>();
+    await ipPolicyStore.SeedAsync();
+    
+    // Seed Client rate limit policies (for premium clients)
+    var clientPolicyStore = scope.ServiceProvider.GetRequiredService<IClientPolicyStore>();
+    await clientPolicyStore.SeedAsync();
 }
+
+startup.Configure(app, app.Environment,
+    app.Services.GetRequiredService<ILogger<Coflnet.Sky.Api.Startup>>(),
+    app.Services.GetRequiredService<AutoMapper.IMapper>());
+
+app.Run();
