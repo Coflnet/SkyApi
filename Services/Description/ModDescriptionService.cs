@@ -1766,6 +1766,11 @@ public class ModDescriptionService : IDisposable
                     {
                         return (null, NBT.GetLore(compound).ToArray());
                     }
+                    else if (name.EndsWith(" Shard"))
+                    {
+                        if (TryGetShardTagFromName(name, out var tag))
+                            return (new SaveAuction() { Tag = tag, ItemName = name }, NBT.GetLore(compound).ToArray());
+                    }
                     else if (!name?.StartsWith("§8Quiver ") ?? true) // special variats are §8Quiver Flint Arrow
                         return (null, string.IsNullOrWhiteSpace(name) ? [] : NBT.GetLore(compound).ToArray()); // skip all items without id
                     else
