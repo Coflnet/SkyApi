@@ -788,11 +788,12 @@ public class ModDescriptionService : IDisposable
         if (settings.ContainsKey(sessionId))
             return (settings[sessionId].Item1.Value, settings[sessionId].Item2.Value);
         var conId = idConverter.ComputeConnectionId(playeruuid, sessionId).Item2;
-        var userId = await settingsService.GetCurrentValue<string>("mod", conId, () => null);
         if (IsDevMode)
         {
-            userId = "1";
+            return 
+            (DescriptionSetting.Default, new AccountInfo { UserId = "1" });
         }
+        var userId = await settingsService.GetCurrentValue<string>("mod", conId, () => null);
         var userSettings = DescriptionSetting.Default;
         if (userId != null)
         {
@@ -1820,14 +1821,14 @@ public class ModDescriptionService : IDisposable
     /// <returns>true if a matching shard tag was found; otherwise, false.</returns>
     public static bool TryGetShardTagFromName(string name, out string tag)
     {
-        var clearedname = Regex.Replace(name, "§[0-9a-fklmnor]|SELL |BUY | Shard", "").Replace(' ', '_');
+        var clearedname = Regex.Replace(name, "§[0-9a-fklmnor]|SELL |BUY | Shard", "");
         if (Constants.ShardNames.TryGetValue(clearedname, out var shardTag))
             tag = "SHARD_" + shardTag.ToUpper();
         else
         {
             Console.WriteLine($"unknown shard name {name}, {clearedname}");
             var closestDistance = Constants.ShardNames
-                .Select(s => (s, Distance: Fastenshtein.Levenshtein.Distance(clearedname, s.Key)))
+                .Select(s => (s, Distance: Fastenshtein.Levenshtein.Distance(clearedname.Replace(' ', '_'), s.Key)))
                 .OrderBy(x => x.Distance)
                 .FirstOrDefault();
             if (closestDistance.Distance < 3)
