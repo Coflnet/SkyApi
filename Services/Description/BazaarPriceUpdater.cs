@@ -246,7 +246,6 @@ public class BazaarPriceUpdater : ICustomModifier
             var item = data.Items[slot];
             if (item?.Tag == itemTag)
             {
-    /// <inheritdoc/>
                 inventoryAmount += Math.Max(1, (int)item.Count);
             }
         }
