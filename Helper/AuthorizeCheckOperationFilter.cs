@@ -55,14 +55,14 @@ namespace Coflnet.Sky.Api.Helper
                     new OpenApiSecurityRequirement
                     {
                         [
-                            new OpenApiSecuritySchemeReference("Bearer", null)
-                        ] = new List<string> { "" }
+                            new OpenApiSecuritySchemeReference("Bearer", context.Document)
+                        ] = new List<string>()
                     },
                     new OpenApiSecurityRequirement
                     {
                         [
-                            new OpenApiSecuritySchemeReference("GoogleToken", null)
-                        ] = new List<string> { "" }
+                            new OpenApiSecuritySchemeReference("GoogleToken", context.Document)
+                        ] = new List<string>()
                     }
                 };
             }
