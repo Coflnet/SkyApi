@@ -44,10 +44,14 @@ public class BazaarOrderAdjust : ICustomModifier
             {
                 var isBuy = auction.ItemName.Contains("BUY");
                 var allPrices = offerLookup[(isBuy, auction.Tag)].Select(x => x.desc).Where(x => x != null)
-                    .Select(x => x.Where(p => p.StartsWith("§7Price per unit: §6")).First().Split("§7Price per unit: §6").Last().Split(" coins").First())
+                    .Select(x => x.FirstOrDefault(p => p.StartsWith("§7Price per unit: §6")))
+                    .Where(p => p != null)
+                    .Select(p => p.Split("§7Price per unit: §6").Last().Split(" coins").First())
                     .Select(v => double.Parse(v, System.Globalization.CultureInfo.InvariantCulture)).ToArray();
 
-                var price = isBuy ? allPrices.Max() : allPrices.Min();
+                if (allPrices.Length == 0 && data.inventory.Version < 2)
+                    continue;
+                var price = allPrices.Length == 0 ? 0d : (isBuy ? allPrices.Max() : allPrices.Min());
                 if (data.inventory.Version >= 2)
                 {
                     price = description.Where(l => l.StartsWith("§7Price per unit: §6"))
