@@ -221,6 +221,21 @@ public class ModDescriptionServiceTests
     }
 
     [Test]
+    public void FullCraftCost_PetWithoutLevelInNameOrDescription_DoesNotThrow()
+    {
+        // Synthetic/crafted pet auctions (e.g. PET_SIZED_CUPCAKE used internally for craft cost)
+        // have no "Lvl" in their name and are not part of auctionRepresent, so the description
+        // fallback yields null. CleanItemprice must not call Regex.Match on a null input.
+        var cost = service.FullCraftCost(new SaveAuction() { Tag = "PET_SIZED_CUPCAKE", ItemName = "Pet-Sized Cupcake", Tier = Tier.COMMON }, new()
+        {
+            allCrafts = new(),
+            itemPrices = new() { { "PET_SIZED_CUPCAKE", 5_000 } },
+            auctionRepresent = new()
+        });
+        cost.obtainPrice.Should().Be(5_000);
+    }
+
+    [Test]
     public void ParseDungeonChest()
     {
         var data = File.ReadAllText("MockObjects/dungeonChest.json");

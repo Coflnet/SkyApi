@@ -1142,19 +1142,22 @@ public class ModDescriptionService : IDisposable
         if (NBT.IsPet(auction.Tag))
         {
             var name = auction.ItemName;
-            if (!name.Contains("Lvl"))
+            if (name == null || !name.Contains("Lvl"))
                 name = data.auctionRepresent.Where(a => a.auction == auction).Select(a => a.desc).FirstOrDefault()?.FirstOrDefault(d => d.Contains("Lvl"));
-            var level = int.Parse(Regex.Match(name, @"Lvl (\d+)").Groups[1].Value);
-            var mapped = level switch
+            var levelMatch = name != null ? Regex.Match(name, @"Lvl (\d+)") : Match.Empty;
+            if (levelMatch.Success)
             {
-                >= 100 => 100,
-                >= 92 => 90,
-                _ => 0
-            };
-            var key = $"{auction.Tag}_{auction.Tier}_{mapped}";
-            if (data.itemPrices.TryGetValue(key, out var price))
-                return price;
-
+                var level = int.Parse(levelMatch.Groups[1].Value);
+                var mapped = level switch
+                {
+                    >= 100 => 100,
+                    >= 92 => 90,
+                    _ => 0
+                };
+                var key = $"{auction.Tag}_{auction.Tier}_{mapped}";
+                if (data.itemPrices.TryGetValue(key, out var price))
+                    return price;
+            }
         }
         return data.itemPrices.GetValueOrDefault(auction.Tag);
     }
