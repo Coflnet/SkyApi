@@ -269,7 +269,7 @@ public class ModDescriptionService : IDisposable
             UserId = userId,
             ReceivedAt = DateTime.UtcNow
         });
-        Console.WriteLine("produced state update " + playerId + " " + chestName);
+        logger.LogInformation("produced state update " + playerId + " " + chestName);
     }
 
     private List<Item> InventoryToItems(InventoryData modDescription)
