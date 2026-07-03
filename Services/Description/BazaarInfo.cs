@@ -79,6 +79,30 @@ public class BazaarInfo : ICustomModifier
                 .AddText(line.ToString(), $"Click to view {McColorCodes.AQUA}{name}", command);
             display.Add(new(builder.Build()));
         }
+
+        var bookmarks = data.inventory.Settings.BazaarBookmarks;
+        if (bookmarks != null && bookmarks.Count > 0)
+        {
+            display.Add(new($"{McColorCodes.GOLD}SkyC{McColorCodes.AQUA}ofl {McColorCodes.GRAY}● §7Bookmarked items:"));
+            foreach (var tag in bookmarks)
+            {
+                var name = BazaarUtils.GetSearchValue(tag, data.itemTagToName.GetValueOrDefault(tag) ?? tag);
+                var line = new StringBuilder();
+                line.Append("§a● §6");
+                line.Append(name.Truncate(22));
+                if (data.bazaarPrices.TryGetValue(tag, out var price))
+                {
+                    line.Append(" " + McColorCodes.RED);
+                    line.Append(FormatCoins((long)price.SellPrice));
+                    line.Append(name.Length > 22 ? "§7>§6" : "§7 -> §6");
+                    line.Append(FormatCoins((long)price.BuyPrice));
+                }
+                var command = data.inventory.Settings.NoCookie ? $"/cofl bazaarsearch {name}" : $"/bz {name}";
+                var builder = new LoreBuilder()
+                    .AddText(line.ToString(), $"Click to view {McColorCodes.AQUA}{name}\n{McColorCodes.GRAY}Manage bookmarks on the bazaar item page", command);
+                display.Add(new(builder.Build()));
+            }
+        }
     }
 
     // add these helper methods to the class

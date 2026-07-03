@@ -71,6 +71,21 @@ public class BazaarPriceUpdater : ICustomModifier
             new(loreBuilder.Build())
         };
 
+        if (!string.IsNullOrEmpty(itemTag))
+        {
+            var isBookmarked = data.inventory.Settings.BazaarBookmarks?.Contains(itemTag) ?? false;
+            var bookmarkBuilder = new LoreBuilder();
+            if (isBookmarked)
+                bookmarkBuilder.AddText("§7[§cremove bookmark§7]",
+                                        "Remove this item from your bazaar bookmarks shown in the bazaar menu",
+                                        $"/cofl set loreBazaarBookmarks rm {itemTag}");
+            else
+                bookmarkBuilder.AddText("§7[§aadd bookmark§7]",
+                                        "Bookmark this item to show it in the bazaar menu",
+                                        $"/cofl set loreBazaarBookmarks {itemTag}");
+            display.Add(new(bookmarkBuilder.Build()));
+        }
+
         data.mods.Add(display);
     }
 
