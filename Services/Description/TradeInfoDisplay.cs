@@ -338,17 +338,31 @@ public class TradeInfoDisplay : ICustomModifier
 
     private static long ParseCoinAmount(string stringAmount)
     {
-        var parsed = 0d;
-        if (stringAmount.EndsWith("B"))
-            parsed = double.Parse(stringAmount.Trim('B'), CultureInfo.InvariantCulture) * 1_000_000_000;
-        else if (stringAmount.EndsWith("M"))
-            parsed = double.Parse(stringAmount.Trim('M'), CultureInfo.InvariantCulture) * 1_000_000;
-        else if (stringAmount.EndsWith("k"))
-            parsed = double.Parse(stringAmount.Trim('k'), CultureInfo.InvariantCulture) * 1_000;
-        else
-            parsed = double.Parse(stringAmount, CultureInfo.InvariantCulture);
+        stringAmount = stringAmount?.Trim().Replace(",", string.Empty);
+        if (string.IsNullOrEmpty(stringAmount))
+            return 0;
 
-        return (long)(parsed);
+        var multiplier = 1d;
+        if (stringAmount.EndsWith("B"))
+        {
+            multiplier = 1_000_000_000;
+            stringAmount = stringAmount.TrimEnd('B');
+        }
+        else if (stringAmount.EndsWith("M"))
+        {
+            multiplier = 1_000_000;
+            stringAmount = stringAmount.TrimEnd('M');
+        }
+        else if (stringAmount.EndsWith("k"))
+        {
+            multiplier = 1_000;
+            stringAmount = stringAmount.TrimEnd('k');
+        }
+
+        if (!double.TryParse(stringAmount, NumberStyles.Any, CultureInfo.InvariantCulture, out var parsed))
+            return 0;
+
+        return (long)(parsed * multiplier);
     }
 
     private sealed record AdjustedValueEstimate(
