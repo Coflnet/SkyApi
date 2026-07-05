@@ -7,6 +7,7 @@ using Coflnet.Sky.Mayor.Client.Api;
 using Coflnet.Sky.Mayor.Client.Model;
 using System;
 using Coflnet.Sky.Core;
+using System.Linq;
 
 namespace Coflnet.Sky.Api.Controller;
 
@@ -58,7 +59,7 @@ public class MayorController : ControllerBase
             Task.Run(async () => range.AddRange(await mayorService.ElectionPeriodRangeGetAsync(from.ToUnix() * 1000, to.ToUnix() * 1000))),
             Task.Delay(2500)
         );
-        return range;
+        return range.OrderBy(e=>e.End);
     }
 }
 
