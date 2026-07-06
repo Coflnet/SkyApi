@@ -807,7 +807,14 @@ public class ModDescriptionService : IDisposable
                 var toRemove = settings.OrderBy(s => s.Value.Item2.Value.ExpiresAt).Select(s => s.Key).Take(100).ToList();
                 foreach (var key in toRemove)
                 {
-                    settings.TryRemove(key, out _);
+                    if (settings.TryRemove(key, out var removed))
+                    {
+                        // Dispose to unsubscribe the Redis pub/sub subscription; otherwise the
+                        // subscription callback keeps the value rooted and both the object and
+                        // its subscription leak, growing working set until the pod OOMs.
+                        removed.Item1?.Dispose();
+                        removed.Item2?.Dispose();
+                    }
                 }
             }
         }
