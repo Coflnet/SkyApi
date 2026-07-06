@@ -59,7 +59,11 @@ public class MayorController : ControllerBase
             Task.Run(async () => range.AddRange(await mayorService.ElectionPeriodRangeGetAsync(from.ToUnix() * 1000, to.ToUnix() * 1000))),
             Task.Delay(2500)
         );
-        return range.OrderBy(e=>e.End);
+        return range.OrderBy(e => e.End).Select(e =>
+        {
+            e.Candidates = null;
+            return e;
+        });
     }
 }
 
