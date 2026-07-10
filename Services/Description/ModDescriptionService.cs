@@ -1747,7 +1747,7 @@ public class ModDescriptionService : IDisposable
                         // empty slot in menu
                         return (null, []);
                     }
-                    if (typeId == "minecraft:arrow" && name == "§aGo Back")
+                    if (typeId == "minecraft:arrow" && (name == "§aGo Back" || name == "Go Back"))
                     {
                         // this is the go back arrow of the menu, use it as marker
                         return (new SaveAuction() { Tag = "GO_BACK", ItemName = "§aGo Back" }, new string[0]);
