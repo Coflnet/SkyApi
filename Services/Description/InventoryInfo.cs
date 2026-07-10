@@ -24,7 +24,7 @@ public class InventoryInfo : ICustomModifier
     };
     public void Apply(DataContainer data)
     {
-        if (data.inventory.Settings.DisableInfoIn?.Contains("Crafting") ?? false)
+        if (data.inventory.Settings.DisableInfoIn?.Contains("Crafting", StringComparer.OrdinalIgnoreCase) ?? false)
             return;
         if (Random.Shared.NextDouble() < 0.9 && data.accountInfo?.UserId != "7")
             return;
