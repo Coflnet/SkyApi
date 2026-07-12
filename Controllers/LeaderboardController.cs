@@ -31,16 +31,17 @@ public class LeaderboardController : ControllerBase
     [ResponseCache(Duration = 60, Location = ResponseCacheLocation.Any, NoStore = false)]
     public async Task<List<LeaderboardEntry>> GetProfitLeaderboard(int weekOffset = 0)
     {
-        int skip = 0, take = 50;
+        // GetTopFlippers takes a page number, not a raw skip - offset is computed as page * count downstream
+        int page = 0, take = 50;
         if (weekOffset == -1)
         {
-            // public last week places 100-150
+            // public last week places 100-150 (page 2 * take 50 = offset 100)
             weekOffset = 1;
-            skip = 100; take = 50;
+            page = 2; take = 50;
         }
         else if (!await premiumTierService.HasPremiumPlus(this))
             throw new CoflnetException("no_premium_plus", "This endpoint is only available for Premium+ users");
-        var entries = await scoresApi.GetTopFlippers(GetBoardName(),DateTime.UtcNow.AddDays(weekOffset * -7) , skip, take);
+        var entries = await scoresApi.GetTopFlippers(GetBoardName(),DateTime.UtcNow.AddDays(weekOffset * -7) , page, take);
         return entries.Select(e => new LeaderboardEntry
         {
             PlayerUuid = e.PlayerId,
