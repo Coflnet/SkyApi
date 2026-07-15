@@ -18,21 +18,49 @@ public class InstantBuyMaxAmountTests
     }
 
     [Test]
-    public void ParseMaxAmount_ReadsAmountLabel()
+    public void ParseMaxAmount_ReadsBuyUpToCap()
     {
-        InstantBuyMaxAmount.ParseMaxAmountFromText("§7Buy Order Quantity\n\n§7Your amount: §a333x").Should().Be(333);
+        InstantBuyMaxAmount.ParseMaxAmountFromText("§7Buy Order Quantity\n\n§7Buy up to §a71,680x").Should().Be(71_680);
     }
 
     [Test]
-    public void ParseMaxAmount_ReadsWithThousandsSeparator()
+    public void ParseMaxAmount_IgnoresCurrentSelection()
     {
-        InstantBuyMaxAmount.ParseMaxAmountFromText("§7Your amount: §a71,680x").Should().Be(71_680);
+        // "Amount:" is the currently selected amount, not a cap - must not be read as the max
+        InstantBuyMaxAmount.ParseMaxAmountFromText("§7Amount: §a4,600x\n§7Price: §64,000 coins").Should().BeNull();
     }
 
     [Test]
-    public void ParseMaxAmount_NullWhenNoAmount()
+    public void ParseMaxAmount_NullWhenNoCap()
     {
         InstantBuyMaxAmount.ParseMaxAmountFromText("§7Custom Amount\n§7Right-Click to edit!").Should().BeNull();
+    }
+
+    private static InstantBuyMaxAmount.PriceLevel Level(double price, int amount)
+        => new() { Price = price, Amount = amount };
+
+    [Test]
+    public void MaxAffordable_WalksTheOrderBook()
+    {
+        // 100 @ 10, then 100 @ 20. Budget 2500:
+        // first level costs 1000 (all 100), leaving 1500 -> 75 more at 20 = 175 total
+        var orders = new[] { Level(10, 100), Level(20, 100) };
+        InstantBuyMaxAmount.MaxAffordable(orders, 2500).Should().Be(175);
+    }
+
+    [Test]
+    public void MaxAffordable_StopsWithinFirstLevel()
+    {
+        var orders = new[] { Level(10, 100), Level(20, 100) };
+        InstantBuyMaxAmount.MaxAffordable(orders, 550).Should().Be(55);
+    }
+
+    [Test]
+    public void MaxAffordable_CappedByAvailableVolume()
+    {
+        // purse far exceeds the book -> limited to total available amount
+        var orders = new[] { Level(10, 100), Level(20, 50) };
+        InstantBuyMaxAmount.MaxAffordable(orders, 1_000_000).Should().Be(150);
     }
 
     [Test]
