@@ -64,8 +64,9 @@ public class InstantBuyMaxAmount : ICustomModifier
         var itemTag = FindBazaarItemTag(data);
         if (itemTag == null)
             return;
-        // instant buy pays the lowest sell offer (the sell price in this codebase)
-        var pricePerUnit = data.GetItemprice(itemTag, useBuyOrderPrices: false);
+        // instant buy pays the BuyPrice (higher of the two, matches the menu's "Buy:" per unit);
+        // SellPrice is the instant-sell price and would under-estimate the cost
+        var pricePerUnit = data.GetItemprice(itemTag, useBuyOrderPrices: true);
         if (pricePerUnit <= 0)
             return;
 
