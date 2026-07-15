@@ -26,6 +26,10 @@ public class DataContainer
     public Dictionary<string,string> itemTagToName;
     internal AccountInfo accountInfo;
     internal ILookup<long, Flip> flips;
+    /// <summary>
+    /// Minecraft name of the player the description is computed for, used to look up player state.
+    /// </summary>
+    internal string mcName;
 
     public List<Item> Items { get; internal set; }
     public Dictionary<string, Task<string>> Loaded { get; set; }

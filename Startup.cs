@@ -285,6 +285,8 @@ namespace Coflnet.Sky.Api
             {
                 return new Trade.Client.Api.TradeApi(Configuration["TRADE_BASE_URL"]);
             });
+            services.AddSingleton<PlayerState.Client.Api.IPlayerStateApi>(p =>
+                new PlayerState.Client.Api.PlayerStateApi(Configuration["PLAYERSTATE_BASE_URL"]));
             services.AddSingleton<AhListChecker>();
 
             services.AddSingleton<TfmService>();

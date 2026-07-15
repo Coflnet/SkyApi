@@ -147,6 +147,7 @@ public class ModDescriptionService : IDisposable
         customModifiers.Add("Bazaar Orders$", new BazaarOrderAdjust(bazaarApi));
         customModifiers.Add("^Bazaar ", new BazaarInfo());
         customModifiers.Add(".*➜.*", new BazaarPriceUpdater());
+        customModifiers.Add("➜ Instant Buy", new InstantBuyMaxAmount());
         customModifiers.Add("^The Forge", new ForgeExtenssion());
         customModifiers.Add(@"^\(\d\/2\) Fish Family", new FishFamilyCalculator());
         customModifiers.Add("^Crafting", new InventoryInfo());
@@ -542,7 +543,8 @@ public class ModDescriptionService : IDisposable
             allCrafts = allCrafts,
             accountInfo = userInfo,
             flips = flips?.ToLookup(f => f.AuctionId),
-            Loaded = preRequest.ToLoad
+            Loaded = preRequest.ToLoad,
+            mcName = mcName
         };
 
         for (int i = 0; i < auctionRepresent.Count; i++)
