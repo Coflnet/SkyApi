@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Globalization;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
@@ -71,10 +72,6 @@ public class InstantBuyMaxAmount : ICustomModifier
         if (suggested <= 0)
             return;
 
-        // make sure a mod list exists for the custom amount slot
-        while (data.mods.Count <= customSlot)
-            data.mods.Add(new());
-
         var hover = $"You can afford {McColorCodes.YELLOW}{affordable:N0}{McColorCodes.GRAY} with your purse of {McColorCodes.GOLD}{purse:N0}{McColorCodes.GRAY} coins";
         if (maxFromItem.HasValue && affordable > maxFromItem.Value)
             hover += $"\n{McColorCodes.GRAY}capped at the {McColorCodes.YELLOW}{maxFromItem.Value:N0}{McColorCodes.GRAY} this menu allows";
@@ -83,11 +80,15 @@ public class InstantBuyMaxAmount : ICustomModifier
         var loreBuilder = new LoreBuilder().AddText(
             $"{McColorCodes.GRAY}[{McColorCodes.GREEN}buy max {McColorCodes.YELLOW}{suggested:N0}{McColorCodes.GRAY}]",
             hover);
-        data.mods[customSlot].Add(loreBuilder.BuildLine());
 
-        // suggest the amount so it is typed into the sign when the player opens it.
-        // The mod matches the text before ": " against the sign's 4th line, which reads "to order".
-        data.mods[customSlot].Add(new DescModification(DescModification.ModType.SUGGEST, 0, $"to order: {suggested}"));
+        // add as a new appended info-display list (parsed as components), not onto the item slot.
+        // The SUGGEST types the amount into the sign; the mod matches the text before ": "
+        // against the sign's 4th line, which reads "to order".
+        data.mods.Add(new List<DescModification>
+        {
+            loreBuilder.BuildLine(),
+            new DescModification(DescModification.ModType.SUGGEST, 0, $"to order: {suggested}")
+        });
     }
 
     internal static long CapAmount(long affordable, long? maxFromItem)
