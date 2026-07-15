@@ -20,6 +20,9 @@ namespace Coflnet.Sky.Api.Services.Description;
 public class InstantBuyMaxAmount : ICustomModifier
 {
     private const string PurseLoadKey = "instantBuyPurse";
+    // instant buying pays a bazaar tax on top of the price (typically 1.125% after the
+    // community upgrade / booster cookie), so the affordable amount has to account for it
+    private const double BazaarTaxRate = 0.01125;
 
     /// <inheritdoc/>
     public void Modify(ModDescriptionService.PreRequestContainer preRequest)
@@ -66,13 +69,15 @@ public class InstantBuyMaxAmount : ICustomModifier
         if (pricePerUnit <= 0)
             return;
 
-        var affordable = purse / pricePerUnit; // integer division -> floor
+        // instant buy total cost = amount * pricePerUnit * (1 + tax); solve for the largest amount
+        var affordable = (long)(purse / (pricePerUnit * (1 + BazaarTaxRate)));
         var maxFromItem = ParseMaxAmount(data.Items[customSlot]);
         var suggested = CapAmount(affordable, maxFromItem);
         if (suggested <= 0)
             return;
 
-        var hover = $"You can afford {McColorCodes.YELLOW}{affordable:N0}{McColorCodes.GRAY} with your purse of {McColorCodes.GOLD}{purse:N0}{McColorCodes.GRAY} coins";
+        var hover = $"You can afford {McColorCodes.YELLOW}{affordable:N0}{McColorCodes.GRAY} with your purse of {McColorCodes.GOLD}{purse:N0}{McColorCodes.GRAY} coins"
+            + $"\n{McColorCodes.DARK_GRAY}(incl. {BazaarTaxRate:P3} bazaar tax)";
         if (maxFromItem.HasValue && affordable > maxFromItem.Value)
             hover += $"\n{McColorCodes.GRAY}capped at the {McColorCodes.YELLOW}{maxFromItem.Value:N0}{McColorCodes.GRAY} this menu allows";
         hover += $"\n{McColorCodes.AQUA}Right-Click the Custom Amount to fill it in";
