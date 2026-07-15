@@ -29,6 +29,7 @@ public class InstantBuyMaxAmount : ICustomModifier
     /// <inheritdoc/>
     public void Modify(ModDescriptionService.PreRequestContainer preRequest)
     {
+        return;
         if (!IsInstantBuy(preRequest.inventory?.ChestName) || string.IsNullOrWhiteSpace(preRequest.mcName))
             return;
         // load purse and order book in the background so they are ready by the time Apply runs
