@@ -104,6 +104,27 @@ public class LoreBuilder
         return this;
     }
 
+    /// <summary>
+    /// Adds a line that, when clicked on a mod reporting description version 4+, opens the matching
+    /// sign, types <paramref name="value"/> into its first line, and submits it. The click carries a
+    /// structured <c>fillsign:{json}</c> payload the mod parses (see the mod's <c>armSignFillAndOpen</c>
+    /// / <c>handleSignFill</c>): <paramref name="signLine"/> is the sign's 4th line the mod matches on
+    /// as a guard, and <paramref name="buttonName"/>/<paramref name="buttonSlot"/> let it pick the
+    /// right button to open when several exist. Keeping the payload shape in one place here means the
+    /// API and mod can't drift on the JSON keys.
+    /// </summary>
+    public LoreBuilder AddFillSign(string text, string signLine, string value, string buttonName, int buttonSlot, string hover = null)
+    {
+        var payload = System.Text.Json.JsonSerializer.Serialize(new FillSignPayload
+        {
+            Line = signLine,
+            Value = value,
+            Name = StripFormatting(buttonName),
+            Slot = buttonSlot
+        });
+        return AddText(text, hover, onClick: $"fillsign:{payload}");
+    }
+
     private string StripFormatting(string input)
     {
         if (string.IsNullOrEmpty(input)) return input;
@@ -118,6 +139,25 @@ public class LoreBuilder
     {
         return new(System.Text.Json.JsonSerializer.Serialize(components));
     }
+}
+
+/// <summary>
+/// The click payload the mod's fillsign flow consumes. Property names are the JSON keys the mod
+/// reads (<c>line</c>/<c>value</c>/<c>name</c>/<c>slot</c>) - keep them in sync with the mod.
+/// </summary>
+public class FillSignPayload
+{
+    [System.Text.Json.Serialization.JsonPropertyName("line")]
+    public string Line { get; set; }
+
+    [System.Text.Json.Serialization.JsonPropertyName("value")]
+    public string Value { get; set; }
+
+    [System.Text.Json.Serialization.JsonPropertyName("name")]
+    public string Name { get; set; }
+
+    [System.Text.Json.Serialization.JsonPropertyName("slot")]
+    public int Slot { get; set; }
 }
 
 public class LoreComponent

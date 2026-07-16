@@ -18,9 +18,10 @@ namespace Coflnet.Sky.Api.Services.Description;
 /// afford. The affordable amount is derived from the players purse (loaded from player state) and
 /// the bazaar sell offers (loaded from SkyBazaar via the same snapshot the price endpoint uses) so
 /// it accounts for the order-book walk - a large instant buy fills progressively more expensive sell
-/// offers, not just the lowest one. The result is capped by the amount the menu allows and offered
-/// as a sign suggestion so right-clicking the Custom Amount button pre-fills it, plus shown as an
-/// info line on the screen.
+/// offers, not just the lowest one. The result is capped by the amount the menu allows and shown as
+/// a clickable info line. On mods that report description version 4+ (which ship the fillsign mixin)
+/// clicking it opens+fills+submits the Custom Amount sign (opt-in, nothing typed until clicked); on
+/// older mods it falls back to copying the amount to the clipboard for the player to paste in.
 /// </summary>
 public class InstantBuyMaxAmount : ICustomModifier
 {
@@ -126,22 +127,42 @@ public class InstantBuyMaxAmount : ICustomModifier
             return;
 
         var hover = $"You can afford {McColorCodes.YELLOW}{affordable:N0}{McColorCodes.GRAY} with your purse of {McColorCodes.GOLD}{purse:N0}{McColorCodes.GRAY} coins"
-            + $"\n{McColorCodes.DARK_GRAY}" + (accurate ? "(from live order book)" : "(estimated from lowest offer)");
+            + $"\n{McColorCodes.DARK_GRAY}" + (accurate ? "(from live bazaar offers)" : "(estimated from lowest offer)");
         if (maxFromItem.HasValue && affordable > maxFromItem.Value)
             hover += $"\n{McColorCodes.GRAY}capped at the {McColorCodes.YELLOW}{maxFromItem.Value:N0}{McColorCodes.GRAY} this menu allows";
-        hover += $"\n{McColorCodes.AQUA}Right-Click the Custom Amount to fill it in";
 
-        var loreBuilder = new LoreBuilder().AddText(
-            $"{McColorCodes.GRAY}[{McColorCodes.GREEN}buy max {McColorCodes.YELLOW}{suggested:N0}{McColorCodes.GRAY}]",
-            hover);
+        var text = $"{McColorCodes.GRAY}[{McColorCodes.GREEN}buy max {McColorCodes.YELLOW}{suggested:N0}{McColorCodes.GRAY}]";
 
-        // add as a new appended info-display list (parsed as components), not onto the item slot.
-        // The SUGGEST types the amount into the sign; the mod matches the text before ": "
-        // against the sign's 4th line, which reads "to order".
+        // The auto open+fill+submit flow needs the mod update that ships description version 4
+        // (coflskycore DescriptionHandler sends `version`, exposed as inventory.Version). Older mods
+        // don't have the fillsign mixin, but every mod already understands the `copy:` onClick, so we
+        // fall back to copying the amount to the clipboard for the player to paste into the sign.
+        LoreBuilder loreBuilder;
+        if (data.inventory != null && data.inventory.Version >= 4)
+        {
+            // Opt-in: nothing is typed until the player clicks. The 4th-line matcher ("to order") plus
+            // the button's name+slot let the mod open the right Custom Amount button, fill it and
+            // submit it. LoreBuilder owns the fillsign payload shape so the API and mod stay in sync.
+            hover += $"\n{McColorCodes.AQUA}Click here to buy the max amount";
+            loreBuilder = new LoreBuilder().AddFillSign(
+                text,
+                signLine: "to order",
+                value: suggested.ToString(CultureInfo.InvariantCulture),
+                buttonName: customItem?.ItemName,
+                buttonSlot: customSlot,
+                hover: hover);
+        }
+        else
+        {
+            // Older mods: copy the raw amount so the player can paste it into the Custom Amount sign.
+            hover += $"\n{McColorCodes.AQUA}Click to copy {McColorCodes.YELLOW}{suggested:N0}{McColorCodes.AQUA}, then paste it into Custom Amount";
+            loreBuilder = new LoreBuilder().AddText(text, hover, onClick: $"copy:{suggested}");
+        }
+
+        // add as a new appended info-display list (parsed as components), not onto the item slot
         data.mods.Add(new List<DescModification>
         {
-            loreBuilder.BuildLine(),
-            new DescModification(DescModification.ModType.SUGGEST, 0, $"to order: {suggested}")
+            loreBuilder.BuildLine()
         });
     }
 
