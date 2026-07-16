@@ -589,7 +589,19 @@ public class ModDescriptionService : IDisposable
         {
             try
             {
-                item.Value.Apply(container);
+                var modifier = item.Value;
+                var disableName = modifier.DisableInfoName;
+                if (disableName != null && modifier.IsInfoDisabled(container))
+                {
+                    // player turned this info display off: skip it and leave only an invisible
+                    // empty-space handle so it can be re-enabled without cluttering the tooltip.
+                    InfoDisplayDisable.AddReenablePlaceholder(container, disableName);
+                    continue;
+                }
+                var addedFromIndex = container.mods.Count;
+                modifier.Apply(container);
+                // one place stamps the standardized disable button onto the display it just added.
+                InfoDisplayDisable.StampDisableButton(container, addedFromIndex, disableName);
             }
             catch (Exception e)
             {

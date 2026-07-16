@@ -159,7 +159,8 @@ public class InstantBuyMaxAmount : ICustomModifier
             loreBuilder = new LoreBuilder().AddText(text, hover, onClick: $"copy:{suggested}");
         }
 
-        // add as a new appended info-display list (parsed as components), not onto the item slot
+        // add as a new appended info-display list (parsed as components), not onto the item slot;
+        // ModDescriptionService stamps the disable button onto this line afterwards.
         data.mods.Add(new List<DescModification>
         {
             loreBuilder.BuildLine()

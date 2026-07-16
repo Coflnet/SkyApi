@@ -14,10 +14,13 @@ namespace Coflnet.Sky.Api.Services.Description;
 
 public class BazaarInfo : ICustomModifier
 {
+    // Kept as the documented key existing users already have in loreDisableInfoIn (from clicking the
+    // old disable "x") instead of the auto-generated type name. ModDescriptionService handles the
+    // skip + disable-button stamping centrally from this name.
+    public string DisableInfoName => "bazaar";
+
     public void Apply(DataContainer data)
     {
-        if (data.inventory.Settings.DisableInfoIn?.Contains("bazaar") ?? false)
-            return;
         if (data.inventory.Version < 3)
             return; // not supported
         var bazaarItems = data.bazaarPrices.Keys.ToHashSet();
@@ -39,8 +42,7 @@ public class BazaarInfo : ICustomModifier
         var display = new List<DescModification>();
         data.mods.Add(display);
         if (topCrafts.Count > 0)
-            display.Add(new LoreBuilder().AddText($"{McColorCodes.GOLD}SkyC{McColorCodes.AQUA}ofl {McColorCodes.GRAY}● §7Top Bazaar Crafts:  ")
-                .AddText($" {McColorCodes.GRAY}x", "Disable this info display", "/cofl confirm /cofl set loreDisableInfoIn bazaar").BuildLine());
+            display.Add(new LoreBuilder().AddText($"{McColorCodes.GOLD}SkyC{McColorCodes.AQUA}ofl {McColorCodes.GRAY}● §7Top Bazaar Crafts:  ").BuildLine());
         foreach (var craft in topCrafts)
         {
             var line = new StringBuilder();

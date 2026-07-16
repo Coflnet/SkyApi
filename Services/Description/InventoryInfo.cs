@@ -22,10 +22,12 @@ public class InventoryInfo : ICustomModifier
         "You can search all your storage (with double chests) with `/cofl search <search term>`",
         "Found any weird/wrong thing? Post a bug-report on our discord! Also run `/cofl report <description` to help us fix it",
     };
+    // Kept as the documented "Crafting" key (referenced in the tip text below and the settings wiki)
+    // rather than the auto-generated type name, so existing users' loreDisableInfoIn keeps working.
+    public string DisableInfoName => "Crafting";
+
     public void Apply(DataContainer data)
     {
-        if (data.inventory.Settings.DisableInfoIn?.Contains("Crafting", StringComparer.OrdinalIgnoreCase) ?? false)
-            return;
         if (Random.Shared.NextDouble() < 0.9 && data.accountInfo?.UserId != "7")
             return;
 
