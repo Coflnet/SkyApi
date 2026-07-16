@@ -42,17 +42,18 @@ public class InstantBuyMaxAmountTests
     [Test]
     public void MaxAffordable_WalksTheOrderBook()
     {
-        // 100 @ 10, then 100 @ 20. Budget 2500:
-        // first level costs 1000 (all 100), leaving 1500 -> 75 more at 20 = 175 total
+        // 100 @ 10, then 100 @ 20. Purse 2500 with a 4% reserved margin -> budget 2403.8:
+        // first level costs 1000 (all 100), leaving 1403.8 -> 70 more at 20 = 170 total
         var orders = new[] { Level(10, 100), Level(20, 100) };
-        InstantBuyMaxAmount.MaxAffordable(orders, 2500).Should().Be(175);
+        InstantBuyMaxAmount.MaxAffordable(orders, 2500).Should().Be(170);
     }
 
     [Test]
     public void MaxAffordable_StopsWithinFirstLevel()
     {
+        // purse 550 with a 4% reserved margin -> budget 528.8 -> 52 at price 10
         var orders = new[] { Level(10, 100), Level(20, 100) };
-        InstantBuyMaxAmount.MaxAffordable(orders, 550).Should().Be(55);
+        InstantBuyMaxAmount.MaxAffordable(orders, 550).Should().Be(52);
     }
 
     [Test]

@@ -16,23 +16,28 @@ namespace Coflnet.Sky.Api.Services.Description;
 /// <summary>
 /// On the "&lt;item&gt; ➜ Instant Buy" screen this suggests the maximum amount the player can
 /// afford. The affordable amount is derived from the players purse (loaded from player state) and
-/// the real bazaar order book (loaded from SkyBazaar) so it accounts for the order-book walk - a
-/// large instant buy fills progressively more expensive sell offers, not just the lowest one. The
-/// result is capped by the amount the menu allows and offered as a sign suggestion so right-clicking
-/// the Custom Amount button pre-fills it, plus shown as an info line on the screen.
+/// the bazaar sell offers (loaded from SkyBazaar via the same snapshot the price endpoint uses) so
+/// it accounts for the order-book walk - a large instant buy fills progressively more expensive sell
+/// offers, not just the lowest one. The result is capped by the amount the menu allows and offered
+/// as a sign suggestion so right-clicking the Custom Amount button pre-fills it, plus shown as an
+/// info line on the screen.
 /// </summary>
 public class InstantBuyMaxAmount : ICustomModifier
 {
     private const string PurseLoadKey = "instantBuyPurse";
     private const string OrderBookLoadKey = "instantBuyOrderBook";
 
+    // Instant buy reserves a ~4% safety margin above the raw order-book walk cost (the in-game
+    // "Price" for a given amount is the summary walk cost x ~1.04), so we only spend purse/(1+margin)
+    // to make sure the order actually goes through.
+    private const double SafetyMargin = 0.04;
+
     /// <inheritdoc/>
     public void Modify(ModDescriptionService.PreRequestContainer preRequest)
     {
-        return;
         if (!IsInstantBuy(preRequest.inventory?.ChestName) || string.IsNullOrWhiteSpace(preRequest.mcName))
             return;
-        // load purse and order book in the background so they are ready by the time Apply runs
+        // load purse and sell offers in the background so they are ready by the time Apply runs
         preRequest.ToLoad[PurseLoadKey] = LoadPurse(preRequest.mcName);
         var itemTag = FindBazaarItemTag(preRequest.auctionRepresent);
         if (itemTag != null)
@@ -54,17 +59,19 @@ public class InstantBuyMaxAmount : ICustomModifier
         }
     }
 
-    // fetches the live order book and returns the sell offers (the side an instant buy consumes,
-    // cheapest first) as a compact json list so Apply can walk it to find the max affordable amount
+    // Fetches the sell offers (the side an instant buy consumes, cheapest first) as a compact json
+    // list so Apply can walk it to find the max affordable amount. Uses the same snapshot the price
+    // endpoint walks (BazaarApi.GetClosestToAsync -> StorageQuickStatus.BuyOrders) rather than the
+    // reconstructed order book, which accumulates deltas over time and drifts from the live depth.
     private static async Task<string> LoadSellOrders(string itemTag)
     {
         try
         {
-            var api = DiHandler.GetService<IOrderBookApi>();
+            var api = DiHandler.GetService<BazaarApi>();
             if (api == null)
                 return string.Empty;
-            var book = await api.GetOrderBookAsync(itemTag);
-            var levels = book?.Sell?
+            var status = await api.GetClosestToAsync(itemTag, DateTime.UtcNow);
+            var levels = status?.BuyOrders?
                 .Where(o => o != null && o.Amount > 0 && o.PricePerUnit > 0)
                 .OrderBy(o => o.PricePerUnit)
                 .Select(o => new PriceLevel { Price = o.PricePerUnit, Amount = o.Amount });
@@ -72,7 +79,7 @@ public class InstantBuyMaxAmount : ICustomModifier
         }
         catch (Exception)
         {
-            // never let a failed order book load break the whole description computation
+            // never let a failed load break the whole description computation
             return string.Empty;
         }
     }
@@ -108,7 +115,7 @@ public class InstantBuyMaxAmount : ICustomModifier
             var pricePerUnit = data.GetItemprice(itemTag, useBuyOrderPrices: true);
             if (pricePerUnit <= 0)
                 return;
-            affordable = purse / pricePerUnit;
+            affordable = (long)(purse / (1 + SafetyMargin) / pricePerUnit);
         }
         if (affordable <= 0)
             return;
@@ -140,12 +147,13 @@ public class InstantBuyMaxAmount : ICustomModifier
 
     /// <summary>
     /// Walks the sell offers (cheapest first) to find the largest amount buyable with the given
-    /// purse. Instant buy is not taxed, so the full purse is available; deeper offers just cost
-    /// more per unit. Also naturally capped by the total volume on the book.
+    /// purse. Deeper offers just cost more per unit. Instant buy is not taxed, but it does reserve a
+    /// ~4% safety margin over the raw walk cost, so we only spend purse/(1+margin). Also naturally
+    /// capped by the total volume on the book.
     /// </summary>
     internal static long MaxAffordable(IReadOnlyList<PriceLevel> ascendingSellOrders, long purse)
     {
-        double budget = purse;
+        double budget = purse / (1 + SafetyMargin);
         long total = 0;
         foreach (var level in ascendingSellOrders)
         {
