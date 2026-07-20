@@ -52,20 +52,19 @@ public class CraftingController : ControllerBase
     [Route("profit")]
     [HttpGet]
     [ResponseCache(Duration = 60, Location = ResponseCacheLocation.Any, NoStore = false, VaryByQueryKeys = new string[] { "player", "profile" })]
-    public async Task<IEnumerable<ProfitableCraftDto>> GetProfitable(string player = null, string profile = null)
+    public async Task<IEnumerable<ProfitableCraft>> GetProfitable(string player = null, string profile = null)
     {
         var crafts = await craftsApi.GetProfitableAsync();
         if (profile == null)
-            return crafts.Select(ProfitableCraftDto.FromProfitableCraft);
+            return crafts;
         try
         {
-            var filtered = await profileClient.FilterProfitableCrafts(Task.FromResult(crafts), player, profile);
-            return filtered.Select(ProfitableCraftDto.FromProfitableCraft);
+            return await profileClient.FilterProfitableCrafts(Task.FromResult(crafts), player, profile);
         }
         catch (System.Exception e)
         {
             dev.Logger.Instance.Error(e, "getting profile data for crafts");
-            return crafts.Select(ProfitableCraftDto.FromProfitableCraft);
+            return crafts;
         }
     }
 

@@ -129,38 +129,5 @@ public class CraftingControllerTests
         result.CopyCommands.Should().ContainKey("MID2");
         result.DetailsPath.Should().ContainKey("MID2");
     }
-
-    /// <summary>
-    /// <see cref="CraftingController.GetProfitable"/> must map the raw <see cref="ProfitableCraft"/>
-    /// list from SkyCrafts to the enriched <see cref="Coflnet.Sky.Api.Models.ProfitableCraftDto"/>,
-    /// carrying the backend-computed craft-savings signal for every ingredient the crafting engine
-    /// decided to subcraft instead of buy.
-    /// </summary>
-    [Test]
-    public async Task GetProfitable_CraftedIngredientExposesCraftSavings()
-    {
-        var craftedIngredient = new Crafts.Client.Model.Ingredient(itemId: "ENCHANTED_IRON", count: 4, cost: 50, buyOrderCost: 100, craftCost: 50, type: "craft");
-        var boughtIngredient = new Crafts.Client.Model.Ingredient(itemId: "IRON_INGOT", count: 32, cost: 10, buyOrderCost: 10, craftCost: 0, type: null);
-        var craft = new ProfitableCraft(itemId: "TEST_ITEM", itemName: "Test Item", sellPrice: 1000, craftCost: 400,
-            buyOrderCraftCost: 500, ingredients: new List<Crafts.Client.Model.Ingredient> { craftedIngredient, boughtIngredient });
-        craftsApi.Setup(c => c.GetProfitableAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new List<ProfitableCraft> { craft });
-
-        var result = (await controller.GetProfitable()).ToList();
-
-        result.Should().HaveCount(1);
-        var mapped = result[0].Ingredients;
-        mapped.Should().HaveCount(2);
-
-        var craftedResult = mapped.Single(i => i.ItemId == "ENCHANTED_IRON");
-        craftedResult.IsSubcraft.Should().BeTrue();
-        craftedResult.CraftSavings.Should().Be(50, "buying costs 100 but crafting only cost 50");
-        craftedResult.CraftSavingsPercent.Should().Be(50);
-
-        var boughtResult = mapped.Single(i => i.ItemId == "IRON_INGOT");
-        boughtResult.IsSubcraft.Should().BeFalse();
-        boughtResult.CraftSavings.Should().Be(0);
-        boughtResult.CraftSavingsPercent.Should().Be(0);
-    }
 }
 #pragma warning restore CS1591 // Missing XML comment for publicly visible type or member

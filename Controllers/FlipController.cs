@@ -312,12 +312,11 @@ namespace Coflnet.Sky.Api.Controller
         [Route("forge")]
         [HttpGet]
         [ResponseCache(Duration = 300, Location = ResponseCacheLocation.Any, NoStore = false)]
-        public async Task<IEnumerable<ForgeFlipDto>> GetForgeFlips([FromServices] ForgeFlipService forgeApi, string uuid = null)
+        public async Task<IEnumerable<Crafts.Client.Model.ForgeFlip>> GetForgeFlips([FromServices] ForgeFlipService forgeApi, string uuid = null)
         {
             var name = uuid == null ? null : await DiHandler.GetService<PlayerName.PlayerNameService>()
                     .GetName(uuid) ?? "unknown";
-            var flips = await forgeApi.GetForgeFlips(name, uuid);
-            return flips.Select(ForgeFlipDto.FromForgeFlip);
+            return await forgeApi.GetForgeFlips(name, uuid);
         }
 
         /// <summary>
