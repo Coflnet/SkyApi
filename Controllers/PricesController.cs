@@ -354,6 +354,7 @@ public class PricesController : ControllerBase
             var listedItems = auctions.Select(a => (item: a, hasUid: TryGetItemUid(a.auction, out var uid), uid))
                 .Where(a => a.hasUid)
                 .ToList();
+            var newItemCount = 0;
             if (listedItems.Count > 0)
             {
                 var itemUids = listedItems.Select(a => a.uid).ToHashSet();
@@ -363,13 +364,18 @@ public class PricesController : ControllerBase
                                          where lookup.KeyId == uidKey && itemUids.Contains(lookup.Value) && auction.End > DateTime.Now
                                          select lookup.Value).ToListAsync()).ToHashSet();
 
-                ahListChecker.CheckItems(listedItems.Where(a => !activeUids.Contains(a.uid))
+                var newItems = listedItems.Where(a => !activeUids.Contains(a.uid)).ToList();
+                newItemCount = newItems.Count;
+                ahListChecker.CheckItems(newItems
                     .Select(a => new Item
                     {
                         Description = string.Join("\n", a.item.desc),
                         ItemName = a.item.auction.ItemName
                     }), "sender: " + inventoryData.SenderContactId, false);
             }
+            if (!string.IsNullOrWhiteSpace(inventoryData.SenderContactId))
+                logger.LogInformation("NBT request from {SenderId} contained {UuidItemCount} items with a UUID and {NewItemCount} new items",
+                    inventoryData.SenderContactId, listedItems.Count, newItemCount);
         }
         catch (Exception e)
         {

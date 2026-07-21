@@ -47,7 +47,8 @@ public class AhListChecker
                 try
                 {
                     var uuid = await playerNameService.GetUuid(sellerName);
-                    Console.WriteLine("Checking listings for " + sellerName + " uuid " + uuid + " " + item.ItemName + " from: " + playerId);
+                    logger.LogInformation("Checking listings for {SellerName} uuid {SellerUuid} item {ItemName} from {PlayerId}",
+                        sellerName, uuid, item.ItemName, playerId);
                     var info = await proxyApi.BaseAhPlayerIdPostWithHttpInfoAsync(uuid, playerId.Contains(':') ? playerId : $"player: {playerId}");
                     if (info.StatusCode == 0)
                         logger.LogError($"Failed to check ah listings from {sellerName} because proxy unavailable");

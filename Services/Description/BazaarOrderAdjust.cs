@@ -38,7 +38,6 @@ public class BazaarOrderAdjust : ICustomModifier
             // New order system: derive top prices from order lists (if available)
             var topSellPrice =  buyOrders?.FirstOrDefault()?.PricePerUnit ?? 0;
             var topBuyPrice = sellOrders?.FirstOrDefault()?.PricePerUnit ?? 0;
-            Console.WriteLine($"Bazaar order adjust for {auction.Tag}: top buy {topBuyPrice} top sell {topSellPrice}");
 
             if (bazaar != null && (topSellPrice != 0 || topBuyPrice != 0))
             {
