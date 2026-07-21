@@ -15,7 +15,7 @@ using Coflnet.Sky.PlayerName;
 using Coflnet.Sky.PlayerName.Client.Api;
 using Coflnet.Sky.PlayerName.Client.Client;
 using Coflnet.Sky.Settings.Client.Api;
-using FluentAssertions;
+using AwesomeAssertions;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;

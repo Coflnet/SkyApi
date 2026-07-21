@@ -19,7 +19,7 @@ using Coflnet.Sky.PlayerName.Client.Client;
 using Coflnet.Sky.Items.Client.Api;
 using Coflnet.Sky.Core;
 using System.Linq;
-using FluentAssertions;
+using AwesomeAssertions;
 using System.Threading;
 using System.Collections.Immutable;
 using Coflnet.Sky.Bazaar.Client.Model;

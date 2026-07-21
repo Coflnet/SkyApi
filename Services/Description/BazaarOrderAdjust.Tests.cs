@@ -5,7 +5,7 @@ using Coflnet.Sky.Api.Services.Description;
 using Coflnet.Sky.Bazaar.Client.Model;
 using Coflnet.Sky.Commands.Shared;
 using Coflnet.Sky.Core;
-using FluentAssertions;
+using AwesomeAssertions;
 using Newtonsoft.Json;
 using NUnit.Framework;
 

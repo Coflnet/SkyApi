@@ -1,7 +1,7 @@
 using System.Collections.Generic;
 using Coflnet.Sky.Api.Models.Mod;
 using NUnit.Framework;
-using FluentAssertions;
+using AwesomeAssertions;
 using System.Text.RegularExpressions;
 using System.Globalization;
 using Moq;

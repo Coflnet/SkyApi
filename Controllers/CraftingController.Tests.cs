@@ -8,7 +8,7 @@ using Coflnet.Sky.Items.Client.Api;
 using Coflnet.Sky.Items.Client.Model;
 using Coflnet.Sky.Sniper.Client.Api;
 using Coflnet.Sky.Sniper.Client.Model;
-using FluentAssertions;
+using AwesomeAssertions;
 using Microsoft.Extensions.Configuration;
 using Moq;
 using NUnit.Framework;

@@ -1,5 +1,5 @@
 using NUnit.Framework;
-using FluentAssertions;
+using AwesomeAssertions;
 
 namespace Coflnet.Sky.Api.Services.Description.Tests;
 
