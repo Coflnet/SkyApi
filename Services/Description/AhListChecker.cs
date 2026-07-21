@@ -20,19 +20,20 @@ public class AhListChecker
         this.logger = logger;
     }
 
-    public void CheckItems(IEnumerable<Item> items, string playerId)
+    public void CheckItems(IEnumerable<Item> items, string playerId, bool requireNewListingTimestamp = true)
     {
+        var checkedSellers = new HashSet<string>();
         foreach (var item in items)
         {
             if (item?.Description == null)
                 continue;
-            if (!item.Description.Contains("05h 59m 5") && !item.Description.Contains("Can buy in"))
+            if (requireNewListingTimestamp && !item.Description.Contains("05h 59m 5") && !item.Description.Contains("Can buy in"))
                 continue;
             var sellerName = item.Description.Split('\n')
                     .Where(x => x.StartsWith("§7Seller:"))
                     .FirstOrDefault()?.Replace("§7Seller: §7", "")
                     .Split(' ').Last(); // skip rank prefix
-            if (sellerName == null)
+            if (sellerName == null || !checkedSellers.Add(sellerName))
             {
                 continue;
             }

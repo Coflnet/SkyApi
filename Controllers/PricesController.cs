@@ -351,14 +351,31 @@ public class PricesController : ControllerBase
         var priceTask = modDescriptionSerice.GetPrices(auctions.Select(a => a.auction));
         try
         {
-            ahListChecker.CheckItems(auctions.Where(a => a.auction?.ItemName != null)
-                .Select(a => new Item() { Description = string.Join("\n", a.desc), ItemName = a.auction.ItemName }), "sender: " + inventoryData.SenderContactId);
+            var listedItems = auctions.Select(a => (item: a, hasUid: TryGetItemUid(a.auction, out var uid), uid))
+                .Where(a => a.hasUid)
+                .ToList();
+            if (listedItems.Count > 0)
+            {
+                var itemUids = listedItems.Select(a => a.uid).ToHashSet();
+                var uidKey = fe.NbtInstance.GetKeyId("uid");
+                var activeUids = (await (from lookup in context.NBTLookups
+                                         join auction in context.Auctions on lookup.AuctionId equals auction.Id
+                                         where lookup.KeyId == uidKey && itemUids.Contains(lookup.Value) && auction.End > DateTime.Now
+                                         select lookup.Value).ToListAsync()).ToHashSet();
+
+                ahListChecker.CheckItems(listedItems.Where(a => !activeUids.Contains(a.uid))
+                    .Select(a => new Item
+                    {
+                        Description = string.Join("\n", a.item.desc),
+                        ItemName = a.item.auction.ItemName
+                    }), "sender: " + inventoryData.SenderContactId, false);
+            }
         }
         catch (Exception e)
         {
             logger.LogError(e, "failed to publish inventory nbt");
         }
-        var data = await modDescriptionSerice.GetPrices(auctions.Select(a => a.auction))
+        var data = await priceTask
             ?? throw new CoflnetException("sniper_unreachable", "The sniper service could not be reached for prices");
         counter.Inc();
         return data.Select(d =>
@@ -385,6 +402,19 @@ public class PricesController : ControllerBase
                 return null;
             }
         });
+    }
+
+    internal static bool TryGetItemUid(SaveAuction auction, out long uid)
+    {
+        uid = default;
+        var itemUuid = auction?.FlatenedNBT?.GetValueOrDefault("uid");
+        if (string.IsNullOrEmpty(itemUuid))
+            itemUuid = auction?.FlatenedNBT?.GetValueOrDefault("uuid");
+        if (string.IsNullOrEmpty(itemUuid))
+            itemUuid = auction?.Context?.GetValueOrDefault("itemUuid");
+
+        return itemUuid?.Length >= 12 && long.TryParse(itemUuid[^12..],
+            System.Globalization.NumberStyles.HexNumber, System.Globalization.CultureInfo.InvariantCulture, out uid);
     }
 
     /// <summary>
