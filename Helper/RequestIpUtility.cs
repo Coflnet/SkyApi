@@ -5,8 +5,22 @@ using Microsoft.AspNetCore.Http;
 
 namespace Coflnet.Sky.Api.Helper
 {
+    public class EndpointIpRateLimitOptions
+    {
+        public Dictionary<string, List<string>> IpWhitelist { get; set; } = new Dictionary<string, List<string>>();
+    }
+
     public static class RequestIpUtility
     {
+        public static bool IsIpWhitelistedForEndpoint(HttpContext context, string realIpHeader, EndpointIpRateLimitOptions options)
+        {
+            var path = context.Request.Path.Value ?? string.Empty;
+            var endpointWhitelist = options?.IpWhitelist?
+                .FirstOrDefault(entry => string.Equals(entry.Key, path, System.StringComparison.OrdinalIgnoreCase)).Value;
+
+            return IsIpWhitelisted(ResolveWhitelistIp(context, realIpHeader), endpointWhitelist);
+        }
+
         public static string ResolveClientIp(HttpContext context, string realIpHeader)
         {
             if (TryGetHeaderIp(context, realIpHeader, out var ip))

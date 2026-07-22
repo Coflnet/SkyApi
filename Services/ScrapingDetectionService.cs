@@ -48,6 +48,7 @@ namespace Coflnet.Sky.Api.Services
         private readonly AspNetCoreRateLimit.ClientRateLimitOptions _clientRateLimitOptions;
         private readonly AspNetCoreRateLimit.ClientRateLimitPolicies _clientRateLimitPolicies;
         private readonly AspNetCoreRateLimit.IpRateLimitOptions _ipRateLimitOptions;
+        private readonly EndpointIpRateLimitOptions _endpointIpRateLimitOptions;
 
         private const int MaxViolationsBeforeBan = 500; 
         private const int MaxSubnetViolationsBeforeBan = 3000;
@@ -68,7 +69,8 @@ namespace Coflnet.Sky.Api.Services
             Coflnet.Payments.Client.Api.UserApi userApi = null,
             IOptions<AspNetCoreRateLimit.ClientRateLimitOptions> clientRateLimitOptions = null,
             IOptions<AspNetCoreRateLimit.ClientRateLimitPolicies> clientRateLimitPolicies = null,
-            IOptions<AspNetCoreRateLimit.IpRateLimitOptions> ipRateLimitOptions = null)
+            IOptions<AspNetCoreRateLimit.IpRateLimitOptions> ipRateLimitOptions = null,
+            IOptions<EndpointIpRateLimitOptions> endpointIpRateLimitOptions = null)
         {
             _logger = logger;
             _tokenService = tokenService;
@@ -76,6 +78,7 @@ namespace Coflnet.Sky.Api.Services
             _clientRateLimitOptions = clientRateLimitOptions?.Value;
             _clientRateLimitPolicies = clientRateLimitPolicies?.Value;
             _ipRateLimitOptions = ipRateLimitOptions?.Value;
+            _endpointIpRateLimitOptions = endpointIpRateLimitOptions?.Value ?? new EndpointIpRateLimitOptions();
 
             // Pre-ban requested IPs
             _bannedIps.TryAdd("45.74.244.124", true);
@@ -105,6 +108,11 @@ namespace Coflnet.Sky.Api.Services
         private bool IsExempt(HttpContext context)
         {
             var realIpHeader = _ipRateLimitOptions?.RealIpHeader ?? "CF-Connecting-IP";
+            if (RequestIpUtility.IsIpWhitelistedForEndpoint(context, realIpHeader, _endpointIpRateLimitOptions))
+            {
+                return true;
+            }
+
             var whitelistIp = RequestIpUtility.ResolveWhitelistIp(context, realIpHeader);
             if (RequestIpUtility.IsIpWhitelisted(whitelistIp, _ipRateLimitOptions?.IpWhitelist))
             {

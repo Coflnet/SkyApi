@@ -163,6 +163,7 @@ namespace Coflnet.Sky.Api
             services.AddSingleton<IConnectionMultiplexer>(provider => ConnectionMultiplexer.Connect(redisOptions));
 
             // Rate limiting 
+            services.Configure<EndpointIpRateLimitOptions>(Configuration.GetSection("EndpointIpRateLimiting"));
             // IP Rate Limiting (for public/anonymous requests)
             services.Configure<IpRateLimitOptions>(Configuration.GetSection("IpRateLimiting"));
             services.Configure<IpRateLimitPolicies>(Configuration.GetSection("IpRateLimitPolicies"));
@@ -257,6 +258,7 @@ namespace Coflnet.Sky.Api
                 sp.GetRequiredService<IHttpContextAccessor>(),
                 sp.GetRequiredService<IOptions<IpRateLimitOptions>>(),
                 sp.GetRequiredService<IOptions<ClientRateLimitOptions>>(),
+                sp.GetRequiredService<IOptions<EndpointIpRateLimitOptions>>(),
                 bypassTokenForRegistration));
             services.AddSingleton<DiscordBot.Client.Api.IMessageApi>(new DiscordBot.Client.Api.MessageApi(Configuration["DISCORD_BOT_BASE_URL"]));
             services.AddCoflService();
