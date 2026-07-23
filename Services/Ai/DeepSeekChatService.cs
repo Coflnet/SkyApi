@@ -30,7 +30,7 @@ public class DeepSeekChatService
         @"(?<![\w(/`\[])/(?:account|auction|bazaar|flipper|guides|item|mod|player|premium|updates|wiki)(?:/[A-Za-z0-9_.~%-]+)*(?:\?[A-Za-z0-9_.~%=&+-]+)?",
         RegexOptions.Compiled);
     private static readonly Regex LeakedToolMarkup = new(
-        @"(?:[<\s|\uFF5C]*DSML[\s|\uFF5C]*tool[_\s]?calls?\b|<\s*/?\s*(?:think|tool[_\s]?calls?|invoke|parameter|function)\b|tool[_\s]?calls?\s*:\s*[\[{]|""tool_calls""\s*:|\breasoning_content\s*[:=]|<\s*\|\s*(?:analysis|assistant|tool)\s*\||[""']?(?:name|function)[""']?\s*:\s*[""'](?:search_item|get_filters|get_price|search_knowledge|search_api_tools|call_api_get)[""'])",
+        @"(?:[<\s|\uFF5C]*DSML[\s|\uFF5C]*tool[_\s]?calls?\b|<\s*/?\s*(?:think|tool[_\s]?calls?|invoke|parameter|function)\b|tool[_\s]?calls?\s*:\s*[\[{]|""tool_calls""\s*:|\breasoning_content\s*[:=]|<\s*\|\s*(?:analysis|assistant|tool)\s*\||[""']?(?:name|function)[""']?\s*:\s*[""'](?:search_item|search_filter_options|get_filters|get_price|search_knowledge|search_api_tools|call_api_get)[""'])",
         RegexOptions.Compiled | RegexOptions.IgnoreCase | RegexOptions.Singleline);
     private static readonly Regex AnswerWord = new(@"[\p{L}\p{N}]+", RegexOptions.Compiled);
     private readonly IConfiguration configuration;
@@ -331,6 +331,11 @@ public class DeepSeekChatService
                     link = $"/item/{Uri.EscapeDataString(item.Id)}"
                 }));
             }
+            case "search_filter_options":
+            {
+                var options = JArray.FromObject(await pricesApi.ApiFilterOptionsGetAsync("*"));
+                return SearchFilterOptions(options, Required(args, "query")).ToString(Formatting.None);
+            }
             case "get_filters":
                 return JsonConvert.SerializeObject(await pricesApi.ApiFilterOptionsGetAsync(Required(args, "item_tag")));
             case "get_price":
@@ -350,7 +355,9 @@ public class DeepSeekChatService
                 var source = args.Value<string>("source");
                 if (source == "all") source = null;
                 var results = await knowledge.SearchAsync(Required(args, "query"), source, 6, cancellationToken);
-                return JsonConvert.SerializeObject(results);
+                return results.Count == 0
+                    ? "No indexed knowledge results are currently available. Do not infer that documentation does not exist or improvise SkyCofl behavior."
+                    : JsonConvert.SerializeObject(results);
             }
             case "search_api_tools":
                 return JsonConvert.SerializeObject(await knowledge.SearchAsync(Required(args, "query"), "api", 8, cancellationToken));
@@ -388,6 +395,10 @@ public class DeepSeekChatService
         {
             ["item_name"] = StringProperty("The item name or abbreviation")
         }, "item_name"),
+        Tool("search_filter_options", "Search current live SkyCofl filter names, types, descriptions, and option values. Use for any question about which filter or value to use.", new JObject
+        {
+            ["query"] = StringProperty("A focused filter name or concept, for example exotic color")
+        }, "query"),
         Tool("get_filters", "List valid price filters and values for one item tag.", new JObject
         {
             ["item_tag"] = StringProperty("Exact item tag returned by search_item")
@@ -400,7 +411,7 @@ public class DeepSeekChatService
         Tool("search_knowledge", "Search indexed SkyCofl wiki pages, feature documentation, filter guides, general guides, and API docs.", new JObject
         {
             ["query"] = StringProperty("A focused semantic search query"),
-            ["source"] = new JObject { ["type"] = "string", ["enum"] = new JArray("all", "wiki", "guide", "api") }
+            ["source"] = new JObject { ["type"] = "string", ["enum"] = new JArray("all", "wiki", "guide", "filter", "api") }
         }, "query"),
         Tool("search_api_tools", "Find less-common read-only SkyApi endpoints before using call_api_get.", new JObject
         {
@@ -444,6 +455,32 @@ public class DeepSeekChatService
         ? args.Value<string>(name)
         : throw new ArgumentException($"{name} is required");
 
+    internal static JArray SearchFilterOptions(JArray options, string query)
+    {
+        var ignored = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            "a", "an", "the", "for", "how", "item", "items", "filter", "filters", "option", "options", "now", "use", "using"
+        };
+        var terms = AnswerWord.Matches(query ?? "")
+            .Select(match => match.Value.ToLowerInvariant())
+            .Select(term => term.Length > 3 && term.EndsWith('s') ? term[..^1] : term)
+            .Where(term => term.Length > 1 && !ignored.Contains(term))
+            .Distinct()
+            .ToArray();
+        if (terms.Length == 0)
+            return new JArray();
+
+        return new JArray(options
+            .OfType<JObject>()
+            .Select(option => (option, text: option.ToString(Formatting.None).ToLowerInvariant()))
+            .Select(candidate => (candidate.option, score: terms.Count(candidate.text.Contains)))
+            .Where(candidate => candidate.score > 0)
+            .OrderByDescending(candidate => candidate.score)
+            .ThenBy(candidate => candidate.option.Value<string>("name"))
+            .Take(20)
+            .Select(candidate => candidate.option));
+    }
+
     private static string Truncate(string value, int max = MaxToolResultLength) => value?.Length > max ? value[..max] + "…" : value ?? "";
 
     private static string UserContent(string message, string page) =>
@@ -453,6 +490,8 @@ public class DeepSeekChatService
         You are the SkyCofl assistant, an expert on SkyCofl, Hypixel SkyBlock item prices, filters, features, and guides.
         Use tools for current prices and any SkyCofl-specific factual claim; do not invent values, endpoints, or filters.
         For prices, search_item first, then get_filters when modifiers matter, then get_price. For documentation, use search_knowledge.
+        For any question about filter names, syntax, meaning, or valid values, use both search_filter_options and search_knowledge. Live filter options are authoritative for names and values; indexed documentation explains how to use them.
+        If a knowledge search reports no results, do not claim that documentation does not exist and do not improvise SkyCofl behavior. Use another relevant tool or state that the answer could not be verified.
         For less common live data, use search_api_tools and only call an endpoint it returned through call_api_get.
         Answer the question directly first, then add only useful supporting detail or concrete next steps. Format the answer as readable Markdown.
         Cite retrieved documentation and make every mentioned internal destination a Markdown link, for example [the flipper](/flipper) or [Hyperion prices](/item/HYPERION). Never emit a bare /path.

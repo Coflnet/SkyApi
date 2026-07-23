@@ -272,6 +272,7 @@ public class KnowledgeService
 
         long indexedBytes = 0;
         var indexedChunks = 0;
+        var apiBase = (configuration["API_BASE_URL"] ?? "https://sky.coflnet.com").TrimEnd('/');
         foreach (var url in urls.Where(IsAllowedKnowledgeUrl).Take(maxPages))
         {
             if (indexedBytes >= maxBytes)
@@ -290,7 +291,32 @@ public class KnowledgeService
             }
         }
 
-        var apiBase = (configuration["API_BASE_URL"] ?? "https://sky.coflnet.com").TrimEnd('/');
+        try
+        {
+            var filterOptions = JArray.Parse(await web.GetStringAsync($"{apiBase}/api/filter/options?itemTag=*", cancellationToken));
+            foreach (var filter in filterOptions.OfType<JObject>())
+            {
+                if (indexedBytes >= maxBytes)
+                    break;
+                var name = filter.Value<string>("name");
+                if (string.IsNullOrWhiteSpace(name))
+                    continue;
+                var content = FilterKnowledgeContent(filter);
+                indexedChunks += await IndexContentAsync(
+                    $"SkyCofl filter: {name}",
+                    $"https://sky.coflnet.com/wiki/filters#{Regex.Replace(name.ToLowerInvariant(), "[^a-z0-9]+", "-")}",
+                    "filter",
+                    content,
+                    maxBytes - indexedBytes,
+                    cancellationToken);
+                indexedBytes += Encoding.UTF8.GetByteCount(content);
+            }
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            logger.LogWarning(ex, "Could not index live SkyCofl filter options");
+        }
+
         try
         {
             var swagger = JObject.Parse(await web.GetStringAsync($"{apiBase}/api/swagger/v1/swagger.json", cancellationToken));
@@ -348,7 +374,7 @@ public class KnowledgeService
         if (changed.Count == 0)
             return 0;
 
-        var questions = source == "api"
+        var questions = source is "api" or "filter"
             ? changed.Select(_ => (IReadOnlyList<string>)Array.Empty<string>()).ToList()
             : await GenerateQuestionsAsync(title, changed.Select(chunk => chunk.Content).ToList(), cancellationToken);
         var embeddingInputs = changed.Select((chunk, index) => questions[index].Count == 0
@@ -368,7 +394,7 @@ public class KnowledgeService
                 ["content"] = chunk.Content,
                 ["questions"] = JArray.FromObject(questions[i]),
                 ["content_hash"] = chunk.ContentHash,
-                ["embedding_profile"] = questions[i].Count == 3 || source == "api" ? profile : profile + "-fallback",
+                ["embedding_profile"] = questions[i].Count == 3 || source is "api" or "filter" ? profile : profile + "-fallback",
                 ["embedding"] = JArray.FromObject(vectors[i])
             }.ToString(Newtonsoft.Json.Formatting.None));
         }
@@ -391,7 +417,15 @@ public class KnowledgeService
 
     private async Task<IReadOnlyList<KnowledgeResult>> SearchLexicalAsync(string query, string source, int limit, CancellationToken cancellationToken)
     {
-        var must = new JArray(new JObject { ["multi_match"] = new JObject { ["query"] = query, ["fields"] = new JArray("title^3", "questions^2", "content") } });
+        var must = new JArray(new JObject
+        {
+            ["multi_match"] = new JObject
+            {
+                ["query"] = query,
+                ["fields"] = new JArray("title^3", "questions^2", "content"),
+                ["fuzziness"] = "AUTO"
+            }
+        });
         var body = new JObject { ["size"] = limit, ["query"] = new JObject { ["bool"] = new JObject { ["must"] = must } } };
         if (!string.IsNullOrWhiteSpace(source))
             ((JObject)body["query"]["bool"])["filter"] = new JArray(new JObject { ["term"] = new JObject { ["source"] = source } });
@@ -528,7 +562,7 @@ public class KnowledgeService
 
     private string EmbeddingProfile(string source)
     {
-        if (source == "api")
+        if (source is "api" or "filter")
             return $"{embeddings.Profile}:raw-v1";
         var questionModel = configuration["KNOWLEDGE_QUESTION_MODEL"] ?? configuration["DEEPSEEK_MODEL"] ?? "deepseek-v4-flash";
         return $"{embeddings.Profile}:questions-v1:{questionModel}";
@@ -564,6 +598,19 @@ public class KnowledgeService
     }
 
     private static string StripHtml(string html) => Whitespace.Replace(WebUtility.HtmlDecode(Tags.Replace(Scripts.Replace(html, " "), " ")), " ").Trim();
+
+    internal static string FilterKnowledgeContent(JObject filter)
+    {
+        var name = filter.Value<string>("name") ?? "Unknown";
+        var options = filter["options"]?.Values<string>().Where(value => !string.IsNullOrWhiteSpace(value)) ?? [];
+        return $"""
+            SkyCofl filter name: {name}
+            Syntax: {name}=VALUE
+            Type: {filter.Value<string>("longType") ?? "Unknown"}
+            Description: {filter.Value<string>("description") ?? "No description available."}
+            Current option values or numeric bounds: {string.Join(", ", options)}
+            """;
+    }
 
     private static IEnumerable<string> Chunk(string content)
     {

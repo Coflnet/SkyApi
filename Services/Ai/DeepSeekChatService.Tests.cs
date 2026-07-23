@@ -14,6 +14,7 @@ public class DeepSeekChatServiceTests
     [TestCase("reasoning_content: I need more evidence")]
     [TestCase("tool result\u0000hidden")]
     [TestCase("{ \"name\": \"get_price\", \"arguments\": { \"item_tag\": \"HYPERION\" } }")]
+    [TestCase("{ \"name\": \"search_filter_options\", \"arguments\": { \"query\": \"exotics\" } }")]
     public void IsPlausibleAnswer_RejectsLeakedToolMarkup(string answer)
     {
         Assert.That(DeepSeekChatService.IsPlausibleAnswer(answer), Is.False);
@@ -43,5 +44,22 @@ public class DeepSeekChatServiceTests
         Assert.That(
             DeepSeekChatService.IsPlausibleAnswer("The API response may contain a `tool_calls` field."),
             Is.True);
+    }
+
+    [Test]
+    public void SearchFilterOptions_FindsLiveExoticColorDefinition()
+    {
+        var options = Newtonsoft.Json.Linq.JArray.Parse("""
+            [
+              {"name":"ExoticColor","options":["Any","Exotic","Original","Fairy+Crystal"],"description":"Classifies exotic colors"},
+              {"name":"Rarity","options":["COMMON","RARE"],"description":"Item tier"}
+            ]
+            """);
+
+        var result = DeepSeekChatService.SearchFilterOptions(options, "how do I filter for exotics now");
+
+        Assert.That(result, Has.Count.EqualTo(1));
+        Assert.That((string)result[0]["name"], Is.EqualTo("ExoticColor"));
+        Assert.That(result[0]["options"]?.ToObject<string[]>(), Does.Contain("Exotic"));
     }
 }

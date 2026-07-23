@@ -24,7 +24,7 @@ namespace Coflnet.Sky.Api.Controller;
 [ResponseCache(Duration = 0, Location = ResponseCacheLocation.None, NoStore = true)]
 public class InfoController : ControllerBase
 {
-    private const string AiDataNotice = "Messages may be used to improve AI models and may be processed overseas by DeepSeek or other processors whose location is not known. Do not share personal or sensitive information.";
+    private const string AiDataNotice = "AI conversations may be reviewed to improve the system and may be processed overseas. Do not share personal or sensitive information.";
 
     [HttpGet("updates/{year}/{month}")]
     [ResponseCache(Duration = 3600 * 6, Location = ResponseCacheLocation.None, NoStore = true)]
