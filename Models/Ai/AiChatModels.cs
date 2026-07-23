@@ -26,6 +26,7 @@ public class AiChatResponse
     public int TranscriptBytes { get; set; }
     public int TranscriptLimit { get; set; }
     public bool RequiresNewConversation { get; set; }
+    public bool RequiresBugReport { get; set; }
     public string Error { get; set; }
     public AiQuota Quota { get; set; }
     public string DataNotice { get; set; }
@@ -46,4 +47,5 @@ public record AiChatResult(
     string ConversationId,
     int TranscriptBytes,
     int TranscriptLimit,
-    bool RequiresNewConversation);
+    bool RequiresNewConversation,
+    bool RequiresBugReport);

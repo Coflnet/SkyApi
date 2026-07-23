@@ -62,6 +62,9 @@ public class InfoController : ControllerBase
             var result = await chatService.ChatAsync(request, owner, quota?.Tier ?? "anonymous", traceId, cancellationToken);
             Activity.Current?.SetTag("ai.conversation_id", result.ConversationId);
             Activity.Current?.SetTag("ai.transcript_bytes", result.TranscriptBytes);
+            Activity.Current?.SetTag("ai.requires_bug_report", result.RequiresBugReport);
+            if (result.RequiresBugReport)
+                HttpContext.Items[AiRateLimitFilter.RefundItemKey] = true;
             return Ok(new AiChatResponse
             {
                 Answer = result.Answer,
@@ -70,6 +73,7 @@ public class InfoController : ControllerBase
                 TranscriptBytes = result.TranscriptBytes,
                 TranscriptLimit = result.TranscriptLimit,
                 RequiresNewConversation = result.RequiresNewConversation,
+                RequiresBugReport = result.RequiresBugReport,
                 Quota = quota ?? new AiQuota(),
                 DataNotice = AiDataNotice
             });
@@ -171,6 +175,8 @@ public class InfoController : ControllerBase
         {
             Message = prompt
         }, owner, quota?.Tier ?? "anonymous", traceId, cancellationToken);
+        if (result.RequiresBugReport)
+            HttpContext.Items[AiRateLimitFilter.RefundItemKey] = true;
         return result.Answer;
     }
 }

@@ -23,10 +23,10 @@ public class AiRateLimitFilter : IAsyncActionFilter
     private static readonly IReadOnlyDictionary<string, int> Limits = new Dictionary<string, int>
     {
         ["anonymous"] = 3,
-        ["logged_in"] = 15,
-        ["starter_premium"] = 40,
-        ["premium"] = 100,
-        ["premium_plus"] = 500
+        ["logged_in"] = 10,
+        ["starter_premium"] = 20,
+        ["premium"] = 50,
+        ["premium_plus"] = 200
     };
 
     private readonly IConnectionMultiplexer redis;

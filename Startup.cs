@@ -33,6 +33,7 @@ using Coflnet.Sky.Api.Helper;
 using Coflnet.Sky.Api.Services.Ai;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.IdentityModel.Tokens;
+using OpenTelemetry.Trace;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -124,6 +125,7 @@ namespace Coflnet.Sky.Api
             });
 
             services.AddJaeger(Configuration, 0.001, 60);
+            services.AddOpenTelemetry().WithTracing(builder => builder.AddSource(DeepSeekChatService.ActivitySourceName));
             services.AddScoped<PricesService>();
             services.AddSingleton<GoogletokenService>();
             services.AddSingleton<ApiKeyService>();
