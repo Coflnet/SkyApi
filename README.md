@@ -23,9 +23,10 @@ Required production configuration:
 | `DEEPSEEK_MODEL` | Model name; defaults to `deepseek-v4-flash` |
 | `DEEPSEEK_THINKING` / `DEEPSEEK_REASONING_EFFORT` | Thinking defaults to `true` with `high` effort; exact reasoning/tool transcripts are kept in Redis |
 | `DEEPSEEK_MAX_TOKENS` | Per-completion output ceiling; defaults to `4096` |
-| `OPENSEARCH_URL` | Cluster URL, e.g. `https://opensearch-cluster-nodes.opensearch:9200` |
+| `OPENSEARCH_URL` | Cluster URL whose hostname matches the HTTP certificate, e.g. `https://opensearch-cluster.opensearch:9200` |
 | `OPENSEARCH_USERNAME` / `OPENSEARCH_PASSWORD` | The fleet `sky-api` identity and its out-of-band password |
 | `OPENSEARCH_VERIFY_TLS` | Keep `true` when the cluster CA is trusted; explicitly set `false` only for an internal generated certificate that cannot be mounted |
+| `OPENSEARCH_CA_CERT_PATH` | Optional PEM CA path for a private OpenSearch CA. When set, SkyApi validates both the chain against this CA and the service hostname. |
 | `OPENSEARCH_NUMBER_OF_REPLICAS` | Knowledge-index replicas; defaults to `1` for the three-node production cluster and development overrides it to `0` for a single local node |
 | `EMBEDDING_API_URL` / `EMBEDDING_API_KEY` | Optional OpenAI-compatible embeddings endpoint. With no endpoint, a deterministic local lexical embedding is used. |
 | `EMBEDDING_MODEL` / `EMBEDDING_DIMENSIONS` | Must match the configured embedding endpoint; defaults to `BAAI/bge-small-en-v1.5` and `384` |

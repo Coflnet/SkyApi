@@ -4,7 +4,9 @@ using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
+using System.Net.Security;
 using System.Security.Cryptography;
+using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
@@ -45,7 +47,22 @@ public class KnowledgeService
             .ToHashSet(StringComparer.OrdinalIgnoreCase);
 
         var handler = new HttpClientHandler();
-        if (bool.TryParse(configuration["OPENSEARCH_VERIFY_TLS"], out var verifyTls) && !verifyTls)
+        var caPath = configuration["OPENSEARCH_CA_CERT_PATH"];
+        if (!string.IsNullOrWhiteSpace(caPath))
+        {
+            var ca = X509Certificate2.CreateFromPemFile(caPath);
+            handler.ServerCertificateCustomValidationCallback = (_, certificate, _, errors) =>
+            {
+                if (certificate == null || errors.HasFlag(SslPolicyErrors.RemoteCertificateNameMismatch))
+                    return false;
+                using var chain = new X509Chain();
+                chain.ChainPolicy.TrustMode = X509ChainTrustMode.CustomRootTrust;
+                chain.ChainPolicy.CustomTrustStore.Add(ca);
+                chain.ChainPolicy.RevocationMode = X509RevocationMode.NoCheck;
+                return chain.Build(certificate);
+            };
+        }
+        else if (bool.TryParse(configuration["OPENSEARCH_VERIFY_TLS"], out var verifyTls) && !verifyTls)
             handler.ServerCertificateCustomValidationCallback = HttpClientHandler.DangerousAcceptAnyServerCertificateValidator;
         openSearch = new HttpClient(handler) { Timeout = TimeSpan.FromSeconds(30) };
         var username = configuration["OPENSEARCH_USERNAME"];
