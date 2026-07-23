@@ -1,4 +1,4 @@
-VERSION=0.7.6
+VERSION=0.7.7
 PACKAGE_NAME=Coflnet.Sky.Api.Client
 
 docker run --rm -v "${PWD}:/local" --network host -u $(id -u ${USER}):$(id -g ${USER})  openapitools/openapi-generator-cli generate \
@@ -13,6 +13,18 @@ sed -i 's/GIT_REPO_ID/SkyApi/g' $path
 sed -i 's/>OpenAPI/>Coflnet/g' $path
 sed -i 's@annotations</Nullable>@annotations</Nullable>\n    <PackageReadmeFile>README.md</PackageReadmeFile>@g' $path
 sed -i '34i    <None Include="../../../../README.md" Pack="true" PackagePath="\"/>' $path
+
+# Preserve the bit values and metadata that OpenAPI drops from ItemFlags.
+FlagFile="src/$PACKAGE_NAME/Model/ItemFlags.cs"
+sed -i 's/= 1/= 0/g' $FlagFile
+sed -i 's/= 2/= 1/g' $FlagFile
+sed -i 's/= 3/= 2/g' $FlagFile
+sed -i 's/= 4/= 4/g' $FlagFile
+sed -i 's/= 6/= 16/g' $FlagFile
+sed -i 's/= 8/= 64/g' $FlagFile
+sed -i 's/= 5/= 8/g' $FlagFile
+sed -i 's/= 7/= 32/g' $FlagFile
+sed -i 's/    public enum ItemFlags/    [Flags]\n    public enum ItemFlags/g' $FlagFile
 
 # =============================================================================
 # Post-generation patch: Fix Dictionary<string, string> filters query parameters
