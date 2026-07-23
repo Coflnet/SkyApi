@@ -53,6 +53,25 @@ public class PremiumTierService
         return await OwnsProduct(controllerInstance, name);
     }
 
+    /// <summary>Returns the authenticated user and their highest active chat quota tier.</summary>
+    public async Task<(GoogleUser user, string tier)> GetUserAndTier(ControllerBase controllerInstance)
+    {
+        var user = await GetUserOrDefault(controllerInstance);
+        if (user == null)
+            return (null, "anonymous");
+
+        var products = new List<string> { "starter_premium", "premium", "premium_plus" };
+        var owns = await userApi.UserUserIdOwnsUntilPostAsync(user.Id.ToString(), products, 0);
+        var now = DateTime.Now;
+        if (owns.TryGetValue("premium_plus", out var premiumPlus) && premiumPlus > now)
+            return (user, "premium_plus");
+        if (owns.TryGetValue("premium", out var premium) && premium > now)
+            return (user, "premium");
+        if (owns.TryGetValue("starter_premium", out var starter) && starter > now)
+            return (user, "starter_premium");
+        return (user, "logged_in");
+    }
+
     private async Task<bool> OwnsProduct(ControllerBase controllerInstance, string name)
     {
         var user = await GetUserOrDefault(controllerInstance);

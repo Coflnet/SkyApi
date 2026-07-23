@@ -1,113 +1,145 @@
 using System;
-#nullable enable
+using System.Collections.Generic;
 using System.Linq;
 using System.Net;
 using System.Threading.Tasks;
+using Coflnet.Sky.Api.Models.Ai;
+using Coflnet.Sky.Api.Services;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Filters;
 using Microsoft.Extensions.Logging;
 using StackExchange.Redis;
 
-namespace Coflnet.Sky.Api.Helper
-{
-    /// <summary>
-    /// Limits calls to the AI endpoint to 10 per day per client IP, synced via Redis.
-    /// Respects Cloudflare proxy headers to determine the real client IP.
-    /// </summary>
-    public class AiRateLimitFilter : IAsyncActionFilter
-    {
-        private readonly IConnectionMultiplexer _redis;
-        private readonly ILogger<AiRateLimitFilter> _logger;
-        private const int DAILY_LIMIT = 10;
+namespace Coflnet.Sky.Api.Helper;
 
-        /// <summary>
-        /// Initializes a new instance of the <see cref="AiRateLimitFilter"/> class.
-        /// </summary>
-        /// <param name="redis">The Redis connection multiplexer for rate limit state.</param>
-        /// <param name="logger">The logger instance.</param>
-        public AiRateLimitFilter(IConnectionMultiplexer redis, ILogger<AiRateLimitFilter> logger)
+/// <summary>Applies the daily AI message quota by user, or by IP for anonymous traffic.</summary>
+public class AiRateLimitFilter : IAsyncActionFilter
+{
+    public const string QuotaItemKey = "AiQuota";
+    public const string IdentityItemKey = "AiIdentity";
+    public const string RefundItemKey = "AiQuotaRefund";
+    private const string CounterKeyItemKey = "AiQuotaCounter";
+    private static readonly IReadOnlyDictionary<string, int> Limits = new Dictionary<string, int>
+    {
+        ["anonymous"] = 3,
+        ["logged_in"] = 15,
+        ["starter_premium"] = 40,
+        ["premium"] = 100,
+        ["premium_plus"] = 500
+    };
+
+    private readonly IConnectionMultiplexer redis;
+    private readonly PremiumTierService premiumTierService;
+    private readonly ILogger<AiRateLimitFilter> logger;
+
+    public AiRateLimitFilter(IConnectionMultiplexer redis, PremiumTierService premiumTierService, ILogger<AiRateLimitFilter> logger)
+    {
+        this.redis = redis;
+        this.premiumTierService = premiumTierService;
+        this.logger = logger;
+    }
+
+    public async Task OnActionExecutionAsync(ActionExecutingContext context, ActionExecutionDelegate next)
+    {
+        var now = DateTimeOffset.UtcNow;
+        var reset = new DateTimeOffset(now.UtcDateTime.Date.AddDays(1), TimeSpan.Zero);
+        var tier = "anonymous";
+        var identity = GetClientIp(context.HttpContext) ?? "unknown";
+
+        try
         {
-            _redis = redis;
-            _logger = logger;
+            if (context.Controller is ControllerBase controller)
+            {
+                var access = await premiumTierService.GetUserAndTier(controller);
+                if (access.user != null)
+                {
+                    tier = access.tier;
+                    identity = access.user.Id.ToString();
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Could not resolve AI premium tier; applying the anonymous quota");
         }
 
-        /// <inheritdoc/>
-        public async Task OnActionExecutionAsync(ActionExecutingContext context, ActionExecutionDelegate next)
+        var limit = Limits[tier];
+        var quota = new AiQuota
+        {
+            Limit = limit,
+            Remaining = limit,
+            ResetsAt = reset,
+            Tier = tier
+        };
+        context.HttpContext.Items[QuotaItemKey] = quota;
+        context.HttpContext.Items[IdentityItemKey] = $"{(tier == "anonymous" ? "ip" : "user")}:{identity}";
+
+        try
+        {
+            var key = $"ratelimit:ai:{(tier == "anonymous" ? "ip" : "user")}:{identity}:{now:yyyyMMdd}";
+            var db = redis.GetDatabase();
+            var count = await db.StringIncrementAsync(key).ConfigureAwait(false);
+            if (count == 1)
+                await db.KeyExpireAsync(key, reset - now).ConfigureAwait(false);
+
+            quota.Remaining = Math.Max(0, limit - (int)count);
+            context.HttpContext.Items[CounterKeyItemKey] = key;
+            context.HttpContext.Response.Headers["RateLimit-Limit"] = limit.ToString();
+            context.HttpContext.Response.Headers["RateLimit-Remaining"] = quota.Remaining.ToString();
+            context.HttpContext.Response.Headers["RateLimit-Reset"] = reset.ToUnixTimeSeconds().ToString();
+
+            if (count > limit)
+            {
+                context.HttpContext.Response.Headers.RetryAfter = Math.Max(1, (int)(reset - now).TotalSeconds).ToString();
+                context.Result = new ObjectResult(new
+                {
+                    error = "daily_ai_limit_reached",
+                    message = $"Your {tier.Replace('_', ' ')} allowance is {limit} messages per UTC day.",
+                    quota
+                }) { StatusCode = StatusCodes.Status429TooManyRequests };
+                return;
+            }
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "AI rate limiter unavailable");
+            context.Result = new ObjectResult(new
+            {
+                error = "ai_rate_limit_unavailable",
+                message = "AI chat is temporarily unavailable. Please try again shortly."
+            }) { StatusCode = StatusCodes.Status503ServiceUnavailable };
+            return;
+        }
+
+        await next();
+        if (context.HttpContext.Items[RefundItemKey] is true
+            && context.HttpContext.Items[CounterKeyItemKey] is string counterKey
+            && context.HttpContext.Items[QuotaItemKey] is AiQuota reservedQuota)
         {
             try
             {
-                var http = context.HttpContext;
-                var ip = GetClientIp(http) ?? "unknown";
-                var now = DateTimeOffset.UtcNow;
-                var key = $"ratelimit:ai:ip:{ip}:{now:yyyyMMdd}";
-
-                var db = _redis.GetDatabase();
-                var count = await db.StringIncrementAsync(key).ConfigureAwait(false);
-
-                if (count == 1)
-                {
-                    // set key to expire at next UTC midnight
-                    var ttl = now.Date.AddDays(1) - now;
-                    await db.KeyExpireAsync(key, ttl).ConfigureAwait(false);
-                }
-
-                if (count > DAILY_LIMIT)
-                {
-                    var retryIn = now.Date.AddDays(1) - now;
-                    _logger.LogInformation("AI rate limit exceeded for {Ip}. Count={Count}", ip, count);
-                    http.Response.Headers["Retry-After"] = ((int)retryIn.TotalSeconds).ToString();
-                    context.Result = new ContentResult
-                    {
-                        StatusCode = StatusCodes.Status429TooManyRequests,
-                        Content = $"Rate limit exceeded. You can make up to {DAILY_LIMIT} requests per day to this endpoint.",
-                        ContentType = "text/plain"
-                    };
-                    return;
-                }
-                _logger.LogInformation("AI rate limit check for {Ip}. Count={Count}", ip, count);
+                await redis.GetDatabase().StringDecrementAsync(counterKey).ConfigureAwait(false);
+                reservedQuota.Remaining = Math.Min(reservedQuota.Limit, reservedQuota.Remaining + 1);
+                context.HttpContext.Response.Headers["RateLimit-Remaining"] = reservedQuota.Remaining.ToString();
             }
             catch (Exception ex)
             {
-                // Fail-open on rate limiter errors
-                _logger.LogError(ex, "AI rate limiter error");
+                logger.LogWarning(ex, "Could not refund unused AI quota");
             }
-
-            await next();
         }
+    }
 
-        private static string? GetClientIp(HttpContext context)
-        {
-            // Prefer Cloudflare headers
-            var headers = context.Request.Headers;
-            var ip = headers["CF-Connecting-IP"].FirstOrDefault()
-                     ?? headers["True-Client-IP"].FirstOrDefault();
-
-            if (string.IsNullOrWhiteSpace(ip))
-            {
-                // X-Forwarded-For may contain multiple: client, proxy1, proxy2
-                var xff = headers["X-Forwarded-For"].FirstOrDefault();
-                if (!string.IsNullOrWhiteSpace(xff))
-                {
-                    ip = xff.Split(',').Select(p => p.Trim()).FirstOrDefault();
-                }
-            }
-
-            if (string.IsNullOrWhiteSpace(ip))
-            {
-                ip = context.Connection.RemoteIpAddress?.ToString();
-            }
-
-            // Normalize IPv6-mapped IPv4 (e.g., ::ffff:192.0.2.128)
-            if (!string.IsNullOrWhiteSpace(ip) && IPAddress.TryParse(ip, out var addr))
-            {
-                if (addr.IsIPv4MappedToIPv6)
-                    ip = addr.MapToIPv4().ToString();
-                else
-                    ip = addr.ToString();
-            }
-
-            return ip;
-        }
+    public static string GetClientIp(HttpContext context)
+    {
+        var ip = context.Request.Headers["CF-Connecting-IP"].FirstOrDefault()
+            ?? context.Request.Headers["True-Client-IP"].FirstOrDefault();
+        if (string.IsNullOrWhiteSpace(ip))
+            ip = context.Request.Headers["X-Forwarded-For"].FirstOrDefault()?.Split(',')[0].Trim();
+        if (string.IsNullOrWhiteSpace(ip))
+            ip = context.Connection.RemoteIpAddress?.ToString();
+        if (IPAddress.TryParse(ip, out var address))
+            return address.IsIPv4MappedToIPv6 ? address.MapToIPv4().ToString() : address.ToString();
+        return ip;
     }
 }
