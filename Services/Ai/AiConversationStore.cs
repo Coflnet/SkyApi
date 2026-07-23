@@ -40,7 +40,7 @@ public class AiConversationStore
     public async Task<AiConversationHandle> OpenAsync(string requestedId, string owner, string tier)
     {
         var id = string.IsNullOrWhiteSpace(requestedId)
-            ? RandomNumberGenerator.GetHexString(16).ToLowerInvariant()
+            ? CreateConversationId()
             : requestedId.ToLowerInvariant();
         if (!ConversationIdPattern.IsMatch(id))
             throw new BadHttpRequestException("Invalid conversation id");
@@ -111,6 +111,9 @@ public class AiConversationStore
 
     private static string Hash(string value) =>
         Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(value ?? ""))).ToLowerInvariant();
+
+    internal static string CreateConversationId() =>
+        RandomNumberGenerator.GetHexString(32).ToLowerInvariant();
 
     private static void TrimForNextTurn(JArray messages)
     {
