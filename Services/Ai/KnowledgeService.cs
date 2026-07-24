@@ -50,7 +50,7 @@ public class KnowledgeService
         var caPath = configuration["OPENSEARCH_CA_CERT_PATH"];
         if (!string.IsNullOrWhiteSpace(caPath))
         {
-            var ca = X509Certificate2.CreateFromPemFile(caPath);
+            var ca = X509CertificateLoader.LoadCertificateFromFile(caPath);
             handler.ServerCertificateCustomValidationCallback = (_, certificate, _, errors) =>
             {
                 if (certificate == null || errors.HasFlag(SslPolicyErrors.RemoteCertificateNameMismatch))
