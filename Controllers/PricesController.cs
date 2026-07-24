@@ -472,7 +472,7 @@ public class PricesController : ControllerBase
     public async Task<Dictionary<string, Crafts.Client.Model.DropStatistic>> GetPriceChanges([FromQuery] List<string> itemTags, [FromServices] IDropApi dropApi)
     {
         var dropData = await dropApi.GetAllDropsAsync();
-        var clearedTags = itemTags.ToHashSet();
+        var clearedTags = itemTags.SelectMany(t=>t.Split(',')).ToHashSet();
         return dropData.Distinct().Where(i => clearedTags.Contains(i.Tag) || clearedTags.Count == 0)
             .ToDictionary(d => d.Tag, d => d);
     }
