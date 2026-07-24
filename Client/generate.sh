@@ -1,4 +1,4 @@
-VERSION=0.7.7
+VERSION=0.7.8
 PACKAGE_NAME=Coflnet.Sky.Api.Client
 
 docker run --rm -v "${PWD}:/local" --network host -u $(id -u ${USER}):$(id -g ${USER})  openapitools/openapi-generator-cli generate \
@@ -25,6 +25,42 @@ sed -i 's/= 8/= 64/g' $FlagFile
 sed -i 's/= 5/= 8/g' $FlagFile
 sed -i 's/= 7/= 32/g' $FlagFile
 sed -i 's/    public enum ItemFlags/    [Flags]\n    public enum ItemFlags/g' $FlagFile
+
+# OpenAPI describes NBT values as arbitrary JSON, but the generator turns the
+# nullable schema into an empty enum. Restore the actual dictionary value type.
+NbtFile="src/$PACKAGE_NAME/Model/NbtData.cs"
+python3 - "$NbtFile" <<'PYEOF'
+import sys
+
+path = sys.argv[1]
+with open(path) as file:
+    content = file.read()
+
+enum = '''        /// <summary>
+        /// Defines Inner
+        /// </summary>
+        [JsonConverter(typeof(StringEnumConverter))]
+        public enum InnerEnum
+        {
+        }
+
+'''
+if content.count(enum) != 1:
+    sys.exit("Expected generated NbtData.InnerEnum exactly once")
+content = content.replace(enum, "")
+
+replacements = {
+    "Dictionary<string, InnerEnum>": "Dictionary<string, object>",
+    "Dictionary<string, NbtData.InnerEnum>": "Dictionary<string, object>",
+}
+for generated, expected in replacements.items():
+    if content.count(generated) != 1:
+        sys.exit(f"Expected {generated} exactly once")
+    content = content.replace(generated, expected)
+
+with open(path, "w") as file:
+    file.write(content)
+PYEOF
 
 # =============================================================================
 # Post-generation patch: Fix Dictionary<string, string> filters query parameters
