@@ -1,0 +1,4 @@
+interface:
+  display_name: "SkyCofl Chat Evaluation"
+  short_description: "Run the API chat integration benchmark"
+  default_prompt: "Use $skycofl-chat-eval to evaluate the live SkyCofl chat answers."
