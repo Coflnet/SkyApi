@@ -262,8 +262,18 @@ public class PricesController : ControllerBase
         }
         var item = await itemsApi.ItemItemTagGetAsync(itemTag);
         var allOptions = await optionsTask ?? throw new ApiException("load_error", "Options not loadable");
-        var filters = fe.FiltersFor(item);
-        logger.LogInformation("filters for item {itemTag} : {filters}", itemTag, filters.Select(f => f.Name));
+        List<IFilter> filters;
+        try
+        {
+            filters = fe.FiltersFor(item).ToList();
+        }
+        catch (System.Exception e)
+        {
+            logger.LogWarning(e, "failed to build filters for item {itemTag}, falling back to all filters", itemTag);
+            filters = fe.AvailableFilters.Where(f => f != null).ToList();
+        }
+        filters = filters.Where(f => f != null).ToList();
+        logger.LogInformation("filters for item {itemTag} : {count}", itemTag, filters.Count);
 
         return filters.Where(CanGetOptions(allOptions))
             .OrderByDescending(f => popularityService.GetFilterUseCount(itemTag, f.Name))
