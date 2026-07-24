@@ -495,6 +495,7 @@ public class DeepSeekChatService
         For less common live data, use search_api_tools and only call an endpoint it returned through call_api_get.
         Answer the question directly first, then add only useful supporting detail or concrete next steps. Format the answer as readable Markdown.
         Cite retrieved documentation and make every mentioned internal destination a Markdown link, for example [the flipper](/flipper) or [Hyperion prices](/item/HYPERION). Never emit a bare /path.
+        Preserve documented commands and subcommands exactly. Never shorten a command when that changes its behavior; explicitly distinguish a base command from history, list, or other documented variants.
         Only claim that a route or item-specific page exists when tool data or retrieved documentation supports it. There is no item-specific flipper route: /flipper is the general flipper, while filtered item prices belong under /item/TAG with query parameters.
         Use the supplied current-page context. Do not tell users to navigate to the page they are already viewing; instead identify the next relevant control or action on that page when supported by retrieved documentation.
         Every price answer must link to the exact link returned by get_price, which includes the filters used, and state whether the price is filtered or unfiltered.
