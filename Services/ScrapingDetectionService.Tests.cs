@@ -65,5 +65,22 @@ namespace Coflnet.Sky.Api.Services
 
             Assert.That(service.IsBanned(context), Is.True);
         }
+
+        [TestCase("/api/service/purchase")]
+        [TestCase("/api/topup/stripe/premium-plus")]
+        [TestCase("/api/premium/subscription/premium-plus")]
+        public void IsBanned_ReturnsFalseForPaymentEndpoints(string path)
+        {
+            var service = new ScrapingDetectionService(
+                NullLogger<ScrapingDetectionService>.Instance,
+                clientRateLimitOptions: Options.Create(new ClientRateLimitOptions()),
+                clientRateLimitPolicies: Options.Create(new ClientRateLimitPolicies()));
+
+            var context = new DefaultHttpContext();
+            context.Connection.RemoteIpAddress = IPAddress.Parse("45.74.244.124");
+            context.Request.Path = path;
+
+            Assert.That(service.IsBanned(context), Is.False);
+        }
     }
 }

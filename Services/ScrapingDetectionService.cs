@@ -107,6 +107,8 @@ namespace Coflnet.Sky.Api.Services
 
         private bool IsExempt(HttpContext context)
         {
+            if (IsExemptPath(context)) return true;
+
             var realIpHeader = _ipRateLimitOptions?.RealIpHeader ?? "CF-Connecting-IP";
             if (RequestIpUtility.IsIpWhitelistedForEndpoint(context, realIpHeader, _endpointIpRateLimitOptions))
             {
