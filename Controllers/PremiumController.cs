@@ -616,7 +616,7 @@ namespace Coflnet.Sky.Api.Controller
             var user = await GetUserOrDefault();
             if (user == default)
                 return Unauthorized("no googletoken header");
-            await subscriptionApi.ApiSubscriptionSubscriptionIdSwitchPutAsync(externalId, user.Id.ToString(), targetProductSlug);
+            throw new CoflnetException("not_implemented", "Switching subscription tiers is not yet implemented");
             return Ok();
         }
 
@@ -668,4 +668,3 @@ namespace Coflnet.Sky.Api.Controller
         }
     }
 }
-
