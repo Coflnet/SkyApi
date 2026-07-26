@@ -129,5 +129,17 @@ public class CraftingControllerTests
         result.CopyCommands.Should().ContainKey("MID2");
         result.DetailsPath.Should().ContainKey("MID2");
     }
+
+    [Test]
+    public async Task Acquisition_ForwardsQuantityAndForceCraftToCraftsService()
+    {
+        craftsApi.Setup(c => c.GetAcquisitionAsync("TERMINATOR", 2, true, It.IsAny<int>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((CraftAcquisitionPlan)null);
+
+        var result = await controller.GetAcquisition("TERMINATOR", 2, true);
+
+        result.Should().BeOfType<Microsoft.AspNetCore.Mvc.OkObjectResult>();
+        craftsApi.Verify(c => c.GetAcquisitionAsync("TERMINATOR", 2, true, It.IsAny<int>(), It.IsAny<CancellationToken>()), Times.Once);
+    }
 }
 #pragma warning restore CS1591 // Missing XML comment for publicly visible type or member

@@ -81,6 +81,15 @@ public class CraftingController : ControllerBase
         return await craftsApi.GetRecipeAsync(itemTag);
     }
 
+    /// <summary>Returns the live quantity-specific acquisition plan for an item.</summary>
+    [Route("acquisition/{itemTag}")]
+    [HttpGet]
+    [ResponseCache(Duration = 5, Location = ResponseCacheLocation.Any, NoStore = false, VaryByQueryKeys = new[] { "quantity", "forceCraft" })]
+    public async Task<IActionResult> GetAcquisition(string itemTag, long quantity = 1, bool forceCraft = true)
+    {
+        return Ok(await craftsApi.GetAcquisitionAsync(itemTag, quantity, forceCraft));
+    }
+
     /// <summary>
     /// Maximum number of sub-craft levels to expand into when collecting the full craft tree.
     /// Direct ingredients of the top level recipe count as level 0 and are always included;
