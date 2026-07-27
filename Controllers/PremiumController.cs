@@ -12,6 +12,7 @@ using System.Net.Http;
 using System.Text;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Configuration;
+using Newtonsoft.Json;
 
 namespace Coflnet.Sky.Api.Controller
 {
@@ -109,10 +110,21 @@ namespace Coflnet.Sky.Api.Controller
             }
         }
 
-        private static void ForwardPaymentErrors(Exception ex)
+        internal static void ForwardPaymentErrors(Exception ex)
         {
-            if (ex.Message.Contains("Message"))
-                throw new CoflnetException("üayment_error", ex.Message.Substring(44).TrimEnd('}'));
+            if (ex is not Coflnet.Payments.Client.Client.ApiException { ErrorContent: string errorContent })
+                return;
+
+            try
+            {
+                var message = JsonConvert.DeserializeObject<ErrorResponse>(errorContent)?.Message;
+                if (!string.IsNullOrWhiteSpace(message))
+                    throw new CoflnetException("payment_error", message);
+            }
+            catch (JsonReaderException)
+            {
+                // Preserve the original upstream exception when its body is not JSON.
+            }
         }
 
         private TopUpOptions GetOptions(TopUpArguments args, GoogleUser user)
