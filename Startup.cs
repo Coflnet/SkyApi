@@ -128,6 +128,8 @@ namespace Coflnet.Sky.Api
             services.AddOpenTelemetry().WithTracing(builder => builder.AddSource(DeepSeekChatService.ActivitySourceName));
             services.AddScoped<PricesService>();
             services.AddSingleton<GoogletokenService>();
+            services.AddSingleton<IAccountDeletionClient, IndexerAccountDeletionClient>();
+            services.AddSingleton<AccountDeletionService>();
             services.AddSingleton<ApiKeyService>();
             services.AddSingleton<AuctionService>();
             services.AddHttpClient("DonutApi", client =>
