@@ -7,7 +7,7 @@ using Microsoft.Extensions.Options;
 namespace Coflnet.Sky.Api.Helper
 {
     /// <summary>
-    /// Custom client resolver that uses the X-ClientId header if present,
+    /// Custom client resolver that uses a configured X-ClientId header value,
     /// otherwise falls back to using the client's IP address as the identifier.
     /// This allows premium clients to have their own rate limits while
     /// anonymous users are rate limited by IP.
@@ -19,6 +19,8 @@ namespace Coflnet.Sky.Api.Helper
         private readonly string _realIpHeader;
         private readonly AspNetCoreRateLimit.IpRateLimitOptions _ipOptions;
         private readonly EndpointIpRateLimitOptions _endpointIpOptions;
+        private readonly ClientRateLimitOptions _clientOptions;
+        private readonly ClientRateLimitPolicies _clientPolicies;
 
         private readonly string _ipWhitelistBypassClientId;
 
@@ -31,6 +33,8 @@ namespace Coflnet.Sky.Api.Helper
             string realIpHeader,
             AspNetCoreRateLimit.IpRateLimitOptions ipOptions,
             EndpointIpRateLimitOptions endpointIpOptions,
+            ClientRateLimitOptions clientOptions,
+            ClientRateLimitPolicies clientPolicies,
             string ipWhitelistBypassClientId)
         {
             _httpContextAccessor = httpContextAccessor;
@@ -38,12 +42,14 @@ namespace Coflnet.Sky.Api.Helper
             _realIpHeader = realIpHeader;
             _ipOptions = ipOptions ?? new AspNetCoreRateLimit.IpRateLimitOptions();
             _endpointIpOptions = endpointIpOptions ?? new EndpointIpRateLimitOptions();
+            _clientOptions = clientOptions ?? new ClientRateLimitOptions();
+            _clientPolicies = clientPolicies ?? new ClientRateLimitPolicies();
             _ipWhitelistBypassClientId = string.IsNullOrEmpty(ipWhitelistBypassClientId) ? "IP_WHITELIST_BYPASS" : ipWhitelistBypassClientId;
         }
 
         /// <summary>
-        /// Resolves the client ID from the request. Returns the X-ClientId header value
-        /// if present, otherwise returns the client IP address. If the request IP matches
+        /// Resolves the client ID from the request. Returns a configured X-ClientId header
+        /// value if present, otherwise returns the client IP address. If the request IP matches
         /// an entry in the IpWhitelist (CIDR-aware), a special bypass client id is returned
         /// so that ClientRateLimiting can honor the IP whitelist.
         /// </summary>
@@ -73,8 +79,11 @@ namespace Coflnet.Sky.Api.Helper
                     // Otherwise ignore the special header and fall through to IP-based identification
                 }
 
-                // For any other header value, return it as the client id
-                if (!string.Equals(headerValue, _ipWhitelistBypassClientId, System.StringComparison.Ordinal))
+                // Only configured client IDs get their own counter. Unknown IDs fall back to
+                // the IP bucket so rotating arbitrary header values cannot reset the limit.
+                if (!string.Equals(headerValue, _ipWhitelistBypassClientId, System.StringComparison.Ordinal)
+                    && ((_clientOptions.ClientWhitelist?.Contains(headerValue) ?? false)
+                        || (_clientPolicies.ClientRules?.Any(rule => rule.ClientId == headerValue) ?? false)))
                 {
                     return Task.FromResult(headerValue);
                 }
@@ -105,6 +114,7 @@ namespace Coflnet.Sky.Api.Helper
     {
         private readonly IHttpContextAccessor _httpContextAccessor;
         private readonly EndpointIpRateLimitOptions _endpointIpOptions;
+        private readonly ClientRateLimitPolicies _clientPolicies;
         private readonly string _ipWhitelistBypassClientId;
         
         /// <summary>
@@ -114,11 +124,13 @@ namespace Coflnet.Sky.Api.Helper
             IHttpContextAccessor httpContextAccessor,
             IOptions<IpRateLimitOptions> ipOptions,
             IOptions<ClientRateLimitOptions> clientOptions,
+            IOptions<ClientRateLimitPolicies> clientPolicies,
             IOptions<EndpointIpRateLimitOptions> endpointIpOptions,
             string ipWhitelistBypassClientId)
             : base(ipOptions, clientOptions)
         {
             _httpContextAccessor = httpContextAccessor;
+            _clientPolicies = clientPolicies?.Value ?? new ClientRateLimitPolicies();
             _endpointIpOptions = endpointIpOptions?.Value ?? new EndpointIpRateLimitOptions();
             _ipWhitelistBypassClientId = string.IsNullOrEmpty(ipWhitelistBypassClientId) ? "IP_WHITELIST_BYPASS" : ipWhitelistBypassClientId;
         }
@@ -140,6 +152,8 @@ namespace Coflnet.Sky.Api.Helper
                 realIpHeader,
                 IpRateLimitOptions,
                 _endpointIpOptions,
+                ClientRateLimitOptions,
+                _clientPolicies,
                 _ipWhitelistBypassClientId));
         }
     }

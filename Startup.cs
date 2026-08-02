@@ -265,6 +265,7 @@ namespace Coflnet.Sky.Api
                 sp.GetRequiredService<IHttpContextAccessor>(),
                 sp.GetRequiredService<IOptions<IpRateLimitOptions>>(),
                 sp.GetRequiredService<IOptions<ClientRateLimitOptions>>(),
+                sp.GetRequiredService<IOptions<ClientRateLimitPolicies>>(),
                 sp.GetRequiredService<IOptions<EndpointIpRateLimitOptions>>(),
                 bypassTokenForRegistration));
             services.AddSingleton<DiscordBot.Client.Api.IMessageApi>(new DiscordBot.Client.Api.MessageApi(Configuration["DISCORD_BOT_BASE_URL"]));
