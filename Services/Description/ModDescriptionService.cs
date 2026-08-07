@@ -63,6 +63,7 @@ public class ModDescriptionService : IDisposable
     private readonly FlipTracker.Client.Api.ITrackerApi trackerApi;
     private readonly IItemsApi itemsApi;
     private readonly Core.Services.ExoticColorService exoticColorService;
+    private static volatile ImmutableHashSet<string> automaticBazaarShardTags = ImmutableHashSet.Create<string>(StringComparer.OrdinalIgnoreCase);
 
     /// <summary>
     /// Gets the deserialized cache containing bazaar items, item prices, and crafts.
@@ -634,6 +635,7 @@ public class ModDescriptionService : IDisposable
                     {
                         bazaarPrices[item.ProductId] = item;
                     }
+                    UpdateBazaarShardTags(bazaarPrices.Keys);
                     deserializedCache.BazaarItems = bazaarPrices.ToImmutableDictionary();
                     // bazaar api updates every 20 seconds
                     await Task.Delay(20_000);
@@ -1848,6 +1850,8 @@ public class ModDescriptionService : IDisposable
         var clearedname = Regex.Replace(name, "§[0-9a-fklmnor]|SELL |BUY | Shard", "");
         if (Constants.ShardNames.TryGetValue(clearedname, out var shardTag))
             tag = "SHARD_" + shardTag.ToUpper();
+        else if (automaticBazaarShardTags.Contains("SHARD_" + clearedname.Replace(' ', '_')))
+            tag = "SHARD_" + clearedname.Replace(' ', '_').ToUpperInvariant();
         else
         {
             Console.WriteLine($"unknown shard name {name}, {clearedname}");
@@ -1859,7 +1863,6 @@ public class ModDescriptionService : IDisposable
             {
                 tag = "SHARD_" + closestDistance.s.Value.ToUpper();
                 Console.WriteLine($"using closest shard name {tag} for {name}");
-                Constants.ShardNames[clearedname] = closestDistance.s.Value;
             }
             else
             {
@@ -1869,6 +1872,15 @@ public class ModDescriptionService : IDisposable
             }
         }
         return true;
+    }
+
+    internal static void UpdateBazaarShardTags(IEnumerable<string> productIds)
+    {
+        var mappedTags = Constants.ShardNames.Values.ToHashSet(StringComparer.OrdinalIgnoreCase);
+        automaticBazaarShardTags = productIds
+            .Where(id => id?.StartsWith("SHARD_", StringComparison.OrdinalIgnoreCase) == true
+                && !mappedTags.Contains(id["SHARD_".Length..]))
+            .ToImmutableHashSet(StringComparer.OrdinalIgnoreCase);
     }
 
     /// <summary>
