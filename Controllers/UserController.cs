@@ -7,6 +7,8 @@ using Coflnet.Sky.Commands.Shared;
 using Coflnet.Sky.Core;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Primitives;
+using IndexerTermsAcceptance = Coflnet.Sky.Indexer.Client.Model.TermsAcceptance;
+using IndexerUserApi = Coflnet.Sky.Indexer.Client.Api.IUserApi;
 
 namespace Coflnet.Sky.Api.Controller
 {
@@ -110,6 +112,7 @@ namespace Coflnet.Sky.Api.Controller
         [Microsoft.AspNetCore.Authorization.Authorize]
         public async Task<ActionResult<TermsStatus>> AcceptTerms(
             AcceptTermsRequest request,
+            [FromServices] IndexerUserApi indexerUserApi,
             [FromQuery] string locale = "en")
         {
             var user = await GetUserOrDefault();
@@ -137,18 +140,18 @@ namespace Coflnet.Sky.Api.Controller
                         locale: locale)
                 });
             var source = $"web-premium-{TermsAcceptancePolicy.NormalizeLocale(locale)}";
-            await UserService.Instance.AcceptAgreement(
+            var acceptedAtUtc = DateTime.UtcNow;
+            await indexerUserApi.UserUserIdAgreementsAgreementPostAsync(
                 user.Id,
                 TermsAcceptancePolicy.CurrentAgreementId,
-                new TermsAcceptance(
+                new IndexerTermsAcceptance(
                 TermsAcceptancePolicy.CurrentVersion,
                 TermsAcceptancePolicy.CurrentHash,
-                DateTime.UtcNow,
+                acceptedAtUtc,
                 source));
-            var acceptance = await GetCurrentAgreementAcceptance(user.Id);
             return Ok(TermsAcceptancePolicy.GetStatus(
-                acceptance != null,
-                acceptance?.AcceptedAtUtc,
+                true,
+                acceptedAtUtc,
                 locale: locale));
         }
 
