@@ -9,6 +9,16 @@ and [jaeger](https://github.com/open-telemetry/opentelemetry-dotnet/blob/main/sr
 
 Container-based deployments should keep configuration in environment variables or mounted secrets instead of editing files inside the image.
 
+SkyApi downloads `LEGAL_MANIFEST_URL` (default:
+`https://coflnet.com/legal/manifest.json`) in the background, downloads the
+SkyCofl Agreement Root, its pinned descriptors and resolved localized documents,
+and verifies every SHA-256 hash. It also verifies the withdrawal information and
+retries after a failed check. The agreement/declaration flow fails closed until
+the verified manifest is effective.
+Legacy route enforcement remains disabled by default through
+`LEGAL:ENFORCE_CURRENT_TERMS` during the compatibility rollout. No copied legal
+version, hash or effective-time setting is required in SkyApi.
+
 ### AI chat and knowledge index
 
 `POST /api/data/ai` accepts `{ "conversationId": "optional-server-id", "message": "...", "page": "/item/..." }`.

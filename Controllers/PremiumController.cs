@@ -2,6 +2,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using Coflnet.Payments.Client.Api;
 using Coflnet.Sky.Core;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Primitives;
 using Coflnet.Payments.Client.Model;
@@ -32,6 +33,7 @@ namespace Coflnet.Sky.Api.Controller
         private ILogger<PremiumController> logger;
         private ISubscriptionApi subscriptionApi;
         private IConfiguration configuration;
+        private LegalManifestService legalManifest;
 
         /// <summary>
         /// Creates a new intance of <see cref="PremiumController"/>
@@ -44,6 +46,7 @@ namespace Coflnet.Sky.Api.Controller
         /// <param name="logger"></param>
         /// <param name="subscriptionApi"></param>
         /// <param name="configuration"></param>
+        /// <param name="legalManifest"></param>
         public PremiumController(
             ProductsApi productsService,
             TopUpApi topUpApi,
@@ -52,7 +55,8 @@ namespace Coflnet.Sky.Api.Controller
             ITransactionApi transactionApi,
             ILogger<PremiumController> logger,
             ISubscriptionApi subscriptionApi,
-            IConfiguration configuration)
+            IConfiguration configuration,
+            LegalManifestService legalManifest)
         {
             this.productsService = productsService;
             this.topUpApi = topUpApi;
@@ -62,6 +66,7 @@ namespace Coflnet.Sky.Api.Controller
             this.logger = logger;
             this.subscriptionApi = subscriptionApi;
             this.configuration = configuration;
+            this.legalManifest = legalManifest;
         }
 
         /// <summary>
@@ -94,6 +99,8 @@ namespace Coflnet.Sky.Api.Controller
             var user = await GetUserOrDefault();
             if (user == default)
                 return Unauthorized("no googletoken header");
+            if (await MustRejectNewContract(user.Id, configuration))
+                return TermsAcceptanceRequired();
 
             TopUpOptions options = GetOptions(args, user);
             try
@@ -176,6 +183,8 @@ namespace Coflnet.Sky.Api.Controller
             var user = await GetUserOrDefault();
             if (user == default)
                 return Unauthorized("no googletoken header");
+            if (await MustRejectNewContract(user.Id, configuration))
+                return TermsAcceptanceRequired();
 
             try
             {
@@ -198,6 +207,8 @@ namespace Coflnet.Sky.Api.Controller
             var user = await GetUserOrDefault();
             if (user == default)
                 return Unauthorized("no googletoken header");
+            if (await MustRejectNewContract(user.Id, configuration))
+                return TermsAcceptanceRequired();
             return new PlaystorTopup()
             {
                 UserId = user.Id.ToString()
@@ -268,6 +279,8 @@ namespace Coflnet.Sky.Api.Controller
             var user = await GetUserOrDefault();
             if (user == default)
                 return Unauthorized("no googletoken header");
+            if (await MustRejectNewContract(user.Id, configuration))
+                return TermsAcceptanceRequired();
 
             try
             {
@@ -436,13 +449,72 @@ namespace Coflnet.Sky.Api.Controller
             var user = await GetUserOrDefault(true);
             if (user == default)
                 return Unauthorized("no googletoken header");
+            if (await MustRejectNewContract(user.Id, configuration))
+                return TermsAcceptanceRequired();
             try
             {
                 var reference = args.reference;
                 var count = args.count == 0 ? 1 : args.count;
                 if (string.IsNullOrEmpty(reference))
                     reference = "apiautofill" + DateTime.UtcNow;
-                await userApi.UserUserIdServicePurchaseProductSlugPostAsync(user.Id.ToString(), args.slug, reference, count);
+                if (!UsesDeclaredPurchase(args))
+                {
+                    await userApi.UserUserIdServicePurchaseProductSlugPostAsync(
+                        user.Id.ToString(),
+                        args.slug,
+                        reference,
+                        count);
+                    return Ok();
+                }
+                if (MustRejectDeclaredPurchase(
+                        await HasCurrentAgreement(user.Id)))
+                    return TermsAcceptanceRequired();
+                var requestedLocale = string.IsNullOrWhiteSpace(
+                    args.legalLocale)
+                        ? GetLocale()
+                        : args.legalLocale;
+                var legalLocale = requestedLocale.StartsWith(
+                    "de",
+                    StringComparison.OrdinalIgnoreCase)
+                        ? "de"
+                        : "en";
+                var declaration = legalManifest.PremiumEarlyStart
+                    ?? throw new InvalidOperationException(
+                        "The Premium declaration is unavailable.");
+                var agreement = legalManifest.Agreement
+                    ?? throw new InvalidOperationException(
+                        "The SkyCofl agreement identity is unavailable.");
+                var withdrawal = legalManifest.Withdrawal
+                    ?? throw new InvalidOperationException(
+                        "The withdrawal identity is unavailable.");
+                if (!string.Equals(
+                        args.declarationVersion,
+                        declaration.Version,
+                        StringComparison.Ordinal))
+                    throw new InvalidOperationException(
+                        "The Premium declaration changed. Review it and try again.");
+                await userApi
+                    .UserUserIdServicePurchaseDeclaredProductSlugPostAsync(
+                        user.Id.ToString(),
+                        args.slug,
+                        new ServicePurchaseRequest
+                        {
+                            Reference = reference,
+                            Count = count,
+                            ImmediatePerformanceRequested =
+                                args.immediatePerformanceRequested ?? false,
+                            WithdrawalConsequenceAcknowledged =
+                                args.withdrawalConsequenceAcknowledged ?? false,
+                            Locale = legalLocale,
+                            DeclarationVersion = declaration.Version,
+                            DeclarationText = declaration.Locales[legalLocale],
+                            DeclarationSha256 = declaration.Sha256[legalLocale],
+                            AgreementId = agreement.Id,
+                            AgreementHash = agreement.Hash,
+                            WithdrawalVersion = withdrawal.Version,
+                            WithdrawalSha256 = withdrawal.Sha256[legalLocale],
+                            RequestId = args.declarationRequestId
+                        });
                 return Ok();
             }
             catch (Exception e)
@@ -450,6 +522,12 @@ namespace Coflnet.Sky.Api.Controller
                 throw new CoflnetException("payment_error", e.Message);
             }
         }
+
+        internal static bool UsesDeclaredPurchase(PurchaseArgs args) =>
+            !string.IsNullOrWhiteSpace(args?.declarationRequestId);
+
+        internal static bool MustRejectDeclaredPurchase(bool hasCurrentAgreement) =>
+            !TermsAcceptancePolicy.IsCurrent(hasCurrentAgreement);
 
         /// <summary>
         /// Get adjusted prices
@@ -552,6 +630,8 @@ namespace Coflnet.Sky.Api.Controller
             var user = await GetUserOrDefault();
             if (user == default)
                 return Unauthorized("no googletoken header");
+            if (await MustRejectNewContract(user.Id, configuration))
+                return TermsAcceptanceRequired();
             try
             {
                 TopUpOptions options = GetOptions(new(), user);
@@ -609,6 +689,8 @@ namespace Coflnet.Sky.Api.Controller
             var user = await GetUserOrDefault();
             if (user == default)
                 return Unauthorized("no googletoken header");
+            if (await MustRejectNewContract(user.Id, configuration))
+                return TermsAcceptanceRequired();
             try
             {
                 await subscriptionApi.ApiSubscriptionResumeSubscriptionIdPostAsync(externalId, user.Id.ToString());
@@ -618,6 +700,49 @@ namespace Coflnet.Sky.Api.Controller
                 throw new CoflnetException("reactivate_failed", e.Message);
             }
             return Ok();
+        }
+
+        private ObjectResult TermsAcceptanceRequired()
+        {
+            if (!TermsAcceptancePolicy.IsEffective())
+                return StatusCode(StatusCodes.Status503ServiceUnavailable, new
+                {
+                    slug = "terms_publication_unavailable",
+                    message = "New purchases and subscription changes are temporarily unavailable because the Terms publication time is not configured."
+                });
+            return StatusCode(StatusCodes.Status428PreconditionRequired, new
+            {
+                slug = "terms_acceptance_required",
+                message = "Accept the current SkyCofl Agreement at https://sky.coflnet.com/premium before starting a new purchase, top-up, upgrade or subscription reactivation.",
+                agreementId = TermsAcceptancePolicy.CurrentAgreementId,
+                version = TermsAcceptancePolicy.CurrentVersion,
+                hash = TermsAcceptancePolicy.CurrentHash,
+                agreementUrl = TermsAcceptancePolicy.CurrentAgreementUrl
+            });
+        }
+
+        private static async Task<bool> MustRejectNewContract(
+            int userId,
+            IConfiguration configuration) =>
+            MustRejectNewContract(
+                await HasCurrentAgreement(userId),
+                configuration);
+
+        internal static bool MustRejectNewContract(
+            bool hasCurrentAgreement,
+            IConfiguration configuration) =>
+            configuration?.GetValue<bool>(
+                "LEGAL:ENFORCE_CURRENT_TERMS") == true
+            && !TermsAcceptancePolicy.CanStartNewContract(hasCurrentAgreement);
+
+        private static async Task<bool> HasCurrentAgreement(int userId)
+        {
+            if (string.IsNullOrEmpty(TermsAcceptancePolicy.CurrentHash))
+                return false;
+            return await UserService.Instance.GetAgreementAcceptance(
+                userId,
+                TermsAcceptancePolicy.CurrentAgreementId,
+                TermsAcceptancePolicy.CurrentHash) != null;
         }
 
         [HttpPut]

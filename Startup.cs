@@ -143,6 +143,10 @@ namespace Coflnet.Sky.Api
             services.AddSingleton<Core.Services.IHypixelItemStore>(di => di.GetRequiredService<Core.Services.HypixelItemService>());
             services.AddSingleton<Core.Services.ExoticColorService>();
             services.AddSingleton<HttpClient>();
+            services.AddHttpClient(nameof(LegalManifestService));
+            services.AddSingleton<LegalManifestService>();
+            services.AddHostedService(service =>
+                service.GetRequiredService<LegalManifestService>());
             services.AddSingleton<FilterPobularityService>();
             services.AddSingleton<NetworthService>();
             services.AddSingleton<IScrapingDetectionService, ScrapingDetectionService>();

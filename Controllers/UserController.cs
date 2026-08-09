@@ -1,3 +1,4 @@
+using System;
 using System.Threading.Tasks;
 using Coflnet.Sky.Api;
 using Coflnet.Sky.Api.Models;
@@ -28,7 +29,10 @@ namespace Coflnet.Sky.Api.Controller
         /// <param name="premiumService"></param>
         /// <param name="settingsService"></param>
         /// <param name="accountDeletionService"></param>
-        public UserController(GoogletokenService premiumService, SettingsService settingsService, AccountDeletionService accountDeletionService)
+        public UserController(
+            GoogletokenService premiumService,
+            SettingsService settingsService,
+            AccountDeletionService accountDeletionService)
         {
             this.tokenService = premiumService;
             this.settingsService = settingsService;
@@ -78,6 +82,87 @@ namespace Coflnet.Sky.Api.Controller
         }
 
         /// <summary>
+        /// Returns whether the authenticated user has accepted the current
+        /// SkyCofl Agreement Root.
+        /// </summary>
+        [Route("terms")]
+        [HttpGet]
+        [Microsoft.AspNetCore.Authorization.Authorize]
+        public async Task<ActionResult<TermsStatus>> GetTermsStatus(
+            [FromQuery] string locale = "en")
+        {
+            var user = await GetUserOrDefault();
+            if (user == default)
+                return Unauthorized("no googletoken header");
+            var acceptance = await GetCurrentAgreementAcceptance(user.Id);
+            return Ok(TermsAcceptancePolicy.GetStatus(
+                acceptance != null,
+                acceptance?.AcceptedAtUtc,
+                locale: locale));
+        }
+
+        /// <summary>
+        /// Records an express acceptance of the exact current SkyCofl
+        /// Agreement Root.
+        /// </summary>
+        [Route("terms")]
+        [HttpPost]
+        [Microsoft.AspNetCore.Authorization.Authorize]
+        public async Task<ActionResult<TermsStatus>> AcceptTerms(
+            AcceptTermsRequest request,
+            [FromQuery] string locale = "en")
+        {
+            var user = await GetUserOrDefault();
+            if (user == default)
+                return Unauthorized("no googletoken header");
+            if (!TermsAcceptancePolicy.IsEffective())
+                return Conflict(new
+                {
+                    slug = "terms_not_effective",
+                    message = "This SkyCofl agreement cannot be accepted before its publication time.",
+                    effectiveAtUtc = TermsAcceptancePolicy.CurrentVersionEffectiveAtUtc
+                });
+            var existing = await GetCurrentAgreementAcceptance(user.Id);
+            if (!string.Equals(
+                    request?.Hash,
+                    TermsAcceptancePolicy.CurrentHash,
+                    StringComparison.OrdinalIgnoreCase))
+                return Conflict(new
+                {
+                    slug = "terms_version_changed",
+                    message = "The SkyCofl agreement changed. Review the current version before accepting.",
+                    current = TermsAcceptancePolicy.GetStatus(
+                        existing != null,
+                        existing?.AcceptedAtUtc,
+                        locale: locale)
+                });
+            var source = $"web-premium-{TermsAcceptancePolicy.NormalizeLocale(locale)}";
+            await UserService.Instance.AcceptAgreement(
+                user.Id,
+                TermsAcceptancePolicy.CurrentAgreementId,
+                new TermsAcceptance(
+                TermsAcceptancePolicy.CurrentVersion,
+                TermsAcceptancePolicy.CurrentHash,
+                DateTime.UtcNow,
+                source));
+            var acceptance = await GetCurrentAgreementAcceptance(user.Id);
+            return Ok(TermsAcceptancePolicy.GetStatus(
+                acceptance != null,
+                acceptance?.AcceptedAtUtc,
+                locale: locale));
+        }
+
+        private static Task<AgreementAcceptanceRecord?> GetCurrentAgreementAcceptance(int userId)
+        {
+            if (string.IsNullOrEmpty(TermsAcceptancePolicy.CurrentHash))
+                return Task.FromResult<AgreementAcceptanceRecord?>(null);
+            return UserService.Instance.GetAgreementAcceptance(
+                userId,
+                TermsAcceptancePolicy.CurrentAgreementId,
+                TermsAcceptancePolicy.CurrentHash);
+        }
+
+        /// <summary>
         /// Deletes the caller's account (requires google token).
         /// See <see cref="AccountDeletionService"/> for exactly what this does and does not cover -
         /// it cascades what SkyApi and SkyIndexer can reach (account record, connected minecraft
@@ -108,4 +193,3 @@ namespace Coflnet.Sky.Api.Controller
         }
     }
 }
-
