@@ -1,5 +1,6 @@
 using Coflnet.Sky.Api.Models;
 using Coflnet.Sky.Api.Services;
+using Coflnet.Payments.Client.Model;
 using Microsoft.Extensions.Configuration;
 using NUnit.Framework;
 
@@ -37,6 +38,22 @@ public class PremiumDeclarationCompatibilityTests
         Assert.That(
             PremiumController.UsesDeclaredPurchase(request),
             Is.True);
+    }
+
+    [Test]
+    public void GeneratedDeclarationRequestAcceptsRequiredConstructorValues()
+    {
+        var request = new ServicePurchaseRequest(
+            reference: "premium-request",
+            locale: "en",
+            requestId: "request-id");
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(request.Reference, Is.EqualTo("premium-request"));
+            Assert.That(request.Locale, Is.EqualTo("en"));
+            Assert.That(request.RequestId, Is.EqualTo("request-id"));
+        });
     }
 
     [Test]

@@ -497,24 +497,22 @@ namespace Coflnet.Sky.Api.Controller
                     .UserUserIdServicePurchaseDeclaredProductSlugPostAsync(
                         user.Id.ToString(),
                         args.slug,
-                        new ServicePurchaseRequest
-                        {
-                            Reference = reference,
-                            Count = count,
-                            ImmediatePerformanceRequested =
+                        new ServicePurchaseRequest(
+                            reference: reference,
+                            count: count,
+                            immediatePerformanceRequested:
                                 args.immediatePerformanceRequested ?? false,
-                            WithdrawalConsequenceAcknowledged =
+                            withdrawalConsequenceAcknowledged:
                                 args.withdrawalConsequenceAcknowledged ?? false,
-                            Locale = legalLocale,
-                            DeclarationVersion = declaration.Version,
-                            DeclarationText = declaration.Locales[legalLocale],
-                            DeclarationSha256 = declaration.Sha256[legalLocale],
-                            AgreementId = agreement.Id,
-                            AgreementHash = agreement.Hash,
-                            WithdrawalVersion = withdrawal.Version,
-                            WithdrawalSha256 = withdrawal.Sha256[legalLocale],
-                            RequestId = args.declarationRequestId
-                        });
+                            locale: legalLocale,
+                            declarationVersion: declaration.Version,
+                            declarationText: declaration.Locales[legalLocale],
+                            declarationSha256: declaration.Sha256[legalLocale],
+                            agreementId: agreement.Id,
+                            agreementHash: agreement.Hash,
+                            withdrawalVersion: withdrawal.Version,
+                            withdrawalSha256: withdrawal.Sha256[legalLocale],
+                            requestId: args.declarationRequestId));
                 return Ok();
             }
             catch (Exception e)
