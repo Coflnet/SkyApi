@@ -58,7 +58,8 @@ public static class TermsAcceptancePolicy
         DateTime? acceptedAtUtc = null,
         DateTime? utcNow = null,
         bool forceEffective = false,
-        string locale = "en")
+        string locale = "en",
+        bool canContinueWithoutAccepting = true)
     {
         var language = NormalizeLocale(locale);
         var declaration = premiumEarlyStart?.Locales.TryGetValue(language, out var text) == true
@@ -78,6 +79,7 @@ public static class TermsAcceptancePolicy
 
         return new(
             RequiresCurrentAcceptance(hasCurrentAgreement, utcNow, forceEffective),
+            canContinueWithoutAccepting,
             CanStartNewContract(hasCurrentAgreement, utcNow, forceEffective),
             CurrentAgreementId,
             CurrentHash,

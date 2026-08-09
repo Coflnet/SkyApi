@@ -7,6 +7,7 @@ namespace Coflnet.Sky.Api.Models;
 
 public record TermsStatus(
     bool Required,
+    bool CanContinueWithoutAccepting,
     bool CanStartNewContract,
     [property: Required] string AgreementId,
     [property: Required] string AgreementHash,

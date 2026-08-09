@@ -7,6 +7,7 @@ using System.Security.Claims;
 using System.Text.Encodings.Web;
 using System.Threading.Tasks;
 using Coflnet.Sky.Api.Services;
+using Coflnet.Sky.Core;
 using System;
 using System.Linq;
 
@@ -71,6 +72,11 @@ namespace Coflnet.Sky.Api.Helper
                 {
                     return AuthenticateResult.Fail("Invalid token");
                 }
+                if (!Request.Path.Equals(
+                        new Microsoft.AspNetCore.Http.PathString("/api/user/terms"),
+                        StringComparison.OrdinalIgnoreCase)
+                    && !await UserService.Instance.CanSignInUnderPriorAgreement(user))
+                    return AuthenticateResult.Fail("terms_acceptance_required");
 
                 // Create claims for the authenticated user
                 var claims = new[]

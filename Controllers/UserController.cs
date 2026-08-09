@@ -97,10 +97,13 @@ namespace Coflnet.Sky.Api.Controller
             if (user == default)
                 return Unauthorized("no googletoken header");
             var acceptance = await GetCurrentAgreementAcceptance(user.Id);
+            var canContinue = acceptance != null
+                || await UserService.Instance.CanSignInUnderPriorAgreement(user);
             return Ok(TermsAcceptancePolicy.GetStatus(
                 acceptance != null,
                 acceptance?.AcceptedAtUtc,
-                locale: locale));
+                locale: locale,
+                canContinueWithoutAccepting: canContinue));
         }
 
         /// <summary>
@@ -126,6 +129,8 @@ namespace Coflnet.Sky.Api.Controller
                     effectiveAtUtc = TermsAcceptancePolicy.CurrentVersionEffectiveAtUtc
                 });
             var existing = await GetCurrentAgreementAcceptance(user.Id);
+            var canContinue = existing != null
+                || await UserService.Instance.CanSignInUnderPriorAgreement(user);
             if (!string.Equals(
                     request?.Hash,
                     TermsAcceptancePolicy.CurrentHash,
@@ -137,7 +142,8 @@ namespace Coflnet.Sky.Api.Controller
                     current = TermsAcceptancePolicy.GetStatus(
                         existing != null,
                         existing?.AcceptedAtUtc,
-                        locale: locale)
+                        locale: locale,
+                        canContinueWithoutAccepting: canContinue)
                 });
             var source = TermsAcceptancePolicy.NormalizeAcceptanceSource(
                 request.Source,
@@ -154,7 +160,8 @@ namespace Coflnet.Sky.Api.Controller
             return Ok(TermsAcceptancePolicy.GetStatus(
                 true,
                 acceptedAtUtc,
-                locale: locale));
+                locale: locale,
+                canContinueWithoutAccepting: true));
         }
 
         private static Task<AgreementAcceptanceRecord?> GetCurrentAgreementAcceptance(int userId)

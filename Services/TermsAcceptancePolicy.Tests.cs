@@ -39,6 +39,7 @@ public class TermsAcceptancePolicyTests
         Assert.Multiple(() =>
         {
             Assert.That(status.Required, Is.False);
+            Assert.That(status.CanContinueWithoutAccepting, Is.True);
             Assert.That(status.CanStartNewContract, Is.True);
             Assert.That(status.AgreementId, Is.EqualTo("skycofl"));
             Assert.That(status.AgreementHash, Is.EqualTo(new string('a', 64)));
@@ -51,6 +52,22 @@ public class TermsAcceptancePolicyTests
                 new[] { "terms", "commerceTerms", "aiTerms", "skycoflTerms" }));
             Assert.That(status.Documents, Has.All.Property("Url").Contains("-de"));
             Assert.That(status.PremiumPurchaseDeclaration.Locale, Is.EqualTo("de"));
+        });
+    }
+
+    [Test]
+    public void Signup_without_prior_terms_cannot_continue_without_accepting()
+    {
+        var status = TermsAcceptancePolicy.GetStatus(
+            false,
+            utcNow: EffectiveAtUtc,
+            canContinueWithoutAccepting: false);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(status.Required, Is.True);
+            Assert.That(status.CanContinueWithoutAccepting, Is.False);
+            Assert.That(status.CanStartNewContract, Is.False);
         });
     }
 
