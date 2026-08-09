@@ -96,4 +96,11 @@ public static class TermsAcceptancePolicy
             ? "de"
             : "en";
 
+    public static string NormalizeAcceptanceSource(string requested, string locale)
+    {
+        var language = NormalizeLocale(locale);
+        var login = $"web-login-{language}";
+        return requested == login ? login : $"web-premium-{language}";
+    }
+
 }

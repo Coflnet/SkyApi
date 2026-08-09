@@ -139,7 +139,9 @@ namespace Coflnet.Sky.Api.Controller
                         existing?.AcceptedAtUtc,
                         locale: locale)
                 });
-            var source = $"web-premium-{TermsAcceptancePolicy.NormalizeLocale(locale)}";
+            var source = TermsAcceptancePolicy.NormalizeAcceptanceSource(
+                request.Source,
+                locale);
             var acceptedAtUtc = DateTime.UtcNow;
             await indexerUserApi.UserUserIdAgreementsAgreementPostAsync(
                 user.Id,

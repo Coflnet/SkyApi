@@ -99,6 +99,18 @@ public class TermsAcceptancePolicyTests
         });
     }
 
+    [TestCase("web-login-de", "de-DE", "web-login-de")]
+    [TestCase("web-login-en", "en-US", "web-login-en")]
+    [TestCase("web-login-de", "en-US", "web-premium-en")]
+    [TestCase("anything", "de-DE", "web-premium-de")]
+    public void Acceptance_source_is_limited_to_the_authenticated_web_surface(
+        string requested,
+        string locale,
+        string expected) =>
+        Assert.That(
+            TermsAcceptancePolicy.NormalizeAcceptanceSource(requested, locale),
+            Is.EqualTo(expected));
+
     private static LegalAgreementSnapshot Agreement()
     {
         var keys = new[] { "terms", "commerceTerms", "aiTerms", "skycoflTerms" };
