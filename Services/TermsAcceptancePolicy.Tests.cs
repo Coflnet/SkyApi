@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations;
 using System.Linq;
+using Coflnet.Sky.Api.Models;
 using NUnit.Framework;
 
 namespace Coflnet.Sky.Api.Services;
@@ -77,6 +79,24 @@ public class TermsAcceptancePolicyTests
 
         Assert.That(TermsAcceptancePolicy.RequiresCurrentAcceptance(false), Is.True);
         Assert.That(TermsAcceptancePolicy.CanStartNewContract(false), Is.False);
+    }
+
+    [Test]
+    public void Acceptance_validation_is_attached_to_the_record_parameter()
+    {
+        var constructor = typeof(AcceptTermsRequest).GetConstructors().Single();
+        var parameter = constructor.GetParameters()
+            .Single(item => item.Name == nameof(AcceptTermsRequest.Hash));
+        var property = typeof(AcceptTermsRequest)
+            .GetProperty(nameof(AcceptTermsRequest.Hash));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(parameter.GetCustomAttributes(typeof(RequiredAttribute), false),
+                Has.Length.EqualTo(1));
+            Assert.That(property!.GetCustomAttributes(typeof(RequiredAttribute), false),
+                Is.Empty);
+        });
     }
 
     private static LegalAgreementSnapshot Agreement()

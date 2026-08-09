@@ -33,6 +33,6 @@ public record LegalDeclaration(
     [property: Required] string Text);
 
 public record AcceptTermsRequest(
-    [property: Required] string Hash,
+    [param: Required] string Hash,
     string? Version = null,
     string? Source = null);
