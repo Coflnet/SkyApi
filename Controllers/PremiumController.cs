@@ -14,6 +14,7 @@ using System.Text;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Configuration;
 using Newtonsoft.Json;
+using StackExchange.Redis;
 
 namespace Coflnet.Sky.Api.Controller
 {
@@ -315,87 +316,180 @@ namespace Coflnet.Sky.Api.Controller
         /// the provider (linkvertise or lootlabs) when the user returns after finishing the offer.
         /// </summary>
         /// <param name="hash">anti-bypass token added on the return trip (linkvertise hash / lootlabs signed token)</param>
-        /// <param name="email">email of the returning user, used as a fallback when the cookie is missing</param>
+        /// <param name="state">one-time server state binding the callback to the user who started the offer</param>
         /// <param name="httpClient"></param>
+        /// <param name="redis"></param>
         /// <param name="provider">ad provider to use, either "linkvertise" (default) or "lootlabs"</param>
         [Route("linkvertise")]
         [HttpGet]
-        public async Task<IActionResult> Linkvertise(string hash, string? email, [FromServices] HttpClient httpClient, string provider = "linkvertise")
+        public async Task<IActionResult> Linkvertise(
+            string hash,
+            string? state,
+            [FromServices] HttpClient httpClient,
+            [FromServices] IConnectionMultiplexer redis,
+            string provider = "linkvertise")
         {
-            var isLootlabs = string.Equals(provider, "lootlabs", StringComparison.OrdinalIgnoreCase);
-            var user = await GetUserOrDefault();
-            if (user == default && string.IsNullOrEmpty(hash))
-                return Unauthorized("no auth header passed");
-            var userId = Request.Cookies.Where(c => c.Key == "server-userId").FirstOrDefault().Value;
+            if (!TryNormalizeAdProvider(provider, out provider))
+                return BadRequest("unsupported ad provider");
+            var isLootlabs = provider == "lootlabs";
+            var database = redis.GetDatabase();
             if (string.IsNullOrEmpty(hash))
             {
+                var user = await GetUserOrDefault(true);
+                if (user == default)
+                    return Unauthorized("no auth header passed");
+                state = System.Security.Cryptography.RandomNumberGenerator.GetHexString(32).ToLowerInvariant();
+                var stateKey = GetAdStateKey(provider, state);
+                if (!await database.StringSetAsync(
+                        stateKey,
+                        user.Id.ToString(),
+                        TimeSpan.FromHours(4),
+                        When.NotExists))
+                    throw new CoflnetException("ad_session_error", "Could not create an ad session, please try again");
                 string redirectTo;
                 if (isLootlabs)
-                    redirectTo = await CreateLootlabsRedirect(user.Email, httpClient);
+                    redirectTo = await CreateLootlabsRedirect(state, httpClient);
                 else
                 {
-                    var base64 = Convert.ToBase64String(Encoding.UTF8.GetBytes($"https://sky.coflnet.com/api/linkvertise?user={user.Email}"));
+                    var callback = $"https://sky.coflnet.com/api/linkvertise?provider={provider}&state={state}";
+                    var base64 = Convert.ToBase64String(Encoding.UTF8.GetBytes(callback));
                     redirectTo = $"https://link-to.net/1216620/{user.Email}/dynamic?r={base64}";
                 }
-                // setcookie
-                Response.Cookies.Append("server-userId", user.Id.ToString(), new() { Expires = DateTimeOffset.UtcNow.AddMinutes(30) });
                 return Ok(redirectTo);
             }
-            if (string.IsNullOrEmpty(userId))
-            {
-                userId = (await UserService.Instance.GetUserIdByEmail(email)).ToString();
-            }
-            var lastTransactionsTask = transactionApi.TransactionUUserIdGetAsync(userId, 2);
+            if (!IsValidAdCompletionToken(hash) || !IsValidAdCompletionToken(state))
+                return Redirect("https://sky.coflnet.com/linkvertise/fail");
             bool completed;
             if (isLootlabs)
             {
-                completed = VerifyLootlabsToken(email, hash, configuration["LOOTLABS_API_TOKEN"]);
-                logger.LogInformation("Lootlabs user {userId}, has valid {hashResult}", userId, completed);
+                completed = VerifyLootlabsToken(state, hash, configuration["LOOTLABS_API_TOKEN"]);
+                logger.LogInformation("Lootlabs callback has valid result {result}", completed);
             }
             else
             {
-                var url = $"https://publisher.linkvertise.com/api/v1/anti_bypassing?token=c43268cacfa9a88da627b24876ee3dddbadd08292dc54e420d24b4d6510c6a9e&hash={hash}";
+                var linkvertiseToken = configuration["LINKVERTISE_ANTI_BYPASS_TOKEN"];
+                if (string.IsNullOrWhiteSpace(linkvertiseToken))
+                    throw new CoflnetException("linkvertise_unconfigured", "linkvertise is not configured on this server");
+                var url = $"https://publisher.linkvertise.com/api/v1/anti_bypassing?token={Uri.EscapeDataString(linkvertiseToken)}&hash={Uri.EscapeDataString(hash)}";
                 var response = await httpClient.PostAsync(url, new StringContent(""));
                 var responseString = await response.Content.ReadAsStringAsync();
-                logger.LogInformation("Response user {userId}, has valid {hashResult}", userId, responseString);
-                completed = responseString.ToLower().Contains("true");
+                completed = response.IsSuccessStatusCode && IsSuccessfulLinkvertiseResponse(responseString);
+                logger.LogInformation("Linkvertise callback has valid result {result}", completed);
             }
-            var transactions = await lastTransactionsTask;
-            if (transactions.Any(t => t.ProductId == "compensation" && t.Reference.StartsWith("ad") && t.TimeStamp > DateTime.UtcNow.AddMinutes(-50)))
-            {
-                // don't recredit
-                return Redirect("https://sky.coflnet.com/linkvertise/success");
-            }
-
-            if (completed)
-            {
-                logger.LogInformation("successful");
-                await topUpApi.TopUpCustomPostAsync(userId.ToString(), new CustomTopUp()
+            var granted = await TryCompleteAdSession(
+                completed,
+                database,
+                provider,
+                state,
+                hash,
+                async userId =>
                 {
-                    Amount = 4,
-                    ProductId = "compensation",
-                    Reference = "ad-" + hash.Truncate(4)
+                    var transactions = await transactionApi.TransactionUUserIdGetAsync(userId, 2);
+                    if (transactions.Any(t => IsRecentAdReward(
+                            t.ProductId,
+                            t.Reference,
+                            t.TimeStamp,
+                            DateTime.UtcNow)))
+                        return;
+
+                    logger.LogInformation("Granting ad reward to session user {userId}", userId);
+                    await topUpApi.TopUpCustomPostAsync(userId, new CustomTopUp()
+                    {
+                        Amount = 4,
+                        ProductId = "compensation",
+                        Reference = "ad-" + hash
+                    });
+                    await userApi.UserUserIdServicePurchaseProductSlugPostAsync(
+                        userId,
+                        "starter_premium-hour",
+                        "ap-" + hash,
+                        1);
                 });
-                await userApi.UserUserIdServicePurchaseProductSlugPostAsync(userId.ToString(), "starter_premium-hour", "ap-" + hash.Truncate(4), 1);
-                // delete cookie
+            if (granted)
                 return Redirect("https://sky.coflnet.com/linkvertise/success");
-            }
             return Redirect("https://sky.coflnet.com/linkvertise/fail");
+        }
+
+        internal static bool TryNormalizeAdProvider(string provider, out string normalized)
+        {
+            normalized = provider?.Trim().ToLowerInvariant();
+            return normalized is "linkvertise" or "lootlabs";
+        }
+
+        internal static bool IsValidAdCompletionToken(string token) =>
+            token?.Length == 64;
+
+        internal static bool IsSuccessfulLinkvertiseResponse(string response) =>
+            string.Equals(response?.Trim(), "true", StringComparison.OrdinalIgnoreCase);
+
+        internal static bool IsRecentAdReward(
+            string productId,
+            string reference,
+            DateTime timestamp,
+            DateTime now) =>
+            productId is "compensation" or "starter_premium-hour"
+            && (reference?.StartsWith("ad-", StringComparison.Ordinal) == true
+                || reference?.StartsWith("ap-", StringComparison.Ordinal) == true)
+            && timestamp > now.AddMinutes(-50);
+
+        internal static RedisKey GetAdStateKey(string provider, string state) =>
+            $"ad-link:state:{provider}:{state}";
+
+        internal static async Task<bool> TryCompleteAdSession(
+            bool providerConfirmed,
+            IDatabase database,
+            string provider,
+            string state,
+            string hash,
+            Func<string, Task> grant)
+        {
+            if (!providerConfirmed)
+                return false;
+            var stateKey = GetAdStateKey(provider, state);
+            var userId = await database.StringGetAsync(stateKey);
+            if (userId.IsNull)
+                return false;
+
+            var completionKey = (RedisKey)$"ad-link:completion:{provider}:{hash}";
+            var transaction = database.CreateTransaction();
+            transaction.AddCondition(Condition.StringEqual(stateKey, userId));
+            transaction.AddCondition(Condition.KeyNotExists(completionKey));
+            _ = transaction.KeyDeleteAsync(stateKey);
+            // Keep the completion claim permanently: provider hashes must never credit a second session.
+            _ = transaction.StringSetAsync(completionKey, userId);
+            if (!await transaction.ExecuteAsync())
+                return false;
+
+            try
+            {
+                await grant(userId.ToString());
+                return true;
+            }
+            catch
+            {
+                var rollback = database.CreateTransaction();
+                rollback.AddCondition(Condition.StringEqual(completionKey, userId));
+                rollback.AddCondition(Condition.KeyNotExists(stateKey));
+                _ = rollback.KeyDeleteAsync(completionKey);
+                _ = rollback.StringSetAsync(stateKey, userId, TimeSpan.FromHours(4));
+                await rollback.ExecuteAsync();
+                throw;
+            }
         }
 
         /// <summary>
         /// Encrypts the reward destination with the lootlabs api key and returns the anti-bypass
         /// content locker link the user has to complete before getting redirected back.
         /// </summary>
-        private async Task<string> CreateLootlabsRedirect(string email, HttpClient httpClient)
+        private async Task<string> CreateLootlabsRedirect(string state, HttpClient httpClient)
         {
             var apiToken = configuration["LOOTLABS_API_TOKEN"];
             var lockerUrl = configuration["LOOTLABS_LOCKER_URL"];
             if (string.IsNullOrEmpty(apiToken) || string.IsNullOrEmpty(lockerUrl))
                 throw new CoflnetException("lootlabs_unconfigured", "lootlabs is not configured on this server");
             var hourBucket = DateTimeOffset.UtcNow.ToUnixTimeSeconds() / 3600;
-            var token = GetLootlabsToken(email, hourBucket, apiToken);
-            var destination = $"https://sky.coflnet.com/api/linkvertise?provider=lootlabs&email={Uri.EscapeDataString(email)}&hash={token}";
+            var token = GetLootlabsToken(state, hourBucket, apiToken);
+            var destination = $"https://sky.coflnet.com/api/linkvertise?provider=lootlabs&state={state}&hash={token}";
             var encryptUrl = $"https://creators.lootlabs.gg/api/public/url_encryptor?api_token={apiToken}&destination_url={Uri.EscapeDataString(destination)}";
             var response = await httpClient.GetAsync(encryptUrl);
             var responseString = await response.Content.ReadAsStringAsync();
@@ -410,26 +504,26 @@ namespace Coflnet.Sky.Api.Controller
         }
 
         /// <summary>
-        /// Deterministic per user and hour token used to verify a lootlabs completion.
+        /// Deterministic per session and hour token used to verify a lootlabs completion.
         /// The destination url carrying it is aes encrypted by lootlabs, so a user only learns a
         /// valid token after actually completing the offer and can not forge one for another account.
         /// </summary>
-        private static string GetLootlabsToken(string email, long hourBucket, string apiToken)
+        private static string GetLootlabsToken(string state, long hourBucket, string apiToken)
         {
             using var hmac = new System.Security.Cryptography.HMACSHA256(Encoding.UTF8.GetBytes(apiToken));
-            var hash = hmac.ComputeHash(Encoding.UTF8.GetBytes($"{email}|{hourBucket}"));
+            var hash = hmac.ComputeHash(Encoding.UTF8.GetBytes($"{state}|{hourBucket}"));
             return BitConverter.ToString(hash).Replace("-", "").ToLowerInvariant();
         }
 
-        private static bool VerifyLootlabsToken(string email, string token, string apiToken)
+        private static bool VerifyLootlabsToken(string state, string token, string apiToken)
         {
-            if (string.IsNullOrEmpty(email) || string.IsNullOrEmpty(token) || string.IsNullOrEmpty(apiToken))
+            if (string.IsNullOrEmpty(state) || string.IsNullOrEmpty(token) || string.IsNullOrEmpty(apiToken))
                 return false;
             var currentBucket = DateTimeOffset.UtcNow.ToUnixTimeSeconds() / 3600;
             // accept the current and the two previous hours so the user has time to finish the offer
             for (var bucket = currentBucket; bucket >= currentBucket - 2; bucket--)
             {
-                var expected = GetLootlabsToken(email, bucket, apiToken);
+                var expected = GetLootlabsToken(state, bucket, apiToken);
                 if (System.Security.Cryptography.CryptographicOperations.FixedTimeEquals(
                         Encoding.UTF8.GetBytes(token), Encoding.UTF8.GetBytes(expected)))
                     return true;
