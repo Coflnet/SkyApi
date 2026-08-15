@@ -22,22 +22,21 @@
     <PackageReference Include="Coflnet.DiscordBot.Client" Version="0.0.1" />
     <PackageReference Include="Coflnet.Payments.Client" Version="0.26.0" />
     <PackageReference Include="Coflnet.Sky.ModCommands.Client" Version="0.10.1" />
-    <PackageReference Include="Coflnet.Sky.Indexer.Client" Version="0.1.1" />
     <PackageReference Include="Coflnet.Sky.PlayerState.Client" Version="0.17.0" />
     <PackageReference Include="Coflnet.Sky.Proxy.Client" Version="1.0.0" />
     <PackageReference Include="AspNetCoreRateLimit" Version="5.0.0" />
     <PackageReference Include="Coflnet.Sky.Subscriptions.Client" Version="1.0.0" />
     <PackageReference Include="Coflnet.Sky.Trade.Client" Version="0.1.4" />
     <PackageReference Include="Hashids.net" Version="1.7.0" />
-    <PackageReference Include="Microsoft.AspNetCore.Mvc.NewtonsoftJson" Version="10.0.10" />
-    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.10">
+    <PackageReference Include="Microsoft.AspNetCore.Mvc.NewtonsoftJson" Version="10.0.11" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.11">
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
       <PrivateAssets>all</PrivateAssets>
     </PackageReference>
-    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.10" />
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.11" />
     <PackageReference Include="Microting.EntityFrameworkCore.MySql" Version="10.0.10" />
     <PackageReference Include="Swashbuckle.AspNetCore" Version="10.2.3" />
-    <PackageReference Include="System.IdentityModel.Tokens.Jwt" Version="8.21.0" />
+    <PackageReference Include="System.IdentityModel.Tokens.Jwt" Version="8.22.0" />
   </ItemGroup>
 
   <ItemGroup Condition="'$(Configuration)' == 'Release'">
@@ -46,7 +45,7 @@
   <ItemGroup Condition="'$(Configuration)' != 'Release'">
     <PackageReference Include="AwesomeAssertions" Version="9.5.0" />
     <PackageReference Include="NUnit3TestAdapter" Version="6.2.0" />
-    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.8.1" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.9.0" />
   </ItemGroup>
 
 </Project>
