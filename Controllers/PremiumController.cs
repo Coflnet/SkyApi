@@ -335,7 +335,7 @@ namespace Coflnet.Sky.Api.Controller
             var database = redis.GetDatabase();
             if (string.IsNullOrEmpty(hash))
             {
-                var user = await GetUserOrDefault(true);
+                var user = await GetUserOrDefault();
                 if (user == default)
                     return Unauthorized("no auth header passed");
                 state = System.Security.Cryptography.RandomNumberGenerator.GetHexString(32).ToLowerInvariant();
