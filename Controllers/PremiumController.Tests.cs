@@ -61,6 +61,27 @@ public class PremiumControllerTests
         });
     }
 
+    [Test]
+    public async Task LootlabsEncryptionRequest_UsesBearerAuthenticationWithoutLeakingToken()
+    {
+        const string apiToken = "secret-api-token";
+        const string destination = "https://sky.coflnet.com/api/linkvertise?provider=lootlabs&state=test";
+        using var request = PremiumController.CreateLootlabsEncryptionRequest(destination, apiToken);
+        var body = await request.Content.ReadAsStringAsync();
+        var bodyDestination = System.Text.Json.JsonDocument.Parse(body)
+            .RootElement.GetProperty("destination_url").GetString();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(request.Method.Method, Is.EqualTo("POST"));
+            Assert.That(request.Headers.Authorization?.Scheme, Is.EqualTo("Bearer"));
+            Assert.That(request.Headers.Authorization?.Parameter, Is.EqualTo(apiToken));
+            Assert.That(request.RequestUri?.ToString(), Does.Not.Contain(apiToken));
+            Assert.That(bodyDestination, Is.EqualTo(destination));
+            Assert.That(body, Does.Not.Contain(apiToken));
+        });
+    }
+
     [TestCase("compensation", "ad-hash", -49, true)]
     [TestCase("starter_premium-hour", "ad-hash", -49, true)]
     [TestCase("starter_premium-hour", "ap-hash", -49, true)]

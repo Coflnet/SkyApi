@@ -10,6 +10,7 @@ using Coflnet.Sky.Api.Models;
 using Coflnet.Sky.Api.Services;
 using System.Threading;
 using System.Net.Http;
+using System.Net.Http.Headers;
 using System.Text;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Configuration;
@@ -340,12 +341,12 @@ namespace Coflnet.Sky.Api.Controller
                     logger.LogWarning(
                         "Lootlabs browser callback rejected due to invalid state length {stateLength}",
                         state?.Length ?? 0);
-                    return Redirect("https://sky.coflnet.com/linkvertise/fail");
+                    return Redirect("https://sky.coflnet.com/linkvertise/fail?reason=invalid-callback");
                 }
                 var result = await WaitForAdResult(database, GetAdResultKey(provider, state));
                 return Redirect(result
                     ? "https://sky.coflnet.com/linkvertise/success"
-                    : "https://sky.coflnet.com/linkvertise/fail");
+                    : "https://sky.coflnet.com/linkvertise/fail?reason=unconfirmed");
             }
             if (string.IsNullOrEmpty(hash))
             {
@@ -378,7 +379,7 @@ namespace Coflnet.Sky.Api.Controller
                     provider,
                     hash?.Length ?? 0,
                     state?.Length ?? 0);
-                return Redirect("https://sky.coflnet.com/linkvertise/fail");
+                return Redirect("https://sky.coflnet.com/linkvertise/fail?reason=invalid-callback");
             }
             bool completed;
             if (isLootlabs)
@@ -390,7 +391,9 @@ namespace Coflnet.Sky.Api.Controller
             {
                 var linkvertiseToken = configuration["LINKVERTISE_ANTI_BYPASS_TOKEN"];
                 if (string.IsNullOrWhiteSpace(linkvertiseToken))
-                    throw new CoflnetException("linkvertise_unconfigured", "linkvertise is not configured on this server");
+                    throw new CoflnetException(
+                        "linkvertise_unconfigured",
+                        "Linkvertise is currently unavailable. Please try LootLabs or try again later.");
                 var url = $"https://publisher.linkvertise.com/api/v1/anti_bypassing?token={Uri.EscapeDataString(linkvertiseToken)}&hash={Uri.EscapeDataString(hash)}";
                 var response = await httpClient.PostAsync(url, new StringContent(""));
                 var responseString = await response.Content.ReadAsStringAsync();
@@ -410,7 +413,9 @@ namespace Coflnet.Sky.Api.Controller
                 "Ad callback did not claim a session for provider {provider}; providerConfirmed={providerConfirmed}",
                 provider,
                 completed);
-            return Redirect("https://sky.coflnet.com/linkvertise/fail");
+            return Redirect(completed
+                ? "https://sky.coflnet.com/linkvertise/fail?reason=expired"
+                : "https://sky.coflnet.com/linkvertise/fail?reason=unconfirmed");
         }
 
         /// <summary>
@@ -603,19 +608,12 @@ namespace Coflnet.Sky.Api.Controller
             if (string.IsNullOrEmpty(apiToken)
                 || string.IsNullOrEmpty(lockerUrl)
                 || Encoding.UTF8.GetByteCount(postbackToken ?? "") < 32)
-                throw new CoflnetException("lootlabs_unconfigured", "lootlabs is not configured on this server");
+                throw new CoflnetException(
+                    "lootlabs_unconfigured",
+                    "LootLabs is currently unavailable. Please try Linkvertise or try again later.");
             var destination = $"https://sky.coflnet.com/api/linkvertise?provider=lootlabs&state={state}";
-            var content = new StringContent(
-                System.Text.Json.JsonSerializer.Serialize(new
-                {
-                    destination_url = destination,
-                    api_token = apiToken
-                }),
-                Encoding.UTF8,
-                "application/json");
-            var response = await httpClient.PostAsync(
-                "https://creators.lootlabs.gg/api/public/url_encryptor",
-                content);
+            using var request = CreateLootlabsEncryptionRequest(destination, apiToken);
+            using var response = await httpClient.SendAsync(request);
             var responseString = await response.Content.ReadAsStringAsync();
             if (!response.IsSuccessStatusCode)
             {
@@ -625,6 +623,21 @@ namespace Coflnet.Sky.Api.Controller
             // the returned message is the aes encrypted destination and already url encoded
             var encrypted = System.Text.Json.JsonDocument.Parse(responseString).RootElement.GetProperty("message").GetString();
             return $"{lockerUrl}&puid={state}&data={encrypted}";
+        }
+
+        internal static HttpRequestMessage CreateLootlabsEncryptionRequest(string destination, string apiToken)
+        {
+            var request = new HttpRequestMessage(
+                HttpMethod.Post,
+                "https://creators.lootlabs.gg/api/public/url_encryptor")
+            {
+                Content = new StringContent(
+                    System.Text.Json.JsonSerializer.Serialize(new { destination_url = destination }),
+                    Encoding.UTF8,
+                    "application/json")
+            };
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", apiToken);
+            return request;
         }
 
         private async Task GrantAdReward(string userId, string hash)
