@@ -336,7 +336,7 @@ namespace Coflnet.Sky.Api.Controller
             var database = redis.GetDatabase();
             if (isLootlabs && string.IsNullOrEmpty(hash) && !string.IsNullOrEmpty(state))
             {
-                if (!IsValidAdCompletionToken(state))
+                if (!IsValidAdState(state))
                 {
                     logger.LogWarning(
                         "Lootlabs browser callback rejected due to invalid state length {stateLength}",
@@ -372,7 +372,7 @@ namespace Coflnet.Sky.Api.Controller
                 }
                 return Ok(redirectTo);
             }
-            if (!IsValidAdCompletionToken(hash) || !IsValidAdCompletionToken(state))
+            if (!IsValidAdCompletionToken(hash) || !IsValidAdState(state))
             {
                 logger.LogWarning(
                     "Ad callback rejected for provider {provider} due to invalid token lengths hash={hashLength}, state={stateLength}",
@@ -437,7 +437,7 @@ namespace Coflnet.Sky.Api.Controller
                 return Unauthorized();
             }
             var completionHash = GetLootlabsCompletionHash(uniqueId);
-            if (!IsValidAdCompletionToken(state) || completionHash == null)
+            if (!IsValidAdState(state) || completionHash == null)
             {
                 logger.LogWarning(
                     "Rejected Lootlabs postback with invalid identifiers stateLength={stateLength}, uniqueIdLength={uniqueIdLength}",
@@ -482,6 +482,9 @@ namespace Coflnet.Sky.Api.Controller
         internal static bool IsValidAdCompletionToken(string token) =>
             token?.Length == 64;
 
+        internal static bool IsValidAdState(string state) =>
+            state?.Length == 32;
+
         internal static bool IsValidLootlabsPostbackToken(string expected, string supplied)
         {
             var expectedBytes = Encoding.UTF8.GetBytes(expected ?? "");
@@ -512,7 +515,7 @@ namespace Coflnet.Sky.Api.Controller
         {
             var completionHash = GetLootlabsCompletionHash(uniqueId);
             if (!IsValidLootlabsPostbackToken(expectedToken, suppliedToken)
-                || !IsValidAdCompletionToken(state)
+                || !IsValidAdState(state)
                 || completionHash == null)
                 return Task.FromResult(false);
             return TryCompleteAdSession(

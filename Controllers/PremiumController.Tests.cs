@@ -62,6 +62,17 @@ public class PremiumControllerTests
     }
 
     [Test]
+    public void AdState_Requires32Characters()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.That(PremiumController.IsValidAdState(new string('a', 32)), Is.True);
+            Assert.That(PremiumController.IsValidAdState(new string('a', 31)), Is.False);
+            Assert.That(PremiumController.IsValidAdState(new string('a', 33)), Is.False);
+        });
+    }
+
+    [Test]
     public async Task LootlabsEncryptionRequest_UsesBearerAuthenticationWithoutLeakingToken()
     {
         const string apiToken = "secret-api-token";
@@ -116,7 +127,7 @@ public class PremiumControllerTests
             false,
             database.Object,
             provider,
-            new string('a', 64),
+            new string('a', 32),
             new string('b', 64),
             _ =>
             {
@@ -142,7 +153,7 @@ public class PremiumControllerTests
             new string('a', 32),
             new string('b', 32),
             database.Object,
-            new string('c', 64),
+            new string('c', 32),
             "provider-completion",
             (_, _) =>
             {
@@ -162,7 +173,7 @@ public class PremiumControllerTests
     public async Task ConfirmedLootlabsPostbackCreditsOnlySessionOwner()
     {
         const string sessionOwner = "session-owner";
-        var state = new string('c', 64);
+        var state = new string('c', 32);
         var token = new string('a', 32);
         var database = new Mock<IDatabase>();
         var transaction = new Mock<ITransaction>();
@@ -204,7 +215,7 @@ public class PremiumControllerTests
     [Test]
     public async Task ReplayedLootlabsPostbackCannotCreditTwice()
     {
-        var state = new string('c', 64);
+        var state = new string('c', 32);
         var token = new string('a', 32);
         var database = new Mock<IDatabase>();
         var transaction = new Mock<ITransaction>();
@@ -243,7 +254,7 @@ public class PremiumControllerTests
     public async Task ConfirmedCallbackCreditsOnlyUserStoredInSession(string provider)
     {
         const string sessionOwner = "session-owner";
-        var state = new string('a', 64);
+        var state = new string('a', 32);
         var database = new Mock<IDatabase>();
         var transaction = new Mock<ITransaction>();
         database
@@ -282,7 +293,7 @@ public class PremiumControllerTests
     [TestCase("lootlabs")]
     public async Task ReplayedConfirmationCannotCreditTwice(string provider)
     {
-        var state = new string('a', 64);
+        var state = new string('a', 32);
         var database = new Mock<IDatabase>();
         var transaction = new Mock<ITransaction>();
         database
