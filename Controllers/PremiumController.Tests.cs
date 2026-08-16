@@ -111,6 +111,112 @@ public class PremiumControllerTests
         database.VerifyNoOtherCalls();
     }
 
+    [Test]
+    public async Task ForgedLootlabsPostbackNeverCredits()
+    {
+        var database = new Mock<IDatabase>(MockBehavior.Strict);
+        var grantCalls = 0;
+
+        var completed = await PremiumController.TryCompleteLootlabsPostback(
+            new string('a', 32),
+            new string('b', 32),
+            database.Object,
+            new string('c', 64),
+            "provider-completion",
+            (_, _) =>
+            {
+                grantCalls++;
+                return Task.CompletedTask;
+            });
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(completed, Is.False);
+            Assert.That(grantCalls, Is.Zero);
+        });
+        database.VerifyNoOtherCalls();
+    }
+
+    [Test]
+    public async Task ConfirmedLootlabsPostbackCreditsOnlySessionOwner()
+    {
+        const string sessionOwner = "session-owner";
+        var state = new string('c', 64);
+        var token = new string('a', 32);
+        var database = new Mock<IDatabase>();
+        var transaction = new Mock<ITransaction>();
+        database
+            .Setup(d => d.StringGetAsync(
+                PremiumController.GetAdStateKey("lootlabs", state),
+                It.IsAny<CommandFlags>()))
+            .ReturnsAsync(sessionOwner);
+        database
+            .Setup(d => d.CreateTransaction(It.IsAny<object>()))
+            .Returns(transaction.Object);
+        transaction
+            .Setup(t => t.ExecuteAsync(It.IsAny<CommandFlags>()))
+            .ReturnsAsync(true);
+        string creditedUser = null;
+        string completionHash = null;
+
+        var completed = await PremiumController.TryCompleteLootlabsPostback(
+            token,
+            token,
+            database.Object,
+            state,
+            "provider-completion",
+            (userId, hash) =>
+            {
+                creditedUser = userId;
+                completionHash = hash;
+                return Task.CompletedTask;
+            });
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(completed, Is.True);
+            Assert.That(creditedUser, Is.EqualTo(sessionOwner));
+            Assert.That(completionHash, Has.Length.EqualTo(64));
+        });
+    }
+
+    [Test]
+    public async Task ReplayedLootlabsPostbackCannotCreditTwice()
+    {
+        var state = new string('c', 64);
+        var token = new string('a', 32);
+        var database = new Mock<IDatabase>();
+        var transaction = new Mock<ITransaction>();
+        database
+            .Setup(d => d.StringGetAsync(
+                PremiumController.GetAdStateKey("lootlabs", state),
+                It.IsAny<CommandFlags>()))
+            .ReturnsAsync("session-owner");
+        database
+            .Setup(d => d.CreateTransaction(It.IsAny<object>()))
+            .Returns(transaction.Object);
+        transaction
+            .SetupSequence(t => t.ExecuteAsync(It.IsAny<CommandFlags>()))
+            .ReturnsAsync(true)
+            .ReturnsAsync(false);
+        var grantCalls = 0;
+
+        for (var attempt = 0; attempt < 2; attempt++)
+            await PremiumController.TryCompleteLootlabsPostback(
+                token,
+                token,
+                database.Object,
+                state,
+                "provider-completion",
+                (_, _) =>
+                {
+                    grantCalls++;
+                    return Task.CompletedTask;
+                });
+
+        Assert.That(grantCalls, Is.EqualTo(1));
+    }
+
     [TestCase("linkvertise")]
     [TestCase("lootlabs")]
     public async Task ConfirmedCallbackCreditsOnlyUserStoredInSession(string provider)

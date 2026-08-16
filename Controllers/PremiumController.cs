@@ -333,6 +333,20 @@ namespace Coflnet.Sky.Api.Controller
                 return BadRequest("unsupported ad provider");
             var isLootlabs = provider == "lootlabs";
             var database = redis.GetDatabase();
+            if (isLootlabs && string.IsNullOrEmpty(hash) && !string.IsNullOrEmpty(state))
+            {
+                if (!IsValidAdCompletionToken(state))
+                {
+                    logger.LogWarning(
+                        "Lootlabs browser callback rejected due to invalid state length {stateLength}",
+                        state?.Length ?? 0);
+                    return Redirect("https://sky.coflnet.com/linkvertise/fail");
+                }
+                var result = await WaitForAdResult(database, GetAdResultKey(provider, state));
+                return Redirect(result
+                    ? "https://sky.coflnet.com/linkvertise/success"
+                    : "https://sky.coflnet.com/linkvertise/fail");
+            }
             if (string.IsNullOrEmpty(hash))
             {
                 var user = await GetUserOrDefault();
@@ -358,7 +372,14 @@ namespace Coflnet.Sky.Api.Controller
                 return Ok(redirectTo);
             }
             if (!IsValidAdCompletionToken(hash) || !IsValidAdCompletionToken(state))
+            {
+                logger.LogWarning(
+                    "Ad callback rejected for provider {provider} due to invalid token lengths hash={hashLength}, state={stateLength}",
+                    provider,
+                    hash?.Length ?? 0,
+                    state?.Length ?? 0);
                 return Redirect("https://sky.coflnet.com/linkvertise/fail");
+            }
             bool completed;
             if (isLootlabs)
             {
@@ -382,32 +403,69 @@ namespace Coflnet.Sky.Api.Controller
                 provider,
                 state,
                 hash,
-                async userId =>
-                {
-                    var transactions = await transactionApi.TransactionUUserIdGetAsync(userId, 2);
-                    if (transactions.Any(t => IsRecentAdReward(
-                            t.ProductId,
-                            t.Reference,
-                            t.TimeStamp,
-                            DateTime.UtcNow)))
-                        return;
-
-                    logger.LogInformation("Granting ad reward to session user {userId}", userId);
-                    await topUpApi.TopUpCustomPostAsync(userId, new CustomTopUp()
-                    {
-                        Amount = 4,
-                        ProductId = "compensation",
-                        Reference = "ad-" + hash
-                    });
-                    await userApi.UserUserIdServicePurchaseProductSlugPostAsync(
-                        userId,
-                        "starter_premium-hour",
-                        "ap-" + hash,
-                        1);
-                });
+                userId => GrantAdReward(userId, hash));
             if (granted)
                 return Redirect("https://sky.coflnet.com/linkvertise/success");
+            logger.LogWarning(
+                "Ad callback did not claim a session for provider {provider}; providerConfirmed={providerConfirmed}",
+                provider,
+                completed);
             return Redirect("https://sky.coflnet.com/linkvertise/fail");
+        }
+
+        /// <summary>
+        /// Receives LootLabs' server-to-server completion confirmation. The shared token is
+        /// configured as part of the postback URL in the LootLabs dashboard.
+        /// </summary>
+        [Route("linkvertise/lootlabs/postback")]
+        [HttpGet]
+        [ApiExplorerSettings(IgnoreApi = true)]
+        public async Task<IActionResult> LootlabsPostback(
+            [FromQuery(Name = "token")] string token,
+            [FromQuery(Name = "click_id")] string state,
+            [FromQuery(Name = "unique_id")] string uniqueId,
+            [FromServices] IConnectionMultiplexer redis)
+        {
+            if (!IsValidLootlabsPostbackToken(configuration["LOOTLABS_POSTBACK_TOKEN"], token))
+            {
+                logger.LogWarning("Rejected Lootlabs postback with invalid authentication");
+                return Unauthorized();
+            }
+            var completionHash = GetLootlabsCompletionHash(uniqueId);
+            if (!IsValidAdCompletionToken(state) || completionHash == null)
+            {
+                logger.LogWarning(
+                    "Rejected Lootlabs postback with invalid identifiers stateLength={stateLength}, uniqueIdLength={uniqueIdLength}",
+                    state?.Length ?? 0,
+                    uniqueId?.Length ?? 0);
+                return BadRequest();
+            }
+
+            var database = redis.GetDatabase();
+            var resultKey = GetAdResultKey("lootlabs", state);
+            if (await database.StringGetAsync(resultKey) == "success")
+                return Ok();
+
+            var granted = await TryCompleteLootlabsPostback(
+                configuration["LOOTLABS_POSTBACK_TOKEN"],
+                token,
+                database,
+                state,
+                uniqueId,
+                async (userId, hash) =>
+                {
+                    await GrantAdReward(userId, hash);
+                    await database.StringSetAsync(resultKey, "success", TimeSpan.FromHours(4));
+                });
+            if (!granted)
+            {
+                if (await database.StringGetAsync(resultKey) == "success")
+                    return Ok();
+                logger.LogWarning("Lootlabs postback did not claim a pending session");
+                return BadRequest();
+            }
+            logger.LogInformation("Lootlabs postback completed a pending ad session");
+            return Ok();
         }
 
         internal static bool TryNormalizeAdProvider(string provider, out string normalized)
@@ -418,6 +476,48 @@ namespace Coflnet.Sky.Api.Controller
 
         internal static bool IsValidAdCompletionToken(string token) =>
             token?.Length == 64;
+
+        internal static bool IsValidLootlabsPostbackToken(string expected, string supplied)
+        {
+            var expectedBytes = Encoding.UTF8.GetBytes(expected ?? "");
+            var suppliedBytes = Encoding.UTF8.GetBytes(supplied ?? "");
+            return expectedBytes.Length >= 32
+                && expectedBytes.Length == suppliedBytes.Length
+                && System.Security.Cryptography.CryptographicOperations.FixedTimeEquals(
+                    expectedBytes,
+                    suppliedBytes);
+        }
+
+        internal static string GetLootlabsCompletionHash(string uniqueId)
+        {
+            if (string.IsNullOrWhiteSpace(uniqueId) || uniqueId.Length > 256)
+                return null;
+            return Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(
+                    Encoding.UTF8.GetBytes(uniqueId)))
+                .ToLowerInvariant();
+        }
+
+        internal static Task<bool> TryCompleteLootlabsPostback(
+            string expectedToken,
+            string suppliedToken,
+            IDatabase database,
+            string state,
+            string uniqueId,
+            Func<string, string, Task> grant)
+        {
+            var completionHash = GetLootlabsCompletionHash(uniqueId);
+            if (!IsValidLootlabsPostbackToken(expectedToken, suppliedToken)
+                || !IsValidAdCompletionToken(state)
+                || completionHash == null)
+                return Task.FromResult(false);
+            return TryCompleteAdSession(
+                true,
+                database,
+                "lootlabs",
+                state,
+                completionHash,
+                userId => grant(userId, completionHash));
+        }
 
         internal static bool IsSuccessfulLinkvertiseResponse(string response) =>
             string.Equals(response?.Trim(), "true", StringComparison.OrdinalIgnoreCase);
@@ -434,6 +534,20 @@ namespace Coflnet.Sky.Api.Controller
 
         internal static RedisKey GetAdStateKey(string provider, string state) =>
             $"ad-link:state:{provider}:{state}";
+
+        internal static RedisKey GetAdResultKey(string provider, string state) =>
+            $"ad-link:result:{provider}:{state}";
+
+        private static async Task<bool> WaitForAdResult(IDatabase database, RedisKey resultKey)
+        {
+            for (var attempt = 0; attempt < 10; attempt++)
+            {
+                if (await database.StringGetAsync(resultKey) == "success")
+                    return true;
+                await Task.Delay(500);
+            }
+            return false;
+        }
 
         internal static async Task<bool> TryCompleteAdSession(
             bool providerConfirmed,
@@ -485,13 +599,23 @@ namespace Coflnet.Sky.Api.Controller
         {
             var apiToken = configuration["LOOTLABS_API_TOKEN"];
             var lockerUrl = configuration["LOOTLABS_LOCKER_URL"];
-            if (string.IsNullOrEmpty(apiToken) || string.IsNullOrEmpty(lockerUrl))
+            var postbackToken = configuration["LOOTLABS_POSTBACK_TOKEN"];
+            if (string.IsNullOrEmpty(apiToken)
+                || string.IsNullOrEmpty(lockerUrl)
+                || Encoding.UTF8.GetByteCount(postbackToken ?? "") < 32)
                 throw new CoflnetException("lootlabs_unconfigured", "lootlabs is not configured on this server");
-            var hourBucket = DateTimeOffset.UtcNow.ToUnixTimeSeconds() / 3600;
-            var token = GetLootlabsToken(state, hourBucket, apiToken);
-            var destination = $"https://sky.coflnet.com/api/linkvertise?provider=lootlabs&state={state}&hash={token}";
-            var encryptUrl = $"https://creators.lootlabs.gg/api/public/url_encryptor?api_token={apiToken}&destination_url={Uri.EscapeDataString(destination)}";
-            var response = await httpClient.GetAsync(encryptUrl);
+            var destination = $"https://sky.coflnet.com/api/linkvertise?provider=lootlabs&state={state}";
+            var content = new StringContent(
+                System.Text.Json.JsonSerializer.Serialize(new
+                {
+                    destination_url = destination,
+                    api_token = apiToken
+                }),
+                Encoding.UTF8,
+                "application/json");
+            var response = await httpClient.PostAsync(
+                "https://creators.lootlabs.gg/api/public/url_encryptor",
+                content);
             var responseString = await response.Content.ReadAsStringAsync();
             if (!response.IsSuccessStatusCode)
             {
@@ -500,7 +624,31 @@ namespace Coflnet.Sky.Api.Controller
             }
             // the returned message is the aes encrypted destination and already url encoded
             var encrypted = System.Text.Json.JsonDocument.Parse(responseString).RootElement.GetProperty("message").GetString();
-            return $"{lockerUrl}&data={encrypted}";
+            return $"{lockerUrl}&puid={state}&data={encrypted}";
+        }
+
+        private async Task GrantAdReward(string userId, string hash)
+        {
+            var transactions = await transactionApi.TransactionUUserIdGetAsync(userId, 2);
+            if (transactions.Any(t => IsRecentAdReward(
+                    t.ProductId,
+                    t.Reference,
+                    t.TimeStamp,
+                    DateTime.UtcNow)))
+                return;
+
+            logger.LogInformation("Granting ad reward to session user {userId}", userId);
+            await topUpApi.TopUpCustomPostAsync(userId, new CustomTopUp()
+            {
+                Amount = 4,
+                ProductId = "compensation",
+                Reference = "ad-" + hash
+            });
+            await userApi.UserUserIdServicePurchaseProductSlugPostAsync(
+                userId,
+                "starter_premium-hour",
+                "ap-" + hash,
+                1);
         }
 
         /// <summary>
