@@ -33,7 +33,7 @@ public class PremiumTierService
     /// <summary>
     /// Checks whether the requesting user has a premium subscription.
     /// </summary>
-    public async Task<bool> HasPremium(ControllerBase controllerInstance)
+    public virtual async Task<bool> HasPremium(ControllerBase controllerInstance)
     {
         return await OwnsProduct(controllerInstance, "premium");
     }
