@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "issue": 277,
+  "baseCommit": "ad0052397c377fd3226cb7b98f990c301eeb807f",
+  "command": "docker build --pull --tag coflnet-sky-api-test .",
+  "base": {
+    "status": "fail",
+    "exitCode": 1,
+    "observed": "Premium returned 200; the following authenticated non-premium request leaked the cached 200 instead of 403, with HasPremium evaluated once."
+  },
+  "candidate": {
+    "status": "pass",
+    "exitCode": 0,
+    "observed": "All 175 tests passed; premium returned 200, non-premium returned 403, HasPremium was evaluated twice, and anonymous and terms-rejected requests returned 401."
+  },
+  "pullRequest": "Fixes #277"
+}
