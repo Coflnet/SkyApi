@@ -10,14 +10,18 @@ RUN git clone --depth=1 https://github.com/Ekwav/NotEnoughUpdates-REPO.git NEU-R
 COPY SkyApi.csproj SkyApi.csproj
 RUN dotnet restore
 COPY . .
+
+FROM build AS test
 RUN rm SkyApi.sln && dotnet test
+
+FROM test AS publish
 RUN dotnet publish -c release -o /app /p:UseAppHost=false /p:PublishReadyToRun=true
 
 FROM mcr.microsoft.com/dotnet/aspnet:10.0-noble-chiseled-extra
 WORKDIR /app
 
-COPY --from=build --chown=$APP_UID:$APP_UID /app .
-COPY --from=build --chown=$APP_UID:$APP_UID /build/sky/NEU-REPO NEU-REPO
+COPY --from=publish --chown=$APP_UID:$APP_UID /app .
+COPY --from=publish --chown=$APP_UID:$APP_UID /build/sky/NEU-REPO NEU-REPO
 
 ENV ASPNETCORE_URLS=http://+:8000 \
     DOTNET_EnableDiagnostics=0 \
