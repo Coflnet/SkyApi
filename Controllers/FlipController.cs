@@ -36,6 +36,7 @@ namespace Coflnet.Sky.Api.Controller
         private ILogger<FlipController> logger;
         private PremiumTierService premiumTierService;
     private IBazaarFlipperApi bazaarFlipperApi;
+    private IFleetApi fleetApi;
     private IItemsApi itemsApi;
     private IAttributeApi attributeApi;
         private static readonly Dictionary<string, int> TierOrder = new(StringComparer.OrdinalIgnoreCase)
@@ -60,6 +61,7 @@ namespace Coflnet.Sky.Api.Controller
         /// <param name="logger"></param>
         /// <param name="premiumTierService"></param>
     /// <param name="bazaarFlipperApi"></param>
+    /// <param name="fleetApi"></param>
     /// <param name="itemsApi"></param>
     /// <param name="attributeApi"></param>
         public FlipController(IConfiguration config,
@@ -68,6 +70,7 @@ namespace Coflnet.Sky.Api.Controller
                               ILogger<FlipController> logger,
                               PremiumTierService premiumTierService,
                               IBazaarFlipperApi bazaarFlipperApi,
+                              IFleetApi fleetApi,
                               IItemsApi itemsApi,
                               IAttributeApi attributeApi)
         {
@@ -77,6 +80,7 @@ namespace Coflnet.Sky.Api.Controller
             this.logger = logger;
             this.premiumTierService = premiumTierService;
             this.bazaarFlipperApi = bazaarFlipperApi;
+            this.fleetApi = fleetApi;
             this.itemsApi = itemsApi;
             this.attributeApi = attributeApi;
         }
@@ -197,6 +201,20 @@ namespace Coflnet.Sky.Api.Controller
                 ItemName = itemName,
             };
             }).Where(f => f != null);
+        }
+
+        /// <summary>
+        /// Underserved bazaar capacity feed: estimated market capacity the tracked trader fleet is NOT
+        /// consuming this cycle, so (untracked) website users can place orders where they are not
+        /// competing with the fleet. Ranked by value (remaining capacity x spread) descending.
+        /// </summary>
+        /// <param name="targetHoldTimeHours">Hold time used to scale hourly volume into the per-cycle capacity estimate.</param>
+        [Route("bazaar/residual")]
+        [HttpGet]
+        [ResponseCache(Duration = 20, Location = ResponseCacheLocation.Any, NoStore = false, VaryByQueryKeys = new[] { "targetHoldTimeHours" })]
+        public async Task<IEnumerable<Bazaar.Flipper.Client.Model.ResidualEntryDto>> GetBazaarResidual(double targetHoldTimeHours = 1)
+        {
+            return await fleetApi.FleetResidualGetAsync(targetHoldTimeHours);
         }
 
         /// <summary>

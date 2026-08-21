@@ -303,6 +303,7 @@ namespace Coflnet.Sky.Api
             });
             services.AddSingleton<PlayerState.Client.Api.IPlayerStateApi>(p =>
                 new PlayerState.Client.Api.PlayerStateApi(Configuration["PLAYERSTATE_BASE_URL"]));
+            services.AddSingleton<Coflnet.Sky.Bazaar.Flipper.Client.Api.IFleetApi>(p => new Coflnet.Sky.Bazaar.Flipper.Client.Api.FleetApi(Configuration["BAZAARFLIPPER_BASE_URL"]));
             services.AddSingleton<AhListChecker>();
 
             services.AddSingleton<TfmService>();

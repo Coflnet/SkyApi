@@ -76,6 +76,7 @@ public class FlipControllerCacheTests
                         "CustomScheme", _ => { });
                 services.AddSingleton<PremiumTierService>(premiumService);
                 services.AddSingleton(CreateProxy<IBazaarFlipperApi>());
+                services.AddSingleton(CreateProxy<IFleetApi>());
                 services.AddSingleton(CreateProxy<IItemsApi>());
             });
 
