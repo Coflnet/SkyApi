@@ -149,6 +149,7 @@ namespace Coflnet.Sky.Api
                 service.GetRequiredService<LegalManifestService>());
             services.AddSingleton<FilterPobularityService>();
             services.AddSingleton<NetworthService>();
+            services.AddSingleton<MinionCompactionService>();
             services.AddSingleton<IScrapingDetectionService, ScrapingDetectionService>();
             services.AddScoped<AiRateLimitFilter>();
             services.AddSingleton<EmbeddingService>();
