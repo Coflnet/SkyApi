@@ -44,6 +44,23 @@ public class FlipControllerCacheTests
     }
 
     [Test]
+    public async Task Mayor_flips_check_premium_for_the_authenticated_bearer_user()
+    {
+        using var server = CreateServer(out var premium);
+        using var client = server.CreateClient();
+        using var request = new HttpRequestMessage(HttpMethod.Get, "/api/flip/mayor");
+        request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", "premium");
+        request.Headers.Add("GoogleToken", "basic");
+        request.Headers.Add("X-ClientId", "cache-regression-test");
+
+        var response = await client.SendAsync(request);
+        var body = await response.Content.ReadAsStringAsync();
+
+        Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.OK), body);
+        Assert.That(premium.Evaluations, Is.EqualTo(1));
+    }
+
+    [Test]
     public async Task Mayor_flips_keep_standard_authentication_challenges()
     {
         using var server = CreateServer(out var premium);
@@ -138,8 +155,11 @@ public class FlipControllerCacheTests
         public override Task<bool> HasPremium(ControllerBase controllerInstance)
         {
             Evaluations++;
-            return Task.FromResult(
-                controllerInstance.Request.Headers["GoogleToken"] == "premium");
+            var headers = controllerInstance.Request.Headers;
+            var token = headers.TryGetValue("GoogleToken", out var googleToken)
+                ? googleToken.ToString()
+                : headers["Authorization"].ToString().Replace("Bearer ", "");
+            return Task.FromResult(token == "premium");
         }
     }
 
@@ -152,7 +172,11 @@ public class FlipControllerCacheTests
 
         protected override Task<AuthenticateResult> HandleAuthenticateAsync()
         {
-            var token = Request.Headers["GoogleToken"].ToString();
+            var token = Request.Headers["Authorization"].ToString();
+            if (token.StartsWith("Bearer "))
+                token = token["Bearer ".Length..];
+            else
+                token = Request.Headers["GoogleToken"].ToString();
             if (string.IsNullOrEmpty(token))
                 return Task.FromResult(AuthenticateResult.NoResult());
             if (token == "terms-rejected")

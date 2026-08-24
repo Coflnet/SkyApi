@@ -239,6 +239,12 @@ namespace Coflnet.Sky.Api.Controller
         [ResponseCache(NoStore = true, Location = ResponseCacheLocation.None)]
         public async Task<ActionResult<IEnumerable<MayorDiffFlip>>> GetmayordiffFlips()
         {
+            // Authentication prioritizes the bearer credential when both supported headers are present.
+            // Keep the premium lookup on the same authenticated user instead of a stale GoogleToken value.
+            if (Request.Headers.TryGetValue("Authorization", out var authorization)
+                && authorization.ToString().StartsWith("Bearer ", StringComparison.Ordinal))
+                Request.Headers.Remove(premiumTierService.HeaderName);
+
             if (!await premiumTierService.HasPremium(this))
             {
                 return StatusCode(StatusCodes.Status403Forbidden, new
