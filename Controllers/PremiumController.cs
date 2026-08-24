@@ -17,6 +17,8 @@ using Microsoft.Extensions.Configuration;
 using Newtonsoft.Json;
 using StackExchange.Redis;
 
+#nullable enable annotations
+
 namespace Coflnet.Sky.Api.Controller
 {
     /// <summary>
@@ -201,6 +203,7 @@ namespace Coflnet.Sky.Api.Controller
         }
 
 
+        /// <summary>Starts a Google Play top-up.</summary>
         [Route("topup/playstore")]
         [HttpPost]
         [Microsoft.AspNetCore.Authorization.Authorize]
@@ -217,11 +220,14 @@ namespace Coflnet.Sky.Api.Controller
             };
         }
 
+        /// <summary>Identifies a Google Play top-up user.</summary>
         public class PlaystorTopup
         {
+            /// <summary>Gets or sets the user ID.</summary>
             public string UserId { get; set; }
         }
 
+        /// <summary>Completes a Google Play top-up.</summary>
         [Route("topup/playstore/complete")]
         [HttpPost]
         public async Task<ActionResult<bool>> CompleteTopUpPlayStore([FromBody] GooglePlayPurchaseRequest args, [FromServices] IGooglePayApi googlePayApi)
@@ -235,6 +241,7 @@ namespace Coflnet.Sky.Api.Controller
             return result.IsValid;
         }
 
+        /// <summary>Gets regional pricing for a batch of products.</summary>
         [Route("topup/rates")]
         [HttpPost]
         [Microsoft.AspNetCore.Authorization.Authorize]
@@ -255,6 +262,7 @@ namespace Coflnet.Sky.Api.Controller
             return response;
         }
 
+        /// <summary>Gets discount code details.</summary>
         [Route("discount/{code}")]
         [HttpGet]
         public async Task<ValidatedDiscount> GetDiscountCodeDetails(string code)
@@ -262,10 +270,14 @@ namespace Coflnet.Sky.Api.Controller
             return await topUpApi.TopUpDiscountValidateGetAsync(code);
         }
 
+        /// <summary>Represents a pricing request.</summary>
         public class PricingRequest
         {
+            /// <summary>Gets or sets the product slugs.</summary>
             public List<string> ProductSlugs { get; set; }
+            /// <summary>Gets or sets the country code.</summary>
             public string CountryCode { get; set; }
+            /// <summary>Gets or sets the creator code.</summary>
             public string? CreatorCode { get; set; }
         }
 
@@ -902,6 +914,7 @@ namespace Coflnet.Sky.Api.Controller
                 throw new CoflnetException("payment_error", e.Message);
             }
         }
+        /// <summary>Gets the current user's subscriptions.</summary>
         [HttpGet]
         [Route("premium/subscription")]
         [Microsoft.AspNetCore.Authorization.Authorize]
@@ -924,6 +937,7 @@ namespace Coflnet.Sky.Api.Controller
             return Ok(publicSubscriptions);
         }
 
+        /// <summary>Cancels a subscription.</summary>
         [HttpDelete]
         [Route("premium/subscription/{externalId}")]
         [Microsoft.AspNetCore.Authorization.Authorize]
@@ -937,6 +951,7 @@ namespace Coflnet.Sky.Api.Controller
             return Ok();
         }
 
+        /// <summary>Reactivates a subscription.</summary>
         [HttpPut]
         [Route("premium/subscription/{externalId}/reactivate")]
         [Microsoft.AspNetCore.Authorization.Authorize]
@@ -1001,6 +1016,7 @@ namespace Coflnet.Sky.Api.Controller
                 TermsAcceptancePolicy.CurrentHash) != null;
         }
 
+        /// <summary>Switches a subscription to another tier.</summary>
         [HttpPut]
         [Route("premium/subscription/{externalId}/switch")]
         [Microsoft.AspNetCore.Authorization.Authorize]
@@ -1010,7 +1026,6 @@ namespace Coflnet.Sky.Api.Controller
             if (user == default)
                 return Unauthorized("no googletoken header");
             throw new CoflnetException("not_implemented", "Switching subscription tiers is not yet implemented");
-            return Ok();
         }
 
         private async Task<GoogleUser?> GetUserOrDefault(bool isPurchase = false)

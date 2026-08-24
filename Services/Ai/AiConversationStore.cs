@@ -30,6 +30,7 @@ public class AiConversationStore
     private readonly IDatabase database;
     private readonly TimeSpan ttl;
 
+    /// <summary>Initializes a new instance of the <see cref="AiConversationStore"/> class.</summary>
     public AiConversationStore(IConnectionMultiplexer redis, IConfiguration configuration)
     {
         database = redis.GetDatabase();
@@ -37,6 +38,7 @@ public class AiConversationStore
         ttl = TimeSpan.FromHours(Math.Clamp(hours, 1, 168));
     }
 
+    /// <summary>Opens and locks a conversation.</summary>
     public async Task<AiConversationHandle> OpenAsync(string requestedId, string owner, string tier)
     {
         var id = string.IsNullOrWhiteSpace(requestedId)
@@ -79,6 +81,7 @@ public class AiConversationStore
         }
     }
 
+    /// <summary>Saves a conversation transcript.</summary>
     public async Task<int> SaveAsync(AiConversationHandle handle)
     {
         var json = JsonConvert.SerializeObject(handle.State);
@@ -86,11 +89,13 @@ public class AiConversationStore
         return Encoding.UTF8.GetByteCount(json);
     }
 
+    /// <summary>Releases a conversation lock.</summary>
     public async Task ReleaseAsync(AiConversationHandle handle)
     {
         await database.LockReleaseAsync(handle.LockKey, handle.LockToken);
     }
 
+    /// <summary>Deletes a conversation.</summary>
     public async Task DeleteAsync(string conversationId, string owner)
     {
         if (string.IsNullOrWhiteSpace(conversationId) || !ConversationIdPattern.IsMatch(conversationId))
@@ -135,6 +140,7 @@ public class AiConversationStore
     }
 }
 
+/// <summary>Represents an AI conversation handle.</summary>
 public sealed class AiConversationHandle(
     string id,
     RedisKey key,
@@ -144,33 +150,50 @@ public sealed class AiConversationHandle(
     AiConversationState state,
     int limit)
 {
+    /// <summary>Gets the id.</summary>
     public string Id { get; } = id;
+    /// <summary>Gets the key.</summary>
     public RedisKey Key { get; } = key;
+    /// <summary>Gets the lock key.</summary>
     public RedisKey LockKey { get; } = lockKey;
+    /// <summary>Gets the lock token.</summary>
     public string LockToken { get; } = lockToken;
+    /// <summary>Gets the owner hash.</summary>
     public string OwnerHash { get; } = ownerHash;
+    /// <summary>Gets the state.</summary>
     public AiConversationState State { get; } = state;
+    /// <summary>Gets the limit.</summary>
     public int Limit { get; } = limit;
 }
 
+/// <summary>Represents persisted AI conversation state.</summary>
 public sealed class AiConversationState
 {
+    /// <summary>Gets or sets the owner hash.</summary>
     public string OwnerHash { get; set; }
+    /// <summary>Gets or sets the messages.</summary>
     public JArray Messages { get; set; } = [];
 }
 
+/// <summary>Represents an AI conversation limit error.</summary>
 public sealed class AiConversationLimitException(string conversationId, int transcriptBytes, int limit)
     : Exception("This conversation is full. Export it if needed, then clear it to start a new session.")
 {
+    /// <summary>Gets the conversation id.</summary>
     public string ConversationId { get; } = conversationId;
+    /// <summary>Gets the transcript bytes.</summary>
     public int TranscriptBytes { get; } = transcriptBytes;
+    /// <summary>Gets the limit.</summary>
     public int Limit { get; } = limit;
 }
 
+/// <summary>Represents an AI conversation busy error.</summary>
 public sealed class AiConversationBusyException(string conversationId)
     : Exception("This conversation is already processing another message.")
 {
+    /// <summary>Gets the conversation id.</summary>
     public string ConversationId { get; } = conversationId;
 }
 
+/// <summary>Represents an AI conversation access error.</summary>
 public sealed class AiConversationAccessException : Exception;

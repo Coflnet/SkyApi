@@ -8,6 +8,7 @@ using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
 
 namespace Coflnet.Sky.Api.Services;
+    /// <summary>Converts auction data for export.</summary>
 public class AuctionConverter
 {
     Dictionary<string, Enchantment.EnchantmentType> EnchantLookup = new();
@@ -18,12 +19,14 @@ public class AuctionConverter
     private readonly Dictionary<int, string> YearToMayorName = new();
     private MappingCenter mappingCenter;
     private ICraftsApi craftsApi;
+    /// <summary>Stores the ignore columns.</summary>
     public static HashSet<string> ignoreColumns = [
             "builder's_wand_data", "frosty_the_snow_blaster_data", "frosty_the_snow_cannon_data",
             "uniqueId", "uuid", "hideInfo", "hideRightClick", "noMove", "active", "abr", "name", "quality",
             "greater_backpack_data", "jumbo_backpack_data", "large_backpack_data", "medium_backpack_data", "new_year_cake_bag_data"
          ];
 
+    /// <summary>Initializes a new instance of the <see cref="AuctionConverter"/> class.</summary>
     public AuctionConverter(IElectionPeriodsApiApi mayorService, ILogger<AuctionConverter> logger, MappingCenter mappingCenter, ICraftsApi craftsApi)
     {
         this.logger = logger;
@@ -38,6 +41,7 @@ public class AuctionConverter
         this.craftsApi = craftsApi;
     }
 
+    /// <summary>Gets the current SkyBlock event.</summary>
     public string CurrentEvent(DateTime time)
     {
         var currentDay = GetCurrentDay(time);
@@ -60,6 +64,7 @@ public class AuctionConverter
     }
 
 
+    /// <summary>Initializes the mayor lookup.</summary>
     public async Task InitMayors()
     {
         if (YearToMayorName.Count > 0)
@@ -86,6 +91,7 @@ public class AuctionConverter
     }
 
 
+    /// <summary>Gets mayor.</summary>
     public string GetMayor(DateTime time)
     {
         if (YearToMayorName.TryGetValue(ElectionYear(time), out var name))
@@ -180,6 +186,7 @@ public class AuctionConverter
         return value;
     }
 
+    /// <summary>Creates a sample export row.</summary>
     public string MakeSample(int i, string itemId, string[] keys, Dictionary<string, List<string>> values)
     {
         var builder = new StringBuilder(1000);
@@ -194,6 +201,7 @@ public class AuctionConverter
         return builder.ToString();
     }
 
+    /// <summary>Maps to floats.</summary>
     public float[] MapToFloats(List<string> lines, List<string> keys, Dictionary<string, List<string>> itemModifiers, List<string> columns, List<(string, long price)> propValues)
     {
         var lookup = lines.Zip(keys);
@@ -230,6 +238,7 @@ public class AuctionConverter
         return columns.Select(c => values.GetValueOrDefault(c, priceLookup.GetValueOrDefault(c, 0))).ToArray();
     }
 
+    /// <summary>Creates map.</summary>
     public List<string> Createmap(List<string> keys, Dictionary<string, List<string>> itemModifiers)
     {
         itemModifiers["ACTIVE_mayor"] = YearToMayorName.Values.ToHashSet().OrderByDescending(v => v).ToList();
@@ -267,6 +276,7 @@ public class AuctionConverter
         return string.Empty;
     }
 
+    /// <summary>Converts item representations to auctions.</summary>
     public IEnumerable<SaveAuction> FromitemRepresent(ItemRepresent[] items)
     {
         return items.Select(i =>
@@ -336,15 +346,21 @@ public class AuctionConverter
         /// No active event
         /// </summary>
         None,
+        /// <summary>Represents an item represent.</summary>
         TravelingZoo,
+        /// <summary>Represents an item represent.</summary>
         SpookyFestival,
+        /// <summary>Represents an item represent.</summary>
         DarkAuction,
+        /// <summary>Represents an item represent.</summary>
         NewYear,
+        /// <summary>Represents an item represent.</summary>
         SeasonOfJerry
     }
 }
 
 
+/// <summary>Represents an item represent.</summary>
 public class ItemRepresent : Item
 {
 }

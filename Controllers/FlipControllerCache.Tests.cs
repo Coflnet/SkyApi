@@ -22,14 +22,16 @@ using NUnit.Framework;
 
 namespace Coflnet.Sky.Api.Controller;
 
+/// <summary>Contains flip controller cache tests.</summary>
 [TestFixture]
 public class FlipControllerCacheTests
 {
+    /// <summary>Performs the mayor flips do not share a premium response with non premium users operation.</summary>
     [Test]
     public async Task Mayor_flips_do_not_share_a_premium_response_with_non_premium_users()
     {
-        using var server = CreateServer(out var premium);
-        using var client = server.CreateClient();
+        using var host = CreateHost(out var premium);
+        using var client = host.GetTestClient();
 
         var premiumResponse = await GetMayor(client, "premium");
         var nonPremiumResponse = await GetMayor(client, "basic");
@@ -43,11 +45,12 @@ public class FlipControllerCacheTests
         });
     }
 
+    /// <summary>Performs the mayor flips keep standard authentication challenges operation.</summary>
     [Test]
     public async Task Mayor_flips_keep_standard_authentication_challenges()
     {
-        using var server = CreateServer(out var premium);
-        using var client = server.CreateClient();
+        using var host = CreateHost(out var premium);
+        using var client = host.GetTestClient();
 
         var anonymousResponse = await client.GetAsync("/api/flip/mayor");
         var termsRejectedResponse = await GetMayor(client, "terms-rejected");
@@ -57,30 +60,31 @@ public class FlipControllerCacheTests
         Assert.That(premium.Evaluations, Is.Zero);
     }
 
-    private static TestServer CreateServer(out TestPremiumTierService premium)
+    private static IHost CreateHost(out TestPremiumTierService premium)
     {
         premium = new TestPremiumTierService();
         var premiumService = premium;
-        var builder = new WebHostBuilder()
-            .UseEnvironment(Environments.Production)
-            .UseContentRoot(Directory.GetCurrentDirectory())
-            .UseSetting("REDIS_HOST", "localhost")
-            .UseSetting("PREMIUM_CLIENT_IDS", "cache-regression-test")
-            .UseStartup<Startup>()
-            .ConfigureTestServices(services =>
-            {
-                services.RemoveAll<IHostedService>();
-                services.RemoveAll<IConfigureOptions<AuthenticationOptions>>();
-                services.AddAuthentication("CustomScheme")
-                    .AddScheme<AuthenticationSchemeOptions, TestAuthenticationHandler>(
-                        "CustomScheme", _ => { });
-                services.AddSingleton<PremiumTierService>(premiumService);
-                services.AddSingleton(CreateProxy<IBazaarFlipperApi>());
-                services.AddSingleton(CreateProxy<IFleetApi>());
-                services.AddSingleton(CreateProxy<IItemsApi>());
-            });
-
-        return new TestServer(builder);
+        return new HostBuilder()
+            .ConfigureWebHost(builder => builder
+                .UseTestServer()
+                .UseEnvironment(Environments.Production)
+                .UseContentRoot(Directory.GetCurrentDirectory())
+                .UseSetting("REDIS_HOST", "localhost")
+                .UseSetting("PREMIUM_CLIENT_IDS", "cache-regression-test")
+                .UseStartup<Startup>()
+                .ConfigureTestServices(services =>
+                {
+                    services.RemoveAll<IHostedService>();
+                    services.RemoveAll<IConfigureOptions<AuthenticationOptions>>();
+                    services.AddAuthentication("CustomScheme")
+                        .AddScheme<AuthenticationSchemeOptions, TestAuthenticationHandler>(
+                            "CustomScheme", _ => { });
+                    services.AddSingleton<PremiumTierService>(premiumService);
+                    services.AddSingleton(CreateProxy<IBazaarFlipperApi>());
+                    services.AddSingleton(CreateProxy<IFleetApi>());
+                    services.AddSingleton(CreateProxy<IItemsApi>());
+                }))
+            .Start();
     }
 
     private static async Task<HttpResponseMessage> GetMayor(HttpClient client, string token)
@@ -94,8 +98,10 @@ public class FlipControllerCacheTests
     private static T CreateProxy<T>() where T : class =>
         DispatchProxy.Create<T, EmptyAsyncProxy>();
 
+    /// <summary>Represents an empty async proxy.</summary>
     public class EmptyAsyncProxy : DispatchProxy
     {
+        /// <summary>Performs the invoke operation.</summary>
         protected override object Invoke(MethodInfo targetMethod, object[] args)
         {
             var returnType = targetMethod.ReturnType;

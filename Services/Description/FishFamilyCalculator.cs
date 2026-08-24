@@ -5,8 +5,10 @@ using fNbt.Tags;
 
 namespace Coflnet.Sky.Api.Services.Description;
 
+/// <summary>Represents a fish family calculator.</summary>
 public class FishFamilyCalculator : ICustomModifier
 {
+    /// <inheritdoc/>
     public void Apply(DataContainer data)
     {
         var cheapestLeft = data.PriceEst.Zip(data.auctionRepresent, (price, auction) => (price, auction.auction?.ItemName, auction.desc))
@@ -35,6 +37,7 @@ public class FishFamilyCalculator : ICustomModifier
         data.mods.Add(info);
     }
 
+    /// <inheritdoc/>
     public void Modify(ModDescriptionService.PreRequestContainer preRequest)
     {
         var nbt = NBT.File(Convert.FromBase64String(preRequest.inventory.FullInventoryNbt));

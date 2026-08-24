@@ -3,8 +3,10 @@ using NUnit.Framework;
 
 namespace Coflnet.Sky.Api.Services.Ai;
 
+/// <summary>Contains knowledge service tests.</summary>
 public class KnowledgeServiceTests
 {
+    /// <summary>Performs the filter knowledge content contains searchable name syntax and options operation.</summary>
     [Test]
     public void FilterKnowledgeContent_ContainsSearchableNameSyntaxAndOptions()
     {

@@ -5,8 +5,10 @@ using Newtonsoft.Json;
 
 namespace Coflnet.Sky.Api.Services.Description;
 
+/// <summary>Represents a dungeon chest info.</summary>
 public class DungeonChestInfo : ICustomModifier
 {
+    /// <inheritdoc/>
     public void Apply(DataContainer data)
     {
         // Total estimated value of chest contents (first 5 rows x 9 as before)
@@ -111,6 +113,7 @@ public class DungeonChestInfo : ICustomModifier
         data.mods.Add(desc);
     }
 
+    /// <summary>Gets cost from dungeon chest.</summary>
     public static int GetCostFromDungeonChest(List<(Core.SaveAuction auction, string[] desc)> target)
     {
         if (target == null || target.Count <= 31) return 0;
@@ -146,6 +149,7 @@ public class DungeonChestInfo : ICustomModifier
         return 0;
     }
 
+    /// <inheritdoc/>
     public void Modify(ModDescriptionService.PreRequestContainer preRequest)
     {
         // none

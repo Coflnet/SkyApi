@@ -7,8 +7,10 @@ using NUnit.Framework;
 
 namespace Coflnet.Sky.Api.Helper
 {
+    /// <summary>Contains client ID and IP resolution tests.</summary>
     public class ClientIdOrIpResolveContributorTests
     {
+        /// <summary>Resolves client async uses whitelist bypass for mapped cluster ipv4.</summary>
         [Test]
         public async Task ResolveClientAsync_UsesWhitelistBypassForMappedClusterIpv4()
         {
@@ -34,6 +36,7 @@ namespace Coflnet.Sky.Api.Helper
             Assert.That(resolvedClientId, Is.EqualTo("IP_WHITELIST_BYPASS"));
         }
 
+        /// <summary>Resolves client async bypasses listed ip only for configured endpoint.</summary>
         [Test]
         public async Task ResolveClientAsync_BypassesListedIpOnlyForConfiguredEndpoint()
         {
@@ -71,6 +74,7 @@ namespace Coflnet.Sky.Api.Helper
             Assert.That(await contributor.ResolveClientAsync(context), Is.EqualTo("auction-uploader"));
         }
 
+        /// <summary>Resolves client async unknown client ids use same ip bucket.</summary>
         [Test]
         public async Task ResolveClientAsync_UnknownClientIdsUseSameIpBucket()
         {
@@ -93,6 +97,7 @@ namespace Coflnet.Sky.Api.Helper
             Assert.That(await contributor.ResolveClientAsync(context), Is.EqualTo("ip:203.0.113.10"));
         }
 
+        /// <summary>Resolves client async accepts whitelisted and policy clients.</summary>
         [Test]
         public async Task ResolveClientAsync_AcceptsWhitelistedAndPolicyClients()
         {
@@ -124,6 +129,7 @@ namespace Coflnet.Sky.Api.Helper
             Assert.That(await contributor.ResolveClientAsync(context), Is.EqualTo("policy-client"));
         }
 
+        /// <summary>Resolves client async does not trust spoofed whitelist bypass client id.</summary>
         [Test]
         public async Task ResolveClientAsync_DoesNotTrustSpoofedWhitelistBypassClientId()
         {

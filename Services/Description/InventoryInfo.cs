@@ -5,6 +5,7 @@ using Coflnet.Sky.Commands.MC;
 
 namespace Coflnet.Sky.Api.Services.Description;
 
+/// <summary>Represents an inventory info.</summary>
 public class InventoryInfo : ICustomModifier
 {
     string[] Texts = new[]{
@@ -24,8 +25,10 @@ public class InventoryInfo : ICustomModifier
     };
     // Kept as the documented "Crafting" key (referenced in the tip text below and the settings wiki)
     // rather than the auto-generated type name, so existing users' loreDisableInfoIn keeps working.
+    /// <summary>Gets the disable info name.</summary>
     public string DisableInfoName => "Crafting";
 
+    /// <inheritdoc/>
     public void Apply(DataContainer data)
     {
         if (Random.Shared.NextDouble() < 0.9 && data.accountInfo?.UserId != "7")
@@ -84,16 +87,19 @@ public class InventoryInfo : ICustomModifier
         }
     }
 
+    /// <inheritdoc/>
     public void Modify(ModDescriptionService.PreRequestContainer preRequest)
     {
         // none
     }
 }
 
+/// <summary>Represents a lore builder.</summary>
 public class LoreBuilder
 {
     private List<LoreComponent> components = new List<LoreComponent>();
 
+    /// <summary>Adds text.</summary>
     public LoreBuilder AddText(string text, string hover = null, string onClick = null)
     {
         components.Add(new LoreComponent
@@ -133,10 +139,12 @@ public class LoreBuilder
         return Regex.Replace(input, "§.", string.Empty);
     }
 
+    /// <summary>Builds this operation.</summary>
     public string Build()
     {
         return System.Text.Json.JsonSerializer.Serialize(components);
     }
+    /// <summary>Builds line.</summary>
     public Models.Mod.DescModification BuildLine()
     {
         return new(System.Text.Json.JsonSerializer.Serialize(components));
@@ -149,28 +157,36 @@ public class LoreBuilder
 /// </summary>
 public class FillSignPayload
 {
+    /// <summary>Gets or sets the line.</summary>
     [System.Text.Json.Serialization.JsonPropertyName("line")]
     public string Line { get; set; }
 
+    /// <summary>Gets or sets the value.</summary>
     [System.Text.Json.Serialization.JsonPropertyName("value")]
     public string Value { get; set; }
 
+    /// <summary>Gets or sets the name.</summary>
     [System.Text.Json.Serialization.JsonPropertyName("name")]
     public string Name { get; set; }
 
+    /// <summary>Gets or sets the slot.</summary>
     [System.Text.Json.Serialization.JsonPropertyName("slot")]
     public int Slot { get; set; }
 }
 
+/// <summary>Represents a lore component.</summary>
 public class LoreComponent
 {
+    /// <summary>Gets or sets the text.</summary>
     [System.Text.Json.Serialization.JsonPropertyName("text")]
     public string Text { get; set; }
 
+    /// <summary>Gets or sets the hover.</summary>
     [System.Text.Json.Serialization.JsonPropertyName("hover")]
     [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
     public string Hover { get; set; }
 
+    /// <summary>Gets or sets the on click.</summary>
     [System.Text.Json.Serialization.JsonPropertyName("onClick")]
     [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
     public string OnClick { get; set; }

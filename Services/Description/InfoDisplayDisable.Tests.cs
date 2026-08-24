@@ -7,6 +7,7 @@ using NUnit.Framework;
 
 namespace Coflnet.Sky.Api.Services.Description.Tests
 {
+    /// <summary>Contains information display toggle tests.</summary>
     public class InfoDisplayDisableTests
     {
         private static List<LoreComponent> Parse(string value)
@@ -15,6 +16,7 @@ namespace Coflnet.Sky.Api.Services.Description.Tests
         private static DataContainer WithMods(params List<DescModification>[] displays)
             => new DataContainer { mods = new List<List<DescModification>>(displays) };
 
+        /// <summary>Performs the single line display gets invisible space disable button operation.</summary>
         [Test]
         public void SingleLineDisplay_GetsInvisibleSpaceDisableButton()
         {
@@ -31,6 +33,7 @@ namespace Coflnet.Sky.Api.Services.Description.Tests
             Assert.That(components[1].OnClick, Is.EqualTo("/cofl confirm /cofl set loreDisableInfoIn fishfamily"));
         }
 
+        /// <summary>Performs the multi line display gets x disable button operation.</summary>
         [Test]
         public void MultiLineDisplay_GetsXDisableButton()
         {
@@ -48,6 +51,7 @@ namespace Coflnet.Sky.Api.Services.Description.Tests
             Assert.That(components.Last().Text, Does.Contain("x"), "multi-line display shows a visible x");
         }
 
+        /// <summary>Performs the stamps into existing component line preserving original components operation.</summary>
         [Test]
         public void StampsIntoExistingComponentLine_PreservingOriginalComponents()
         {
@@ -65,6 +69,7 @@ namespace Coflnet.Sky.Api.Services.Description.Tests
             Assert.That(components[1].OnClick, Is.EqualTo("/cofl confirm /cofl set loreDisableInfoIn bazaar"));
         }
 
+        /// <summary>Performs the no display added no op operation.</summary>
         [Test]
         public void NoDisplayAdded_NoOp()
         {
@@ -75,6 +80,7 @@ namespace Coflnet.Sky.Api.Services.Description.Tests
             Assert.That(data.mods, Is.Empty);
         }
 
+        /// <summary>Performs the null disable name never stamps operation.</summary>
         [Test]
         public void NullDisableName_NeverStamps()
         {
@@ -87,6 +93,7 @@ namespace Coflnet.Sky.Api.Services.Description.Tests
             Assert.That(data.mods[before][0].Value, Is.EqualTo("plain"), "item-slot modifiers (null name) stay untouched");
         }
 
+        /// <summary>Adds reenable placeholder adds invisible reenable handle.</summary>
         [Test]
         public void AddReenablePlaceholder_AddsInvisibleReenableHandle()
         {
@@ -100,6 +107,7 @@ namespace Coflnet.Sky.Api.Services.Description.Tests
             Assert.That(components[0].OnClick, Is.EqualTo("/cofl confirm /cofl set loreDisableInfoIn rm fishfamily"), "re-enable is also guarded by confirm");
         }
 
+        /// <summary>Performs the disable info name auto generates from type name with backward compat overrides operation.</summary>
         [Test]
         public void DisableInfoName_AutoGeneratesFromTypeName_WithBackwardCompatOverrides()
         {
@@ -111,6 +119,7 @@ namespace Coflnet.Sky.Api.Services.Description.Tests
             Assert.That(((ICustomModifier)new BazaarInfo()).DisableInfoName, Is.EqualTo("bazaar"));
         }
 
+        /// <summary>Determines whether info disabled matches case insensitively.</summary>
         [Test]
         public void IsInfoDisabled_MatchesCaseInsensitively()
         {

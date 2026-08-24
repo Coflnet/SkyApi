@@ -69,7 +69,7 @@ public static class InfoDisplayDisable
     public static string ReenableCommand(string name) => $"/cofl confirm /cofl set loreDisableInfoIn rm {name}";
 
     /// <summary>
-    /// Appends the disable handle to the first line of whatever <paramref name="modifier"/>-owned info
+    /// Appends the disable handle to the first line of the <paramref name="disableInfoName"/> display
     /// display was added to <paramref name="data"/> since <paramref name="addedFromIndex"/>. Renders as
     /// an empty space for a single-line display and as an "x" once the added display spans multiple
     /// lines. No-op when the modifier added nothing.

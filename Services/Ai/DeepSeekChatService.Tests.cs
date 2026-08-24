@@ -2,8 +2,10 @@ using NUnit.Framework;
 
 namespace Coflnet.Sky.Api.Services.Ai;
 
+/// <summary>Contains DeepSeek chat service tests.</summary>
 public class DeepSeekChatServiceTests
 {
+    /// <summary>Determines whether plausible answer rejects leaked tool markup.</summary>
     [TestCase("<｜DSML｜tool_calls><｜DSML｜invoke name=\"search_api_tools\">")]
     [TestCase("<tool_calls><invoke name=\"search_knowledge\"><parameter name=\"query\">exotics</parameter></invoke></tool_calls>")]
     [TestCase("tool_calls: [{ \"function\": \"search_item\" }]")]
@@ -20,6 +22,7 @@ public class DeepSeekChatServiceTests
         Assert.That(DeepSeekChatService.IsPlausibleAnswer(answer), Is.False);
     }
 
+    /// <summary>Determines whether plausible answer rejects empty or non answer content.</summary>
     [TestCase("")]
     [TestCase("   ")]
     [TestCase("...")]
@@ -28,6 +31,7 @@ public class DeepSeekChatServiceTests
         Assert.That(DeepSeekChatService.IsPlausibleAnswer(answer), Is.False);
     }
 
+    /// <summary>Determines whether plausible answer rejects excessive repetition.</summary>
     [TestCase("answer answer answer answer answer answer answer answer answer answer answer answer answer answer answer answer answer answer answer answer")]
     [TestCase("same line\nsame line\nsame line")]
     public void IsPlausibleAnswer_RejectsExcessiveRepetition(string answer)
@@ -35,6 +39,7 @@ public class DeepSeekChatServiceTests
         Assert.That(DeepSeekChatService.IsPlausibleAnswer(answer), Is.False);
     }
 
+    /// <summary>Determines whether plausible answer accepts normal answer.</summary>
     [Test]
     public void IsPlausibleAnswer_AcceptsNormalAnswer()
     {
@@ -46,6 +51,7 @@ public class DeepSeekChatServiceTests
             Is.True);
     }
 
+    /// <summary>Searches for filter options finds live exotic color definition.</summary>
     [Test]
     public void SearchFilterOptions_FindsLiveExoticColorDefinition()
     {

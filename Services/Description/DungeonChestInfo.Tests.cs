@@ -8,8 +8,10 @@ using NUnit.Framework;
 
 namespace Coflnet.Sky.Api.Services.Description.Tests
 {
+    /// <summary>Contains dungeon chest information tests.</summary>
     public class DungeonChestInfoTests
     {
+        /// <summary>Performs the dungeon chest info breakdown contains all items and sum matches operation.</summary>
         [Test]
         public void DungeonChestInfo_BreakdownContainsAllItems_AndSumMatches()
         {

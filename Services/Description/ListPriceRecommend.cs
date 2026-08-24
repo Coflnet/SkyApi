@@ -13,8 +13,10 @@ using Newtonsoft.Json;
 
 namespace Coflnet.Sky.Api.Services.Description;
 
+/// <summary>Represents a list price recommend.</summary>
 public class ListPriceRecommend : ICustomModifier
 {
+    /// <inheritdoc/>
     public void Apply(DataContainer data)
     {
         var currentListPrice = data.Items[31]?.ItemName;
@@ -150,6 +152,7 @@ public class ListPriceRecommend : ICustomModifier
         data.mods.Add(list);
     }
 
+    /// <summary>Gets recommend text.</summary>
     public static string GetRecommendText(PriceEstimate pricing, ModDescriptionService modService)
     {
         if (pricing == null || pricing.Median <= 4_000_000 || pricing.Volume == 0)
@@ -162,6 +165,7 @@ public class ListPriceRecommend : ICustomModifier
         var formattedPrice = modService.FormatNumber(target);
         return $"{McColorCodes.GREEN}Instasell: {(isGuess ? $"{McColorCodes.GRAY}~" : "")}{McColorCodes.DARK_GREEN}{formattedPrice} {McColorCodes.WHITE}based on Coflnet {(fromMedian ? "median" : "lbin")}{(isGuess ? $" {McColorCodes.RED}(guess)" : "")}";
     }
+    /// <inheritdoc/>
     public void Modify(ModDescriptionService.PreRequestContainer preRequest)
     {
         var task = Task.Run(async () =>
@@ -214,9 +218,13 @@ public class ListPriceRecommend : ICustomModifier
     /// </summary>
     public class PriceInfo
     {
+        /// <summary>Gets or sets the last listings.</summary>
         public List<long> LastListings { get; set; } = new();
+        /// <summary>Gets or sets the recommended.</summary>
         public long? Recommended { get; set; }
+        /// <summary>Gets or sets the was changed.</summary>
         public bool WasChanged { get; set; }
+        /// <summary>Gets or sets the was listed before.</summary>
         public bool WasListedBefore { get; set; }
     }
 

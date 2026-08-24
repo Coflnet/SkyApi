@@ -4,8 +4,10 @@ using NUnit.Framework;
 
 namespace Coflnet.Sky.Api.Services
 {
+    /// <summary>Contains auction parsing tests.</summary>
     public class AuctionTests
     {
+        /// <summary>Parses enchant enum.</summary>
         [Test]
         public void ParseEnchantEnum()
         {

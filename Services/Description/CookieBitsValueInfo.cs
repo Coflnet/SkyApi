@@ -5,14 +5,17 @@ using Newtonsoft.Json;
 
 namespace Coflnet.Sky.Api.Services.Description;
 
+/// <summary>Represents a cookie bits value info.</summary>
 public class CookieBitsValueInfo : ICustomModifier
 {
+    /// <inheritdoc/>
     public void Apply(DataContainer data)
     {
         var best = JsonConvert.DeserializeObject<BitService.Option>(data.Loaded["bestbit"].Result.ToString());
         
     }
 
+    /// <inheritdoc/>
     public void Modify(ModDescriptionService.PreRequestContainer preRequest)
     {
         preRequest.ToLoad["bestbit"] = Task.Run(async () =>

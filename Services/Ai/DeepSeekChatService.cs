@@ -21,6 +21,7 @@ namespace Coflnet.Sky.Api.Services.Ai;
 /// <summary>Runs the DeepSeek conversation and its bounded, read-only tool loop.</summary>
 public class DeepSeekChatService
 {
+    /// <summary>Stores the activity source name.</summary>
     public const string ActivitySourceName = "Coflnet.Sky.Api.Ai";
     private const int MaxToolRounds = 5;
     private const int MaxToolResultLength = 16000;
@@ -41,6 +42,7 @@ public class DeepSeekChatService
     private readonly AiConversationStore conversations;
     private readonly ILogger<DeepSeekChatService> logger;
 
+    /// <summary>Initializes a new instance of the <see cref="DeepSeekChatService"/> class.</summary>
     public DeepSeekChatService(
         IConfiguration configuration,
         IHttpClientFactory httpClientFactory,
@@ -59,6 +61,7 @@ public class DeepSeekChatService
         this.logger = logger;
     }
 
+    /// <summary>Generates an AI chat response.</summary>
     public async Task<AiChatResult> ChatAsync(
         AiChatRequest request,
         string owner,
@@ -166,6 +169,7 @@ public class DeepSeekChatService
         }
     }
 
+    /// <summary>Clears async.</summary>
     public Task ClearAsync(string conversationId, string owner) =>
         conversations.DeleteAsync(conversationId, owner);
 

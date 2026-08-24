@@ -5,11 +5,13 @@ namespace Coflnet.Sky.Api.Services.Description;
 /// </summary>
 public class DarkAuctionPetAdjust : ICustomModifier
 {
+    /// <inheritdoc/>
     public void Apply(DataContainer data)
     {
         return;
     }
 
+    /// <inheritdoc/>
     public void Modify(ModDescriptionService.PreRequestContainer preRequest)
     {
         if (!preRequest.inventory.ChestName.Contains("- Round"))

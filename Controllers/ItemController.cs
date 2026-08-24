@@ -30,6 +30,8 @@ namespace Coflnet.Sky.Api.Controller
         /// <param name="config"></param>
         /// <param name="context"></param>
         /// <param name="itemsApi"></param>
+        /// <param name="craftsApi">Provides crafting data.</param>
+        /// <param name="logger">Logs item endpoint activity.</param>
         public ItemController(IConfiguration config, HypixelContext context, Sky.Items.Client.Api.IItemsApi itemsApi, Crafts.Client.Api.ICraftsApi craftsApi, ILogger<ItemController> logger)
         {
             this.config = config;
@@ -152,4 +154,3 @@ namespace Coflnet.Sky.Api.Controller
         }
     }
 }
-

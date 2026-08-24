@@ -7,12 +7,14 @@ using Microsoft.Extensions.Logging;
 
 namespace Coflnet.Sky.Api.Services;
 
+/// <summary>Represents an ah list checker.</summary>
 public class AhListChecker
 {
     private Coflnet.Sky.Proxy.Client.Api.IBaseApi proxyApi;
     private PlayerName.PlayerNameService playerNameService;
     private ILogger<AhListChecker> logger;
 
+    /// <summary>Initializes a new instance of the <see cref="AhListChecker"/> class.</summary>
     public AhListChecker(IBaseApi proxyApi, PlayerNameService playerNameService, ILogger<AhListChecker> logger)
     {
         this.proxyApi = proxyApi;
@@ -20,6 +22,7 @@ public class AhListChecker
         this.logger = logger;
     }
 
+    /// <summary>Checks items.</summary>
     public void CheckItems(IEnumerable<Item> items, string playerId, bool requireNewListingTimestamp = true)
     {
         var checkedSellers = new HashSet<string>();

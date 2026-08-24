@@ -24,8 +24,10 @@ using NUnit.Framework;
 
 namespace Coflnet.Sky.Api.Services.Description.Tests;
 
+/// <summary>Contains trade information display tests.</summary>
 public class TradeInfoDisplayTests
 {
+    /// <summary>Applies lowball mode builds readable breakdown with ai estimate and settings commands.</summary>
     [Test]
     public void Apply_LowballMode_BuildsReadableBreakdownWithAiEstimateAndSettingsCommands()
     {

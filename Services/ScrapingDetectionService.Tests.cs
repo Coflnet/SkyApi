@@ -11,8 +11,10 @@ using NUnit.Framework;
 
 namespace Coflnet.Sky.Api.Services
 {
+    /// <summary>Contains scraping detection service tests.</summary>
     public class ScrapingDetectionServiceTests
     {
+        /// <summary>Determines whether banned returns false for mapped cluster ipv4 in whitelist.</summary>
         [Test]
         public void IsBanned_ReturnsFalseForMappedClusterIpv4InWhitelist()
         {
@@ -35,6 +37,7 @@ namespace Coflnet.Sky.Api.Services
             Assert.That(service.IsBanned(context), Is.False);
         }
 
+        /// <summary>Determines whether banned returns false for endpoint whitelisted ip only on that endpoint.</summary>
         [Test]
         public void IsBanned_ReturnsFalseForEndpointWhitelistedIpOnlyOnThatEndpoint()
         {
@@ -66,6 +69,7 @@ namespace Coflnet.Sky.Api.Services
             Assert.That(service.IsBanned(context), Is.True);
         }
 
+        /// <summary>Determines whether banned returns false for payment endpoints.</summary>
         [TestCase("/api/service/purchase")]
         [TestCase("/api/topup/stripe/premium-plus")]
         [TestCase("/api/premium/subscription/premium-plus")]

@@ -9,9 +9,11 @@ using Coflnet.Sky.Bazaar.Client.Api;
 
 namespace Coflnet.Sky.Api.Services.Description.Tests;
 
+/// <summary>Contains bazaar price updater tests.</summary>
 [TestFixture]
 public class BazaarPriceUpdaterTests
 {
+    /// <summary>Parses top buy order should return correct price.</summary>
     [Test]
     public void ParseTopBuyOrder_ShouldReturnCorrectPrice()
     {
@@ -22,6 +24,7 @@ public class BazaarPriceUpdaterTests
         price.Should().Be(4362.4);
     }
 
+    /// <summary>Parses cheapest sell offer should return correct price.</summary>
     [Test]
     public void ParseCheapestSellOffer_ShouldReturnCorrectPrice()
     {
@@ -32,6 +35,7 @@ public class BazaarPriceUpdaterTests
         price.Should().Be(4500.0);
     }
 
+    /// <summary>Performs the extract and upload order book posts parsed orders operation.</summary>
     [Test]
     public void ExtractAndUploadOrderBook_PostsParsedOrders()
     {

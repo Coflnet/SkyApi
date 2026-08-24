@@ -49,16 +49,24 @@ public class InventoryDataWithSettings : InventoryData
     public int Version { get; set; }
 }
 
+/// <summary>Represents a pricing breakdown.</summary>
 public class PricingBreakdwon
 {
+    /// <summary>Stores the craft price.</summary>
     public IEnumerable<CraftPrice> craftPrice;
 }
 
+/// <summary>Represents a craft price.</summary>
 public class CraftPrice
 {
+    /// <summary>Stores the price.</summary>
     public long Price;
+    /// <summary>Stores the item tag.</summary>
     public string ItemTag;
+    /// <summary>Stores the attribute.</summary>
     public string Attribute;
+    /// <summary>Stores the formatted reason.</summary>
     public string FormattedReson;
+    /// <summary>Stores the count.</summary>
     public long Count;
 }

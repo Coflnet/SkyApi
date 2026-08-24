@@ -5,13 +5,16 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace Coflnet.Sky.Api.Services;
 
+/// <summary>Provides api key operations.</summary>
 public class ApiKeyService
 {
     private IApiKeyApi keyApi;
+    /// <summary>Initializes a new instance of the <see cref="ApiKeyService"/> class.</summary>
     public ApiKeyService(IApiKeyApi keyApi)
     {
         this.keyApi = keyApi;
     }
+    /// <summary>Gets key info.</summary>
     public async Task<ModCommands.Client.Model.ApiKeyInfoResponse> GetKeyInfo(ControllerBase controller)
     {
         var Request = controller.Request;

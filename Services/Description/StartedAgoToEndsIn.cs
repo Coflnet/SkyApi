@@ -4,8 +4,10 @@ using Coflnet.Sky.Commands.MC;
 
 namespace Coflnet.Sky.Api.Services.Description;
 
+/// <summary>Represents a started ago to ends in.</summary>
 public class StartedAgoToEndsIn : ICustomModifier
 {
+    /// <inheritdoc/>
     public void Apply(DataContainer data)
     {
         if (data.itemListings.Count == 0)
@@ -57,6 +59,7 @@ public class StartedAgoToEndsIn : ICustomModifier
         }
     }
 
+    /// <inheritdoc/>
     public void Modify(ModDescriptionService.PreRequestContainer preRequest)
     {
         return;

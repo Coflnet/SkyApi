@@ -3,6 +3,8 @@ using System.Threading.Tasks;
 using Coflnet.Sky.Core;
 using NUnit.Framework;
 
+#nullable enable annotations
+
 namespace Coflnet.Sky.Api.Services;
 
 #pragma warning disable CS1591

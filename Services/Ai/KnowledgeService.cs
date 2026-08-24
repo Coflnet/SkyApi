@@ -34,6 +34,7 @@ public class KnowledgeService
     private readonly string indexName;
     private readonly HashSet<string> allowedKnowledgeHosts;
 
+    /// <summary>Initializes a new instance of the <see cref="KnowledgeService"/> class.</summary>
     public KnowledgeService(IConfiguration configuration, EmbeddingService embeddings, IHttpClientFactory httpClientFactory, ILogger<KnowledgeService> logger)
     {
         this.configuration = configuration;
@@ -71,6 +72,7 @@ public class KnowledgeService
             openSearch.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Basic", Convert.ToBase64String(Encoding.UTF8.GetBytes($"{username}:{password}")));
     }
 
+    /// <summary>Refreshes async.</summary>
     public async Task<bool> RefreshAsync(string revision, CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(openSearchUrl))
@@ -139,6 +141,7 @@ public class KnowledgeService
         return await TryCreateRefreshMarkerAsync(markerId, revision, cancellationToken);
     }
 
+    /// <summary>Searches for async.</summary>
     public async Task<IReadOnlyList<KnowledgeResult>> SearchAsync(string query, string source = null, int limit = 6, CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(openSearchUrl) || string.IsNullOrWhiteSpace(query))

@@ -16,8 +16,11 @@ namespace Coflnet.Sky.Api.Helper;
 /// <summary>Applies the daily AI message quota by user, or by IP for anonymous traffic.</summary>
 public class AiRateLimitFilter : IAsyncActionFilter
 {
+    /// <summary>Stores the quota item key.</summary>
     public const string QuotaItemKey = "AiQuota";
+    /// <summary>Stores the identity item key.</summary>
     public const string IdentityItemKey = "AiIdentity";
+    /// <summary>Stores the refund item key.</summary>
     public const string RefundItemKey = "AiQuotaRefund";
     private const string CounterKeyItemKey = "AiQuotaCounter";
     private static readonly IReadOnlyDictionary<string, int> Limits = new Dictionary<string, int>
@@ -33,6 +36,7 @@ public class AiRateLimitFilter : IAsyncActionFilter
     private readonly PremiumTierService premiumTierService;
     private readonly ILogger<AiRateLimitFilter> logger;
 
+    /// <summary>Initializes a new instance of the <see cref="AiRateLimitFilter"/> class.</summary>
     public AiRateLimitFilter(IConnectionMultiplexer redis, PremiumTierService premiumTierService, ILogger<AiRateLimitFilter> logger)
     {
         this.redis = redis;
@@ -40,6 +44,7 @@ public class AiRateLimitFilter : IAsyncActionFilter
         this.logger = logger;
     }
 
+    /// <inheritdoc/>
     public async Task OnActionExecutionAsync(ActionExecutingContext context, ActionExecutionDelegate next)
     {
         var now = DateTimeOffset.UtcNow;
@@ -130,6 +135,7 @@ public class AiRateLimitFilter : IAsyncActionFilter
         }
     }
 
+    /// <summary>Gets client ip.</summary>
     public static string GetClientIp(HttpContext context)
     {
         var ip = context.Request.Headers["CF-Connecting-IP"].FirstOrDefault()

@@ -14,13 +14,16 @@ using NUnit.Framework;
 
 namespace Coflnet.Sky.Api.Services;
 
+/// <summary>Contains legal manifest service tests.</summary>
 [TestFixture]
 [NonParallelizable]
 public class LegalManifestServiceTests
 {
+    /// <summary>Performs the tear down operation.</summary>
     [TearDown]
     public void TearDown() => TermsAcceptancePolicy.ResetForTests();
 
+    /// <summary>Performs the future root does not block startup and activates when effective operation.</summary>
     [Test]
     public async Task FutureRootDoesNotBlockStartupAndActivatesWhenEffective()
     {
@@ -54,6 +57,7 @@ public class LegalManifestServiceTests
         });
     }
 
+    /// <summary>Performs the unavailable manifest retries and later activates operation.</summary>
     [Test]
     public async Task UnavailableManifestRetriesAndLaterActivates()
     {
@@ -77,6 +81,7 @@ public class LegalManifestServiceTests
         await WaitUntil(() => service.Agreement?.Version == "retry");
     }
 
+    /// <summary>Performs the tampered root is not activated operation.</summary>
     [Test]
     public async Task TamperedRootIsNotActivated()
     {
@@ -97,6 +102,7 @@ public class LegalManifestServiceTests
         Assert.That(service.Agreement, Is.Null);
     }
 
+    /// <summary>Performs the manifest url requires exact coflnet https origin operation.</summary>
     [TestCase("http://coflnet.com/legal/manifest.json")]
     [TestCase("https://legal.coflnet.com/manifest.json")]
     [TestCase("https://coflnet.com:444/manifest.json")]

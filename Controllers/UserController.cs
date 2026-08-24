@@ -118,6 +118,8 @@ namespace Coflnet.Sky.Api.Controller
             [FromServices] IndexerUserApi indexerUserApi,
             [FromQuery] string locale = "en")
         {
+            if (request is null)
+                return BadRequest("request body is required");
             var user = await GetUserOrDefault();
             if (user == default)
                 return Unauthorized("no googletoken header");
@@ -132,7 +134,7 @@ namespace Coflnet.Sky.Api.Controller
             var canContinue = existing != null
                 || await UserService.Instance.CanSignInUnderPriorAgreement(user);
             if (!string.Equals(
-                    request?.Hash,
+                    request.Hash,
                     TermsAcceptancePolicy.CurrentHash,
                     StringComparison.OrdinalIgnoreCase))
                 return Conflict(new

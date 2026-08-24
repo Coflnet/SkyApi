@@ -10,6 +10,7 @@ using Microsoft.Extensions.Logging;
 
 namespace Coflnet.Sky.Api.Controller;
 
+/// <summary>Provides leaderboard endpoints.</summary>
 [ApiController]
 [Route("api/leaderboard")]
 public class LeaderboardController : ControllerBase
@@ -17,6 +18,7 @@ public class LeaderboardController : ControllerBase
     private readonly ILeaderboardService scoresApi;
     private readonly PremiumTierService premiumTierService;
 
+    /// <summary>Initializes a new instance of the <see cref="LeaderboardController"/> class.</summary>
     public LeaderboardController(ILeaderboardService scoresApi,  PremiumTierService premiumTierService)
     {
         this.scoresApi = scoresApi;
@@ -56,11 +58,16 @@ public class LeaderboardController : ControllerBase
         return $"sky-flippers";
     }
 
+    /// <summary>Represents a leaderboard entry.</summary>
     public class LeaderboardEntry
     {
+        /// <summary>Gets or sets the player uuid.</summary>
         public string PlayerUuid { get; set; }
+        /// <summary>Gets or sets the player name.</summary>
         public string PlayerName { get; set; }
+        /// <summary>Gets or sets the score.</summary>
         public long Score { get; set; }
+        /// <summary>Gets or sets the time stamp.</summary>
         public DateTime TimeStamp { get; set; }
     }
 }

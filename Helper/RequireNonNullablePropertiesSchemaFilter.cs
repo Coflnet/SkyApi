@@ -4,23 +4,32 @@ using Microsoft.OpenApi;
 using Swashbuckle.AspNetCore.SwaggerGen;
 using System.Linq;
 
+/// <summary>Marks non-nullable schema properties as required.</summary>
 public class RequireNonNullablePropertiesSchemaFilter : ISchemaFilter
 {
+    /// <summary>Applies required-property metadata to a schema.</summary>
     public void Apply(IOpenApiSchema schema, SchemaFilterContext context)
     {
         if (schema.Properties == null)
             return;
 
+        var required = schema.Required;
+        if (required == null)
+        {
+            if (schema is not OpenApiSchema concreteSchema)
+                return;
+            required = concreteSchema.Required = new HashSet<string>();
+        }
+
         var nullableProperties = context.Type.GetProperties()
             .Where(x => IsNullable(x.PropertyType))
             .Select(x => x.Name.ToCamelCase())
             .ToHashSet();
-
         foreach (var property in schema.Properties)
         {
             if (!nullableProperties.Contains(property.Key))
             {
-                schema.Required.Add(property.Key);
+                required.Add(property.Key);
             }
         }
     }

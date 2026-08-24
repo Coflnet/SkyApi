@@ -13,6 +13,7 @@ using Microsoft.Extensions.Logging;
 
 namespace Coflnet.Sky.Api.Services;
 
+/// <summary>Provides legal manifest operations.</summary>
 public sealed class LegalManifestService : BackgroundService
 {
     private const string AgreementId = "skycofl";
@@ -27,10 +28,14 @@ public sealed class LegalManifestService : BackgroundService
     private readonly Func<TimeSpan, CancellationToken, Task> delay;
     private Uri manifestUri;
 
+    /// <summary>Gets or sets the agreement.</summary>
     public LegalAgreementSnapshot Agreement { get; private set; }
+    /// <summary>Gets or sets the withdrawal.</summary>
     public LegalDocumentSnapshot Withdrawal { get; private set; }
+    /// <summary>Gets or sets the premium early start.</summary>
     public LegalDeclarationSnapshot PremiumEarlyStart { get; private set; }
 
+    /// <summary>Initializes a new instance of the <see cref="LegalManifestService"/> class.</summary>
     public LegalManifestService(
         IHttpClientFactory clients,
         IConfiguration configuration,
@@ -58,6 +63,7 @@ public sealed class LegalManifestService : BackgroundService
         this.delay = delay;
     }
 
+    /// <inheritdoc/>
     public override Task StartAsync(CancellationToken cancellationToken)
     {
         manifestUri = new Uri(
@@ -68,6 +74,7 @@ public sealed class LegalManifestService : BackgroundService
         return base.StartAsync(cancellationToken);
     }
 
+    /// <inheritdoc/>
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         while (!stoppingToken.IsCancellationRequested)
@@ -435,6 +442,14 @@ public sealed class LegalManifestService : BackgroundService
         LegalDeclarationSnapshot PremiumEarlyStart);
 }
 
+/// <summary>Represents a legal agreement snapshot.</summary>
+/// <param name="Id">The agreement ID.</param>
+/// <param name="Version">The agreement version.</param>
+/// <param name="Hash">The agreement root hash.</param>
+/// <param name="Url">The agreement URL.</param>
+/// <param name="PublishedAtUtc">When the agreement was published.</param>
+/// <param name="EffectiveFromUtc">When the agreement becomes effective.</param>
+/// <param name="Documents">The agreement documents.</param>
 public sealed record LegalAgreementSnapshot(
     string Id,
     string Version,
@@ -444,6 +459,14 @@ public sealed record LegalAgreementSnapshot(
     DateTime EffectiveFromUtc,
     IReadOnlyList<LegalAgreementDocumentSnapshot> Documents);
 
+/// <summary>Represents a legal agreement document snapshot.</summary>
+/// <param name="Key">The document key.</param>
+/// <param name="Title">The document title.</param>
+/// <param name="Version">The document version.</param>
+/// <param name="AcceptanceHash">The hash used to record acceptance.</param>
+/// <param name="PublishedAtUtc">When the document was published.</param>
+/// <param name="EffectiveFromUtc">When the document becomes effective.</param>
+/// <param name="Locales">The localized document variants.</param>
 public sealed record LegalAgreementDocumentSnapshot(
     string Key,
     string Title,
@@ -453,12 +476,22 @@ public sealed record LegalAgreementDocumentSnapshot(
     DateTime EffectiveFromUtc,
     IReadOnlyDictionary<string, LegalLocaleSnapshot> Locales);
 
+/// <summary>Represents a legal locale snapshot.</summary>
+/// <param name="Url">The document URL.</param>
+/// <param name="Sha256">The document SHA-256 hash.</param>
 public sealed record LegalLocaleSnapshot(string Url, string Sha256);
 
+/// <summary>Represents a legal document snapshot.</summary>
+/// <param name="Version">The document version.</param>
+/// <param name="Sha256">The SHA-256 hash by locale.</param>
 public sealed record LegalDocumentSnapshot(
     string Version,
     IReadOnlyDictionary<string, string> Sha256);
 
+/// <summary>Represents a legal declaration snapshot.</summary>
+/// <param name="Version">The declaration version.</param>
+/// <param name="Locales">The declaration text by locale.</param>
+/// <param name="Sha256">The SHA-256 hash by locale.</param>
 public sealed record LegalDeclarationSnapshot(
     string Version,
     IReadOnlyDictionary<string, string> Locales,

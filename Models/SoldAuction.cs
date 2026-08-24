@@ -71,6 +71,8 @@ public class SoldAuction
     /// NBT data as base64 encoded string
     /// </summary>
     public string ShortItemBytes { get; set; }
+    /// <summary>Gets or sets the flattened nbt.</summary>
     public Dictionary<string, string> FlattenedNbt { get; internal set; }
+    /// <summary>Gets or sets the tier.</summary>
     public Tier Tier { get; internal set; }
 }

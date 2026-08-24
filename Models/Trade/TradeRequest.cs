@@ -18,18 +18,18 @@ public class TradeRequest
     /// Gets or sets the player UUID initiating the trade.
     /// </summary>
     [DataMember(Name = "playerUuid", EmitDefaultValue = true)]
-    public string PlayerUuid { get; set; }
+    public string PlayerUuid { get; set; } = null!;
     /// <summary>
     /// Gets or sets the player name.
     /// </summary>
     [DataMember(Name = "playerUuid", EmitDefaultValue = false)]
-    public string PlayerName { get; set; }
+    public string PlayerName { get; set; } = null!;
 
     /// <summary>
     /// Gets or sets the buyer UUID.
     /// </summary>
     [DataMember(Name = "buyerUuid", EmitDefaultValue = true)]
-    public string BuyerUuid { get; set; }
+    public string BuyerUuid { get; set; } = null!;
 
     /// <summary>
     /// Gets or sets the item being traded.
@@ -46,7 +46,7 @@ public class TradeRequest
     /// Gets or sets the list of wanted items in exchange.
     /// </summary>
     [DataMember(Name = "wantedItems", EmitDefaultValue = true)]
-    public List<WantedItem> WantedItems { get; set; }
+    public List<WantedItem> WantedItems { get; set; } = [];
 
     /// <summary>
     /// Gets or sets the timestamp of the trade request.

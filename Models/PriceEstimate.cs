@@ -1,5 +1,6 @@
 namespace Coflnet.Sky.Api.Models;
 
+/// <summary>Represents a price estimate.</summary>
 public class PriceEstimate
 {
     /// <summary>

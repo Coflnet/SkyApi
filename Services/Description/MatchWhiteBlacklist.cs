@@ -10,9 +10,11 @@ using Newtonsoft.Json;
 
 namespace Coflnet.Sky.Api.Services.Description;
 
+/// <summary>Represents an auction house highlighting.</summary>
 public class AuctionHouseHighlighting : ICustomModifier
 {
     private ConcurrentDictionary<string, SelfUpdatingValue<FlipSettings>> settingsCache = new();
+    /// <inheritdoc/>
     public virtual void Apply(DataContainer data)
     {
         var flipsRepresent = data.auctionRepresent.Zip(data.PriceEst).Take(9 * 6).Select((i, index) =>
@@ -77,6 +79,7 @@ public class AuctionHouseHighlighting : ICustomModifier
             }
         }
     }
+    /// <inheritdoc/>
     public void Modify(ModDescriptionService.PreRequestContainer preRequest)
     {
         return;

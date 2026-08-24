@@ -7,12 +7,14 @@ using NUnit.Framework;
 
 namespace Coflnet.Sky.Api.Services;
 
+/// <summary>Contains terms acceptance policy tests.</summary>
 [NonParallelizable]
 public class TermsAcceptancePolicyTests
 {
     private static readonly DateTime EffectiveAtUtc =
         new(2030, 1, 1, 0, 0, 0, DateTimeKind.Utc);
 
+    /// <summary>Sets up.</summary>
     [SetUp]
     public void SetUp() => TermsAcceptancePolicy.Initialize(Agreement(), new(
         "premium-start-v1",
@@ -22,9 +24,11 @@ public class TermsAcceptancePolicyTests
             ["de"] = "Deutsche Erklärung"
         }));
 
+    /// <summary>Performs the tear down operation.</summary>
     [TearDown]
     public void TearDown() => TermsAcceptancePolicy.ResetForTests();
 
+    /// <summary>Performs the status exposes root and complete localized bundle operation.</summary>
     [Test]
     public void Status_exposes_root_and_complete_localized_bundle()
     {
@@ -55,6 +59,7 @@ public class TermsAcceptancePolicyTests
         });
     }
 
+    /// <summary>Performs the signup without prior terms cannot continue without accepting operation.</summary>
     [Test]
     public void Signup_without_prior_terms_cannot_continue_without_accepting()
     {
@@ -71,6 +76,7 @@ public class TermsAcceptancePolicyTests
         });
     }
 
+    /// <summary>Performs the current root hash controls contract eligibility operation.</summary>
     [Test]
     public void Current_root_hash_controls_contract_eligibility()
     {
@@ -80,6 +86,7 @@ public class TermsAcceptancePolicyTests
         Assert.That(TermsAcceptancePolicy.RequiresCurrentAcceptance(false, EffectiveAtUtc), Is.True);
     }
 
+    /// <summary>Performs the agreement is not required before effective time operation.</summary>
     [Test]
     public void Agreement_is_not_required_before_effective_time()
     {
@@ -89,6 +96,7 @@ public class TermsAcceptancePolicyTests
         Assert.That(TermsAcceptancePolicy.CanStartNewContract(false, before), Is.True);
     }
 
+    /// <summary>Performs the missing verified root fails closed for new contracts operation.</summary>
     [Test]
     public void Missing_verified_root_fails_closed_for_new_contracts()
     {
@@ -98,6 +106,7 @@ public class TermsAcceptancePolicyTests
         Assert.That(TermsAcceptancePolicy.CanStartNewContract(false), Is.False);
     }
 
+    /// <summary>Accepts ance validation is attached to the record parameter.</summary>
     [Test]
     public void Acceptance_validation_is_attached_to_the_record_parameter()
     {
@@ -116,6 +125,7 @@ public class TermsAcceptancePolicyTests
         });
     }
 
+    /// <summary>Accepts ance source is limited to the authenticated web surface.</summary>
     [TestCase("web-login-de", "de-DE", "web-login-de")]
     [TestCase("web-login-en", "en-US", "web-login-en")]
     [TestCase("web-login-de", "en-US", "web-premium-en")]

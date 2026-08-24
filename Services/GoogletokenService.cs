@@ -21,6 +21,7 @@ public class GoogletokenService
     TokenService tokenService;
     ILogger<GoogletokenService> logger;
 
+    /// <summary>Initializes a new instance of the <see cref="GoogletokenService"/> class.</summary>
     public GoogletokenService(TokenService tokenService, ILogger<GoogletokenService> logger)
     {
         this.tokenService = tokenService;
@@ -72,6 +73,7 @@ public class GoogletokenService
         return await GetUserWithToken(value, highSecurity);
     }
 
+    /// <summary>Gets user id.</summary>
     public async Task<string> GetUserId(ControllerBase controllerInstance, bool highSecurity = false)
     {
         return (await GetUserWithToken(controllerInstance, highSecurity)).Id.ToString();

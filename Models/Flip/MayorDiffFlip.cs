@@ -2,6 +2,7 @@ using System.Runtime.Serialization;
 
 namespace Coflnet.Sky.Api.Models;
 
+/// <summary>Represents a mayor diff flip.</summary>
 public class MayorDiffFlip
 {
     /// <summary>
@@ -37,7 +38,9 @@ public class MayorDiffFlip
     [DataMember(Name = "nextMayor", EmitDefaultValue = true)]
     public string NextMayor { get; set; }
 
+    /// <summary>Gets or sets the used prices after current mayor.</summary>
     public bool UsedPricesAfterCurrentMayor { get; set; }
+    /// <summary>Gets or sets the used prices before next mayor.</summary>
     public bool UsedPricesBeforeNextMayor { get; set; }
 
     /// <summary>Gets or Sets CurrentMayor</summary>

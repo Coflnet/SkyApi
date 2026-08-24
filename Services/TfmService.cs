@@ -6,10 +6,12 @@ using RestSharp;
 
 namespace Coflnet.Sky.Api.Services
 {
+    /// <summary>Provides TFM status operations.</summary>
     public class TfmService
     {
         private RestClient client = new RestClient("https://api.thom.club");
 
+        /// <summary>Determines whether a user is online in TFM.</summary>
         public async Task<bool> IsUserOnAsync(string uuid)
         {
             var tfmTask = client.ExecuteAsync(new RestRequest("online_tfm_users"));
@@ -21,8 +23,10 @@ namespace Coflnet.Sky.Api.Services
 
         }
 
+        /// <summary>Represents an online response.</summary>
         public class OnlineResponse
         {
+            /// <summary>Stores the user list.</summary>
             public dynamic[][] user_list;
         }
     }

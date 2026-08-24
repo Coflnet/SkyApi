@@ -106,6 +106,7 @@ public class CraftingController : ControllerBase
     /// (the top level recipe plus all of its sub-crafts, recursively)
     /// </summary>
     /// <param name="itemTag"></param>
+    /// <param name="itemApi">Provides item-name metadata.</param>
     /// <returns></returns>
     [Route("{itemTag}/instructions")]
     [HttpGet]

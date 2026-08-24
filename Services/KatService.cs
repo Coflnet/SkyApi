@@ -10,21 +10,25 @@ using System;
 
 namespace Coflnet.Sky.Api.Services
 {
+    /// <summary>Provides kat operations.</summary>
     public class KatService
     {
         private KatApi katApi;
         PricesService pricesService;
+        /// <summary>Initializes a new instance of the <see cref="KatService"/> class.</summary>
         public KatService(IConfiguration config, PricesService pricesService)
         {
             katApi = new(config["CRAFTS_BASE_URL"]);
             this.pricesService = pricesService;
         }
 
+        /// <summary>Gets profitable.</summary>
         public async Task<IEnumerable<KatFlip>> GetProfitable()
         {
             var flips = await katApi.GetProfitableKatAsync();
             return await AddSaleData(flips);
         }
+        /// <summary>Gets raw data.</summary>
         public async Task<IEnumerable<Models.KatUpgradeCost>> GetRawData()
         {
             return (await katApi.GetUpgradeDataAsync()).Select(c => new Models.KatUpgradeCost(c));

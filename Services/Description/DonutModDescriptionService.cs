@@ -15,6 +15,7 @@ using Newtonsoft.Json;
 
 namespace Coflnet.Sky.Api.Services;
 
+/// <summary>Provides donut mod description operations.</summary>
 public class DonutModDescriptionService
 {
     private static readonly DescModification[] EmptyMods = Array.Empty<DescModification>();
@@ -27,18 +28,21 @@ public class DonutModDescriptionService
     private readonly ILogger<DonutModDescriptionService> logger;
     private readonly DonutInventoryItemParser itemParser = new();
 
+    /// <summary>Initializes a new instance of the <see cref="DonutModDescriptionService"/> class.</summary>
     public DonutModDescriptionService(IHttpClientFactory httpClientFactory, ILogger<DonutModDescriptionService> logger)
     {
         this.httpClientFactory = httpClientFactory;
         this.logger = logger;
     }
 
+    /// <summary>Gets descriptions.</summary>
     public async Task<IEnumerable<string[]>> GetDescriptions(InventoryDataWithSettings inventory)
     {
         var modifications = await GetModifications(inventory);
         return modifications.Select(mods => mods.Select(m => m.Value).ToArray());
     }
 
+    /// <summary>Gets modifications.</summary>
     public async Task<IEnumerable<IEnumerable<DescModification>>> GetModifications(InventoryDataWithSettings inventory)
     {
         var slots = ParseInventory(inventory).ToList();

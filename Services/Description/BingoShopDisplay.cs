@@ -14,10 +14,13 @@ namespace Coflnet.Sky.Api.Services.Description;
 /// </summary>
 public class BingoShopDisplay : SkyApi.Services.Description.CurrencyValueDisplay
 {
+    /// <summary>Gets the value suffix.</summary>
     protected override string ValueSuffix => "Bingo Points";
+    /// <summary>Gets the currency name.</summary>
     protected override string currencyName => "Bingo Point";
 
     // Hide base Apply to run both the per-item processing and the summary info
+    /// <inheritdoc/>
     public override void Apply(DataContainer data)
     {
         // First, determine the user's current bingo rank

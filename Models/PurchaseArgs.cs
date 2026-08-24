@@ -9,7 +9,7 @@ namespace Coflnet.Sky.Api.Models
         /// <summary>
         /// The service to pruchase
         /// </summary>
-        public string slug;
+        public string slug = null!;
         /// <summary>
         /// How many instances to purchase (longer time)
         /// </summary>
@@ -17,7 +17,7 @@ namespace Coflnet.Sky.Api.Models
         /// <summary>
         /// Reference to prevent dupplicates
         /// </summary>
-        public string reference;
+        public string reference = null!;
         /// <summary>
         /// Whether the user expressly requested early performance for this
         /// order.

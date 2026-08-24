@@ -11,28 +11,33 @@ using Newtonsoft.Json;
 
 namespace Coflnet.Sky.Api.Services;
 
+/// <summary>Defines item skin storage operations.</summary>
 public interface IItemSkinHandler
 {
+    /// <summary>Stores an item skin when it has not been saved yet.</summary>
     void StoreIfNeeded(string tag, NbtCompound combound);
 }
+/// <summary>Caches and stores item skins.</summary>
 public class ItemSkinHandler : BackgroundService, IItemSkinHandler
 {
-    private Sky.Items.Client.Api.IItemsApi itemsApi;
-    private ConcurrentDictionary<string, bool> skinTags = new();
-    private ActivitySource activitySource;
+    private static readonly ActivitySource ActivitySource = new(nameof(ItemSkinHandler));
+    private readonly Sky.Items.Client.Api.IItemsApi itemsApi;
+    private readonly ConcurrentDictionary<string, bool> skinTags = new();
 
+    /// <summary>Initializes a new instance of the <see cref="ItemSkinHandler"/> class.</summary>
     public ItemSkinHandler(IItemsApi itemsApi)
     {
         this.itemsApi = itemsApi;
     }
 
+    /// <inheritdoc/>
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         while (!stoppingToken.IsCancellationRequested)
         {
             try
             {
-                using var activity = activitySource?.StartActivity("UpdateSkins");
+                using var activity = ActivitySource.StartActivity("UpdateSkins");
                 var response = await itemsApi.ItemsNoiconGetWithHttpInfoAsync();
                 var items = JsonConvert.DeserializeObject<List<Sky.Items.Client.Model.Item>>(response.RawContent.Replace("SUPREME", "DIVINE"));
                 foreach (var item in items)
@@ -51,6 +56,7 @@ public class ItemSkinHandler : BackgroundService, IItemSkinHandler
     }
 
 
+    /// <inheritdoc/>
     public void StoreIfNeeded(string tag, NbtCompound compound)
     {
         if (tag == null)

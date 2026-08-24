@@ -7,6 +7,7 @@ using Newtonsoft.Json;
 
 namespace Coflnet.Sky.Api.Services.Description;
 
+/// <summary>Represents a kuudra chest info.</summary>
 public class KuudraChestInfo : ICustomModifier
 {
     private const long BasicKeyBaseCoins = 160_000;
@@ -15,6 +16,7 @@ public class KuudraChestInfo : ICustomModifier
     private const long FieryKeyBaseCoins = 1_200_000;
     private const long InfernalKeyBaseCoins = 2_400_000;
 
+    /// <inheritdoc/>
     public void Apply(DataContainer data)
     {
         // Total estimated value of chest contents
@@ -483,6 +485,7 @@ public class KuudraChestInfo : ICustomModifier
         return BasicKeyBaseCoins + 2 * materialPrice + 2 * starPrice; // Basic Kuudra Key
     }
 
+    /// <inheritdoc/>
     public void Modify(ModDescriptionService.PreRequestContainer preRequest)
     {
     }

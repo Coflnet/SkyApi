@@ -6,14 +6,17 @@ using Microsoft.Extensions.Logging;
 
 namespace Coflnet.Sky.Api;
 
+/// <summary>Tracks filter popularity.</summary>
 public class FilterPobularityService
 {
-    private IDistributedCache _cache;
-    private ILogger<FilterPobularityService> _logger;
+    private readonly IDistributedCache _cache;
+    private readonly ILogger<FilterPobularityService> _logger;
 
-    public FilterPobularityService(IDistributedCache cache)
+    /// <summary>Initializes a new instance of the <see cref="FilterPobularityService"/> class.</summary>
+    public FilterPobularityService(IDistributedCache cache, ILogger<FilterPobularityService> logger)
     {
         _cache = cache;
+        _logger = logger;
 
         _ = Task.Run(async () =>
         {
@@ -61,6 +64,7 @@ public class FilterPobularityService
     }
     private ConcurrentDictionary<string, ConcurrentDictionary<string, int>> _itemPopularity = [];
 
+    /// <summary>Adds filter use.</summary>
     public void AddFilterUse(string itemTag, string filterName)
     {
         if (string.IsNullOrEmpty(itemTag))
@@ -72,6 +76,7 @@ public class FilterPobularityService
         _itemPopularity[itemTag].AddOrUpdate(filterName, 1, (key, oldValue) => oldValue + 1);
     }
 
+    /// <summary>Gets filter use count.</summary>
     public int GetFilterUseCount(string itemTag, string filterName)
     {
         if (string.IsNullOrEmpty(itemTag))

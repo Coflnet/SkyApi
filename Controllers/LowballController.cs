@@ -22,6 +22,7 @@ public class LowballController : ControllerBase
     private readonly McConnect.Api.IConnectApi connectApi;
     private readonly HttpClient httpClient;
 
+    /// <summary>Initializes a new instance of the <see cref="LowballController"/> class.</summary>
     public LowballController(
         ILogger<LowballController> logger,
         GoogletokenService googletokenService,

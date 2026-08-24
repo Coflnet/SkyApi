@@ -2,6 +2,7 @@ using System.Diagnostics;
 #nullable enable
 namespace Coflnet.Sky.Core;
 
+/// <summary>Provides tracing extension methods.</summary>
 public static class TraceExtensions
 {
     /// <summary>

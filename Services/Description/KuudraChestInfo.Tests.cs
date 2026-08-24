@@ -8,8 +8,10 @@ using NUnit.Framework;
 
 namespace Coflnet.Sky.Api.Services.Description.Tests;
 
+/// <summary>Contains Kuudra chest information tests.</summary>
 public class KuudraChestInfoTests
 {
+    /// <summary>Performs the kuudra chest info uses updated base coin cost per tier operation.</summary>
     [TestCase("Basic Kuudra Key", 160_000 + 2 * 2_000 + 2 * 20_000)]
     [TestCase("Hot Kuudra Key", 320_000 + 6 * 2_000 + 2 * 20_000)]
     [TestCase("Burning Kuudra Key", 600_000 + 20 * 2_000 + 2 * 20_000)]
@@ -53,6 +55,7 @@ public class KuudraChestInfoTests
         Assert.That(joined, Does.Contain($"Key Cost (est): {ModDescriptionService.FormatPriceShort(expectedCost)}"));
     }
 
+    /// <summary>Performs the kuudra chest info uses claim chest lore to detect infernal key operation.</summary>
     [Test]
     public void KuudraChestInfo_UsesClaimChestLoreToDetectInfernalKey()
     {
@@ -139,6 +142,7 @@ public class KuudraChestInfoTests
         Assert.That(costLine, Does.Contain(expectedInfernalCost));
     }
 
+    /// <summary>Performs the kuudra chest info includes essence without name and shard with count suffix operation.</summary>
     [Test]
     public void KuudraChestInfo_IncludesEssenceWithoutName_AndShardWithCountSuffix()
     {
@@ -209,6 +213,7 @@ public class KuudraChestInfoTests
         Assert.That(joined, Does.Contain("Kraken Shard"));
     }
 
+    /// <summary>Performs the kuudra chest info includes lore only attribute shards operation.</summary>
     [Test]
     public void KuudraChestInfo_IncludesLoreOnlyAttributeShards()
     {
@@ -301,6 +306,7 @@ public class KuudraChestInfoTests
         Assert.That(joined, Does.Contain(expectedTotal));
     }
 
+    /// <summary>Performs the kuudra chest info hot chest uses claim chest shard name and hot key cost operation.</summary>
     [Test]
     public void KuudraChestInfo_HotChestUsesClaimChestShardNameAndHotKeyCost()
     {

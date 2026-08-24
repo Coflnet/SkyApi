@@ -5,8 +5,10 @@ using Coflnet.Sky.Commands.MC;
 
 namespace Coflnet.Sky.Api.Services.Description;
 
+/// <summary>Represents an auction value summary.</summary>
 public class AuctionValueSummary : ICustomModifier
 {
+    /// <inheritdoc/>
     public void Apply(DataContainer data)
     {
         var sum = 0L;
@@ -60,6 +62,7 @@ public class AuctionValueSummary : ICustomModifier
         data.mods.Last().Insert(0, new DescModification(DescModification.ModType.REPLACE, 0, $"Auctions value: §6{data.modService.FormatNumber(sum)}"));
     }
 
+    /// <inheritdoc/>
     public void Modify(ModDescriptionService.PreRequestContainer preRequest)
     {
         return;

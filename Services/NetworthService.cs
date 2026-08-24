@@ -5,15 +5,18 @@ using Coflnet.Sky.Commands.Shared;
 using Coflnet.Sky.Core;
 
 namespace Coflnet.Sky.Api.Services;
+/// <summary>Provides networth operations.</summary>
 public class NetworthService
 {
     private readonly ModDescriptionService modDescriptionService;
 
+    /// <summary>Initializes a new instance of the <see cref="NetworthService"/> class.</summary>
     public NetworthService(ModDescriptionService modDescriptionService)
     {
         this.modDescriptionService = modDescriptionService;
     }
 
+    /// <summary>Gets networth.</summary>
     public async Task<NetworthBreakDown> GetNetworth(Profile profile)
     {
         var networth = new NetworthBreakDown();
@@ -96,6 +99,7 @@ public class NetworthService
             inventories.Add($"backpack {backpack.Key}", backpack.Value);
         }
     }
+    /// <summary>Gets items in inventories.</summary>
     public List<(string Key, SaveAuction auction)> GetItemsInInventories(Member member)
     {
         var inventories = new Dictionary<string, InventoryElem>();

@@ -4,8 +4,10 @@ using Coflnet.Sky.Trade.Client.Model;
 using HashidsNet;
 
 namespace Coflnet.Sky.Api.Services;
+/// <summary>Represents an organization profile.</summary>
 public class OrganizationProfile : Profile
 {
+    /// <summary>Initializes a new instance of the <see cref="OrganizationProfile"/> class.</summary>
     public OrganizationProfile()
     {
         Hashids hashids = new Hashids("CoflnetSkyTrades", 8);

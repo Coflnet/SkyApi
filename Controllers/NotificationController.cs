@@ -13,6 +13,7 @@ using Microsoft.Extensions.Logging;
 
 namespace Coflnet.Sky.Api.Controller;
 
+/// <summary>Provides notification endpoints.</summary>
 [ApiController]
 [Route("api/notifications")]
 [ResponseCache(Duration = 0, Location = ResponseCacheLocation.None, NoStore = true)]
@@ -230,4 +231,3 @@ public class NotificationController : ControllerBase
         await listenerApi.SubscriptionUserIdSubDeleteAsync(await googletokenService.GetUserId(this), mapped);
     }
 }
-

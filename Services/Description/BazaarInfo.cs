@@ -12,13 +12,16 @@ using Coflnet.Sky.Crafts.Client.Model;
 
 namespace Coflnet.Sky.Api.Services.Description;
 
+/// <summary>Represents a bazaar info.</summary>
 public class BazaarInfo : ICustomModifier
 {
     // Kept as the documented key existing users already have in loreDisableInfoIn (from clicking the
     // old disable "x") instead of the auto-generated type name. ModDescriptionService handles the
     // skip + disable-button stamping centrally from this name.
+    /// <summary>Gets the disable info name.</summary>
     public string DisableInfoName => "bazaar";
 
+    /// <inheritdoc/>
     public void Apply(DataContainer data)
     {
         if (data.inventory.Version < 3)
@@ -125,6 +128,7 @@ public class BazaarInfo : ICustomModifier
         return coins.ToString();
     }
 
+    /// <inheritdoc/>
     public void Modify(ModDescriptionService.PreRequestContainer preRequest)
     {
         preRequest.ToLoad[nameof(BazaarInfo)] = Task.Run(async () =>

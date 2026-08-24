@@ -9,16 +9,24 @@ using Microsoft.Extensions.Options;
 
 namespace Coflnet.Sky.Api.Services
 {
+    /// <summary>Defines scraping detection operations.</summary>
     public interface IScrapingDetectionService
     {
+        /// <summary>Determines whether the request is banned.</summary>
         bool IsBanned(HttpContext context);
+        /// <summary>Records a rate-limit violation.</summary>
         Task RecordRateLimitExceededAsync(HttpContext context);
+        /// <summary>Tracks an incoming request.</summary>
         void TrackRequest(HttpContext context);
+        /// <summary>Determines whether the request belongs to a Premium Plus user.</summary>
         Task<bool> IsPremiumPlusAsync(HttpContext context);
+        /// <summary>Unbans an IP address.</summary>
         bool UnbanIp(string ip);
+        /// <summary>Determines whether an IP address is banned.</summary>
         bool IsIpBanned(string ip);
     }
 
+    /// <summary>Provides scraping detection operations.</summary>
     public class ScrapingDetectionService : IScrapingDetectionService
     {
         private class SubnetTracker
@@ -63,6 +71,7 @@ namespace Coflnet.Sky.Api.Services
             "/api/service/purchase",
         };
 
+        /// <summary>Initializes a new instance of the <see cref="ScrapingDetectionService"/> class.</summary>
         public ScrapingDetectionService(
             ILogger<ScrapingDetectionService> logger,
             GoogletokenService tokenService = null,
@@ -143,6 +152,7 @@ namespace Coflnet.Sky.Api.Services
             return false;
         }
 
+        /// <inheritdoc/>
         public bool IsBanned(HttpContext context)
         {
             if (IsExempt(context)) return false;
@@ -166,6 +176,7 @@ namespace Coflnet.Sky.Api.Services
             return false;
         }
 
+        /// <inheritdoc/>
         public Task RecordRateLimitExceededAsync(HttpContext context)
         {
             if (IsExempt(context)) return Task.CompletedTask;
@@ -212,6 +223,7 @@ namespace Coflnet.Sky.Api.Services
             return Task.CompletedTask;
         }
 
+        /// <inheritdoc/>
         public void TrackRequest(HttpContext context)
         {
             if (IsExempt(context)) return;
@@ -286,6 +298,7 @@ namespace Coflnet.Sky.Api.Services
             }
         }
 
+        /// <inheritdoc/>
         public async Task<bool> IsPremiumPlusAsync(HttpContext context)
         {
             if (_tokenService == null || _userApi == null) return false;
@@ -312,6 +325,7 @@ namespace Coflnet.Sky.Api.Services
             }
         }
 
+        /// <inheritdoc/>
         public bool UnbanIp(string ip)
         {
             var normalizedIp = RequestIpUtility.NormalizeIp(ip);
@@ -321,6 +335,7 @@ namespace Coflnet.Sky.Api.Services
             return removed;
         }
 
+        /// <inheritdoc/>
         public bool IsIpBanned(string ip)
         {
             var normalizedIp = RequestIpUtility.NormalizeIp(ip);

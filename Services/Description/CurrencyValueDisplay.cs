@@ -7,12 +7,16 @@ using System.Linq;
 using System.Text.RegularExpressions;
 
 namespace SkyApi.Services.Description;
+/// <summary>Represents a currency value display.</summary>
 public abstract class CurrencyValueDisplay : ICustomModifier
 {
+    /// <summary>Gets the value suffix.</summary>
     protected abstract string ValueSuffix { get; }
 
+    /// <summary>Gets the currency name.</summary>
     protected abstract string currencyName { get; }
 
+    /// <inheritdoc/>
     public virtual void Apply(DataContainer data)
     {
         for (int i = 0; i < Math.Min(data.auctionRepresent.Count, 54); i++)
@@ -31,6 +35,7 @@ public abstract class CurrencyValueDisplay : ICustomModifier
         }
     }
 
+    /// <summary>Performs the process line operation.</summary>
     protected virtual void ProcessLine(DataContainer data, int i, string[] desc, PriceEstimate price)
     {
         if (price != null && price.Median != 0 && HasValue(desc, out int bits, out int lineId))
@@ -41,6 +46,7 @@ public abstract class CurrencyValueDisplay : ICustomModifier
         }
     }
 
+    /// <summary>Performs the replace line operation.</summary>
     protected virtual void ReplaceLine(DataContainer data, int i, int lineId, string formattedPrice)
     {
         var desc = data.auctionRepresent[i].desc;
@@ -56,6 +62,7 @@ public abstract class CurrencyValueDisplay : ICustomModifier
         return;
     }
 
+    /// <summary>Finds a currency value in the description.</summary>
     protected bool HasValue(IEnumerable<string> description, out int bits, out int lineId)
     {
         bits = 1;

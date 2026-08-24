@@ -21,6 +21,7 @@ public class EmbeddingService
     private readonly IHttpClientFactory httpClientFactory;
     private readonly IConfiguration configuration;
 
+    /// <summary>Gets the dimensions.</summary>
     public int Dimensions { get; }
 
     /// <summary>Stable identifier used to invalidate vectors when the embedding backend changes.</summary>
@@ -28,6 +29,7 @@ public class EmbeddingService
         ? $"local-lexical-v1:{Dimensions}"
         : $"{configuration["EMBEDDING_MODEL"] ?? "BAAI/bge-small-en-v1.5"}:{Dimensions}";
 
+    /// <summary>Initializes a new instance of the <see cref="EmbeddingService"/> class.</summary>
     public EmbeddingService(IHttpClientFactory httpClientFactory, IConfiguration configuration)
     {
         this.httpClientFactory = httpClientFactory;
@@ -35,9 +37,11 @@ public class EmbeddingService
         Dimensions = int.TryParse(configuration["EMBEDDING_DIMENSIONS"], out var dimensions) ? dimensions : 384;
     }
 
+    /// <summary>Embeds a collection of documents.</summary>
     public Task<IReadOnlyList<float[]>> EmbedDocumentsAsync(IReadOnlyList<string> inputs, CancellationToken cancellationToken) =>
         EmbedAsync(inputs, cancellationToken);
 
+    /// <summary>Embeds a search query.</summary>
     public async Task<float[]> EmbedQueryAsync(string query, CancellationToken cancellationToken)
     {
         var endpoint = configuration["EMBEDDING_API_URL"];

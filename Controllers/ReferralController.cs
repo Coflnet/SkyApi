@@ -95,26 +95,27 @@ namespace Coflnet.Sky.Api.Controller
                 info = new RefInfo(new ReferralElement(), new List<ReferralElement>());
             }
             var nameTask = GetInviterMinecraftName(info);
-            string refedBy = null;
-            if (!string.IsNullOrEmpty(info?.Inviter?.Inviter))
+            string? refedBy = null;
+            if (!string.IsNullOrEmpty(info.Inviter?.Inviter))
             {
                 var referrer = UserService.Instance.GetUserById(int.Parse(info.Inviter.Inviter));
                 refedBy = UserService.Instance.AnonymiseEmail(referrer.Email);
             }
             var name = await nameTask;
+            var invited = info.Invited ?? [];
             return Ok(new ReferralInfo()
             {
                 oldInfo = oldInfo,
                 ReferredBy = refedBy,
                 InviterMinecraftName = name,
-                ReferedCount = info.Invited.Count,
-                ValidatedMinecraft = info.Invited.Where(i => i.Flags.Value.HasFlag(ReferralFlags.NUMBER_1)).Count(),
-                PurchasedCoins = info.Invited.Where(i => i.Flags.Value.HasFlag(ReferralFlags.NUMBER_2)).Count(),
-                PurchasedCoinAmount = info.Invited.Sum(i => i.PurchaseAmount)
+                ReferedCount = invited.Count,
+                ValidatedMinecraft = invited.Count(i => i.Flags.GetValueOrDefault().HasFlag(ReferralFlags.NUMBER_1)),
+                PurchasedCoins = invited.Count(i => i.Flags.GetValueOrDefault().HasFlag(ReferralFlags.NUMBER_2)),
+                PurchasedCoinAmount = invited.Sum(i => i.PurchaseAmount)
             });
         }
 
-        private async Task<string> GetInviterMinecraftName(RefInfo info)
+        private async Task<string?> GetInviterMinecraftName(RefInfo info)
         {
             var inviterId = info?.Inviter?.Inviter;
             if(inviterId == null)
@@ -158,4 +159,3 @@ namespace Coflnet.Sky.Api.Controller
         }
     }
 }
-

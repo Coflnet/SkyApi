@@ -1,11 +1,15 @@
 using fNbt.Tags;
 using NUnit.Framework;
 
+#nullable enable annotations
+
 namespace Coflnet.Sky.Api.Services.Description.Tests;
 
+/// <summary>Contains Donut inventory item parser tests.</summary>
 [TestFixture]
 public class DonutInventoryItemParserTests
 {
+    /// <summary>Determines whether match auction slot only allows auction listing slots.</summary>
     [TestCase("ᴀᴜᴄᴛɪᴏɴ (Page 1)", 0, true)]
     [TestCase("ᴀᴜᴄᴛɪᴏɴ (Page 1)", 44, true)]
     [TestCase("ᴀᴜᴄᴛɪᴏɴ (Page 1)", 47, false)]
@@ -18,6 +22,7 @@ public class DonutInventoryItemParserTests
         Assert.That(DonutInventoryItemParser.ShouldMatchAuctionSlot(chestName, slot), Is.EqualTo(expected));
     }
 
+    /// <summary>Parses auction page number reads page numbers.</summary>
     [TestCase("ᴀᴜᴄᴛɪᴏɴ (Page 1)", 1)]
     [TestCase("Auction (Page 12)", 12)]
     [TestCase("Auction House", null)]
@@ -26,6 +31,7 @@ public class DonutInventoryItemParserTests
         Assert.That(DonutInventoryItemParser.ParseAuctionPageNumber(chestName), Is.EqualTo(expectedPage));
     }
 
+    /// <summary>Parses slot reads trim from modern components.</summary>
     [Test]
     public void ParseSlot_ReadsTrimFromModernComponents()
     {
@@ -51,6 +57,7 @@ public class DonutInventoryItemParserTests
         Assert.That(slot.Item.Trim.Pattern, Is.EqualTo("sentry"));
     }
 
+    /// <summary>Parses slot falls back to legacy trim tag.</summary>
     [Test]
     public void ParseSlot_FallsBackToLegacyTrimTag()
     {
@@ -75,6 +82,7 @@ public class DonutInventoryItemParserTests
         Assert.That(slot.Item.Trim.Pattern, Is.EqualTo("spire"));
     }
 
+    /// <summary>Parses slot reads modern component fields from donut inventory.</summary>
     [Test]
     public void ParseSlot_ReadsModernComponentFieldsFromDonutInventory()
     {
@@ -126,6 +134,7 @@ public class DonutInventoryItemParserTests
         Assert.That(slot.Item.Enchants!["fortune"], Is.EqualTo(3));
     }
 
+    /// <summary>Parses slot reads nested lore text extras.</summary>
     [Test]
     public void ParseSlot_ReadsNestedLoreTextExtras()
     {
@@ -165,6 +174,7 @@ public class DonutInventoryItemParserTests
         Assert.That(slot.Item.VisiblePrice, Is.EqualTo(70));
     }
 
+    /// <summary>Parses slot reads matching hints from public bukkit values.</summary>
     [Test]
     public void ParseSlot_ReadsMatchingHintsFromPublicBukkitValues()
     {
@@ -210,6 +220,7 @@ public class DonutInventoryItemParserTests
         Assert.That(slot.Item.AuctionSecurity, Is.EqualTo(1));
     }
 
+    /// <summary>Parses slot merges stored enchantments.</summary>
     [Test]
     public void ParseSlot_MergesStoredEnchantments()
     {
@@ -232,6 +243,7 @@ public class DonutInventoryItemParserTests
         Assert.That(slot.Item.Enchants!["unbreaking"], Is.EqualTo(3));
     }
 
+    /// <summary>Parses slot reads matching extra data.</summary>
     [Test]
     public void ParseSlot_ReadsMatchingExtraData()
     {

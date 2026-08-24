@@ -3,9 +3,11 @@ using AwesomeAssertions;
 
 namespace Coflnet.Sky.Api.Services.Description.Tests;
 
+/// <summary>Contains instant-buy amount tests.</summary>
 [TestFixture]
 public class InstantBuyMaxAmountTests
 {
+    /// <summary>Determines whether only instant-buy screens are matched.</summary>
     [TestCase("Lily Pad ➜ Instant Buy", true)]
     [TestCase("Lily Pad ➜ Instant Buy ", true)]
     [TestCase("Lily Pad ➜ Instant Sell", false)]
@@ -17,12 +19,14 @@ public class InstantBuyMaxAmountTests
         InstantBuyMaxAmount.IsInstantBuy(chestName).Should().Be(expected);
     }
 
+    /// <summary>Parses max amount reads buy up to cap.</summary>
     [Test]
     public void ParseMaxAmount_ReadsBuyUpToCap()
     {
         InstantBuyMaxAmount.ParseMaxAmountFromText("§7Buy Order Quantity\n\n§7Buy up to §a71,680x").Should().Be(71_680);
     }
 
+    /// <summary>Parses max amount ignores current selection.</summary>
     [Test]
     public void ParseMaxAmount_IgnoresCurrentSelection()
     {
@@ -30,6 +34,7 @@ public class InstantBuyMaxAmountTests
         InstantBuyMaxAmount.ParseMaxAmountFromText("§7Amount: §a4,600x\n§7Price: §64,000 coins").Should().BeNull();
     }
 
+    /// <summary>Parses max amount null when no cap.</summary>
     [Test]
     public void ParseMaxAmount_NullWhenNoCap()
     {
@@ -39,6 +44,7 @@ public class InstantBuyMaxAmountTests
     private static InstantBuyMaxAmount.PriceLevel Level(double price, int amount)
         => new() { Price = price, Amount = amount };
 
+    /// <summary>Performs the max affordable walks the order book operation.</summary>
     [Test]
     public void MaxAffordable_WalksTheOrderBook()
     {
@@ -48,6 +54,7 @@ public class InstantBuyMaxAmountTests
         InstantBuyMaxAmount.MaxAffordable(orders, 2500).Should().Be(170);
     }
 
+    /// <summary>Performs the max affordable stops within first level operation.</summary>
     [Test]
     public void MaxAffordable_StopsWithinFirstLevel()
     {
@@ -56,6 +63,7 @@ public class InstantBuyMaxAmountTests
         InstantBuyMaxAmount.MaxAffordable(orders, 550).Should().Be(52);
     }
 
+    /// <summary>Performs the max affordable capped by available volume operation.</summary>
     [Test]
     public void MaxAffordable_CappedByAvailableVolume()
     {
@@ -64,6 +72,7 @@ public class InstantBuyMaxAmountTests
         InstantBuyMaxAmount.MaxAffordable(orders, 1_000_000).Should().Be(150);
     }
 
+    /// <summary>Performs the cap amount caps at item max operation.</summary>
     [Test]
     public void CapAmount_CapsAtItemMax()
     {
@@ -71,12 +80,14 @@ public class InstantBuyMaxAmountTests
         InstantBuyMaxAmount.CapAmount(1000, 333).Should().Be(333);
     }
 
+    /// <summary>Performs the cap amount uses affordable when below max operation.</summary>
     [Test]
     public void CapAmount_UsesAffordableWhenBelowMax()
     {
         InstantBuyMaxAmount.CapAmount(200, 333).Should().Be(200);
     }
 
+    /// <summary>Performs the cap amount no cap when max unknown operation.</summary>
     [Test]
     public void CapAmount_NoCapWhenMaxUnknown()
     {

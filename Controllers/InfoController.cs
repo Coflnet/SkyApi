@@ -26,6 +26,7 @@ public class InfoController : ControllerBase
 {
     private const string AiDataNotice = "AI conversations may be reviewed to improve the system and may be processed overseas. Do not share personal or sensitive information.";
 
+    /// <summary>Gets updates.</summary>
     [HttpGet("updates/{year}/{month}")]
     [ResponseCache(Duration = 3600 * 6, Location = ResponseCacheLocation.None, NoStore = true)]
     public async Task<IEnumerable<DiscordBot.Client.Model.DiscordMessage>> GetUpdates(int year, int month, [FromServices] IMessageApi messageApi)
@@ -114,6 +115,7 @@ public class InfoController : ControllerBase
         }
     }
 
+    /// <summary>Clears ai conversation.</summary>
     [HttpDelete("ai/{conversationId}")]
     public async Task<IActionResult> ClearAiConversation(
         string conversationId,
@@ -135,6 +137,7 @@ public class InfoController : ControllerBase
         }
     }
 
+    /// <summary>Refreshes knowledge.</summary>
     [HttpPost("ai/knowledge/refresh")]
     [ApiExplorerSettings(IgnoreApi = true)]
     public async Task<IActionResult> RefreshKnowledge(

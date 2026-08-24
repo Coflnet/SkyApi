@@ -9,15 +9,18 @@ using Newtonsoft.Json;
 
 namespace Coflnet.Sky.Api.Services.Description;
 
+/// <summary>Represents a bazaar order adjust.</summary>
 public class BazaarOrderAdjust : ICustomModifier
 {
     private BazaarApi bazaarApi;
 
+    /// <summary>Initializes a new instance of the <see cref="BazaarOrderAdjust"/> class.</summary>
     public BazaarOrderAdjust(BazaarApi bazaarApi)
     {
         this.bazaarApi = bazaarApi;
     }
 
+    /// <inheritdoc/>
     public void Apply(DataContainer data)
     {
         var loaded = data.Loaded[nameof(BazaarOrderAdjust)].Result;
@@ -122,6 +125,7 @@ public class BazaarOrderAdjust : ICustomModifier
         }
     }
 
+    /// <inheritdoc/>
     public void Modify(ModDescriptionService.PreRequestContainer preRequest)
     {
         var task = Task.Run(async () =>

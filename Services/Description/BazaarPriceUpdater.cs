@@ -45,7 +45,7 @@ public class BazaarPriceUpdater : ICustomModifier
             return;
 
         var (auction, _) = data.auctionRepresent[13];
-        var itemTag = auction?.Tag;
+        var itemTag = auction?.Tag ?? data.Items[13].Tag;
 
         var buyOrders = data.Items.Count > 15 ? data.Items[15] : null;
         var sellOffers = data.Items.Count > 16 ? data.Items[16] : null;
@@ -57,7 +57,7 @@ public class BazaarPriceUpdater : ICustomModifier
         {
             data.modService.UpdateBazaarPrice(itemTag, topBuyPrice, cheapestSellPrice);
         }
-        ExtractAndUploadOrderBook(itemTag, buyOrders.Description, sellOffers.Description);
+        ExtractAndUploadOrderBook(itemTag, buyOrders?.Description, sellOffers?.Description);
         PublishInstaSellIntentIfApplicable(data, itemTag);
 
         // Create a clickable link to open SkyCofl history for this item
@@ -94,7 +94,7 @@ public class BazaarPriceUpdater : ICustomModifier
     /// </summary>
     /// <param name="description">The description text containing a coin price.</param>
     /// <returns>The parsed price, or null if no price was found.</returns>
-    public static double? ParsePrice(string description)
+    public static double? ParsePrice(string? description)
     {
         if (string.IsNullOrEmpty(description)) return null;
 
@@ -118,7 +118,7 @@ public class BazaarPriceUpdater : ICustomModifier
     /// <param name="buyDescription">The buy order description text.</param>
     /// <param name="sellDescription">The sell order description text.</param>
     /// <returns>A tuple containing the parsed buy and sell prices.</returns>
-    public static (double buy, double sell) ExtractAndUploadOrderBook(string tag, string buyDescription, string sellDescription)
+    public static (double buy, double sell) ExtractAndUploadOrderBook(string tag, string? buyDescription, string? sellDescription)
     {
         // Parse buy/sell descriptions into order entries
         var buyList = new List<Bazaar.Client.Model.OrderEntry>();
@@ -268,6 +268,7 @@ public class BazaarPriceUpdater : ICustomModifier
         return inventoryAmount > 0;
     }
 
+    /// <inheritdoc/>
     public void Modify(ModDescriptionService.PreRequestContainer preRequest)
     {
         // No pre-request modifications needed for this modifier

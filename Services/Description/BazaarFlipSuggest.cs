@@ -4,8 +4,10 @@ using Coflnet.Sky.Api.Models.Mod;
 
 namespace Coflnet.Sky.Api.Services.Description;
 
+/// <summary>Represents a bazaar flip suggest.</summary>
 public class BazaarFlipSuggest : ICustomModifier
 {
+    /// <inheritdoc/>
     public void Apply(DataContainer data)
     {
         var modifications = new List<DescModification>();
@@ -33,6 +35,7 @@ public class BazaarFlipSuggest : ICustomModifier
         }
     }
 
+    /// <inheritdoc/>
     public void Modify(ModDescriptionService.PreRequestContainer preRequest)
     {
 

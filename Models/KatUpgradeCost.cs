@@ -66,6 +66,7 @@ namespace Coflnet.Sky.Api.Models
         /// </summary>
         [JsonProperty("amount")]
         public int Amount { get; set; }
+        /// <summary>Gets or sets the materials.</summary>
         [JsonProperty("materials")]
         public Dictionary<string, int> Materials { get; set; }
 

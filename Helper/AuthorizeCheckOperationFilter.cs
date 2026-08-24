@@ -12,6 +12,7 @@ namespace Coflnet.Sky.Api.Helper
     /// </summary>
     public class AuthorizeCheckOperationFilter : IOperationFilter
     {
+        /// <inheritdoc/>
         public void Apply(OpenApiOperation operation, OperationFilterContext context)
         {
             // Check if the endpoint has [Authorize] attribute

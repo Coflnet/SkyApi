@@ -4,6 +4,7 @@ using static Coflnet.Sky.Core.ItemPrices;
 
 namespace Coflnet.Sky.Api.Models;
 
+/// <summary>Represents an archive response.</summary>
 public class ArchiveResponse
 {
     /// <summary>

@@ -6,8 +6,10 @@ using Coflnet.Sky.Core;
 
 namespace Coflnet.Sky.Api.Services.Description;
 
+/// <summary>Represents a flip on next page.</summary>
 public class FlipOnNextPage : ICustomModifier
 {
+    /// <inheritdoc/>
     public virtual void Apply(DataContainer data)
     {
         var bestFlip = GetFlipAble(data).OrderByDescending(a => a.profit + a.lbinProfit * 3).Where(a => a.profit > 0).FirstOrDefault();
@@ -27,11 +29,13 @@ public class FlipOnNextPage : ICustomModifier
         Highlight(item);
     }
 
+    /// <summary>Performs the highlight operation.</summary>
     protected void Highlight(List<DescModification> item)
     {
         item.Add(new DescModification(DescModification.ModType.HIGHLIGHT, 1, "009600"));
     }
 
+    /// <summary>Gets flip able.</summary>
     protected IEnumerable<((SaveAuction auction, string[] desc) First, long profit, long lbinProfit, int index, string seller)> GetFlipAble(DataContainer data)
     {
         return data.auctionRepresent.Zip(data.PriceEst).Take(9 * 6).Select((i, index) =>
@@ -49,6 +53,7 @@ public class FlipOnNextPage : ICustomModifier
             return (i.First, profit, lbinProfit, index, seller);
         });
     }
+    /// <inheritdoc/>
     public void Modify(ModDescriptionService.PreRequestContainer preRequest)
     {
         return;

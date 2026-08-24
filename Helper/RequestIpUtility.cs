@@ -5,13 +5,17 @@ using Microsoft.AspNetCore.Http;
 
 namespace Coflnet.Sky.Api.Helper
 {
+    /// <summary>Configures endpoint-specific IP allowlists.</summary>
     public class EndpointIpRateLimitOptions
     {
+        /// <summary>Gets or sets the IP allowlist by endpoint.</summary>
         public Dictionary<string, List<string>> IpWhitelist { get; set; } = new Dictionary<string, List<string>>();
     }
 
+    /// <summary>Provides request IP parsing and allowlist checks.</summary>
     public static class RequestIpUtility
     {
+        /// <summary>Determines whether the request IP is allowed for its endpoint.</summary>
         public static bool IsIpWhitelistedForEndpoint(HttpContext context, string realIpHeader, EndpointIpRateLimitOptions options)
         {
             var path = context.Request.Path.Value ?? string.Empty;
@@ -21,6 +25,7 @@ namespace Coflnet.Sky.Api.Helper
             return IsIpWhitelisted(ResolveWhitelistIp(context, realIpHeader), endpointWhitelist);
         }
 
+        /// <summary>Resolves the client IP address.</summary>
         public static string ResolveClientIp(HttpContext context, string realIpHeader)
         {
             if (TryGetHeaderIp(context, realIpHeader, out var ip))
@@ -36,6 +41,7 @@ namespace Coflnet.Sky.Api.Helper
             return NormalizeIp(context.Connection.RemoteIpAddress);
         }
 
+        /// <summary>Resolves whitelist ip.</summary>
         public static string ResolveWhitelistIp(HttpContext context, string realIpHeader)
         {
             if (TryGetHeaderIp(context, realIpHeader, out var ip))
@@ -46,6 +52,7 @@ namespace Coflnet.Sky.Api.Helper
             return NormalizeIp(context.Connection.RemoteIpAddress);
         }
 
+        /// <summary>Normalizes ip.</summary>
         public static string NormalizeIp(IPAddress address)
         {
             if (address == null)
@@ -56,6 +63,7 @@ namespace Coflnet.Sky.Api.Helper
             return NormalizeParsedIp(address);
         }
 
+        /// <summary>Normalizes ip.</summary>
         public static string NormalizeIp(string ipString)
         {
             if (string.IsNullOrWhiteSpace(ipString))
@@ -72,6 +80,7 @@ namespace Coflnet.Sky.Api.Helper
             return NormalizeIp(address);
         }
 
+        /// <summary>Determines whether an IP address is allowlisted.</summary>
         public static bool IsIpWhitelisted(string ipString, IEnumerable<string> ipWhitelist)
         {
             if (!TryParseNormalized(ipString, out var ip) || ipWhitelist == null)

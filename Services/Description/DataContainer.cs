@@ -9,20 +9,30 @@ using Coflnet.Sky.Crafts.Client.Model;
 using Coflnet.Sky.FlipTracker.Client.Model;
 
 namespace Coflnet.Sky.Api.Services.Description;
+/// <summary>Represents a data container.</summary>
 public class DataContainer
 {
+    /// <summary>Stores the inventory.</summary>
     public InventoryDataWithSettings inventory;
+    /// <summary>Stores the auction represent.</summary>
     public List<(Core.SaveAuction auction, string[] desc)> auctionRepresent;
+    /// <summary>Stores the price est.</summary>
     public List<Sniper.Client.Model.PriceEstimate> PriceEst;
+    /// <summary>Stores the bazaar prices.</summary>
     public ImmutableDictionary<string, ItemPrice> bazaarPrices;
+    /// <summary>Stores the npc sell prices.</summary>
     public Dictionary<string, float> NpcSellPrices;
+    /// <summary>Stores the mods.</summary>
     public List<List<DescModification>> mods;
+    /// <summary>Stores the prices paid.</summary>
     public Dictionary<string, (long, DateTime, string)> pricesPaid;
     internal ModDescriptionService modService;
+    /// <summary>Stores the item listings.</summary>
     public ILookup<string, ListingSum> itemListings;
     internal Dictionary<(string, Core.Tier), KatUpgradeCost> katUpgradeCost;
     internal Dictionary<string, long> itemPrices = new();
     internal Dictionary<string, ProfitableCraft> allCrafts;
+    /// <summary>Stores the item tag to name.</summary>
     public Dictionary<string,string> itemTagToName;
     internal AccountInfo accountInfo;
     internal ILookup<long, Flip> flips;
@@ -31,9 +41,12 @@ public class DataContainer
     /// </summary>
     internal string mcName;
 
+    /// <summary>Gets or sets the items.</summary>
     public List<Item> Items { get; internal set; }
+    /// <summary>Gets or sets the loaded.</summary>
     public Dictionary<string, Task<string>> Loaded { get; set; }
 
+    /// <summary>Gets itemprice.</summary>
     public long GetItemprice(string itemKey)
     {
         return GetItemprice(itemKey, useBuyOrderPrices: false);
