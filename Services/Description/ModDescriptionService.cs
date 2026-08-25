@@ -1138,6 +1138,18 @@ public class ModDescriptionService : IDisposable
         bool useBuyOrderPrices = data.inventory?.Settings?.BuyOrderPrices ?? false;
         (double? obtainPrice, double? craftPric) = BaseItemPrice(auction, data, useBuyOrderPrices);
         double summary = obtainPrice.Value + ModifierCostSum(auction, data, useBuyOrderPrices) + EnchantCost(auction, data.bazaarPrices, useBuyOrderPrices);
+
+        var auctionIndex = data.auctionRepresent?.FindIndex(entry => ReferenceEquals(entry.auction, auction)) ?? -1;
+        if (auctionIndex >= 0 && auctionIndex < (data.PriceEst?.Count ?? 0))
+        {
+            var estimate = data.PriceEst[auctionIndex];
+            if (estimate?.Median > 0 && estimate.MedianKey == estimate.ItemKey)
+            {
+                obtainPrice = Math.Min(obtainPrice.Value, estimate.Median);
+                summary = Math.Min(summary, estimate.Median);
+            }
+        }
+
         var value = (obtainPrice, summary, craftPric);
         return value;
     }

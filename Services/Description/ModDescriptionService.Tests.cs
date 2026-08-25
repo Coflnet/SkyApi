@@ -265,6 +265,43 @@ public class ModDescriptionServiceTests
     }
 
     [Test]
+    public void FullCraftCost_MissingCleanPrice_UsesExactMedianInsteadOfInvalidCraftCost()
+    {
+        var sealRing = new SaveAuction
+        {
+            Tag = "SEAL_RING",
+            ItemName = "Seal Ring",
+            Tier = Tier.RARE,
+            ItemCreatedAt = DateTime.UtcNow
+        };
+        var data = new DataContainer
+        {
+            auctionRepresent = [(sealRing, [])],
+            PriceEst =
+            [
+                new()
+                {
+                    ItemKey = "SEAL_RING",
+                    MedianKey = "SEAL_RING",
+                    Median = 8_300_000
+                }
+            ],
+            allCrafts = new()
+            {
+                ["SEAL_RING"] = new() { CraftCost = 5_120_000_000 }
+            },
+            bazaarPrices = ImmutableDictionary<string, ItemPrice>.Empty,
+            itemPrices = new()
+        };
+
+        var cost = service.FullCraftCost(sealRing, data);
+
+        cost.obtainPrice.Should().Be(8_300_000);
+        cost.summary.Should().Be(8_300_000);
+        cost.craftPrice.Should().Be(5_120_000_000);
+    }
+
+    [Test]
     public void ParseDungeonChest()
     {
         var data = File.ReadAllText("MockObjects/dungeonChest.json");
