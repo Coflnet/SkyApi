@@ -253,7 +253,7 @@ public class ModDescriptionServiceTests
             .GetCostFromDungeonChest(auctions.Select(a => (a.auction, a.desc)).ToList()).Should().Be(1_000_000);
     }
 
-    [TestCase("DRILL", 5_000_000)]
+    [TestCase("DRILL", 4_900_000)]
     [TestCase("PROMISING_PICKAXE", 0)]
     public void IgnoresEnchantOnPromising(string tag, int price)
     {
@@ -264,6 +264,25 @@ public class ModDescriptionServiceTests
             }}
         });
         enchantVal.Sum(e => e.Item2).Should().Be(price);
+    }
+
+    [Test]
+    public void GetEnchantBreakdown_UsesSelectedBazaarPriceMode()
+    {
+        var auction = new SaveAuction
+        {
+            Tag = "DRILL",
+            Enchantments = [new Enchantment(Enchantment.EnchantmentType.efficiency, 6)]
+        };
+        var bazaarPrices = new Dictionary<string, ItemPrice>
+        {
+            ["SIL_EX"] = new() { BuyPrice = 300_000_000, SellPrice = 500_000 }
+        };
+
+        service.GetEnchantBreakdown(auction, bazaarPrices, useBuyOrderPrices: false)
+            .Sum(e => e.Item2).Should().Be(500_000);
+        service.GetEnchantBreakdown(auction, bazaarPrices, useBuyOrderPrices: true)
+            .Sum(e => e.Item2).Should().Be(300_000_000);
     }
 #pragma warning restore CS1591 // Missing XML comment for publicly visible type or member
 

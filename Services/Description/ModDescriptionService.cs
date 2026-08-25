@@ -1507,7 +1507,7 @@ public class ModDescriptionService : IDisposable
     public IEnumerable<(Enchantment e, long)> GetEnchantBreakdown(SaveAuction auction, IDictionary<string, ItemPrice> bazaarPrices, bool useBuyOrderPrices)
     {
         var enchants = auction.Enchantments;
-        var lookup = bazaarPrices.ToDictionary(a => a.Key, a => useBuyOrderPrices ? a.Value.BuyPrice : a.Value.BuyPrice);
+        var lookup = bazaarPrices.ToDictionary(a => a.Key, a => useBuyOrderPrices ? a.Value.BuyPrice : a.Value.SellPrice);
         var relevant = mapper.IrrelevantOn(auction.Tag).ToDictionary(a => a.Item1, a => a.level);
         var enchantValues = enchants.Where(e => !relevant.TryGetValue(e.Type, out var l) || l < e.Level)
                     .Select(e => (e, mapper.EnchantValue(e, auction.FlatenedNBT, lookup, auction.Tag)));
