@@ -150,6 +150,35 @@ public class ModDescriptionServiceTests
         info.Any(l => l.Value.Contains("Bingo Ring")).Should().BeTrue();
         info.Any(l => l.Value.Contains("13,333")).Should().BeTrue();
     }
+
+    [Test]
+    public void PlayerPageFlipHighlight_HighlightsOnlyProfitableAuctions()
+    {
+        var data = new DataContainer
+        {
+            auctionRepresent =
+            [
+                (new SaveAuction(), []),
+                (new SaveAuction(), ["§7Buy it now: §a1,000,000 coins"]),
+                (new SaveAuction(), ["§7Buy it now: §a1,000,000 coins"])
+            ],
+            PriceEst =
+            [
+                new() { ItemKey = "EMPTY", MedianKey = "EMPTY" },
+                new() { Median = 500_000, ItemKey = "OVERPRICED", MedianKey = "OVERPRICED" },
+                new() { Median = 2_000_000, ItemKey = "FLIP", MedianKey = "FLIP" }
+            ],
+            mods = [new(), new(), new()],
+            modService = service
+        };
+
+        new PlayerPageFlipHighlight().Apply(data);
+
+        data.mods[0].Should().NotContain(mod => mod.Type == DescModification.ModType.HIGHLIGHT);
+        data.mods[1].Should().NotContain(mod => mod.Type == DescModification.ModType.HIGHLIGHT);
+        data.mods[2].Should().ContainSingle(mod => mod.Type == DescModification.ModType.HIGHLIGHT);
+    }
+
     [Test]
     async public Task AddCoinsPerBitValue_ValidPriceAndDescription_CorrectCoinsPerBitAdded()
     {

@@ -13,14 +13,6 @@ public class RequireNonNullablePropertiesSchemaFilter : ISchemaFilter
         if (schema.Properties == null)
             return;
 
-        var required = schema.Required;
-        if (required == null)
-        {
-            if (schema is not OpenApiSchema concreteSchema)
-                return;
-            required = concreteSchema.Required = new HashSet<string>();
-        }
-
         var nullableProperties = context.Type.GetProperties()
             .Where(x => IsNullable(x.PropertyType))
             .Select(x => x.Name.ToCamelCase())
@@ -29,7 +21,7 @@ public class RequireNonNullablePropertiesSchemaFilter : ISchemaFilter
         {
             if (!nullableProperties.Contains(property.Key))
             {
-                required.Add(property.Key);
+                schema.Required!.Add(property.Key);
             }
         }
     }

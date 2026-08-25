@@ -6,9 +6,10 @@ public class PlayerPageFlipHighlight : FlipOnNextPage
     /// <inheritdoc/>
     public override void Apply(DataContainer data)
     {
-        var flips = GetFlipAble(data);
-        foreach (var flip in flips)
+        foreach (var flip in GetFlipAble(data))
         {
+            if (flip.profit <= 0)
+                continue;
             Highlight(data.mods[flip.index]);
         }
     }
