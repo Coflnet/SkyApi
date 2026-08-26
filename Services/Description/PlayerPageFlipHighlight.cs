@@ -1,3 +1,6 @@
+using Coflnet.Sky.Api.Models.Mod;
+using Coflnet.Sky.Commands.MC;
+
 namespace Coflnet.Sky.Api.Services.Description;
 
 /// <summary>Represents a player page flip highlight.</summary>
@@ -10,7 +13,9 @@ public class PlayerPageFlipHighlight : FlipOnNextPage
         {
             if (flip.profit <= 0)
                 continue;
-            Highlight(data.mods[flip.index]);
+            var item = data.mods[flip.index];
+            item.Add(new DescModification($"Med profit: {McColorCodes.GOLD}{data.modService.FormatNumber(flip.profit)}"));
+            Highlight(item);
         }
     }
 }

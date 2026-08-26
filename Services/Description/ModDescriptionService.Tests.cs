@@ -152,7 +152,7 @@ public class ModDescriptionServiceTests
     }
 
     [Test]
-    public void PlayerPageFlipHighlight_HighlightsOnlyProfitableAuctions()
+    public void PlayerPageFlipHighlight_HighlightsAndShowsProfitOnlyForProfitableAuctions()
     {
         var data = new DataContainer
         {
@@ -177,6 +177,8 @@ public class ModDescriptionServiceTests
         data.mods[0].Should().NotContain(mod => mod.Type == DescModification.ModType.HIGHLIGHT);
         data.mods[1].Should().NotContain(mod => mod.Type == DescModification.ModType.HIGHLIGHT);
         data.mods[2].Should().ContainSingle(mod => mod.Type == DescModification.ModType.HIGHLIGHT);
+        var expectedProfit = FlipInstance.ProfitAfterFees(2_000_000, 1_000_000);
+        data.mods[2].Should().ContainSingle(mod => mod.Value == $"Med profit: §6{service.FormatNumber(expectedProfit)}");
     }
 
     [Test]
