@@ -43,7 +43,7 @@ public class TradeInfoDisplayTests
             LowballWorstCaseExtraPct = 6,
             LowballHideBreakdown = false,
             LowballHideWorstCase = false,
-            Fields = DescriptionSetting.Default.Fields
+            Fields = [[DescriptionField.LBIN]]
         };
 
         var items = Enumerable.Range(0, 40)
@@ -96,6 +96,10 @@ public class TradeInfoDisplayTests
         var addedLowballPanel = data.mods.Last();
         addedLowballPanel.Should().NotBeEmpty();
         addedLowballPanel.Select(x => x.Value).Should().Contain(v => v.Contains("Looks like you are lowballing"));
+        var medianLoreHint = GetComponentByText(addedLowballPanel, "Enable median item lore");
+        medianLoreHint.Should().NotBeNull();
+        medianLoreHint.Hover.Should().Contain("Click to add MEDIAN");
+        medianLoreHint.OnClick.Should().Be("/cofl lore add 1 MEDIAN");
 
         var recommendationHover = GetHoverByText(addedLowballPanel, "SkyCofl recommended");
         recommendationHover.Should().NotBeNullOrWhiteSpace();
@@ -117,6 +121,9 @@ public class TradeInfoDisplayTests
     }
 
     private static string GetHoverByText(IEnumerable<DescModification> lines, string lineText)
+        => GetComponentByText(lines, lineText)?.Hover ?? string.Empty;
+
+    private static LoreComponent GetComponentByText(IEnumerable<DescModification> lines, string lineText)
     {
         foreach (var line in lines)
         {
@@ -125,11 +132,11 @@ public class TradeInfoDisplayTests
 
             var components = JsonSerializer.Deserialize<List<LoreComponent>>(line.Value);
             var component = components?.FirstOrDefault(c => (c.Text?.Contains(lineText) ?? false));
-            if (!string.IsNullOrWhiteSpace(component?.Hover))
-                return component.Hover;
+            if (component != null)
+                return component;
         }
 
-        return string.Empty;
+        return null;
     }
 
     private static ModDescriptionService CreateModService()

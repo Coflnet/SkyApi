@@ -124,6 +124,14 @@ public class TradeInfoDisplay : ICustomModifier
             new ("Looks like you are lowballing")
         };
         data.mods.Add(extraInfo);
+        if (!settings.Fields.Any(line => line.Contains(DescriptionField.MEDIAN)))
+        {
+            extraInfo.Add(new LoreBuilder()
+                .AddText($"{McColorCodes.GRAY}Item price can be shown with {McColorCodes.AQUA}/cofl lore",
+                    $"{McColorCodes.YELLOW}Click to add MEDIAN to a new lore line",
+                    $"/cofl lore add {settings.Fields.Count} {DescriptionField.MEDIAN}")
+                .BuildLine());
+        }
         if (data.inventory.Settings.LowballMedUndercut == 100)
         {
             extraInfo.Add(new($"{McColorCodes.GRAY}You disabled lowballing suggestions"));
