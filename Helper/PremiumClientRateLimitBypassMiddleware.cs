@@ -44,7 +44,9 @@ namespace Coflnet.Sky.Api.Helper
             _endpointIpOptions = endpointIpOptions ?? new EndpointIpRateLimitOptions();
             _clientOptions = clientOptions ?? new ClientRateLimitOptions();
             _clientPolicies = clientPolicies ?? new ClientRateLimitPolicies();
-            _ipWhitelistBypassClientId = string.IsNullOrEmpty(ipWhitelistBypassClientId) ? "IP_WHITELIST_BYPASS" : ipWhitelistBypassClientId;
+            _ipWhitelistBypassClientId = !string.IsNullOrWhiteSpace(ipWhitelistBypassClientId)
+                ? ipWhitelistBypassClientId
+                : throw new System.ArgumentException("A whitelist bypass identifier is required", nameof(ipWhitelistBypassClientId));
         }
 
         /// <summary>
@@ -132,7 +134,9 @@ namespace Coflnet.Sky.Api.Helper
             _httpContextAccessor = httpContextAccessor;
             _clientPolicies = clientPolicies?.Value ?? new ClientRateLimitPolicies();
             _endpointIpOptions = endpointIpOptions?.Value ?? new EndpointIpRateLimitOptions();
-            _ipWhitelistBypassClientId = string.IsNullOrEmpty(ipWhitelistBypassClientId) ? "IP_WHITELIST_BYPASS" : ipWhitelistBypassClientId;
+            _ipWhitelistBypassClientId = !string.IsNullOrWhiteSpace(ipWhitelistBypassClientId)
+                ? ipWhitelistBypassClientId
+                : throw new System.ArgumentException("A whitelist bypass identifier is required", nameof(ipWhitelistBypassClientId));
         }
 
         /// <summary>

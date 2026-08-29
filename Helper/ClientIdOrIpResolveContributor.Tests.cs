@@ -151,5 +151,20 @@ namespace Coflnet.Sky.Api.Helper
 
             Assert.That(await contributor.ResolveClientAsync(context), Is.EqualTo("ip:203.0.113.10"));
         }
+
+        /// <summary>Missing bypass identifiers fail closed instead of using a public fallback.</summary>
+        [Test]
+        public void Constructor_RejectsMissingWhitelistBypassClientId()
+        {
+            Assert.Throws<System.ArgumentException>(() => new ClientIdOrIpResolveContributor(
+                new HttpContextAccessor(),
+                "X-ClientId",
+                "CF-Connecting-IP",
+                new IpRateLimitOptions(),
+                new EndpointIpRateLimitOptions(),
+                new ClientRateLimitOptions(),
+                new ClientRateLimitPolicies(),
+                null));
+        }
     }
 }

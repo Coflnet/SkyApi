@@ -120,8 +120,7 @@ namespace Coflnet.Sky.Api
                 o.AddPolicy(CORS_PLICY_NAME, p => p
                     .AllowAnyHeader()
                     .AllowAnyMethod()
-                    .SetIsOriginAllowed(_ => true)
-                    .AllowCredentials());
+                    .AllowAnyOrigin());
             });
 
             services.AddJaeger(Configuration, 0.001, 60);
@@ -183,6 +182,9 @@ namespace Coflnet.Sky.Api
             // Client Rate Limiting (for authenticated/premium clients with higher quotas)
             // Premium client IDs can be configured via PREMIUM_CLIENT_IDS environment variable (comma-separated)
             // Example: PREMIUM_CLIENT_IDS=client-id-1,client-id-2,client-id-3
+            var bypassToken = Configuration["IP_WHITELIST_BYPASS_TOKEN"];
+            if (string.IsNullOrWhiteSpace(bypassToken))
+                bypassToken = $"internal-{Guid.NewGuid():N}";
             services.Configure<ClientRateLimitOptions>(options =>
             {
                 Configuration.GetSection("ClientRateLimiting").Bind(options);
@@ -201,10 +203,6 @@ namespace Coflnet.Sky.Api
                         }
                     }
                 }
-                // Ensure IP whitelist bypass token is present so resolver can return it.
-                // Read token from env/config if provided, otherwise use default.
-                var bypassToken = Configuration["IP_WHITELIST_BYPASS_TOKEN"];
-                if (string.IsNullOrEmpty(bypassToken)) bypassToken = "IP_WHITELIST_BYPASS";
                 if (!options.ClientWhitelist.Contains(bypassToken))
                 {
                     options.ClientWhitelist.Add(bypassToken);
@@ -263,16 +261,13 @@ namespace Coflnet.Sky.Api
             services.AddSingleton<IClientPolicyStore, DistributedCacheClientPolicyStore>();
             services.AddSingleton<IRateLimitCounterStore, DistributedCacheRateLimitCounterStore>();
             // Use custom rate limit configuration that falls back to IP when no client ID is provided
-            // Pass the configured bypass token (from env) into the configuration instance
-            var bypassTokenForRegistration = Configuration["IP_WHITELIST_BYPASS_TOKEN"];
-            if (string.IsNullOrEmpty(bypassTokenForRegistration)) bypassTokenForRegistration = "IP_WHITELIST_BYPASS";
             services.AddSingleton<IRateLimitConfiguration>(sp => new Helper.CustomRateLimitConfiguration(
                 sp.GetRequiredService<IHttpContextAccessor>(),
                 sp.GetRequiredService<IOptions<IpRateLimitOptions>>(),
                 sp.GetRequiredService<IOptions<ClientRateLimitOptions>>(),
                 sp.GetRequiredService<IOptions<ClientRateLimitPolicies>>(),
                 sp.GetRequiredService<IOptions<EndpointIpRateLimitOptions>>(),
-                bypassTokenForRegistration));
+                bypassToken));
             services.AddSingleton<DiscordBot.Client.Api.IMessageApi>(new DiscordBot.Client.Api.MessageApi(Configuration["DISCORD_BOT_BASE_URL"]));
             services.AddCoflService();
             services.AddSingleton<Coflnet.Sky.Indexer.Client.Api.IUserApi>(
