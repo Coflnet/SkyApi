@@ -29,6 +29,18 @@ namespace Coflnet.Sky.Api.Controller
     [ResponseCache(Duration = 0, Location = ResponseCacheLocation.None, NoStore = true)]
     public class PremiumController : ControllerBase
     {
+        private const string LinkvertisePublicKey = """
+            -----BEGIN PUBLIC KEY-----
+            MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA1piHDY9WRIehbfC3Fpol
+            Ly/WrJF8TKFVdDMobj3fkNjN/69dTv9JgXt+gcJxVn/h4NCMtQ2mCQXNBMXzLOky
+            HJipiFMoyPtOOlMlbWRAiaQE1GpMebGNRcsxYnWzF53v63+hUQgrMahH9X0Ii/NJ
+            hvDyFlPX77+z9xiyd45L+xrgayePpOxvQpj6VJDlpNNKWbuIkFvkMmUVRM2TLulL
+            JSgs4EgoBZgTYRpmhgR8tYfDOW+cOctffggcMAzKUC2CzYNmhzX15O7DKaZdYgfa
+            BR/hqvyNAxBepHOJnBfHkQqaox5diHGqdwXXLwiJKzoK5R26vaI3jg2+d69VPSGL
+            0QIDAQAB
+            -----END PUBLIC KEY-----
+            """;
+
         private ProductsApi productsService;
         private TopUpApi topUpApi;
         private UserApi userApi;
@@ -379,8 +391,7 @@ namespace Coflnet.Sky.Api.Controller
                 else
                 {
                     var callback = $"https://sky.coflnet.com/api/linkvertise?provider={provider}&state={state}";
-                    var base64 = Convert.ToBase64String(Encoding.UTF8.GetBytes(callback));
-                    redirectTo = $"https://link-to.net/1216620/{user.Email}/dynamic?r={base64}";
+                    redirectTo = CreateLinkvertiseRedirect(callback, state);
                 }
                 return Ok(redirectTo);
             }
@@ -541,6 +552,18 @@ namespace Coflnet.Sky.Api.Controller
 
         internal static bool IsSuccessfulLinkvertiseResponse(string response) =>
             string.Equals(response?.Trim(), "true", StringComparison.OrdinalIgnoreCase);
+
+        internal static string CreateLinkvertiseRedirect(string callback, string nonce)
+        {
+            const int encryptedPrefixLength = 67;
+            using var rsa = System.Security.Cryptography.RSA.Create();
+            rsa.ImportFromPem(LinkvertisePublicKey);
+            var encrypted = rsa.Encrypt(
+                Encoding.UTF8.GetBytes(callback[..encryptedPrefixLength]),
+                System.Security.Cryptography.RSAEncryptionPadding.OaepSHA256);
+            var payload = Convert.ToBase64String(encrypted) + callback[encryptedPrefixLength..];
+            return $"https://link-to.net/1216620/{nonce}/dynamic/?r={payload}&v=2";
+        }
 
         internal static bool IsRecentAdReward(
             string productId,

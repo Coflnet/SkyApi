@@ -45,6 +45,28 @@ public class PremiumControllerTests
     }
 
     [Test]
+    public void LinkvertiseRedirect_UsesEncryptedVersionTwoPayload()
+    {
+        const string state = "0123456789abcdef0123456789abcdef";
+        const string callback = "https://sky.coflnet.com/api/linkvertise?provider=linkvertise&state=" + state;
+
+        var redirect = PremiumController.CreateLinkvertiseRedirect(callback, state);
+        var payload = redirect[
+            $"https://link-to.net/1216620/{state}/dynamic/?r=".Length..
+            ^"&v=2".Length];
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(redirect, Does.StartWith(
+                $"https://link-to.net/1216620/{state}/dynamic/?r="));
+            Assert.That(redirect, Does.EndWith("&v=2"));
+            Assert.That(Convert.FromBase64String(payload[..344]), Has.Length.EqualTo(256));
+            Assert.That(payload[344..], Is.EqualTo(state));
+            Assert.That(payload, Does.Not.Contain(callback));
+        });
+    }
+
+    [Test]
     public void AdCompletionToken_Requires64Characters()
     {
         Assert.Multiple(() =>
