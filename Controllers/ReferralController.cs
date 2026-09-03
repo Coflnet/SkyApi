@@ -10,6 +10,9 @@ using Coflnet.Sky.Api.Models.Referral;
 using Microsoft.EntityFrameworkCore;
 using Coflnet.Sky.Referral.Client.Model;
 using Coflnet.Sky.PlayerName.Client.Api;
+using Microsoft.Extensions.Configuration;
+using System;
+using System.Net.Http;
 
 namespace Coflnet.Sky.Api.Controller
 {
@@ -26,6 +29,8 @@ namespace Coflnet.Sky.Api.Controller
         private HypixelContext db;
         private McConnect.Api.IConnectApi connectApi;
         private IPlayerNameApi playerNameApi;
+        private readonly IConfiguration configuration;
+        private readonly IHttpClientFactory clients;
         Hashids hashids = new Hashids("simple salt", 6);
 
         /// <summary>
@@ -36,13 +41,24 @@ namespace Coflnet.Sky.Api.Controller
         /// <param name="db"></param>
         /// <param name="connectApi"></param>
         /// <param name="playerNameApi"></param>
-        public ReferralController(IReferralApi refApi, GoogletokenService premiumService, HypixelContext db, McConnect.Api.IConnectApi connectApi, IPlayerNameApi playerNameApi)
+        /// <param name="configuration"></param>
+        /// <param name="clients"></param>
+        public ReferralController(
+            IReferralApi refApi,
+            GoogletokenService premiumService,
+            HypixelContext db,
+            McConnect.Api.IConnectApi connectApi,
+            IPlayerNameApi playerNameApi,
+            IConfiguration configuration,
+            IHttpClientFactory clients)
         {
             this.refApi = refApi;
             this.tokenService = premiumService;
             this.db = db;
             this.connectApi = connectApi;
             this.playerNameApi = playerNameApi;
+            this.configuration = configuration;
+            this.clients = clients;
         }
 
 
@@ -58,15 +74,28 @@ namespace Coflnet.Sky.Api.Controller
             var user = await GetUserOrDefault();
             if (user == default)
                 return Unauthorized("no googletoken header");
-            try
-            {
-                await refApi.ReferralUserIdPostAsync(GetId(args.RefCode).ToString(), user.Id.ToString());
-                return Ok();
-            }
-            catch (Sky.Referral.Client.Client.ApiException e)
-            {
-                throw new CoflnetException("referral_error", e.Message.Substring(63).Trim('}', '"'));
-            }
+            var token = configuration["REFERRAL_MUTATION_TOKEN"];
+            if (!Uri.TryCreate(configuration["REFERRAL_BASE_URL"],
+                    UriKind.Absolute, out var baseUri)
+                || token?.Length < 32)
+                throw new CoflnetException(
+                    "referral_unavailable",
+                    "The referral service is temporarily unavailable.");
+            var path = $"Referral/{Uri.EscapeDataString(GetId(args.RefCode).ToString())}"
+                + $"?referedUser={Uri.EscapeDataString(user.Id.ToString())}"
+                + $"&programVersion={Uri.EscapeDataString(args.ProgramVersion ?? "")}"
+                + $"&locale={Uri.EscapeDataString(args.Locale ?? "")}";
+            using var request = new HttpRequestMessage(
+                HttpMethod.Post,
+                new Uri(new Uri(baseUri.ToString().TrimEnd('/') + "/"), path));
+            request.Headers.Add("X-Referral-Mutation-Token", token);
+            using var response = await clients.CreateClient()
+                .SendAsync(request, HttpContext.RequestAborted);
+            if (!response.IsSuccessStatusCode)
+                throw new CoflnetException(
+                    "referral_error",
+                    "The referral could not be recorded. Review the current offer and try again.");
+            return Ok();
         }
 
         /// <summary>
