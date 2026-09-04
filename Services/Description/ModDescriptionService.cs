@@ -6,6 +6,7 @@ using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.RegularExpressions;
+using System.Threading;
 using System.Threading.Tasks;
 using Coflnet.Sky.Api.Models.Mod;
 using Coflnet.Sky.Api.Services.Description;
@@ -19,6 +20,7 @@ using Coflnet.Sky.Items.Client.Api;
 using fNbt.Tags;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
@@ -33,6 +35,12 @@ namespace Coflnet.Sky.Api.Services;
 /// </summary>
 public class ModDescriptionService : IDisposable
 {
+    /// <summary>
+    /// Activity source used for modification pipeline spans.
+    /// </summary>
+    public const string ActivitySourceName = "Coflnet.Sky.Api.ModDescription";
+    private static readonly ActivitySource ActivitySource = new(ActivitySourceName);
+
     /// <summary>
     /// Gets a value indicating whether the service is running in development mode.
     /// </summary>
@@ -63,6 +71,9 @@ public class ModDescriptionService : IDisposable
     private readonly FlipTracker.Client.Api.ITrackerApi trackerApi;
     private readonly IItemsApi itemsApi;
     private readonly Core.Services.ExoticColorService exoticColorService;
+    private readonly TimeSpan settingsTimeout;
+    private readonly TimeSpan accountInfoTimeout;
+    private readonly TimeSpan sniperTimeout;
     private static volatile ImmutableHashSet<string> automaticBazaarShardTags = ImmutableHashSet.Create<string>(StringComparer.OrdinalIgnoreCase);
 
     /// <summary>
@@ -126,7 +137,13 @@ public class ModDescriptionService : IDisposable
         this.trackerApi = trackerApi;
         this.itemsApi = itemsApi;
         this.exoticColorService = exoticColorService;
+        settingsTimeout = GetTimeout(config, "DESCRIPTION_SETTINGS_TIMEOUT_MS", 750);
+        accountInfoTimeout = GetTimeout(config, "DESCRIPTION_ACCOUNT_TIMEOUT_MS", 250);
+        sniperTimeout = GetTimeout(config, "DESCRIPTION_SNIPER_TIMEOUT_MS", 1000);
     }
+
+    private static TimeSpan GetTimeout(IConfiguration config, string key, int defaultMilliseconds) =>
+        TimeSpan.FromMilliseconds(int.TryParse(config?[key], out var value) ? Math.Max(1, value) : defaultMilliseconds);
 
     private void RegisterModifiers()
     {
@@ -158,7 +175,26 @@ public class ModDescriptionService : IDisposable
         customModifiers.Add("^Consume Booster Cookie", new BoosterCookieValueInfo());
     }
 
-    private readonly ConcurrentDictionary<string, (SelfUpdatingValue<DescriptionSetting>, SelfUpdatingValue<AccountInfo>)> settings = new();
+    private readonly MemoryCache settingsCache = new(new MemoryCacheOptions { SizeLimit = 1000 });
+    private readonly ConcurrentDictionary<string, Lazy<Task<SettingsCacheEntry>>> settingsLoads = new();
+    private int disposed;
+
+    private sealed class SettingsCacheEntry(SelfUpdatingValue<DescriptionSetting> settings, Task<SelfUpdatingValue<AccountInfo>> accountInfo) : IDisposable
+    {
+        private int disposed;
+        public SelfUpdatingValue<DescriptionSetting> Settings { get; } = settings;
+        public Task<SelfUpdatingValue<AccountInfo>> AccountInfo { get; } = accountInfo;
+
+        public void Dispose()
+        {
+            if (Interlocked.Exchange(ref disposed, 1) != 0)
+                return;
+
+            Settings.Dispose();
+            _ = AccountInfo.ContinueWith(static task => task.Result.Dispose(), CancellationToken.None,
+                TaskContinuationOptions.ExecuteSynchronously | TaskContinuationOptions.OnlyOnRanToCompletion, TaskScheduler.Default);
+        }
+    }
 
     /// <summary>
     /// Updates the bazaar price for an item
@@ -340,11 +376,14 @@ public class ModDescriptionService : IDisposable
     /// <returns></returns>
     public async Task<IEnumerable<IEnumerable<DescModification>>> GetModifications(InventoryDataWithSettings inventory, string mcName, string sessionId)
     {
+        using var activity = ActivitySource.StartActivity("description.modifications", ActivityKind.Internal);
+        activity?.SetTag("description.chest_name", inventory.ChestName);
         if (mcName == "23jxhnny")
         {
             logger.LogInformation("23jxhnny content: " + JsonConvert.SerializeObject(inventory));
         }
         var auctionRepresent = ConvertToAuctions(inventory);
+        activity?.SetTag("description.item_count", auctionRepresent.Count);
         var hasSkyblockMenu = auctionRepresent.Any(a => a.auction?.Tag == "SKYBLOCK_MENU");
         if (inventory.ChestName == "Game Menu" || !hasSkyblockMenu)
         {
@@ -375,6 +414,7 @@ public class ModDescriptionService : IDisposable
         }
         catch (Exception e)
         {
+            activity?.SetStatus(ActivityStatusCode.Error, e.Message);
             logger.LogError(e, "failed to compute descriptions");
         }
         ApplyCustomSettings(inventory, result);
@@ -468,17 +508,24 @@ public class ModDescriptionService : IDisposable
         }
         CheckUpToDateCache();
 
-        var (userSettings, userInfo) = await GetSettingForConid(mcName, sessionId, inventory.Settings);
-        var pricesTask = GetPrices(auctionRepresent.Select(a => a.auction), userSettings.Fields.Any(f => f.Contains(DescriptionField.AiEstimate)));
+        var (userSettings, userInfoTask) = await GetSettingForConid(mcName, sessionId, inventory.Settings);
+        inventory.Settings = inventory.Settings?.Fields?.Count > 0 ? inventory.Settings : userSettings;
+        inventory.Settings ??= DescriptionSetting.Default;
+        var pricesTask = GetPrices(auctionRepresent.Select(a => a.auction),
+            inventory.Settings.Fields.Any(f => f.Contains(DescriptionField.AiEstimate)));
+        var userInfo = await userInfoTask;
 
         List<Item> items = new();
-        try
+        using (ActivitySource.StartActivity("inventory.publish", ActivityKind.Internal))
         {
-            items = ProduceInventory(inventory, mcName, userInfo.UserId);
-        }
-        catch (Exception e)
-        {
-            logger.LogError(e, "failed to publish inventory");
+            try
+            {
+                items = ProduceInventory(inventory, mcName, userInfo.UserId);
+            }
+            catch (Exception e)
+            {
+                logger.LogError(e, "failed to publish inventory");
+            }
         }
 
         if (userSettings.Disabled)
@@ -492,13 +539,6 @@ public class ModDescriptionService : IDisposable
 
         var span = Activity.Current;
         var none = new List<DescModification>();
-        if (inventory.Settings == null)
-            inventory.Settings = new DescriptionSetting();
-        if (inventory.Settings.Fields == null || inventory.Settings.Fields.Count == 0)
-        {
-            inventory.Settings = userSettings;
-        }
-
         var pricesPaidTask = GetPriceData(inventory, mcName, auctionRepresent);
         var bazaarPrices = deserializedCache.BazaarItems ?? ImmutableDictionary<string, ItemPrice>.Empty;
 
@@ -548,6 +588,7 @@ public class ModDescriptionService : IDisposable
             mcName = mcName
         };
 
+        using var renderActivity = ActivitySource.StartActivity("description.render", ActivityKind.Internal);
         for (int i = 0; i < auctionRepresent.Count; i++)
         {
             var desc = auctionRepresent[i].desc;
@@ -797,49 +838,133 @@ public class ModDescriptionService : IDisposable
         return NBT.UidToLong(u.Substring(u.Length - 12));
     }
 
-    private async Task<(DescriptionSetting, AccountInfo)> GetSettingForConid(string playeruuid, string sessionId, DescriptionSetting requestSettings)
+    private async Task<(DescriptionSetting Settings, Task<AccountInfo> AccountInfo)> GetSettingForConid(string playeruuid, string sessionId, DescriptionSetting requestSettings)
     {
+        var fallback = requestSettings ?? DescriptionSetting.Default;
         if (string.IsNullOrEmpty(sessionId) && !IsDevMode)
-            return (requestSettings ?? DescriptionSetting.Default, new());
-        if (settings.ContainsKey(sessionId))
-            return (settings[sessionId].Item1.Value, settings[sessionId].Item2.Value);
-        var conId = idConverter.ComputeConnectionId(playeruuid, sessionId).Item2;
+            return (fallback, Task.FromResult(new AccountInfo()));
         if (IsDevMode)
+            return (DescriptionSetting.Default, Task.FromResult(new AccountInfo { UserId = "1" }));
+
+        using var activity = ActivitySource.StartActivity("settings.resolve", ActivityKind.Internal);
+        if (settingsCache.TryGetValue<SettingsCacheEntry>(sessionId, out var cached))
         {
-            return 
-            (DescriptionSetting.Default, new AccountInfo { UserId = "1" });
-        }
-        var userId = await settingsService.GetCurrentValue<string>("mod", conId, () => null);
-        var userSettings = DescriptionSetting.Default;
-        if (userId != null)
-        {
-            var accountInfoTask = SelfUpdatingValue<AccountInfo>.Create(userId, "accountInfo", () => new());
-            var updatingSettings = await SelfUpdatingValue<DescriptionSetting>.Create(userId, "description", () => DescriptionSetting.Default);
-            settings.TryAdd(sessionId, (updatingSettings, await accountInfoTask));
-            userSettings = updatingSettings.Value;
-            if (settings.Count > 1000)
-            {
-                // Remove the oldest 100 entries (where premium expires first)
-                var toRemove = settings.OrderBy(s => s.Value.Item2.Value.ExpiresAt).Select(s => s.Key).Take(100).ToList();
-                foreach (var key in toRemove)
-                {
-                    if (settings.TryRemove(key, out var removed))
-                    {
-                        // Dispose to unsubscribe the Redis pub/sub subscription; otherwise the
-                        // subscription callback keeps the value rooted and both the object and
-                        // its subscription leak, growing working set until the pod OOMs.
-                        removed.Item1?.Dispose();
-                        removed.Item2?.Dispose();
-                    }
-                }
-            }
-        }
-        else
-        {
-            return (DescriptionSetting.Default, new());
+            activity?.SetTag("cache.hit", true);
+            return (cached.Settings.Value ?? fallback, GetAccountInfo(cached));
         }
 
-        return (settings[sessionId].Item1.Value, settings[sessionId].Item2.Value); ;
+        activity?.SetTag("cache.hit", false);
+        var lazy = settingsLoads.GetOrAdd(sessionId, _ => new Lazy<Task<SettingsCacheEntry>>(
+            () => LoadSettings(playeruuid, sessionId), LazyThreadSafetyMode.ExecutionAndPublication));
+        var load = lazy.Value;
+        _ = RemoveSettingsLoadWhenComplete(sessionId, lazy, load);
+        try
+        {
+            var entry = await load.WaitAsync(settingsTimeout);
+            if (entry == null)
+                return (fallback, Task.FromResult(new AccountInfo()));
+            return (entry.Settings.Value ?? fallback, GetAccountInfo(entry));
+        }
+        catch (TimeoutException)
+        {
+            activity?.SetTag("settings.fallback", "timeout");
+            logger.LogWarning("Settings lookup timed out after {TimeoutMs}ms", settingsTimeout.TotalMilliseconds);
+        }
+        catch (Exception e)
+        {
+            activity?.SetStatus(ActivityStatusCode.Error, e.Message);
+            activity?.SetTag("settings.fallback", "error");
+            logger.LogWarning(e, "Settings lookup failed; using request defaults");
+        }
+        return (fallback, Task.FromResult(new AccountInfo()));
+    }
+
+    private async Task<SettingsCacheEntry> LoadSettings(string playeruuid, string sessionId)
+    {
+        var conId = idConverter.ComputeConnectionId(playeruuid, sessionId).Item2;
+        var userId = await settingsService.GetCurrentValue<string>("mod", conId, () => null);
+        if (userId == null)
+            return null;
+
+        var accountInfo = SelfUpdatingValue<AccountInfo>.Create(userId, "accountInfo", () => new());
+        SelfUpdatingValue<DescriptionSetting> description;
+        try
+        {
+            description = await SelfUpdatingValue<DescriptionSetting>.Create(userId, "description", () => DescriptionSetting.Default);
+        }
+        catch
+        {
+            _ = accountInfo.ContinueWith(static task => task.Result.Dispose(), CancellationToken.None,
+                TaskContinuationOptions.ExecuteSynchronously | TaskContinuationOptions.OnlyOnRanToCompletion, TaskScheduler.Default);
+            throw;
+        }
+
+        var entry = new SettingsCacheEntry(description, accountInfo);
+        if (Volatile.Read(ref disposed) != 0)
+        {
+            entry.Dispose();
+            return null;
+        }
+
+        settingsCache.Set(sessionId, entry, new MemoryCacheEntryOptions
+        {
+            Size = 1,
+            SlidingExpiration = TimeSpan.FromMinutes(30)
+        }.RegisterPostEvictionCallback(static (_, value, _, _) => (value as IDisposable)?.Dispose()));
+        _ = RemoveSettingsEntryOnAccountFailure(sessionId, entry);
+        return entry;
+    }
+
+    private async Task RemoveSettingsEntryOnAccountFailure(string sessionId, SettingsCacheEntry entry)
+    {
+        try
+        {
+            await entry.AccountInfo;
+        }
+        catch
+        {
+            if (Volatile.Read(ref disposed) == 0 &&
+                settingsCache.TryGetValue<SettingsCacheEntry>(sessionId, out var current) && ReferenceEquals(current, entry))
+                settingsCache.Remove(sessionId);
+        }
+    }
+
+    private async Task<AccountInfo> GetAccountInfo(SettingsCacheEntry entry)
+    {
+        using var activity = ActivitySource.StartActivity("account_info.resolve", ActivityKind.Internal);
+        try
+        {
+            return (await entry.AccountInfo.WaitAsync(accountInfoTimeout)).Value ?? new AccountInfo();
+        }
+        catch (TimeoutException)
+        {
+            activity?.SetTag("account_info.fallback", "timeout");
+            return new AccountInfo();
+        }
+        catch (Exception e)
+        {
+            activity?.SetStatus(ActivityStatusCode.Error, e.Message);
+            activity?.SetTag("account_info.fallback", "error");
+            logger.LogWarning(e, "Account info lookup failed; continuing without account data");
+            return new AccountInfo();
+        }
+    }
+
+    private async Task RemoveSettingsLoadWhenComplete(string sessionId, Lazy<Task<SettingsCacheEntry>> lazy, Task load)
+    {
+        try
+        {
+            await load;
+        }
+        catch
+        {
+            // The request path logs the error; this observes failures after a timeout fallback.
+        }
+        finally
+        {
+            if (settingsLoads.TryGetValue(sessionId, out var current) && ReferenceEquals(current, lazy))
+                settingsLoads.TryRemove(sessionId, out _);
+        }
     }
 
     private List<DescModification> GetModifications(List<List<DescriptionField>> enabledFields,
@@ -1891,7 +2016,22 @@ public class ModDescriptionService : IDisposable
     /// <returns>A list of <see cref="Sniper.Client.Model.PriceEstimate"/> for the given auctions.</returns>
     public async Task<List<Sniper.Client.Model.PriceEstimate>> GetPrices(IEnumerable<SaveAuction> auctionRepresent, bool includeAi = false)
     {
-        return await sniperClient.GetPrices(auctionRepresent, includeAi);
+        var auctions = auctionRepresent.ToList();
+        using var activity = ActivitySource.StartActivity("sniper.prices", ActivityKind.Client);
+        activity?.SetTag("sniper.auction_count", auctions.Count);
+        activity?.SetTag("sniper.include_ai", includeAi);
+        using var timeout = new CancellationTokenSource(sniperTimeout);
+        try
+        {
+            return await sniperClient.GetPrices(auctions, includeAi).WaitAsync(timeout.Token);
+        }
+        catch (OperationCanceledException) when (timeout.IsCancellationRequested)
+        {
+            activity?.SetStatus(ActivityStatusCode.Error, "timeout");
+            activity?.SetTag("sniper.fallback", "timeout");
+            logger.LogWarning("Sniper lookup for {Count} items timed out after {TimeoutMs}ms", auctions.Count, sniperTimeout.TotalMilliseconds);
+            return Enumerable.Repeat<Sniper.Client.Model.PriceEstimate>(null, auctions.Count).ToList();
+        }
     }
 
     /// <summary>
@@ -1953,11 +2093,9 @@ public class ModDescriptionService : IDisposable
     /// </summary>
     public void Dispose()
     {
-        foreach (var item in this.settings.ToList())
-        {
-            this.settings.TryRemove(item);
-            item.Value.Item1?.Dispose();
-            item.Value.Item2?.Dispose();
-        }
+        if (Interlocked.Exchange(ref disposed, 1) != 0)
+            return;
+        settingsCache.Compact(1);
+        settingsCache.Dispose();
     }
 }

@@ -124,7 +124,9 @@ namespace Coflnet.Sky.Api
             });
 
             services.AddJaeger(Configuration, 0.001, 60);
-            services.AddOpenTelemetry().WithTracing(builder => builder.AddSource(DeepSeekChatService.ActivitySourceName));
+            services.AddOpenTelemetry().WithTracing(builder => builder
+                .AddSource(DeepSeekChatService.ActivitySourceName)
+                .AddSource(ModDescriptionService.ActivitySourceName));
             services.AddScoped<PricesService>();
             services.AddSingleton<GoogletokenService>();
             services.AddSingleton<IAccountDeletionClient, IndexerAccountDeletionClient>();
