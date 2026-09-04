@@ -8,11 +8,11 @@ namespace SkyApi.Services;
 /// <summary>Tests trace sampling invariants used by all services.</summary>
 public class JaegerServiceExtensionTests
 {
-    /// <summary>Zero interval guarantees each root operation is sampled.</summary>
+    /// <summary>A full ratio guarantees each root operation is sampled.</summary>
     [Test]
-    public void SamplerHonorsConfiguredInterval()
+    public void SamplerHonorsConfiguredRatio()
     {
-        var sampler = new JaegerSercieExtention.RationOrTimeBasedSampler(0, 0);
+        var sampler = new JaegerSercieExtention.RationOrTimeBasedSampler(1, 3600);
 
         Assert.That(sampler.ShouldSample(CreateParameters("request")).Decision, Is.EqualTo(SamplingDecision.RecordAndSample));
         Assert.That(sampler.ShouldSample(CreateParameters("request")).Decision, Is.EqualTo(SamplingDecision.RecordAndSample));

@@ -19,6 +19,10 @@ namespace Coflnet.Sky.Api.Services;
 [NonParallelizable]
 public class LegalManifestServiceTests
 {
+    /// <summary>Resets shared agreement state before each test.</summary>
+    [SetUp]
+    public void SetUp() => TermsAcceptancePolicy.ResetForTests();
+
     /// <summary>Performs the tear down operation.</summary>
     [TearDown]
     public void TearDown() => TermsAcceptancePolicy.ResetForTests();
@@ -43,6 +47,36 @@ public class LegalManifestServiceTests
         await service.StartAsync(CancellationToken.None);
         await delayEntered.Task.WaitAsync(TimeSpan.FromSeconds(1));
         Assert.That(service.Agreement, Is.Null);
+        var signupStatus = TermsAcceptancePolicy.GetStatus(
+            false,
+            utcNow: now.UtcDateTime,
+            canContinueWithoutAccepting: false);
+        var existingUserStatus = TermsAcceptancePolicy.GetStatus(
+            false,
+            utcNow: now.UtcDateTime,
+            canContinueWithoutAccepting: true);
+        var pendingAgreement = TermsAcceptancePolicy.GetAcceptanceAgreement(false);
+        var acceptedAt = now.UtcDateTime;
+        var acceptedSignupStatus = TermsAcceptancePolicy.GetStatus(
+            true,
+            acceptedAt,
+            now.UtcDateTime,
+            canContinueWithoutAccepting: true,
+            agreementOverride: pendingAgreement);
+        Assert.Multiple(() =>
+        {
+            Assert.That(signupStatus.Required, Is.True);
+            Assert.That(signupStatus.Hash, Has.Length.EqualTo(64));
+            Assert.That(signupStatus.Documents, Has.Count.EqualTo(4));
+            Assert.That(signupStatus.CanStartNewContract, Is.False);
+            Assert.That(existingUserStatus.Required, Is.False);
+            Assert.That(existingUserStatus.Hash, Is.Empty);
+            Assert.That(acceptedSignupStatus.Required, Is.False);
+            Assert.That(acceptedSignupStatus.Hash, Is.EqualTo(pendingAgreement.Hash));
+            Assert.That(acceptedSignupStatus.AcceptedAtUtc, Is.EqualTo(acceptedAt));
+            Assert.That(TermsAcceptancePolicy.CanAcceptAgreement(false, now.UtcDateTime), Is.True);
+            Assert.That(TermsAcceptancePolicy.CanAcceptAgreement(true, now.UtcDateTime), Is.False);
+        });
 
         now = effective;
         resume.TrySetResult();
@@ -54,6 +88,11 @@ public class LegalManifestServiceTests
             Assert.That(service.Agreement.Hash, Has.Length.EqualTo(64));
             Assert.That(service.Withdrawal?.Version, Is.EqualTo("future"));
             Assert.That(service.PremiumEarlyStart?.Sha256?["en"], Has.Length.EqualTo(64));
+            Assert.That(TermsAcceptancePolicy.GetStatus(
+                false,
+                utcNow: now.UtcDateTime,
+                canContinueWithoutAccepting: true).Required, Is.True);
+            Assert.That(TermsAcceptancePolicy.CanAcceptAgreement(true, now.UtcDateTime), Is.True);
         });
     }
 

@@ -85,8 +85,11 @@ public sealed class LegalManifestService : BackgroundService
                 var untilEffective = loaded.Agreement.EffectiveFromUtc - utcNow().UtcDateTime;
                 if (untilEffective > TimeSpan.Zero)
                 {
+                    TermsAcceptancePolicy.Stage(
+                        loaded.Agreement,
+                        loaded.PremiumEarlyStart);
                     logger.LogInformation(
-                        "The legal agreement becomes effective at {EffectiveFromUtc}; activation is deferred.",
+                        "The legal agreement becomes effective at {EffectiveFromUtc}; enforcement is deferred.",
                         loaded.Agreement.EffectiveFromUtc);
                     await delay(Min(untilEffective, MaximumDelay), stoppingToken);
                     continue;

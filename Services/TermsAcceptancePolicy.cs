@@ -9,6 +9,8 @@ public static class TermsAcceptancePolicy
 {
     private static LegalAgreementSnapshot current;
     private static LegalDeclarationSnapshot premiumEarlyStart;
+    private static LegalAgreementSnapshot pending;
+    private static LegalDeclarationSnapshot pendingPremiumEarlyStart;
 
     /// <summary>Gets the current agreement id.</summary>
     public static string CurrentAgreementId => current?.Id ?? "skycofl";
@@ -20,6 +22,9 @@ public static class TermsAcceptancePolicy
     public static string CurrentAgreementUrl => current?.Url ?? "https://coflnet.com/legal/versions";
     /// <summary>Gets the current version effective at utc.</summary>
     public static DateTime? CurrentVersionEffectiveAtUtc => current?.EffectiveFromUtc;
+    /// <summary>Gets the next version effective at utc.</summary>
+    public static DateTime? NextVersionEffectiveAtUtc =>
+        pending?.EffectiveFromUtc ?? CurrentVersionEffectiveAtUtc;
     /// <summary>Gets the english url.</summary>
     public static string EnglishUrl => "https://coflnet.com/legal/versions";
     /// <summary>Gets the german url.</summary>
@@ -33,13 +38,37 @@ public static class TermsAcceptancePolicy
         ArgumentNullException.ThrowIfNull(snapshot);
         current = snapshot;
         premiumEarlyStart = declaration;
+        pending = null;
+        pendingPremiumEarlyStart = null;
+    }
+
+    /// <summary>Makes a verified future agreement available to new users.</summary>
+    internal static void Stage(
+        LegalAgreementSnapshot snapshot,
+        LegalDeclarationSnapshot declaration = null)
+    {
+        ArgumentNullException.ThrowIfNull(snapshot);
+        pending = snapshot;
+        pendingPremiumEarlyStart = declaration;
     }
 
     internal static void ResetForTests()
     {
         current = null;
         premiumEarlyStart = null;
+        pending = null;
+        pendingPremiumEarlyStart = null;
     }
+
+    internal static LegalAgreementSnapshot GetAcceptanceAgreement(
+        bool canContinueWithoutAccepting) =>
+        !canContinueWithoutAccepting && pending != null ? pending : current;
+
+    internal static bool CanAcceptAgreement(
+        bool canContinueWithoutAccepting,
+        DateTime? utcNow = null) =>
+        GetAcceptanceAgreement(canContinueWithoutAccepting) != null
+        && (!canContinueWithoutAccepting || IsEffective(utcNow));
 
     /// <summary>Determines whether the user accepted the current agreement.</summary>
     public static bool IsCurrent(bool hasCurrentAgreement) =>
@@ -73,13 +102,19 @@ public static class TermsAcceptancePolicy
         DateTime? utcNow = null,
         bool forceEffective = false,
         string locale = "en",
-        bool canContinueWithoutAccepting = true)
+        bool canContinueWithoutAccepting = true,
+        LegalAgreementSnapshot agreementOverride = null)
     {
+        var agreement = agreementOverride
+            ?? GetAcceptanceAgreement(canContinueWithoutAccepting);
+        var declarationSnapshot = ReferenceEquals(agreement, pending)
+            ? pendingPremiumEarlyStart
+            : premiumEarlyStart;
         var language = NormalizeLocale(locale);
-        var declaration = premiumEarlyStart?.Locales.TryGetValue(language, out var text) == true
-            ? new LegalDeclaration(premiumEarlyStart.Version, language, text)
+        var declaration = declarationSnapshot?.Locales.TryGetValue(language, out var text) == true
+            ? new LegalDeclaration(declarationSnapshot.Version, language, text)
             : null;
-        var documents = current?.Documents.Select(document =>
+        var documents = agreement?.Documents.Select(document =>
         {
             var localized = document.Locales[language];
             return new LegalAgreementDocument(
@@ -91,19 +126,19 @@ public static class TermsAcceptancePolicy
                 document.AcceptanceHash);
         }).ToArray() ?? [];
 
-        var required = current == null
-            ? !canContinueWithoutAccepting
-            : RequiresCurrentAcceptance(hasCurrentAgreement, utcNow, forceEffective);
+        var required = !canContinueWithoutAccepting
+            || (current != null
+                && RequiresCurrentAcceptance(hasCurrentAgreement, utcNow, forceEffective));
         return new(
             required,
             canContinueWithoutAccepting,
-            CanStartNewContract(hasCurrentAgreement, utcNow, forceEffective),
-            CurrentAgreementId,
-            CurrentHash,
-            CurrentAgreementUrl,
-            CurrentVersion,
-            CurrentHash,
-            IsCurrent(hasCurrentAgreement) ? acceptedAtUtc : null,
+            !required && CanStartNewContract(hasCurrentAgreement, utcNow, forceEffective),
+            agreement?.Id ?? "skycofl",
+            agreement?.Hash ?? "",
+            agreement?.Url ?? "https://coflnet.com/legal/versions",
+            agreement?.Version ?? "",
+            agreement?.Hash ?? "",
+            hasCurrentAgreement && agreement != null ? acceptedAtUtc : null,
             EnglishUrl,
             GermanUrl,
             documents,

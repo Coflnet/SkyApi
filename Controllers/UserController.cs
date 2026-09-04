@@ -123,19 +123,20 @@ namespace Coflnet.Sky.Api.Controller
             var user = await GetUserOrDefault();
             if (user == default)
                 return Unauthorized("no googletoken header");
-            if (!TermsAcceptancePolicy.IsEffective())
-                return Conflict(new
-                {
-                    slug = "terms_not_effective",
-                    message = "This SkyCofl agreement cannot be accepted before its publication time.",
-                    effectiveAtUtc = TermsAcceptancePolicy.CurrentVersionEffectiveAtUtc
-                });
             var existing = await GetCurrentAgreementAcceptance(user.Id);
             var canContinue = existing != null
                 || await UserService.Instance.CanSignInUnderPriorAgreement(user);
+            var agreement = TermsAcceptancePolicy.GetAcceptanceAgreement(canContinue);
+            if (!TermsAcceptancePolicy.CanAcceptAgreement(canContinue))
+                return Conflict(new
+                {
+                    slug = "terms_not_effective",
+                    message = "This SkyCofl agreement is not yet available for acceptance.",
+                    effectiveAtUtc = TermsAcceptancePolicy.NextVersionEffectiveAtUtc
+                });
             if (!string.Equals(
                     request.Hash,
-                    TermsAcceptancePolicy.CurrentHash,
+                    agreement.Hash,
                     StringComparison.OrdinalIgnoreCase))
                 return Conflict(new
                 {
@@ -153,17 +154,18 @@ namespace Coflnet.Sky.Api.Controller
             var acceptedAtUtc = DateTime.UtcNow;
             await indexerUserApi.UserUserIdAgreementsAgreementPostAsync(
                 user.Id,
-                TermsAcceptancePolicy.CurrentAgreementId,
+                agreement.Id,
                 new IndexerTermsAcceptance(
-                TermsAcceptancePolicy.CurrentVersion,
-                TermsAcceptancePolicy.CurrentHash,
+                agreement.Version,
+                agreement.Hash,
                 acceptedAtUtc,
                 source));
             return Ok(TermsAcceptancePolicy.GetStatus(
                 true,
                 acceptedAtUtc,
                 locale: locale,
-                canContinueWithoutAccepting: true));
+                canContinueWithoutAccepting: true,
+                agreementOverride: agreement));
         }
 
         private static Task<AgreementAcceptanceRecord?> GetCurrentAgreementAcceptance(int userId)
