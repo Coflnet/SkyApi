@@ -91,8 +91,11 @@ public static class TermsAcceptancePolicy
                 document.AcceptanceHash);
         }).ToArray() ?? [];
 
+        var required = current == null
+            ? !canContinueWithoutAccepting
+            : RequiresCurrentAcceptance(hasCurrentAgreement, utcNow, forceEffective);
         return new(
-            RequiresCurrentAcceptance(hasCurrentAgreement, utcNow, forceEffective),
+            required,
             canContinueWithoutAccepting,
             CanStartNewContract(hasCurrentAgreement, utcNow, forceEffective),
             CurrentAgreementId,

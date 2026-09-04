@@ -76,6 +76,23 @@ public class TermsAcceptancePolicyTests
         });
     }
 
+    /// <summary>Users under prior terms are prompted once the current root is effective.</summary>
+    [Test]
+    public void Prior_terms_require_review_once_current_root_is_effective()
+    {
+        var status = TermsAcceptancePolicy.GetStatus(
+            false,
+            utcNow: EffectiveAtUtc,
+            canContinueWithoutAccepting: true);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(status.Required, Is.True);
+            Assert.That(status.CanContinueWithoutAccepting, Is.True);
+            Assert.That(status.CanStartNewContract, Is.False);
+        });
+    }
+
     /// <summary>Performs the current root hash controls contract eligibility operation.</summary>
     [Test]
     public void Current_root_hash_controls_contract_eligibility()
@@ -104,6 +121,24 @@ public class TermsAcceptancePolicyTests
 
         Assert.That(TermsAcceptancePolicy.RequiresCurrentAcceptance(false), Is.True);
         Assert.That(TermsAcceptancePolicy.CanStartNewContract(false), Is.False);
+    }
+
+    /// <summary>Users covered by a prior agreement can continue while the current root is unavailable.</summary>
+    [Test]
+    public void Missing_verified_root_does_not_block_users_under_prior_terms()
+    {
+        TermsAcceptancePolicy.ResetForTests();
+
+        var status = TermsAcceptancePolicy.GetStatus(
+            false,
+            canContinueWithoutAccepting: true);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(status.Required, Is.False);
+            Assert.That(status.CanContinueWithoutAccepting, Is.True);
+            Assert.That(status.CanStartNewContract, Is.False);
+        });
     }
 
     /// <summary>Accepts ance validation is attached to the record parameter.</summary>
