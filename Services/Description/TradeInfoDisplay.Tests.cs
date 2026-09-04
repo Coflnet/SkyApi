@@ -96,7 +96,7 @@ public class TradeInfoDisplayTests
         var addedLowballPanel = data.mods.Last();
         addedLowballPanel.Should().NotBeEmpty();
         addedLowballPanel.Select(x => x.Value).Should().Contain(v => v.Contains("Looks like you are lowballing"));
-        var medianLoreHint = GetComponentByText(addedLowballPanel, "Enable median item lore");
+        var medianLoreHint = GetComponentByText(addedLowballPanel, "Item price can be shown with");
         medianLoreHint.Should().NotBeNull();
         medianLoreHint.Hover.Should().Contain("Click to add MEDIAN");
         medianLoreHint.OnClick.Should().Be("/cofl lore add 1 MEDIAN");
