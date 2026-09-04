@@ -41,13 +41,15 @@ public record TermsStatus(
 /// <param name="Url">The document URL.</param>
 /// <param name="Sha256">The document SHA-256 hash.</param>
 /// <param name="AcceptanceHash">The hash used to record acceptance.</param>
+/// <param name="Changed">Whether this document caused the agreement package update.</param>
 public record LegalAgreementDocument(
     [property: Required] string Key,
     [property: Required] string Title,
     [property: Required] string Version,
     [property: Required] string Url,
     [property: Required] string Sha256,
-    [property: Required] string AcceptanceHash);
+    [property: Required] string AcceptanceHash,
+    bool Changed);
 
 /// <summary>Represents a legal declaration.</summary>
 /// <param name="Version">The declaration version.</param>

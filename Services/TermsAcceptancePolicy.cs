@@ -123,7 +123,8 @@ public static class TermsAcceptancePolicy
                 document.Version,
                 localized.Url,
                 localized.Sha256,
-                document.AcceptanceHash);
+                document.AcceptanceHash,
+                document.EffectiveFromUtc == agreement.EffectiveFromUtc);
         }).ToArray() ?? [];
 
         var required = !canContinueWithoutAccepting

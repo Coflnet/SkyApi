@@ -55,6 +55,9 @@ public class TermsAcceptancePolicyTests
             Assert.That(status.Documents.Select(item => item.Key), Is.EqualTo(
                 new[] { "terms", "commerceTerms", "aiTerms", "skycoflTerms" }));
             Assert.That(status.Documents, Has.All.Property("Url").Contains("-de"));
+            Assert.That(status.Documents.Single(item => item.Key == "commerceTerms").Changed, Is.True);
+            Assert.That(status.Documents.Where(item => item.Key != "commerceTerms"),
+                Has.All.Property("Changed").False);
             Assert.That(status.PremiumPurchaseDeclaration.Locale, Is.EqualTo("de"));
         });
     }
@@ -186,10 +189,10 @@ public class TermsAcceptancePolicyTests
             keys.Select(key => new LegalAgreementDocumentSnapshot(
                 key,
                 $"{key} title",
-                "2030-01-01",
+                key == "commerceTerms" ? "2030-01-01" : "2029-01-01",
                 new string('b', 64),
-                EffectiveAtUtc,
-                EffectiveAtUtc,
+                key == "commerceTerms" ? EffectiveAtUtc : EffectiveAtUtc.AddYears(-1),
+                key == "commerceTerms" ? EffectiveAtUtc : EffectiveAtUtc.AddYears(-1),
                 new Dictionary<string, LegalLocaleSnapshot>
                 {
                     ["en"] = new($"https://coflnet.com/{key}-en", new string('c', 64)),
