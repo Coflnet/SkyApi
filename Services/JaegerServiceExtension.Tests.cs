@@ -22,7 +22,7 @@ public class JaegerServiceExtensionTests
     [Test]
     public void ParentSamplerKeepsTraceDecisionConsistent()
     {
-        var sampler = new ParentBasedSampler(new JaegerSercieExtention.RationOrTimeBasedSampler(0, 3600));
+        var sampler = new JaegerSercieExtention.ErrorPreservingSampler(new JaegerSercieExtention.RationOrTimeBasedSampler(0, 3600));
         var root = CreateParameters("request");
         Assert.That(sampler.ShouldSample(root).Decision, Is.EqualTo(SamplingDecision.RecordAndSample));
 
