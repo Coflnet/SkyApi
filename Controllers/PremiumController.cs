@@ -348,7 +348,7 @@ namespace Coflnet.Sky.Api.Controller
         [Route("linkvertise")]
         [HttpGet]
         public async Task<IActionResult> Linkvertise(
-            string hash,
+            string? hash,
             string? state,
             [FromServices] HttpClient httpClient,
             [FromServices] IConnectionMultiplexer redis,
