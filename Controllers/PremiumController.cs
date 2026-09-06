@@ -550,8 +550,20 @@ namespace Coflnet.Sky.Api.Controller
                 userId => grant(userId, completionHash));
         }
 
-        internal static bool IsSuccessfulLinkvertiseResponse(string response) =>
-            string.Equals(response?.Trim(), "true", StringComparison.OrdinalIgnoreCase);
+        internal static bool IsSuccessfulLinkvertiseResponse(string response)
+        {
+            if (string.Equals(response?.Trim(), "true", StringComparison.OrdinalIgnoreCase))
+                return true;
+            try
+            {
+                var status = Newtonsoft.Json.Linq.JObject.Parse(response ?? "")["status"];
+                return status?.Type == Newtonsoft.Json.Linq.JTokenType.Boolean && (bool)status;
+            }
+            catch (JsonException)
+            {
+                return false;
+            }
+        }
 
         internal static string CreateLinkvertiseRedirect(string callback, string nonce)
         {

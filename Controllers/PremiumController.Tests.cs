@@ -37,7 +37,16 @@ public class PremiumControllerTests
     [TestCase("FALSE", false)]
     [TestCase("not true", false)]
     [TestCase("{\"completed\":true}", false)]
-    public void LinkvertiseResponse_RequiresExactTrue(string response, bool expected)
+    [TestCase("{\"status\":true}", true)]
+    [TestCase("{\"status\":false}", false)]
+    [TestCase("{\"status\":\"Invalid token.\"}", false)]
+    [TestCase("{\"status\":\"true\"}", false)]
+    [TestCase("{\"status\":1}", false)]
+    [TestCase("{\"status\":null}", false)]
+    [TestCase("{\"status\":true", false)]
+    [TestCase(null, false)]
+    [TestCase("", false)]
+    public void LinkvertiseResponse_RequiresExplicitSuccess(string response, bool expected)
     {
         Assert.That(
             PremiumController.IsSuccessfulLinkvertiseResponse(response),
