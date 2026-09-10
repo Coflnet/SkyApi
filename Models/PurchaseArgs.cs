@@ -14,6 +14,8 @@ namespace Coflnet.Sky.Api.Models
         /// How many instances to purchase (longer time)
         /// </summary>
         public int count;
+        /// <summary>Owned slots to extend; omit to purchase new capacity.</summary>
+        public long[]? slotIds { get; set; }
         /// <summary>
         /// Reference to prevent dupplicates
         /// </summary>

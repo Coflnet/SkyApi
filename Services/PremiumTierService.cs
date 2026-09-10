@@ -61,8 +61,8 @@ public class PremiumTierService
             return (null, "anonymous");
 
         var products = new List<string> { "starter_premium", "premium", "premium_plus" };
-        var owns = await userApi.UserUserIdOwnsUntilPostAsync(user.Id.ToString(), products, 0);
-        var now = DateTime.Now;
+        var owns = await userApi.UserUserIdOwnsUntilPostAsync(user.Id.ToString(), requestBody: products);
+        var now = DateTime.UtcNow;
         if (owns.TryGetValue("premium_plus", out var premiumPlus) && premiumPlus > now)
             return (user, "premium_plus");
         if (owns.TryGetValue("premium", out var premium) && premium > now)
@@ -77,8 +77,8 @@ public class PremiumTierService
         var user = await GetUserOrDefault(controllerInstance);
         if (user == null)
             return false;
-        var owns = await userApi.UserUserIdOwnsUntilPostAsync(user.Id.ToString(), new List<string>() { name }, 0);
-        return owns.TryGetValue(name, out var time) && time > DateTime.Now;
+        var owns = await userApi.UserUserIdOwnsUntilPostAsync(user.Id.ToString(), requestBody: new List<string>() { name });
+        return owns.TryGetValue(name, out var time) && time > DateTime.UtcNow;
     }
 
     /// <summary>

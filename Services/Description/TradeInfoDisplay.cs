@@ -146,7 +146,7 @@ public class TradeInfoDisplay : ICustomModifier
             }
             Console.WriteLine($"Lowballcheck for {data.accountInfo.UserId} no premium {data.accountInfo.Tier} expires at {data.accountInfo.ExpiresAt}");
 
-            var owns = DiHandler.GetService<IUserApi>().UserUserIdOwnsUntilPostAsync(data.accountInfo.UserId.ToString(), new List<string>() { "premium" }).Result;
+            var owns = DiHandler.GetService<IUserApi>().UserUserIdOwnsUntilPostAsync(data.accountInfo.UserId.ToString(), requestBody: new List<string>() { "premium" }).Result;
             if (owns.TryGetValue("premium", out var time) && time > DateTime.Now)
             {
                 Console.WriteLine($"User {data.accountInfo.UserId} actually has premium until {time} recovered from refresh");

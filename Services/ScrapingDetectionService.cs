@@ -315,7 +315,7 @@ namespace Coflnet.Sky.Api.Services
                 var user = await _tokenService.GetUserWithToken(token);
                 if (user == null) return false;
                 var owns = await _userApi.UserUserIdOwnsUntilPostAsync(
-                    user.Id.ToString(), new System.Collections.Generic.List<string> { "premium_plus" }, 0);
+                    user.Id.ToString(), requestBody: new System.Collections.Generic.List<string> { "premium_plus" });
                 return owns.TryGetValue("premium_plus", out var time) && time > DateTime.Now;
             }
             catch (Exception ex)

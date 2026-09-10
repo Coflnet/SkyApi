@@ -1,4 +1,5 @@
 using System.Linq;
+using Coflnet.Sky.Commands.Shared;
 using System.Threading.Tasks;
 using Coflnet.Payments.Client.Api;
 using Coflnet.Sky.Core;
@@ -764,6 +765,8 @@ namespace Coflnet.Sky.Api.Controller
                     reference = "apiautofill" + DateTime.UtcNow;
                 if (!UsesDeclaredPurchase(args))
                 {
+                    if (args.slotIds != null)
+                        return BadRequest("Slot extensions require the service declaration.");
                     await userApi.UserUserIdServicePurchaseProductSlugPostAsync(
                         user.Id.ToString(),
                         args.slug,
@@ -798,26 +801,25 @@ namespace Coflnet.Sky.Api.Controller
                         StringComparison.Ordinal))
                     throw new InvalidOperationException(
                         "The Premium declaration changed. Review it and try again.");
-                await userApi
-                    .UserUserIdServicePurchaseDeclaredProductSlugPostAsync(
-                        user.Id.ToString(),
-                        args.slug,
-                        new ServicePurchaseRequest(
-                            reference: reference,
-                            count: count,
-                            immediatePerformanceRequested:
-                                args.immediatePerformanceRequested ?? false,
-                            withdrawalConsequenceAcknowledged:
-                                args.withdrawalConsequenceAcknowledged ?? false,
-                            locale: legalLocale,
-                            declarationVersion: declaration.Version,
-                            declarationText: declaration.Locales[legalLocale],
-                            declarationSha256: declaration.Sha256[legalLocale],
-                            agreementId: agreement.Id,
-                            agreementHash: agreement.Hash,
-                            withdrawalVersion: withdrawal.Version,
-                            withdrawalSha256: withdrawal.Sha256[legalLocale],
-                            requestId: args.declarationRequestId));
+                var purchaseRequest = new ServicePurchaseRequest(
+                    reference: reference,
+                    count: count,
+                    slotIds: args.slotIds?.ToList(),
+                    immediatePerformanceRequested:
+                        args.immediatePerformanceRequested ?? false,
+                    withdrawalConsequenceAcknowledged:
+                        args.withdrawalConsequenceAcknowledged ?? false,
+                    locale: legalLocale,
+                    declarationVersion: declaration.Version,
+                    declarationText: declaration.Locales[legalLocale],
+                    declarationSha256: declaration.Sha256[legalLocale],
+                    agreementId: agreement.Id,
+                    agreementHash: agreement.Hash,
+                    withdrawalVersion: withdrawal.Version,
+                    withdrawalSha256: withdrawal.Sha256[legalLocale],
+                    requestId: args.declarationRequestId);
+                await userApi.UserUserIdServicePurchaseDeclaredProductSlugPostAsync(
+                    user.Id.ToString(), args.slug, purchaseRequest);
                 return Ok();
             }
             catch (Exception e)
@@ -871,27 +873,16 @@ namespace Coflnet.Sky.Api.Controller
                 return Unauthorized("no googletoken header");
             try
             {
-                var cancelationSource = new CancellationTokenSource(10_000);
-                var owns = await userApi.UserUserIdOwnsUntilPostAsync(user.Id.ToString(), slugsToTest, 0, cancelationSource.Token);
-                if (owns == null)
-                    return NotFound();
-                return Ok(owns.Where(o => o.Value > DateTime.Now).ToDictionary(o => o.Key, o => new Models.OwnerShip()
-                {
-                    ExpiresAt = o.Value
-                }));
+                var access = await userApi.UserUserIdOwnsDetailsPostAsync(user.Id.ToString(), requestBody: slugsToTest.ToList());
+                return Ok(access.Where(o => o.Value.ExpiresAt > DateTime.UtcNow).ToDictionary(o => o.Key,
+                    o => new Models.OwnerShip { ExpiresAt = o.Value.ExpiresAt, OwnerId = o.Value.OwnerId,
+                        SlotId = o.Value.SlotId, CanManage = o.Value.CanManage }));
             }
             catch (Exception e)
             {
-                if (e.Message.Contains("The operation was canceled")) // timeout when db not reachable
-                    return Ok(slugsToTest.ToDictionary(s => s, s => new Models.OwnerShip()
-                    {
-                        ExpiresAt = DateTime.Now.AddMinutes(10)
-                    }));
                 logger.LogError(e, "Error while checking ownership");
-                return Ok(slugsToTest.Where(s => s == "premium" || s == "starter_premium").ToDictionary(s => s, s => new Models.OwnerShip()
-                {
-                    ExpiresAt = DateTime.Now.AddMinutes(5)
-                }));
+                return StatusCode(StatusCodes.Status503ServiceUnavailable,
+                    "Premium access could not be loaded. Please try again.");
             }
         }
 
