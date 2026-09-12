@@ -6,9 +6,11 @@ using System.Threading.Tasks;
 using Coflnet.Payments.Client.Api;
 using Coflnet.Payments.Client.Client;
 using Coflnet.Payments.Client.Model;
+using Coflnet.Sky.Api.Controller;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
 using Newtonsoft.Json.Linq;
 using NUnit.Framework;
@@ -20,7 +22,8 @@ public class GeneratedPaymentsClientTests
     private WebApplication app;
     private UserApi users;
     private ITierSlotsApi slots;
-    private string response, path, body, query;
+    private ISubscriptionApi subscriptions;
+    private string response, path, body, query, method;
     private int calls;
     private HttpStatusCode status;
 
@@ -38,6 +41,7 @@ public class GeneratedPaymentsClientTests
         {
             calls++;
             path = context.Request.Path;
+            method = context.Request.Method;
             query = context.Request.QueryString.Value;
             body = await new StreamReader(context.Request.Body).ReadToEndAsync();
             context.Response.StatusCode = (int)status;
@@ -48,6 +52,7 @@ public class GeneratedPaymentsClientTests
         var config = new Configuration { BasePath = app.Urls.Single(), Timeout = TimeSpan.FromSeconds(10) };
         users = new UserApi(config);
         slots = new TierSlotsApi(config);
+        subscriptions = new SubscriptionApi(config);
     }
 
     [TearDown]
@@ -111,5 +116,60 @@ public class GeneratedPaymentsClientTests
         status = HttpStatusCode.ServiceUnavailable;
         var error = Assert.ThrowsAsync<ApiException>(() => users.UserUserIdOwnsDetailsPostAsync("friend", requestBody: ["premium_plus"]));
         Assert.That(error.ErrorCode, Is.EqualTo(503));
+    }
+
+    [Test]
+    public async Task SubscriptionPlansPreserveOwnerAndTypedPlanDetails()
+    {
+        response = """
+            [{"productSlug":"l_prem_plus-slots-4","title":"Premium+ bundle","price":99.69,
+              "currencyCode":"EUR","ownershipSeconds":2419200,"slotCount":4,"isUpgrade":true}]
+            """;
+        var available = await PremiumController.ForwardSubscriptionResponse(
+            subscriptions.ApiSubscriptionSubscriptionIdPlansGetAsync("42", userId: "owner&x"));
+        Assert.That(method, Is.EqualTo("GET"));
+        Assert.That(path, Is.EqualTo("/api/Subscription/42/plans"));
+        Assert.That(query, Is.EqualTo("?userId=owner%26x"));
+        var plan = available.Value.Single();
+        Assert.That(plan.ProductSlug, Is.EqualTo("l_prem_plus-slots-4"));
+        Assert.That(plan.SlotCount, Is.EqualTo(4));
+        Assert.That(plan.Price, Is.EqualTo(99.69));
+        Assert.That(plan.CurrencyCode, Is.EqualTo("EUR"));
+        Assert.That(plan.OwnershipSeconds, Is.EqualTo(2419200));
+        Assert.That(plan.IsUpgrade, Is.True);
+    }
+
+    [TestCase("completed")]
+    [TestCase("pending")]
+    [TestCase("redirect")]
+    public async Task SubscriptionChangePreservesOwnerTargetAndProviderResult(string expectedStatus)
+    {
+        const string redirectUrl = "https://app.lemonsqueezy.com/my-orders/provider-test";
+        response = new JObject { ["status"] = expectedStatus, ["redirectUrl"] = redirectUrl }.ToString();
+        var changed = await PremiumController.ForwardSubscriptionResponse(
+            subscriptions.ApiSubscriptionSubscriptionIdSwitchPutAsync("42", userId: "owner&x", targetProductSlug: "l_prem_plus-slots-4"));
+        Assert.That(method, Is.EqualTo("PUT"));
+        Assert.That(path, Is.EqualTo("/api/Subscription/42/switch"));
+        Assert.That(query, Is.EqualTo("?userId=owner%26x&targetProductSlug=l_prem_plus-slots-4"));
+        var json = JObject.FromObject(changed.Value);
+        Assert.That(json.Value<string>("status"), Is.EqualTo(expectedStatus));
+        Assert.That(json.Value<string>("redirectUrl"), Is.EqualTo(redirectUrl));
+    }
+
+    [TestCase(HttpStatusCode.BadRequest)]
+    [TestCase(HttpStatusCode.Forbidden)]
+    [TestCase(HttpStatusCode.NotFound)]
+    [TestCase(HttpStatusCode.Conflict)]
+    [TestCase(HttpStatusCode.ServiceUnavailable)]
+    public async Task SubscriptionErrorsPreserveUpstreamStatusAndBody(HttpStatusCode upstreamStatus)
+    {
+        status = upstreamStatus;
+        response = """{"message":"The subscription could not be updated."}""";
+        var changed = await PremiumController.ForwardSubscriptionResponse(
+            subscriptions.ApiSubscriptionSubscriptionIdSwitchPutAsync("42", userId: "owner", targetProductSlug: "l_prem_plus-slots-4"));
+        var error = (ContentResult)changed.Result;
+        Assert.That(error.StatusCode, Is.EqualTo((int)upstreamStatus));
+        Assert.That(error.ContentType, Is.EqualTo("application/json"));
+        Assert.That(error.Content, Is.EqualTo(response));
     }
 }

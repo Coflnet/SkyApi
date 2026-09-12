@@ -95,7 +95,7 @@ namespace Coflnet.Sky.Api.Controller
         [ResponseCache(Duration = 60, Location = ResponseCacheLocation.Any, NoStore = false)]
         public async Task<IEnumerable<Payments.Client.Model.TopUpProduct>> TopupOptions()
         {
-            var products = await productsService.ProductsTopupGetAsync();
+            var products = await productsService.ProductsTopupGetAsync(amount: 100);
             return products;
         }
 
@@ -1046,12 +1046,42 @@ namespace Coflnet.Sky.Api.Controller
         [HttpPut]
         [Route("premium/subscription/{externalId}/switch")]
         [Microsoft.AspNetCore.Authorization.Authorize]
-        public async Task<ActionResult> SwitchSubscriptionTier(string externalId, [FromQuery] string targetProductSlug)
+        public async Task<ActionResult<SubscriptionChangeResult>> SwitchSubscriptionTier(string externalId, [FromQuery] string targetProductSlug)
         {
             var user = await GetUserOrDefault();
             if (user == default)
                 return Unauthorized("no googletoken header");
-            throw new CoflnetException("not_implemented", "Switching subscription tiers is not yet implemented");
+            if (await MustRejectNewContract(user.Id, configuration))
+                return TermsAcceptanceRequired();
+            if (string.IsNullOrWhiteSpace(targetProductSlug))
+                return BadRequest("Select a subscription plan.");
+            return await ForwardSubscriptionResponse(subscriptionApi.ApiSubscriptionSubscriptionIdSwitchPutAsync(
+                externalId, userId: user.Id.ToString(), targetProductSlug: targetProductSlug));
+        }
+
+        /// <summary>Gets the available plan changes for an owned subscription.</summary>
+        [HttpGet("premium/subscription/{externalId}/plans")]
+        [Microsoft.AspNetCore.Authorization.Authorize]
+        public async Task<ActionResult<List<SubscriptionPlan>>> GetSubscriptionPlans(string externalId)
+        {
+            var user = await GetUserOrDefault();
+            if (user == default)
+                return Unauthorized("no googletoken header");
+            return await ForwardSubscriptionResponse(subscriptionApi.ApiSubscriptionSubscriptionIdPlansGetAsync(
+                externalId, userId: user.Id.ToString()));
+        }
+
+        internal static async Task<ActionResult<T>> ForwardSubscriptionResponse<T>(Task<T> request)
+        {
+            try
+            {
+                return await request;
+            }
+            catch (Coflnet.Payments.Client.Client.ApiException ex) when (ex.ErrorCode is >= 400 and <= 599)
+            {
+                return new ContentResult { StatusCode = ex.ErrorCode, ContentType = "application/json",
+                    Content = ex.ErrorContent as string };
+            }
         }
 
         private async Task<GoogleUser?> GetUserOrDefault(bool isPurchase = false)
