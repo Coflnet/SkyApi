@@ -919,7 +919,7 @@ namespace Coflnet.Sky.Api.Controller
         [Route("premium/subscription/{subscriptionSlug}")]
         [HttpPost]
         [Microsoft.AspNetCore.Authorization.Authorize]
-        public async Task<ActionResult<TopUpIdResponse>> PurchaseServiceSubscription(string subscriptionSlug, string creatorCode = null, string discountcode = null)
+        public async Task<ActionResult<TopUpIdResponse>> PurchaseServiceSubscription(string subscriptionSlug, string creatorCode = null, string discountcode = null, bool assignSlots = false)
         {
             var user = await GetUserOrDefault();
             if (user == default)
@@ -932,6 +932,8 @@ namespace Coflnet.Sky.Api.Controller
                 options.CreatorCode = creatorCode;
                 options.EnableTrial = false;
                 options.DiscountCode = discountcode;
+                if (assignSlots)
+                    options.SuccessUrl = "https://sky.coflnet.com/account?slots=checkout#purchased-slots";
                 var link = await topUpApi.TopUpLemonsqueezySubscribePostAsync(user.Id.ToString(), subscriptionSlug, options);
                 return Ok(link);
             }
