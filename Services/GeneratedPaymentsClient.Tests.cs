@@ -119,6 +119,34 @@ public class GeneratedPaymentsClientTests
     }
 
     [Test]
+    public async Task OwnedSlotsPreserveSubscriptionIdentityAndLargeIds()
+    {
+        response = """
+            [{"id":9007199254740993,"tier":"premium","expires":"2099-01-01T00:00:00Z",
+              "assignedUserId":"friend","version":7,"subscriptionId":"single-subscription"},
+             {"id":9007199254740994,"tier":"premium_plus","version":2}]
+            """;
+        var result = await slots.ApiTierSlotsOwnerOwnerIdGetWithHttpInfoAsync("owner&x");
+        var owned = TierSlotsController.ParseOwnedSlots(result.RawContent);
+        Assert.That(calls, Is.EqualTo(1));
+        Assert.That(path, Is.EqualTo("/api/tier-slots/owner/owner&x"));
+        Assert.That(owned[0].Id, Is.EqualTo("9007199254740993"));
+        Assert.That(owned[0].Version, Is.EqualTo(7));
+        Assert.That(owned[0].AssignedUserId, Is.EqualTo("friend"));
+        Assert.That(owned[0].SubscriptionId, Is.EqualTo("single-subscription"));
+        Assert.That(owned[1].SubscriptionId, Is.Null);
+    }
+
+    [Test]
+    public async Task CancellationTargetsOnlyTheRequestedSubscriptionAndOwner()
+    {
+        await subscriptions.ApiSubscriptionCancelSubscriptionIdDeleteAsync("single-subscription", "owner&x");
+        Assert.That(method, Is.EqualTo("DELETE"));
+        Assert.That(path, Is.EqualTo("/api/Subscription/cancel/single-subscription"));
+        Assert.That(query, Is.EqualTo("?userId=owner%26x"));
+    }
+
+    [Test]
     public async Task SubscriptionPlansPreserveOwnerAndTypedPlanDetails()
     {
         response = """

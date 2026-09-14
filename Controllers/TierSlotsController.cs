@@ -11,6 +11,7 @@ using Coflnet.Sky.Core;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Newtonsoft.Json;
 
 namespace Coflnet.Sky.Api.Controller;
 
@@ -38,16 +39,20 @@ public class TierSlotsController(GoogletokenService tokens, ITierSlotsApi slots,
     [HttpGet]
     public async Task<List<OwnedTierSlot>> GetOwned()
     {
-        var owned = await slots.ApiTierSlotsOwnerOwnerIdGetAsync(await tokens.GetUserId(this));
+        var response = await slots.ApiTierSlotsOwnerOwnerIdGetWithHttpInfoAsync(await tokens.GetUserId(this));
+        var owned = ParseOwnedSlots(response.RawContent);
         var recipientIds = owned.Select(s => int.TryParse(s.AssignedUserId, out var id) ? id : 0).ToList();
         using var context = new HypixelContext();
         var emails = await context.Users.Where(u => recipientIds.Contains(u.Id)).ToDictionaryAsync(u => u.Id.ToString(), u => u.Email);
         var uuids = owned.Select(s => s.MinecraftUuid).Where(uuid => !string.IsNullOrEmpty(uuid)).Distinct().ToList();
         var minecraftNames = uuids.Count == 0 ? new Dictionary<string, string>() : await names.GetNames(uuids);
-        return owned.Select(slot => new OwnedTierSlot(slot.Id.ToString(), slot.Tier, slot.Expires,
-            slot.AssignedUserId, slot.MinecraftUuid, slot.VarVersion,
-            emails.GetValueOrDefault(slot.AssignedUserId ?? ""), minecraftNames.GetValueOrDefault(slot.MinecraftUuid ?? ""))).ToList();
+        return owned.Select(slot => slot with {
+            RecipientEmail = emails.GetValueOrDefault(slot.AssignedUserId ?? ""),
+            MinecraftName = minecraftNames.GetValueOrDefault(slot.MinecraftUuid ?? "") }).ToList();
     }
+
+    // The Payments client model does not yet include the owner's subscription ID.
+    internal static List<OwnedTierSlot> ParseOwnedSlots(string json) => JsonConvert.DeserializeObject<List<OwnedTierSlot>>(json);
 
     [HttpGet("assigned")]
     public async Task<List<TierSlotAccess>> GetAssigned() => await slots.ApiTierSlotsAccessGetAsync(await tokens.GetUserId(this));
@@ -96,7 +101,7 @@ public class TierSlotsController(GoogletokenService tokens, ITierSlotsApi slots,
 
 // CockroachDB slot IDs can exceed JavaScript's safe integer range.
 public record OwnedTierSlot(string Id, string Tier, DateTime Expires, string AssignedUserId,
-    string MinecraftUuid, long Version, string RecipientEmail, string MinecraftName);
+    string MinecraftUuid, long Version, string RecipientEmail, string MinecraftName, string SubscriptionId);
 
 public class SlotRecipient
 {

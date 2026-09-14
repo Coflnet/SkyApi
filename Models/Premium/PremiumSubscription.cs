@@ -10,6 +10,8 @@ public class PremiumSubscription
     public DateTime? EndsAt { get; set; }
     /// <summary>Gets or sets the product name.</summary>
     public string ProductName { get; set; }
+    /// <summary>Number of assignable slots renewed by this subscription; zero for personal access.</summary>
+    public int SlotCount { get; set; }
     /// <summary>Gets or sets the payment amount.</summary>
     public string PaymentAmount { get; set; }
     /// <summary>Gets or sets the renews at.</summary>
