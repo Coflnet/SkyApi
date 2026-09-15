@@ -1,15 +1,17 @@
+using System.Diagnostics;
+using Microsoft.Extensions.Logging.Abstractions;
 using System.Linq;
 #nullable enable
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using System.Globalization;
-using System.Collections.Concurrent;
+using Coflnet.Sky.Bazaar.Client.Api;
+using Coflnet.Sky.Bazaar.Client.Model;
 using Coflnet.Sky.Api.Models.Mod;
 using Coflnet.Sky.Api.Models;
 using Coflnet.Sky.Api.Services.Description;
 using Coflnet.Sky.Api.Services;
 using Coflnet.Sky.Commands.Shared;
-using Coflnet.Sky.Bazaar.Client.Api;
 using Newtonsoft.Json;
 using Microsoft.Extensions.Logging;
 using StackExchange.Redis;
@@ -21,10 +23,6 @@ namespace Coflnet.Sky.Api.Services.Description;
 /// </summary>
 public class BazaarPriceUpdater : ICustomModifier
 {
-    /// <summary>
-    /// Stores the last posted order books for testing and observation.
-    /// </summary>
-    public static ConcurrentDictionary<string, (List<Bazaar.Client.Model.OrderEntry> buy, List<Bazaar.Client.Model.OrderEntry> sell)> LastPostedOrderBooks = new();
     /// <inheritdoc/>
     public void Apply(DataContainer data)
     {
@@ -57,7 +55,9 @@ public class BazaarPriceUpdater : ICustomModifier
         {
             data.modService.UpdateBazaarPrice(itemTag, topBuyPrice, cheapestSellPrice);
         }
-        ExtractAndUploadOrderBook(itemTag, buyOrders?.Description, sellOffers?.Description);
+        // Start the HTTP request now; the player-state Kafka consumer is not on this path.
+        _ = UploadOrderBook(itemTag, buyOrders?.Description, sellOffers?.Description, DateTime.UtcNow,
+            logger: DiHandler.GetService<ILogger<BazaarPriceUpdater>>());
         PublishInstaSellIntentIfApplicable(data, itemTag);
 
         // Create a clickable link to open SkyCofl history for this item
@@ -111,90 +111,57 @@ public class BazaarPriceUpdater : ICustomModifier
         return null;
     }
 
-    /// <summary>
-    /// Extracts buy and sell order book data from descriptions and uploads them for price tracking.
-    /// </summary>
-    /// <param name="tag">The bazaar item tag.</param>
-    /// <param name="buyDescription">The buy order description text.</param>
-    /// <param name="sellDescription">The sell order description text.</param>
-    /// <returns>A tuple containing the parsed buy and sell prices.</returns>
-    public static (double buy, double sell) ExtractAndUploadOrderBook(string tag, string? buyDescription, string? sellDescription)
+    internal static List<OrderEntry> ParseOrders(string? description) =>
+        Regex.Matches(description ?? "", @"§6([\d,]+(?:\.\d+)?) coins[^\n]*?§a([\d,]+)§7x")
+            .Select(m => new OrderEntry {
+                PricePerUnit = double.Parse(m.Groups[1].Value, CultureInfo.InvariantCulture),
+                Amount = int.Parse(m.Groups[2].Value, NumberStyles.AllowThousands, CultureInfo.InvariantCulture)
+            }).ToList();
+
+    internal static async Task UploadOrderBook(string tag, string? buy, string? sell, DateTime observedAt,
+        IOrderBookApi? api = null, ILogger<BazaarPriceUpdater>? logger = null)
     {
-        // Parse buy/sell descriptions into order entries
-        var buyList = new List<Bazaar.Client.Model.OrderEntry>();
-        var sellList = new List<Bazaar.Client.Model.OrderEntry>();
-
-        if (!string.IsNullOrEmpty(buyDescription))
+        logger ??= NullLogger<BazaarPriceUpdater>.Instance;
+        using var span = BazaarTelemetry.Source.StartActivity("bazaar.price.upload");
+        span?.SetTag("bazaar.item_tag", tag);
+        span?.SetTag("bazaar.observed_at", observedAt.ToString("O"));
+        var started = Stopwatch.GetTimestamp();
+        var outcome = "failure";
+        try
         {
-            var matches = Regex.Matches(buyDescription, @"§6([\d,]+(?:\.\d+)?) coins(?:.*?§a([\d,]+)§7x)?");
-            foreach (Match m in matches)
+            var remaining = observedAt.AddSeconds(10) - DateTime.UtcNow;
+            if (remaining <= TimeSpan.Zero)
             {
-                if (double.TryParse(m.Groups[1].Value.Replace(",", ""), NumberStyles.Any, CultureInfo.InvariantCulture, out var price))
-                {
-                    var amount = 1;
-                    if (m.Groups[2].Success && int.TryParse(m.Groups[2].Value.Replace(",", ""), out var a))
-                        amount = a;
-                    buyList.Add(new Bazaar.Client.Model.OrderEntry() { Amount = amount, PricePerUnit = price, Timestamp = DateTime.UtcNow });
-                }
+                outcome = "expired";
+                return;
             }
+            using var timeout = new System.Threading.CancellationTokenSource(remaining);
+            var buys = ParseOrders(buy);
+            var sells = ParseOrders(sell);
+            if (buys.Count == 0 && sells.Count == 0)
+            {
+                outcome = "empty";
+                return;
+            }
+            var applied = await (api ?? DiHandler.GetService<IOrderBookApi>()).UpdateOrderBookAsync(new OrderBookUpdate {
+                ItemTag = tag, Timestamp = observedAt, BuyOrders = buys, SellOrders = sells
+            }, cancellationToken: timeout.Token);
+            outcome = applied ? "accepted" : "rejected";
         }
-
-        if (!string.IsNullOrEmpty(sellDescription))
+        catch (OperationCanceledException) { outcome = "expired"; }
+        catch (Exception e)
         {
-            var matches = Regex.Matches(sellDescription, @"§6([\d,]+(?:\.\d+)?) coins(?:.*?§a([\d,]+)§7x)?");
-            foreach (Match m in matches)
-            {
-                if (double.TryParse(m.Groups[1].Value.Replace(",", ""), NumberStyles.Any, CultureInfo.InvariantCulture, out var price))
-                {
-                    var amount = 1;
-                    if (m.Groups[2].Success && int.TryParse(m.Groups[2].Value.Replace(",", ""), out var a))
-                        amount = a;
-                    sellList.Add(new Bazaar.Client.Model.OrderEntry() { Amount = amount, PricePerUnit = price, Timestamp = DateTime.UtcNow });
-                }
-            }
+            span?.SetStatus(ActivityStatusCode.Error, e.GetType().Name);
+            logger.LogError(e, "Could not send Bazaar price observation for {ItemTag} at {ObservedAt:o}; TraceId {TraceId}", tag, observedAt, Activity.Current?.TraceId.ToString());
         }
-
-        // Determine top prices
-        var topBuy = buyList.Any() ? buyList.Max(o => o.PricePerUnit) : 0.0;
-        var cheapestSell = sellList.Any() ? sellList.Min(o => o.PricePerUnit) : 0.0;
-
-        // Post the orderbook in the background so we don't block description parsing
-        Task.Run(() =>
+        finally
         {
-            try
-            {
-                // store posted payload for tests to inspect
-                LastPostedOrderBooks[tag] = (buyList, sellList);
-
-                // Try to obtain the API from DI; if DI isn't initialized (tests), skip the remote post.
-                try
-                {
-                    var orderBookApi = DiHandler.GetService<IOrderBookApi>();
-                    if (orderBookApi != null)
-                    {
-                        // Post the structured lists (server expects list of entries for the orderbook).
-                        orderBookApi.UpdateOrderBookAsync(new()
-                        {
-                            ItemTag = tag,
-                            BuyOrders = buyList,
-                            SellOrders = sellList,
-                            Timestamp = DateTime.UtcNow
-                        }).GetAwaiter().GetResult();
-                    }
-                }
-                catch
-                {
-                    // ignore DI/service provider errors in tests
-                }
-            }
-            catch (Exception ex)
-            {
-                var logger = DiHandler.GetService<Microsoft.Extensions.Logging.ILogger<BazaarPriceUpdater>>();
-                logger?.LogError(ex, "Failed to update orderbook for {tag}", tag);
-            }
-        });
-
-        return (topBuy, cheapestSell);
+            BazaarTelemetry.Uploads.WithLabels(outcome).Inc();
+            span?.SetTag("bazaar.result", outcome);
+            if (logger.IsEnabled(LogLevel.Trace))
+                logger.LogTrace("Bazaar price upload {ItemTag} at {ObservedAt:o}: {Result} in {ElapsedMs} ms; TraceId {TraceId}",
+                tag, observedAt, outcome, Stopwatch.GetElapsedTime(started).TotalMilliseconds, Activity.Current?.TraceId.ToString());
+        }
     }
 
     private static void PublishInstaSellIntentIfApplicable(DataContainer data, string? itemTag)

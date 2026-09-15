@@ -126,7 +126,8 @@ namespace Coflnet.Sky.Api
             services.AddJaeger(Configuration, 0.001, 60);
             services.AddOpenTelemetry().WithTracing(builder => builder
                 .AddSource(DeepSeekChatService.ActivitySourceName)
-                .AddSource(ModDescriptionService.ActivitySourceName));
+                .AddSource(ModDescriptionService.ActivitySourceName)
+                .AddSource(BazaarTelemetry.SourceName));
             services.AddScoped<PricesService>();
             services.AddSingleton<GoogletokenService>();
             services.AddSingleton<IAccountDeletionClient, IndexerAccountDeletionClient>();
@@ -145,6 +146,19 @@ namespace Coflnet.Sky.Api
             services.AddSingleton<Core.Services.ExoticColorService>();
             services.AddSingleton<HttpClient>();
             services.AddHttpClient(nameof(LegalManifestService));
+            services.AddKeyedSingleton<IConnectionMultiplexer>("bazaar", (sp, key) => {
+                var options = ConfigurationOptions.Parse(Configuration["EVENTS_REDIS_HOST"] ?? "sky-event-broker-redis");
+                options.AbortOnConnectFail = false;
+                options.ConnectTimeout = 1000;
+            options.AsyncTimeout = 1000;
+                options.ConnectRetry = 0;
+                return ConnectionMultiplexer.Connect(options);
+            });
+            services.AddHttpClient("BazaarOrders", client => {
+                client.BaseAddress = new Uri(Configuration["BAZAAR_BASE_URL"].TrimEnd('/') + "/");
+                client.Timeout = TimeSpan.FromSeconds(3);
+            });
+            services.AddScoped<BazaarUserOrders>();
             services.AddSingleton<LegalManifestService>();
             services.AddHostedService(service =>
                 service.GetRequiredService<LegalManifestService>());

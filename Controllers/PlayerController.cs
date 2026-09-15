@@ -295,15 +295,17 @@ namespace Coflnet.Sky.Api.Controller
 
 
         /// <summary>
-        /// Returns the last know bazaar orders of a player
+        /// Returns tracked Bazaar orders with live filled amounts and estimate flags
         /// </summary>
         /// <returns></returns>
         [Route("bazaar/orders")]
         [HttpGet]
-        public async Task<List<PlayerState.Client.Model.Offer>> GetPlayerOrders([FromServices] ApiKeyService keyService, string apiKey = null)
+        [ResponseCache(Duration = 0, Location = ResponseCacheLocation.None, NoStore = true)]
+        public async Task<List<BazaarPlayerOrder>> GetPlayerOrders([FromServices] ApiKeyService keyService,
+            [FromServices] BazaarUserOrders orders, string apiKey = null)
         {
             var keyInfo = await keyService.GetKeyInfo(this);
-            return await playerStateApi.PlayerStatePlayerIdBazaarGetAsync(keyInfo.MinecraftName);
+            return await orders.Get(keyInfo.UserId, keyInfo.MinecraftName);
         }
 
         /// <summary>
