@@ -27,8 +27,8 @@ public class BazaarUserOrdersTests
         redis.Setup(r => r.GetDatabase(-1, null)).Returns(database.Object);
         var payload = JsonConvert.SerializeObject(new {
             UserId = "1", ItemNames = new { WHEAT = "Wheat" }, Orders = new[] {
-                new { ItemId = "WHEAT", PlayerName = "Ekwav", Amount = 64, Filled = 32, IsEstimate = estimate, IsSell = true },
-                new { ItemId = "WHEAT", PlayerName = "OtherPlayer", Amount = 20, Filled = 20, IsEstimate = false, IsSell = false }
+                new { ItemId = "WHEAT", PlayerName = "Ekwav", Amount = 64, Filled = 32, IsEstimate = estimate, IsSell = true, IsExpired = true, Claimed = 16 },
+                new { ItemId = "WHEAT", PlayerName = "OtherPlayer", Amount = 20, Filled = 20, IsEstimate = false, IsSell = false, IsExpired = false, Claimed = 0 }
             }
         });
         database.Setup(d => d.StringGetAsync("bazaar:orders:v1:1", CommandFlags.None)).ReturnsAsync((RedisValue)payload);
@@ -37,6 +37,8 @@ public class BazaarUserOrdersTests
         Assert.That(result, Has.Count.EqualTo(1));
         Assert.That(result.Single().FilledAmount, Is.EqualTo(32));
         Assert.That(result.Single().IsEstimate, Is.EqualTo(estimate));
+        Assert.That(result.Single().IsExpired, Is.True);
+        Assert.That(result.Single().ClaimedAmount, Is.EqualTo(16));
         Assert.That(result.Single().ItemName, Is.EqualTo("Wheat"));
         var serialized = JObject.FromObject(result.Single());
         Assert.That((long)serialized["filledAmount"], Is.EqualTo(32));

@@ -61,6 +61,7 @@ public class BazaarUserOrders([FromKeyedServices("bazaar")] IConnectionMultiplex
                 ItemName = names.GetValueOrDefault(order.ItemId, order.ItemId),
                 Amount = order.Amount, PricePerUnit = order.PricePerUnit, Created = order.Timestamp,
                 FilledAmount = order.Filled, IsEstimate = order.IsEstimate != false,
+                IsExpired = order.IsExpired, ClaimedAmount = order.Claimed,
                 Customers = history?.FirstOrDefault(o => o.IsSell == order.IsSell
                     && o.ItemTag == order.ItemId && o.Created.Ticks / TimeSpan.TicksPerMillisecond
                         == order.Timestamp.Ticks / TimeSpan.TicksPerMillisecond)?.Customers ?? new()
@@ -110,6 +111,10 @@ public class BazaarUserOrders([FromKeyedServices("bazaar")] IConnectionMultiplex
 
     private class FillState : Bazaar.Client.Model.OrderEntry
     {
+        [JsonProperty("isExpired")]
+        public bool IsExpired { get; set; }
+        [JsonProperty("claimed")]
+        public int? Claimed { get; set; }
         [JsonProperty("isEstimate")]
         public bool? IsEstimate { get; set; }
     }
