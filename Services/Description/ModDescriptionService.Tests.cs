@@ -207,6 +207,42 @@ public class ModDescriptionServiceTests
         return JsonConvert.DeserializeObject<InventoryDataWithSettings>(mockInventoryFile);
     }
 
+    [TestCase(null, "Hideonwall", "SHARD_HIDEONWALL")]
+    [TestCase("ATTRIBUTE_SHARD", "Hideonwall", "SHARD_HIDEONWALL")]
+    [TestCase(null, "Beetle", "SHARD_CROPEETLE")]
+    [TestCase("ATTRIBUTE_SHARD", "Beetle", "SHARD_CROPEETLE")]
+    [TestCase("ATTRIBUTE_SHARD", "Attribute", "ATTRIBUTE_SHARD")]
+    public void InventoryUploadUsesTheDescriptionShardId(string rawId, string name, string expected)
+    {
+        var extra = new fNbt.Tags.NbtCompound("ExtraAttributes") {
+            new fNbt.Tags.NbtString("uuid", "00000000-0000-0000-0000-000000000001") };
+        if (rawId != null)
+            extra.Add(new fNbt.Tags.NbtString("id", rawId));
+        var item = new fNbt.Tags.NbtCompound() {
+            new fNbt.Tags.NbtString("id", "minecraft:player_head"), new fNbt.Tags.NbtByte("Count", 1),
+            new fNbt.Tags.NbtShort("Damage", 3),
+            new fNbt.Tags.NbtCompound("tag") { extra,
+                new fNbt.Tags.NbtCompound("display") {
+                    new fNbt.Tags.NbtString("Name", "§6§lSELL §9" + name + " Shard"),
+                    new fNbt.Tags.NbtList("Lore", new[] { new fNbt.Tags.NbtString(null, "§7Offer amount: §a129§7x"),
+                        new fNbt.Tags.NbtString(null, "§7Price per unit: §610 coins"), new fNbt.Tags.NbtString(null, "§8Expired!") })
+                }
+            }
+        };
+        var nbt = new fNbt.NbtFile(new fNbt.Tags.NbtCompound("") {
+            new fNbt.Tags.NbtList("i", new[] { new fNbt.Tags.NbtCompound(), item }) });
+        using var stream = new MemoryStream();
+        nbt.SaveToStream(stream, fNbt.NbtCompression.GZip);
+        var inventory = new InventoryData { FullInventoryNbt = Convert.ToBase64String(stream.ToArray()) };
+        var auctions = service.ConvertToAuctions(inventory);
+        var forwarded = service.InventoryToItems(inventory, auctions);
+        Assert.That(auctions[1].auction.Tag, Is.EqualTo(expected));
+        Assert.That(forwarded[1].Tag, Is.EqualTo(expected));
+        Assert.That(forwarded[1].Description, Does.Contain("Expired!"));
+        Assert.That(forwarded[0].Tag, Is.Null);
+        Assert.That(service.InventoryToItems(inventory)[1].Tag, Is.EqualTo(expected));
+    }
+
     [Test]
     public void Parse121()
     {

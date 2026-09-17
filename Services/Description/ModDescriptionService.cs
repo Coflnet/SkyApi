@@ -251,12 +251,13 @@ public class ModDescriptionService : IDisposable
     /// <param name="inventoryData">The raw inventory data containing the NBT and chest name.</param>
     /// <param name="playerId">The UUID of the player viewing the inventory.</param>
     /// <param name="userId">The Coflnet user ID associated with the player.</param>
+    /// <param name="auctionRepresent">Already parsed descriptions whose canonical item IDs should be forwarded.</param>
     /// <returns>A list of processed <see cref="Item"/> objects with descriptions applied.</returns>
-    public List<Item> ProduceInventory(InventoryData inventoryData, string playerId, string userId)
+    public List<Item> ProduceInventory(InventoryData inventoryData, string playerId, string userId, List<(SaveAuction auction, string[] desc)> auctionRepresent = null)
     {
         try
         {
-            var items = InventoryToItems(inventoryData);
+            var items = InventoryToItems(inventoryData, auctionRepresent);
             ahListChecker.CheckItems(items, playerId);
             var inventoryhash = SHA256.Create().ComputeHash(Encoding.UTF8.GetBytes(inventoryData.FullInventoryNbt));
             // anonymous player only ineresting if ah contains seller
@@ -310,9 +311,11 @@ public class ModDescriptionService : IDisposable
         logger.LogInformation("produced state update " + playerId + " " + chestName);
     }
 
-    private List<Item> InventoryToItems(InventoryData modDescription)
+    internal List<Item> InventoryToItems(InventoryData modDescription, List<(SaveAuction auction, string[] desc)> auctionRepresent = null)
     {
-        return NBT.File(Convert.FromBase64String(modDescription.FullInventoryNbt)).RootTag.Get<NbtList>("i").Select(t =>
+        // Reuse the description parser for special shard IDs; preserve other inventory IDs.
+        auctionRepresent ??= ConvertToAuctions(modDescription);
+        return NBT.File(Convert.FromBase64String(modDescription.FullInventoryNbt)).RootTag.Get<NbtList>("i").Select((t, index) =>
         {
             try
             {
@@ -320,10 +323,11 @@ public class ModDescriptionService : IDisposable
                 if (compound.Count == 0)
                     return new Item();
 
+                var parsedTag = auctionRepresent[index].auction?.Tag;
                 var item = new Item()
                 { // order of parsing is important
                     Enchantments = NBT.GetEnchants(compound),
-                    Tag = NBT.ItemID(compound),
+                    Tag = parsedTag?.StartsWith("SHARD_") == true ? parsedTag : NBT.ItemID(compound),
                     ItemName = NBT.GetName(compound),
                     Description = string.Join('\n', NBT.GetLore(compound)),
                     Color = NBT.GetColor(compound),
@@ -520,7 +524,7 @@ public class ModDescriptionService : IDisposable
         {
             try
             {
-                items = ProduceInventory(inventory, mcName, userInfo.UserId);
+                items = ProduceInventory(inventory, mcName, userInfo.UserId, auctionRepresent);
             }
             catch (Exception e)
             {
@@ -1955,7 +1959,7 @@ public class ModDescriptionService : IDisposable
                 if (auction.Tag == "ATTRIBUTE_SHARD")
                 {
                     // this is a new attribute shard, we need to set the tag
-                    if (auction.FlatenedNBT.Count == 1 && TryGetShardTagFromName(auction.ItemName, out var tag))
+                    if (TryGetShardTagFromName(auction.ItemName, out var tag))
                         auction.Tag = tag;
                 }
                 if (auction.Tier == Tier.UNKNOWN && (auction.Tag?.StartsWith("PET_") ?? false))
