@@ -4,6 +4,7 @@ using Coflnet.Sky.Api.Services.Description;
 using Coflnet.Sky.Bazaar.Client.Api;
 using Coflnet.Sky.Commands.Shared;
 using Coflnet.Sky.Crafts.Client.Api;
+using ProfitableCraft = Coflnet.Sky.Crafts.Client.Model.ProfitableCraft;
 using Coflnet.Sky.PlayerName;
 using Coflnet.Sky.PlayerName.Client.Api;
 using Coflnet.Sky.Settings.Client.Api;
@@ -34,6 +35,7 @@ public class ModDescriptionServiceTests
     Mock<IReadableConfiguration> readableConfiguration;
     Mock<ISettingsApi> settingsApi;
     Mock<ISniperClient> sniperClient;
+    Mock<ICraftsApi> craftsApi;
     ModDescriptionService service;
     [SetUp]
     public void NewMethod()
@@ -50,10 +52,11 @@ public class ModDescriptionServiceTests
         DiHandler.OverrideService<SettingsService, SettingsService>(settingsService);
 
         sniperClient = new Mock<ISniperClient>();
+        craftsApi = new Mock<ICraftsApi>();
 
         IItemsApi itemsApi = new Mock<IItemsApi>().Object;
         ItemSkinHandler itemSkinHandler = new ItemSkinHandler(itemsApi);
-        service = new(Mock.Of<ICraftsApi>(), settingsService, Mock.Of<IdConverter>(), Mock.Of<IServiceScopeFactory>(),
+        service = new(craftsApi.Object, settingsService, Mock.Of<IdConverter>(), Mock.Of<IServiceScopeFactory>(),
                     Mock.Of<BazaarApi>(), playerNameService, Mock.Of<ILogger<ModDescriptionService>>(), Mock.Of<IConfiguration>(), Mock.Of<IStateUpdateService>(), sniperClient.Object,
                     itemSkinHandler, new(null, null, null), null, null, null, null, null);
     }
@@ -323,6 +326,47 @@ public class ModDescriptionServiceTests
             itemPrices = new() { { "PET_MONKEY_COMMON_0", targetPrice } }
         });
         Assert.That(cost.obtainPrice, Is.EqualTo(targetPrice));
+    }
+
+    [TestCase(false, false)]
+    [TestCase(false, true)]
+    [TestCase(true, false)]
+    [TestCase(true, true)]
+    public async Task CraftCostOnly_DuplicateRecipesDoNotPreventCacheRefresh(bool buyOrderPrices, bool reverseRecipes)
+    {
+        var inventory = GetMockInventory();
+        inventory.ChestName = "Inventory";
+        inventory.Settings = new DescriptionSetting
+        {
+            Fields = [[DescriptionField.CRAFT_COST]],
+            BuyOrderPrices = buyOrderPrices
+        };
+        var newest = new ProfitableCraft
+        {
+            ItemId = "FEATHER_ARTIFACT", CraftCost = 2_000, BuyOrderCraftCost = 1_500,
+            LastUpdated = new DateTime(2026, 9, 21)
+        };
+        var recipes = new List<ProfitableCraft>
+        {
+            new() { ItemId = "FEATHER_ARTIFACT", CraftCost = 1_000, LastUpdated = newest.LastUpdated.AddDays(-1) },
+            newest,
+            new() { ItemId = "KISMET_FEATHER", CraftCost = 1_200_000, BuyOrderCraftCost = 1_100_000 },
+            new() { ItemId = "NO_RECIPE", CraftCost = 0 }
+        };
+        if (reverseRecipes)
+            recipes.Reverse();
+        craftsApi.Setup(api => api.GetAllAsync(It.IsAny<int>(), It.IsAny<CancellationToken>())).ReturnsAsync(recipes);
+        sniperClient.Setup(s => s.GetPrices(It.IsAny<IEnumerable<SaveAuction>>(), default))
+            .Returns<IEnumerable<SaveAuction>, bool>((items, _) => Task.FromResult(items.Select(_ => new Coflnet.Sky.Sniper.Client.Model.PriceEstimate()).ToList()));
+
+        await service.GetModifications(inventory, "test", "");
+        Assert.That(() => service.DeserializedCache.Crafts.Count, Is.EqualTo(2).After(2000, 10));
+        Assert.That(service.DeserializedCache.Crafts["FEATHER_ARTIFACT"], Is.SameAs(newest));
+
+        var result = (await service.GetModifications(inventory, "test", "")).ToList();
+
+        Assert.That(result[20].Single().Value, Is.EqualTo(buyOrderPrices
+            ? "§7clean craft: §e1,100,000 " : "§7clean craft: §e1,200,000 "));
     }
 
     [Test]

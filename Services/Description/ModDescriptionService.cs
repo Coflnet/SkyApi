@@ -664,7 +664,10 @@ public class ModDescriptionService : IDisposable
             TryGet(async () =>
             {
                 var allCrafts = await craftsApi.GetAllAsync();
-                deserializedCache.Crafts = allCrafts.Where(c => c.CraftCost > 0).ToDictionary(c => c.ItemId, c => c);
+                // The feed can include stale copies of the same item; keep its latest prices.
+                deserializedCache.Crafts = allCrafts.Where(c => c.CraftCost > 0)
+                    .GroupBy(c => c.ItemId)
+                    .ToDictionary(g => g.Key, g => g.MaxBy(c => c.LastUpdated));
             });
             TryGet(async () =>
             {
