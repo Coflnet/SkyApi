@@ -201,6 +201,44 @@ public class ModDescriptionServiceTests
     }
 
 
+    [Test]
+    public async Task ExplicitEmptyPreviewLayoutDoesNotFallBackToSavedFields()
+    {
+        var inventory = GetMockInventory();
+        var draft = new DescriptionSetting { Fields = new() };
+        inventory.Settings = draft;
+        settingsApi.Setup(api => api.GetSettingWithHttpInfoAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<int>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new Coflnet.Sky.Settings.Client.Client.ApiResponse<string>(System.Net.HttpStatusCode.NoContent, null));
+        settingsApi.Setup(api => api.GetSettingWithHttpInfoAsync("mod", It.IsAny<string>(), It.IsAny<int>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new Coflnet.Sky.Settings.Client.Client.ApiResponse<string>(System.Net.HttpStatusCode.OK, "\"preview-user\""));
+        sniperClient.Setup(s => s.GetPrices(It.IsAny<IEnumerable<SaveAuction>>(), default))
+            .Returns<IEnumerable<SaveAuction>, bool>((s, ai) => Task.FromResult(s.Select(_ => new Coflnet.Sky.Sniper.Client.Model.PriceEstimate()).ToList()));
+
+        await service.GetModifications(inventory, "test", "test");
+
+        Assert.That(inventory.Settings, Is.SameAs(draft));
+        Assert.That(inventory.Settings.Fields, Is.Empty);
+    }
+
+    [Test]
+    public async Task ExplicitDisabledPreviewReturnsNoLoreModifications()
+    {
+        var inventory = GetMockInventory();
+        inventory.ChestName = "Lore preview";
+        inventory.Settings = new DescriptionSetting { Fields = new() { new() { DescriptionField.LBIN } }, Disabled = true };
+        settingsApi.Setup(api => api.GetSettingWithHttpInfoAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<int>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new Coflnet.Sky.Settings.Client.Client.ApiResponse<string>(System.Net.HttpStatusCode.NoContent, null));
+        settingsApi.Setup(api => api.GetSettingWithHttpInfoAsync("mod", It.IsAny<string>(), It.IsAny<int>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new Coflnet.Sky.Settings.Client.Client.ApiResponse<string>(System.Net.HttpStatusCode.OK, "\"preview-user\""));
+        sniperClient.Setup(s => s.GetPrices(It.IsAny<IEnumerable<SaveAuction>>(), default))
+            .Returns<IEnumerable<SaveAuction>, bool>((s, ai) => Task.FromResult(s.Select(_ => new Coflnet.Sky.Sniper.Client.Model.PriceEstimate { Median = 100 }).ToList()));
+
+        var result = (await service.GetModifications(inventory, "test", "test")).ToList();
+
+        Assert.That(result, Is.Not.Empty);
+        Assert.That(result.All(modifications => !modifications.Any()), Is.True);
+    }
+
     InventoryDataWithSettings GetMockInventory()
     {
         string mockInventoryFile = File.ReadAllText(@"./MockObjects/CommunityShop_InventoryDataWithSettings.json");

@@ -513,7 +513,7 @@ public class ModDescriptionService : IDisposable
         CheckUpToDateCache();
 
         var (userSettings, userInfoTask) = await GetSettingForConid(mcName, sessionId, inventory.Settings);
-        inventory.Settings = inventory.Settings?.Fields?.Count > 0 ? inventory.Settings : userSettings;
+        inventory.Settings = inventory.Settings?.Fields != null ? inventory.Settings : userSettings;
         inventory.Settings ??= DescriptionSetting.Default;
         var pricesTask = GetPrices(auctionRepresent.Select(a => a.auction),
             inventory.Settings.Fields.Any(f => f.Contains(DescriptionField.AiEstimate)));
@@ -532,7 +532,7 @@ public class ModDescriptionService : IDisposable
             }
         }
 
-        if (userSettings.Disabled)
+        if (inventory.Settings.Disabled)
         {
             result.AddRange(Enumerable.Repeat(new List<DescModification>(), auctionRepresent.Count));
             if (inventory.Version >= 2 && (inventory.ChestName?.EndsWith("Menu") ?? false))
