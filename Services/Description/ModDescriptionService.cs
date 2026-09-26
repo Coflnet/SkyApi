@@ -34,8 +34,24 @@ namespace Coflnet.Sky.Api.Services;
 /// Service for generating mod-enhanced item descriptions for Skyblock items,
 /// including auction data, bazaar prices, enchantments, modifiers, and crafting costs.
 /// </summary>
-public class ModDescriptionService : IDisposable
+public partial class ModDescriptionService : IDisposable
 {
+    /// <summary>Matches a pet's level in its display name, e.g. "Lvl 100".</summary>
+    [GeneratedRegex(@"Lvl (\d+)")]
+    private static partial Regex PetLevel { get; }
+
+    /// <summary>Matches any non-digit character.</summary>
+    [GeneratedRegex("[^0-9]")]
+    private static partial Regex NonDigit { get; }
+
+    /// <summary>Strips color codes and the SELL/BUY/Essence markers from a bazaar essence chest name.</summary>
+    [GeneratedRegex("§[0-9a-fklmnor]|SELL |BUY | Essence")]
+    private static partial Regex EssenceNameCleanup { get; }
+
+    /// <summary>Strips color codes and the SELL/BUY/Shard markers from a bazaar shard chest name.</summary>
+    [GeneratedRegex("§[0-9a-fklmnor]|SELL |BUY | Shard")]
+    private static partial Regex ShardNameCleanup { get; }
+
     /// <summary>
     /// Activity source used for modification pipeline spans.
     /// </summary>
@@ -65,7 +81,7 @@ public class ModDescriptionService : IDisposable
     private readonly IStateUpdateService stateService;
     private readonly ItemSkinHandler itemSkinHandler;
     private readonly IKatApi katApi;
-    private readonly ClassNameDictonary<ICustomModifier> customModifiers = new();
+    private readonly List<(Regex ChestName, ICustomModifier Modifier)> customModifiers = [];
     private readonly DeserializedCache deserializedCache = new();
     private readonly PropertyMapper mapper = new();
     private readonly Core.Services.HypixelItemService itemService;
@@ -146,35 +162,47 @@ public class ModDescriptionService : IDisposable
     private static TimeSpan GetTimeout(IConfiguration config, string key, int defaultMilliseconds) =>
         TimeSpan.FromMilliseconds(int.TryParse(config?[key], out var value) ? Math.Max(1, value) : defaultMilliseconds);
 
+    private void Register(Regex chestName, ICustomModifier modifier) => customModifiers.Add((chestName, modifier));
+
     private void RegisterModifiers()
     {
-        customModifiers.Add("^You    ", new TradeInfoDisplay());
-        customModifiers.Add("^Create BIN", new ListPriceRecommend());
-        customModifiers.Add("^Create Auction", new AuctionNoteText());
-        customModifiers.Add("^Manage Auctions", new AuctionValueSummary());
-        customModifiers.Add("^(Auctions Browser|Auctions:)", new FlipOnNextPage());
-        customModifiers.Add("^(Auctions Browser|BIN Auction View|Auctions:)|s Auctions$", new StartedAgoToEndsIn());
-        customModifiers.Add("^(Community Shop|Bits Shop)", new BitsCoinValue());
-        customModifiers.Add("^Bingo Shop", new BingoShopDisplay());
-        customModifiers.Add("^Community Shop", new SkyblockGemsValue());
-        customModifiers.Add("^Previous Fire Sales", new GenericCurrencyDisplay("SkyBlock Gems", "Gem"));
-        customModifiers.Add("^(Seasonal Bundles|SkyMart Barn Skins|Taylor's Collection)", new GenericCurrencyDisplay("Gems", "Gem"));
-        customModifiers.Add("^SkyMart", new GenericCurrencyDisplay("Copper", "Copper"));
-        customModifiers.Add("s Auctions$", new PlayerPageFlipHighlight());
-        customModifiers.Add("^(Auctions Browser|Auctions:|You  )", new AuctionHouseHighlighting());
-        customModifiers.Add("Pet - Round \\d$", new DarkAuctionPetAdjust());
-        customModifiers.Add("Bazaar Orders$", new BazaarOrderAdjust(bazaarApi));
-        customModifiers.Add("^Bazaar ", new BazaarInfo());
-        customModifiers.Add(".*➜.*", new BazaarPriceUpdater());
-        customModifiers.Add("➜ Instant Buy", new InstantBuyMaxAmount());
-        customModifiers.Add("^The Forge", new ForgeExtenssion());
-        customModifiers.Add(@"^\(\d\/2\) Fish Family", new FishFamilyCalculator());
-        customModifiers.Add("^Crafting", new InventoryInfo());
-        customModifiers.Add("^(Wooden|Gold|Diamond|Emerald|Obsidian|Bedrock) Chest", new DungeonChestInfo());
-        customModifiers.Add("Paid Chest", new KuudraChestInfo());
-        customModifiers.Add("^Order options", new BazaarFlipSuggest());
-        customModifiers.Add("^Consume Booster Cookie", new BoosterCookieValueInfo());
+        Register(ChestNamePatterns.TradeWindow, new TradeInfoDisplay());
+        Register(ChestNamePatterns.CreateBin, new ListPriceRecommend());
+        Register(ChestNamePatterns.CreateAuction, new AuctionNoteText());
+        Register(ChestNamePatterns.ManageAuctions, new AuctionValueSummary());
+        Register(ChestNamePatterns.AuctionBrowser, new FlipOnNextPage());
+        Register(ChestNamePatterns.AuctionListingTimes, new StartedAgoToEndsIn());
+        Register(ChestNamePatterns.CommunityOrBitsShop, new BitsCoinValue());
+        Register(ChestNamePatterns.BingoShop, new BingoShopDisplay());
+        Register(ChestNamePatterns.CommunityShop, new SkyblockGemsValue());
+        Register(ChestNamePatterns.PreviousFireSales, new GenericCurrencyDisplay("SkyBlock Gems", "Gem"));
+        Register(ChestNamePatterns.GemBundles, new GenericCurrencyDisplay("Gems", "Gem"));
+        Register(ChestNamePatterns.SkyMart, new GenericCurrencyDisplay("Copper", "Copper"));
+        Register(ChestNamePatterns.PlayerAuctions, new PlayerPageFlipHighlight());
+        Register(ChestNamePatterns.AuctionHighlight, new AuctionHouseHighlighting());
+        Register(ChestNamePatterns.PetRound, new DarkAuctionPetAdjust());
+        Register(ChestNamePatterns.BazaarOrders, new BazaarOrderAdjust(bazaarApi));
+        Register(ChestNamePatterns.BazaarPrefix, new BazaarInfo());
+        Register(ChestNamePatterns.ArrowAnywhere, new BazaarPriceUpdater());
+        Register(ChestNamePatterns.InstantBuyArrow, new InstantBuyMaxAmount());
+        Register(ChestNamePatterns.TheForge, new ForgeExtenssion());
+        Register(ChestNamePatterns.FishFamily, new FishFamilyCalculator());
+        Register(ChestNamePatterns.Crafting, new InventoryInfo());
+        Register(ChestNamePatterns.DungeonChest, new DungeonChestInfo());
+        Register(ChestNamePatterns.PaidChest, new KuudraChestInfo());
+        Register(ChestNamePatterns.OrderOptions, new BazaarFlipSuggest());
+        Register(ChestNamePatterns.BoosterCookie, new BoosterCookieValueInfo());
     }
+
+    /// <summary>
+    /// Gets the custom modifiers whose chest-name pattern matches the given chest name,
+    /// in registration order. Falls back to "Crafting" when the chest name is unknown, matching
+    /// the empty inventory/crafting table state.
+    /// </summary>
+    /// <param name="chestName">The chest name to match, or null.</param>
+    /// <returns>The matching (chest name pattern, modifier) pairs, in registration order.</returns>
+    internal (Regex ChestName, ICustomModifier Modifier)[] GetMatchingModifiers(string chestName) =>
+        customModifiers.Where(m => m.ChestName.IsMatch(chestName ?? "Crafting")).ToArray();
 
     private readonly MemoryCache settingsCache = new(new MemoryCacheOptions { SizeLimit = 1000 });
     private readonly ConcurrentDictionary<string, Lazy<Task<SettingsCacheEntry>>> settingsLoads = new();
@@ -492,7 +520,7 @@ public class ModDescriptionService : IDisposable
 
     private async Task ComputeDescriptions(InventoryDataWithSettings inventory, string mcName, string sessionId, List<(SaveAuction auction, string[] desc)> auctionRepresent, List<List<DescModification>> result)
     {
-        var matchingModifiers = customModifiers.Where(m => Regex.IsMatch(inventory.ChestName ?? "Crafting", m.Key)).ToArray();
+        var matchingModifiers = GetMatchingModifiers(inventory.ChestName);
         var preRequest = new PreRequestContainer()
         {
             auctionRepresent = auctionRepresent,
@@ -504,11 +532,11 @@ public class ModDescriptionService : IDisposable
         {
             try
             {
-                item.Value.Modify(preRequest);
+                item.Modifier.Modify(preRequest);
             }
             catch (Exception e)
             {
-                logger.LogError(e, "failed to use custom pre modifier " + item.Key);
+                logger.LogError(e, "failed to use custom pre modifier " + item.ChestName);
             }
         }
         CheckUpToDateCache();
@@ -635,7 +663,7 @@ public class ModDescriptionService : IDisposable
         {
             try
             {
-                var modifier = item.Value;
+                var modifier = item.Modifier;
                 var disableName = modifier.DisableInfoName;
                 if (disableName != null && modifier.IsInfoDisabled(container))
                 {
@@ -651,7 +679,7 @@ public class ModDescriptionService : IDisposable
             }
             catch (Exception e)
             {
-                logger.LogError(e, "failed to apply custom modifier " + item.Key);
+                logger.LogError(e, "failed to apply custom modifier " + item.ChestName);
             }
         }
     }
@@ -1318,7 +1346,7 @@ public class ModDescriptionService : IDisposable
             var name = auction.ItemName;
             if (name == null || !name.Contains("Lvl"))
                 name = data.auctionRepresent.Where(a => a.auction == auction).Select(a => a.desc).FirstOrDefault()?.FirstOrDefault(d => d.Contains("Lvl"));
-            var levelMatch = name != null ? Regex.Match(name, @"Lvl (\d+)") : Match.Empty;
+            var levelMatch = name != null ? PetLevel.Match(name) : Match.Empty;
             if (levelMatch.Success)
             {
                 var level = int.Parse(levelMatch.Groups[1].Value);
@@ -1568,7 +1596,7 @@ public class ModDescriptionService : IDisposable
             else
                 materialCost = cost.Amount * BazaarPriceSelector.Select(bazaarPrice, data.UseBuyOrderPrices);
         }
-        var level = (float)int.Parse(Regex.Replace(auction.ItemName.Substring(2, 7), "[^0-9]", ""));
+        var level = (float)int.Parse(NonDigit.Replace(auction.ItemName.Substring(2, 7), ""));
         var upgradeCost = cost.Cost * (1 - (level - 1) * 0.003);
         var totalCost = materialCost + upgradeCost;
         builder.Append($"{McColorCodes.GRAY}Kat Upgrade Cost: {McColorCodes.YELLOW}{FormatPriceShort(totalCost)}");
@@ -1987,7 +2015,7 @@ public class ModDescriptionService : IDisposable
                     return (new SaveAuction() { Tag = "SKYBLOCK_MENU", ItemName = "Dungeons" }, new string[0]);
                 }
                 if (placeAuctionTag != null)
-                    auction.Tag = "ESSENCE_" + Regex.Replace(placeAuctionTag, $"§[0-9a-fklmnor]|SELL |BUY | Essence", "").ToUpper();
+                    auction.Tag = "ESSENCE_" + EssenceNameCleanup.Replace(placeAuctionTag, "").ToUpper();
 
                 if (auction.Tag == "ATTRIBUTE_SHARD")
                 {
@@ -2021,7 +2049,7 @@ public class ModDescriptionService : IDisposable
     /// <returns>true if a matching shard tag was found; otherwise, false.</returns>
     public static bool TryGetShardTagFromName(string name, out string tag)
     {
-        var clearedname = Regex.Replace(name, "§[0-9a-fklmnor]|SELL |BUY | Shard", "");
+        var clearedname = ShardNameCleanup.Replace(name, "");
         if (Constants.ShardNames.TryGetValue(clearedname, out var shardTag))
             tag = "SHARD_" + shardTag.ToUpper();
         else if (automaticBazaarShardTags.Contains("SHARD_" + clearedname.Replace(' ', '_')))

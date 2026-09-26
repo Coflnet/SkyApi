@@ -598,6 +598,40 @@ public class ModDescriptionServiceTests
         data.mods[0].Should().ContainSingle();
         data.mods[0][0].Value.Should().Contain(expectedPerGem);
     }
+
+    private static IEnumerable<TestCaseData> MatchingModifierCases()
+    {
+        // "Bazaar Orders" satisfies both "Bazaar Orders$" and "^Bazaar " (which only needs the trailing space)
+        yield return new TestCaseData("Bazaar Orders", new[] { typeof(BazaarOrderAdjust), typeof(BazaarInfo) });
+        // 4 leading spaces also satisfy the 2-space "You  " prefix used for auction house highlighting
+        yield return new TestCaseData("You    Trade", new[] { typeof(TradeInfoDisplay), typeof(AuctionHouseHighlighting) });
+        yield return new TestCaseData("Create BIN Auction", new[] { typeof(ListPriceRecommend) });
+        yield return new TestCaseData("Auctions Browser", new[] { typeof(FlipOnNextPage), typeof(StartedAgoToEndsIn), typeof(AuctionHouseHighlighting) });
+        yield return new TestCaseData("Community Shop", new[] { typeof(BitsCoinValue), typeof(SkyblockGemsValue) });
+        yield return new TestCaseData(null, new[] { typeof(InventoryInfo) }); // null chest name falls back to "Crafting"
+        yield return new TestCaseData("Pet - Round 3", new[] { typeof(DarkAuctionPetAdjust) });
+        yield return new TestCaseData("(1/2) Fish Family", new[] { typeof(FishFamilyCalculator) });
+        yield return new TestCaseData("Obsidian Chest", new[] { typeof(DungeonChestInfo) });
+        yield return new TestCaseData("Paid Chest", new[] { typeof(KuudraChestInfo) });
+        yield return new TestCaseData("Something ➜ Instant Buy", new[] { typeof(BazaarPriceUpdater), typeof(InstantBuyMaxAmount) });
+    }
+
+    [TestCaseSource(nameof(MatchingModifierCases))]
+    public void GetMatchingModifiers_ReturnsExpectedModifierTypesInOrder(string chestName, Type[] expectedTypes)
+    {
+        var matches = service.GetMatchingModifiers(chestName);
+
+        matches.Select(m => m.Modifier.GetType()).Should().Equal(expectedTypes);
+    }
+
+    [Test]
+    public void ChestNamePatterns_AllRegexesAreNonNull()
+    {
+        typeof(ChestNamePatterns).GetProperties(System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Public)
+            .Where(p => p.PropertyType == typeof(System.Text.RegularExpressions.Regex))
+            .Should().NotBeEmpty()
+            .And.OnlyContain(p => p.GetValue(null) != null);
+    }
 #pragma warning restore CS1591 // Missing XML comment for publicly visible type or member
 
     /* [Test]
