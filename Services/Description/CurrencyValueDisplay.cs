@@ -74,8 +74,10 @@ public abstract class CurrencyValueDisplay : ICustomModifier
             {
                 continue;
             }
-            string commaSanitizedMatch = Regex.Replace(descLine.Substring(2, descLine.Length - ValueSuffix.Length - 3), "(§.|[^0-9])", "");
-            if (int.TryParse(commaSanitizedMatch, out bits))
+            // strip color codes first, the line may or may not start with one (eg "§b500 Bits" or "500 Bits")
+            var plain = Regex.Replace(descLine, "§.", "");
+            var match = Regex.Match(plain, @"([\d,]+)\s*" + Regex.Escape(ValueSuffix) + "$");
+            if (match.Success && int.TryParse(match.Groups[1].Value.Replace(",", ""), out bits) && bits > 0)
             {
                 return true;
             }
