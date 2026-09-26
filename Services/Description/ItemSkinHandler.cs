@@ -61,11 +61,13 @@ public class ItemSkinHandler : BackgroundService, IItemSkinHandler
     {
         if (tag == null)
             return;
+        // Minecraft-formatted (color coded) display name of the item, e.g. from a bazaar order
+        // screen ("§6§lSELL §9Enchanted Redstone"); SkyItems sanitizes/validates it before storing.
+        var displayName = NBT.GetName(compound);
         if (tag == "ATTRIBUTE_SHARD")
         {
-            var name = NBT.GetName(compound);
             // this is a new attribute shard, we need to set the tag
-            if (!ModDescriptionService.TryGetShardTagFromName(name, out tag))
+            if (!ModDescriptionService.TryGetShardTagFromName(displayName, out tag))
                 return;
         }
         if (!skinTags.TryGetValue(tag, out var saved) || saved)
@@ -92,15 +94,18 @@ public class ItemSkinHandler : BackgroundService, IItemSkinHandler
                     }
                     else
                     {
-                        if (idTag.Value == "minecraft:skull")
-                            skinTags[tag] = false;
-                        else
-                            Console.WriteLine($"no skin found for {tag} {compound.ToString()}");
-                        return;
+                        if (idTag?.Value == "minecraft:skull")
+                            skinTags[tag] = false; // retry once the real skin texture is resolved
+                        if (string.IsNullOrWhiteSpace(displayName))
+                        {
+                            Console.WriteLine($"no skin found for {tag} {compound}");
+                            return;
+                        }
+                        // no icon (yet), but we do have a usable display name - still worth sending
                     }
                 }
-                await itemsApi.ItemItemTagTexturePostAsync(tag, skullUrl);
-                Console.WriteLine($"updated skin for {tag} to {skullUrl}");
+                await itemsApi.ItemItemTagTexturePostAsync(tag, skullUrl, displayName);
+                Console.WriteLine($"updated skin/name for {tag} to {skullUrl}/{displayName}");
             }
             catch (Exception e)
             {
