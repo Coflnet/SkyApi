@@ -990,6 +990,11 @@ public class ModDescriptionService : IDisposable
         {
             foreach (var item in line)
             {
+                // separate fields on the same line, dropped again if the field adds nothing
+                var start = builder.Length;
+                if (start > 0 && builder[start - 1] != ' ')
+                    builder.Append(' ');
+                var contentStart = builder.Length;
                 try
                 {
                     AddFieldToBuilder(auction, index, data, builder, item);
@@ -998,6 +1003,8 @@ public class ModDescriptionService : IDisposable
                 {
                     logger.LogError(e, "failed to add description element {item} on {auction}", item, JsonConvert.SerializeObject(auction));
                 }
+                if (builder.Length == contentStart)
+                    builder.Length = start;
                 if (item == DescriptionField.DefaultLore)
                 {
                     // change all mods so far into insert of the first line

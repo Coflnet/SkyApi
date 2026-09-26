@@ -370,6 +370,25 @@ public class ModDescriptionServiceTests
     }
 
     [Test]
+    public async Task FieldsOnSameLineAreSeparatedBySingleSpace()
+    {
+        var inventory = GetMockInventory();
+        inventory.ChestName = "Inventory";
+        // TAG already ends with a space, NONE adds nothing, the key fields have no trailing space
+        inventory.Settings = new DescriptionSetting
+        {
+            Fields = [[DescriptionField.TAG, DescriptionField.NONE, DescriptionField.MEDIAN_KEY, DescriptionField.ITEM_KEY]]
+        };
+        sniperClient.Setup(s => s.GetPrices(It.IsAny<IEnumerable<SaveAuction>>(), default))
+            .Returns<IEnumerable<SaveAuction>, bool>((items, _) => Task.FromResult(items.Select(_ =>
+                new Coflnet.Sky.Sniper.Client.Model.PriceEstimate { MedianKey = "median_key", ItemKey = "item_key" }).ToList()));
+
+        var result = (await service.GetModifications(inventory, "test", "")).ToList();
+
+        Assert.That(result[20].Single().Value, Is.EqualTo("KISMET_FEATHER Med-Key: median_key Item-Key: item_key"));
+    }
+
+    [Test]
     public void FullCraftCost_PetWithoutLevelInNameOrDescription_DoesNotThrow()
     {
         // Synthetic/crafted pet auctions (e.g. PET_SIZED_CUPCAKE used internally for craft cost)
