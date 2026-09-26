@@ -3,6 +3,7 @@ using System.Collections.Immutable;
 using System.Diagnostics;
 using System.Globalization;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.RegularExpressions;
@@ -1653,16 +1654,46 @@ public class ModDescriptionService : IDisposable
     /// </summary>
     /// <param name="auction">The auction whose enchantments to evaluate.</param>
     /// <param name="bazaarPrices">Current bazaar prices for enchantment materials.</param>
-    /// <param name="useBuyOrderPrices">If true, uses buy order prices instead of sell order prices.</param>
+    /// <param name="useBuyOrderPrices">If true, uses buy order prices (<see cref="ItemPrice.SellPrice"/>) instead of insta buy prices (<see cref="ItemPrice.BuyPrice"/>).</param>
     /// <returns>An enumerable of enchantments paired with their estimated costs.</returns>
     public IEnumerable<(Enchantment e, long)> GetEnchantBreakdown(SaveAuction auction, IDictionary<string, ItemPrice> bazaarPrices, bool useBuyOrderPrices)
     {
         var enchants = auction.Enchantments;
-        var lookup = bazaarPrices.ToDictionary(a => a.Key, a => useBuyOrderPrices ? a.Value.BuyPrice : a.Value.BuyPrice);
+        var lookup = GetEnchantPriceLookup(bazaarPrices, useBuyOrderPrices);
         var relevant = mapper.IrrelevantOn(auction.Tag).ToDictionary(a => a.Item1, a => a.level);
         var enchantValues = enchants.Where(e => !relevant.TryGetValue(e.Type, out var l) || l < e.Level)
                     .Select(e => (e, mapper.EnchantValue(e, auction.FlatenedNBT, lookup, auction.Tag)));
         return enchantValues;
+    }
+
+    private sealed class EnchantPriceLookups
+    {
+        public Dictionary<string, double> InstaBuy;
+        public Dictionary<string, double> BuyOrder;
+    }
+
+    private static readonly ConditionalWeakTable<IDictionary<string, ItemPrice>, EnchantPriceLookups> enchantPriceLookups = new();
+
+    /// <summary>
+    /// Builds the price lookup the property mapper needs for enchant values.
+    /// Immutable bazaar snapshots are shared by every item of every request, so the lookup is built once per snapshot instead of once per item.
+    /// </summary>
+    private static Dictionary<string, double> GetEnchantPriceLookup(IDictionary<string, ItemPrice> bazaarPrices, bool useBuyOrderPrices)
+    {
+        if (bazaarPrices is not ImmutableDictionary<string, ItemPrice>)
+            return BuildEnchantPriceLookup(bazaarPrices, useBuyOrderPrices);
+        var lookups = enchantPriceLookups.GetValue(bazaarPrices, _ => new EnchantPriceLookups());
+        if (useBuyOrderPrices)
+            return lookups.BuyOrder ??= BuildEnchantPriceLookup(bazaarPrices, true);
+        return lookups.InstaBuy ??= BuildEnchantPriceLookup(bazaarPrices, false);
+    }
+
+    private static Dictionary<string, double> BuildEnchantPriceLookup(IDictionary<string, ItemPrice> bazaarPrices, bool useBuyOrderPrices)
+    {
+        var lookup = new Dictionary<string, double>(bazaarPrices.Count);
+        foreach (var (key, price) in bazaarPrices)
+            lookup[key] = useBuyOrderPrices ? price.SellPrice : price.BuyPrice;
+        return lookup;
     }
 
     private void AddCraftcost(SaveAuction auction, DataContainer data, StringBuilder builder)

@@ -470,6 +470,21 @@ public class ModDescriptionServiceTests
         });
         enchantVal.Sum(e => e.Item2).Should().Be(price);
     }
+
+    [Test]
+    public void EnchantBreakdownUsesBuyOrderPriceWhenEnabled()
+    {
+        // the immutable snapshot is cached per pricing mode, alternating modes must not mix them up
+        var bazaar = new Dictionary<string, ItemPrice>
+        {
+            { "SIL_EX", new() { BuyPrice = 5_000_000, SellPrice = 4_900_000 } }
+        }.ToImmutableDictionary();
+        var auction = new SaveAuction() { Tag = "DRILL", Enchantments = [new Enchantment(Enchantment.EnchantmentType.efficiency, 6)] };
+
+        service.GetEnchantBreakdown(auction, bazaar, false).Sum(e => e.Item2).Should().Be(5_000_000);
+        service.GetEnchantBreakdown(auction, bazaar, true).Sum(e => e.Item2).Should().Be(4_900_000);
+        service.GetEnchantBreakdown(auction, bazaar, false).Sum(e => e.Item2).Should().Be(5_000_000);
+    }
 #pragma warning restore CS1591 // Missing XML comment for publicly visible type or member
 
     /* [Test]
