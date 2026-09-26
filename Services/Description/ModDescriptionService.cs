@@ -601,7 +601,7 @@ public class ModDescriptionService : IDisposable
             var price = res?[i];
             if (desc == null || price == null)
             {
-                span.Log(JsonConvert.SerializeObject(desc) + JsonConvert.SerializeObject(auction));
+                span.Log(() => JsonConvert.SerializeObject(desc) + JsonConvert.SerializeObject(auction));
                 result.Add(new());
                 continue;
             }
@@ -624,8 +624,7 @@ public class ModDescriptionService : IDisposable
                 }
             }
 
-            if (desc != null && span != null)
-                span.Log(string.Join('\n', mods.Select(m => $"{m.Line} {m.Value}")) + JsonConvert.SerializeObject(auction, Formatting.Indented) + JsonConvert.SerializeObject(price, Formatting.Indented));
+            span.Log(() => string.Join('\n', mods.Select(m => $"{m.Line} {m.Value}")) + JsonConvert.SerializeObject(auction) + JsonConvert.SerializeObject(price));
             result.Add(mods);
         }
         foreach (var task in preRequest.ToLoad.Values)
