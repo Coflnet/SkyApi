@@ -1059,7 +1059,7 @@ public class ModDescriptionService : IDisposable
                 AddBazaarSell(auction, data.bazaarPrices, builder);
                 break;
             case DescriptionField.EnchantCost:
-                AddEnchantCost(auction, builder, data.bazaarPrices);
+                AddEnchantCost(auction, builder, data);
                 break;
             case DescriptionField.PRICE_PAID:
                 AddPricePaid(auction, data.pricesPaid, builder);
@@ -1068,7 +1068,7 @@ public class ModDescriptionService : IDisposable
                 AddCraftcost(auction, data, builder);
                 break;
             case DescriptionField.GemValue:
-                AddGemValue(auction, builder, data.bazaarPrices);
+                AddGemValue(auction, builder, data);
                 break;
             case DescriptionField.SpentOnAhFees:
                 AddSpentOnAhFees(auction, builder, data);
@@ -1277,7 +1277,7 @@ public class ModDescriptionService : IDisposable
         // Use buy order pricing if the user setting is enabled
         bool useBuyOrderPrices = data.inventory?.Settings?.BuyOrderPrices ?? false;
         (double? obtainPrice, double? craftPric) = BaseItemPrice(auction, data, useBuyOrderPrices);
-        double summary = obtainPrice.Value + ModifierCostSum(auction, data, useBuyOrderPrices) + EnchantCost(auction, data.bazaarPrices, useBuyOrderPrices);
+        double summary = obtainPrice.Value + ModifierCostSum(auction, data) + EnchantCost(auction, data.bazaarPrices, useBuyOrderPrices);
 
         var auctionIndex = data.auctionRepresent?.FindIndex(entry => ReferenceEquals(entry.auction, auction)) ?? -1;
         if (auctionIndex >= 0 && auctionIndex < (data.PriceEst?.Count ?? 0))
@@ -1362,16 +1362,11 @@ public class ModDescriptionService : IDisposable
 
     private double ModifierCostSum(SaveAuction auction, DataContainer data)
     {
-        return ModifierCostSum(auction, data, useBuyOrderPrices: data.inventory?.Settings?.BuyOrderPrices ?? false);
-    }
-
-    private double ModifierCostSum(SaveAuction auction, DataContainer data, bool useBuyOrderPrices)
-    {
         IEnumerable<List<(string id, int amount, double coins)>> cost = GetModifiersOnItem(auction, data);
 
         var valueSum = cost.SelectMany(c => c).Select(d =>
         {
-            return data.GetItemprice(d.id, useBuyOrderPrices) * d.amount + d.coins;
+            return data.GetItemprice(d.id) * d.amount + d.coins;
         });
         return valueSum.Sum();
     }
@@ -1523,7 +1518,7 @@ public class ModDescriptionService : IDisposable
             foreach (var ingred in items)
             {
                 if (data.bazaarPrices.TryGetValue(ingred.itemId, out var cost))
-                    sum += (int)cost.SellPrice * ingred.amount;
+                    sum += (int)BazaarPriceSelector.Select(cost, data.UseBuyOrderPrices) * ingred.amount;
                 else
                     sum += 1_000_000;
             }
@@ -1534,7 +1529,10 @@ public class ModDescriptionService : IDisposable
     }
 
     /// <summary>
-    /// Gets the current price for an item, checking cached item prices first, then bazaar sell prices.
+    /// Gets the current price for an item, checking cached item prices first, then applying the
+    /// bazaar price selection rule (<see cref="BazaarPriceSelector"/>). No user setting is available
+    /// here (used by e.g. <see cref="NetworthService"/>), so this always uses the default
+    /// (<see cref="ItemPrice.BuyPrice"/>, with fallback).
     /// </summary>
     /// <param name="itemKey">The item tag or key to look up.</param>
     /// <returns>The item price in coins, or 0 if not found.</returns>
@@ -1545,7 +1543,7 @@ public class ModDescriptionService : IDisposable
         if (deserializedCache.ItemPrices.TryGetValue(itemKey, out var price))
             return price;
         if (deserializedCache.BazaarItems.TryGetValue(itemKey, out var bazaarPrice))
-            return (long)bazaarPrice.SellPrice;
+            return (long)BazaarPriceSelector.Select(bazaarPrice, useBuyOrderPrices: false);
         return 0;
     }
 
@@ -1569,7 +1567,7 @@ public class ModDescriptionService : IDisposable
 
             }
             else
-                materialCost = cost.Amount * bazaarPrice.BuyPrice;
+                materialCost = cost.Amount * BazaarPriceSelector.Select(bazaarPrice, data.UseBuyOrderPrices);
         }
         var level = (float)int.Parse(Regex.Replace(auction.ItemName.Substring(2, 7), "[^0-9]", ""));
         var upgradeCost = cost.Cost * (1 - (level - 1) * 0.003);
@@ -1597,7 +1595,7 @@ public class ModDescriptionService : IDisposable
         builder.Append($"{McColorCodes.GRAY}Spent on listing: {McColorCodes.YELLOW}{FormatPriceShort(sum)}{McColorCodes.GRAY} Last attempt {McColorCodes.BLUE}{formated}");
     }
 
-    private void AddGemValue(SaveAuction auction, StringBuilder builder, IDictionary<string, ItemPrice> bazaarPrices)
+    private void AddGemValue(SaveAuction auction, StringBuilder builder, DataContainer data)
     {
         var sum = 0L;
         foreach (var prop in auction.FlatenedNBT)
@@ -1605,8 +1603,8 @@ public class ModDescriptionService : IDisposable
             if (prop.Value != "PERFECT" && prop.Value != "FLAWLESS" && prop.Value != "FINE")
                 continue;
             var key = mapper.GetItemKeyForGem(prop, auction.FlatenedNBT);
-            if (bazaarPrices.ContainsKey(key))
-                sum += (long)bazaarPrices[key].SellPrice;
+            if (data.bazaarPrices.TryGetValue(key, out var price))
+                sum += (long)BazaarPriceSelector.Select(price, data.UseBuyOrderPrices);
         }
         if (sum == 0)
             return;
@@ -1615,15 +1613,10 @@ public class ModDescriptionService : IDisposable
 
 
 
-    private void AddEnchantCost(SaveAuction auction, StringBuilder builder, IDictionary<string, ItemPrice> bazaarPrices)
+    internal void AddEnchantCost(SaveAuction auction, StringBuilder builder, DataContainer data)
     {
-        long enchantCost = EnchantCost(auction, bazaarPrices);
+        long enchantCost = EnchantCost(auction, data.bazaarPrices, data.UseBuyOrderPrices);
         builder.Append($"{McColorCodes.GRAY}Enchants: {McColorCodes.YELLOW}{FormatNumber(enchantCost)} ");
-    }
-
-    private long EnchantCost(SaveAuction auction, IDictionary<string, ItemPrice> bazaarPrices)
-    {
-        return EnchantCost(auction, bazaarPrices, useBuyOrderPrices: false);
     }
 
     private long EnchantCost(SaveAuction auction, IDictionary<string, ItemPrice> bazaarPrices, bool useBuyOrderPrices)
@@ -1692,7 +1685,7 @@ public class ModDescriptionService : IDisposable
     {
         var lookup = new Dictionary<string, double>(bazaarPrices.Count);
         foreach (var (key, price) in bazaarPrices)
-            lookup[key] = useBuyOrderPrices ? price.SellPrice : price.BuyPrice;
+            lookup[key] = BazaarPriceSelector.Select(price, useBuyOrderPrices);
         return lookup;
     }
 

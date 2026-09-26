@@ -25,9 +25,10 @@ public class SkyblockGemsValue : CurrencyValueDisplay
     {
         var auction = data.auctionRepresent[i].auction;
         var bazaar = data.bazaarPrices.GetValueOrDefault(auction.Tag);
-        if (bazaar != default && bazaar.SellPrice != 0 && HasValue(desc, out int bits, out int lineId))
+        var selectedPrice = bazaar != default ? BazaarPriceSelector.Select(bazaar, data.UseBuyOrderPrices) : 0;
+        if (selectedPrice != 0 && HasValue(desc, out int bits, out int lineId))
         {
-            var formattedPrice = $"{McColorCodes.AQUA}{data.modService.FormatNumber((float)bazaar.SellPrice / bits * auction.Count)}";
+            var formattedPrice = $"{McColorCodes.AQUA}{data.modService.FormatNumber((float)selectedPrice / bits * auction.Count)}";
             ReplaceLine(data, i, lineId, formattedPrice);
         }
     }

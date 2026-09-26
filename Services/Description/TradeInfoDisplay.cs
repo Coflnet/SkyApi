@@ -51,7 +51,7 @@ public class TradeInfoDisplay : ICustomModifier
             }
             else if (item?.Tag != null && (data.bazaarPrices?.TryGetValue(item.Tag, out var price) ?? false))
             {
-                value = (long)price.SellPrice * item.Count;
+                value = (long)BazaarPriceSelector.Select(price, data.UseBuyOrderPrices) * item.Count;
             }
             if (column < 4)
             {

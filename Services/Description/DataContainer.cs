@@ -46,29 +46,48 @@ public class DataContainer
     /// <summary>Gets or sets the loaded.</summary>
     public Dictionary<string, Task<string>> Loaded { get; set; }
 
-    /// <summary>Gets itemprice.</summary>
-    public long GetItemprice(string itemKey)
-    {
-        return GetItemprice(itemKey, useBuyOrderPrices: false);
-    }
+    /// <summary>
+    /// Whether the user enabled buy-order pricing (<see cref="DescriptionSetting.BuyOrderPrices"/>).
+    /// When true, bazaar values/costs should prefer <see cref="ItemPrice.SellPrice"/> over
+    /// <see cref="ItemPrice.BuyPrice"/> (see <see cref="BazaarPriceSelector"/>).
+    /// </summary>
+    public bool UseBuyOrderPrices => inventory?.Settings?.BuyOrderPrices ?? false;
 
     /// <summary>
-    /// Gets the price of an item, optionally using buy order prices instead of insta-sell prices
+    /// Gets the item price, applying the bazaar price selection rule (<see cref="BazaarPriceSelector"/>):
+    /// <see cref="ItemPrice.BuyPrice"/> by default, <see cref="ItemPrice.SellPrice"/> when
+    /// <see cref="UseBuyOrderPrices"/> is set, falling back to the other side if the selected one has
+    /// no orders. The <see cref="itemPrices"/> dictionary (exact known prices) still takes precedence.
     /// </summary>
-    /// <param name="itemKey">The item key/tag</param>
-    /// <param name="useBuyOrderPrices">If true, uses bazaar buy price (top buy order); if false, uses sell price (lowest sell offer)</param>
-    /// <returns>The item price in coins</returns>
-    public long GetItemprice(string itemKey, bool useBuyOrderPrices)
+    public long GetItemprice(string itemKey)
     {
         if (itemKey == null)
             return 0;
         if (itemPrices.TryGetValue(itemKey, out var price))
             return price;
         if (bazaarPrices.TryGetValue(itemKey, out var bazaarPrice))
-        {
-            // Use buy price (top buy order) if buy order mode is enabled, otherwise use sell price (lowest sell offer)
-            return useBuyOrderPrices ? (long)bazaarPrice.BuyPrice : (long)bazaarPrice.SellPrice;
-        }
+            return (long)BazaarPriceSelector.Select(bazaarPrice, UseBuyOrderPrices);
+        return 0;
+    }
+
+    /// <summary>
+    /// Gets the raw, explicit price of an item without applying the bazaar price selection rule or
+    /// its fallback. Used where a specific side of the spread is literally what is being paid, e.g.
+    /// <see cref="InstantBuyMaxAmount"/>'s instant-buy cost (always <see cref="ItemPrice.BuyPrice"/>).
+    /// Everything that should honor the user's buy-order-prices setting should use
+    /// <see cref="GetItemprice(string)"/> instead.
+    /// </summary>
+    /// <param name="itemKey">The item key/tag</param>
+    /// <param name="instaBuy">If true, uses <see cref="ItemPrice.BuyPrice"/> (what insta buying costs); if false, uses <see cref="ItemPrice.SellPrice"/> (insta sell, roughly what a buy order pays)</param>
+    /// <returns>The item price in coins</returns>
+    public long GetItemprice(string itemKey, bool instaBuy)
+    {
+        if (itemKey == null)
+            return 0;
+        if (itemPrices.TryGetValue(itemKey, out var price))
+            return price;
+        if (bazaarPrices.TryGetValue(itemKey, out var bazaarPrice))
+            return instaBuy ? (long)bazaarPrice.BuyPrice : (long)bazaarPrice.SellPrice;
         return 0;
     }
 }

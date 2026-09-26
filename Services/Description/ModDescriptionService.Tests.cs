@@ -403,6 +403,59 @@ public class ModDescriptionServiceTests
         cost.obtainPrice.Should().Be(5_000);
     }
 
+    [TestCase(false, 7_000)]
+    [TestCase(true, 6_000)]
+    public void FullCraftCost_BuyOrderSettingSwitchesModifierPrice(bool buyOrderPrices, long expected)
+    {
+        var pet = new SaveAuction
+        {
+            Tag = "PET_SIZED_CUPCAKE",
+            ItemName = "Pet-Sized Cupcake",
+            Tier = Tier.COMMON,
+            ItemCreatedAt = DateTime.UtcNow,
+            FlatenedNBT = new() { { "heldItem", "PET_ITEM_TEST" } }
+        };
+        var cost = service.FullCraftCost(pet, new()
+        {
+            inventory = new() { Settings = new DescriptionSetting { BuyOrderPrices = buyOrderPrices } },
+            allCrafts = new(),
+            itemPrices = new() { { "PET_SIZED_CUPCAKE", 5_000 } },
+            bazaarPrices = new Dictionary<string, ItemPrice>
+            {
+                { "PET_ITEM_TEST", new() { BuyPrice = 2_000, SellPrice = 1_000 } }
+            }.ToImmutableDictionary(),
+            auctionRepresent = new()
+        });
+        cost.summary.Should().Be(expected);
+    }
+
+    [Test]
+    public void FullCraftCost_ModifierPriceFallsBackToSellPriceWhenNoSellOffers()
+    {
+        // default mode wants BuyPrice, but the modifier item has no sell offers (BuyPrice 0),
+        // so it should fall back to SellPrice instead of pricing the modifier at 0
+        var pet = new SaveAuction
+        {
+            Tag = "PET_SIZED_CUPCAKE",
+            ItemName = "Pet-Sized Cupcake",
+            Tier = Tier.COMMON,
+            ItemCreatedAt = DateTime.UtcNow,
+            FlatenedNBT = new() { { "heldItem", "PET_ITEM_TEST" } }
+        };
+        var cost = service.FullCraftCost(pet, new()
+        {
+            inventory = new() { Settings = new DescriptionSetting { BuyOrderPrices = false } },
+            allCrafts = new(),
+            itemPrices = new() { { "PET_SIZED_CUPCAKE", 5_000 } },
+            bazaarPrices = new Dictionary<string, ItemPrice>
+            {
+                { "PET_ITEM_TEST", new() { BuyPrice = 0, SellPrice = 1_000 } }
+            }.ToImmutableDictionary(),
+            auctionRepresent = new()
+        });
+        cost.summary.Should().Be(6_000);
+    }
+
     [Test]
     public void FullCraftCost_MissingCleanPrice_UsesExactMedianInsteadOfInvalidCraftCost()
     {
@@ -484,6 +537,66 @@ public class ModDescriptionServiceTests
         service.GetEnchantBreakdown(auction, bazaar, false).Sum(e => e.Item2).Should().Be(5_000_000);
         service.GetEnchantBreakdown(auction, bazaar, true).Sum(e => e.Item2).Should().Be(4_900_000);
         service.GetEnchantBreakdown(auction, bazaar, false).Sum(e => e.Item2).Should().Be(5_000_000);
+    }
+
+    [Test]
+    public void EnchantBreakdownFallsBackToSellPriceWhenNoSellOffers()
+    {
+        // fresh dictionary instance: the lookup is cached per ImmutableDictionary, must not reuse
+        // the one from EnchantBreakdownUsesBuyOrderPriceWhenEnabled
+        var bazaar = new Dictionary<string, ItemPrice>
+        {
+            { "SIL_EX", new() { BuyPrice = 0, SellPrice = 4_900_000 } }
+        }.ToImmutableDictionary();
+        var auction = new SaveAuction() { Tag = "DRILL", Enchantments = [new Enchantment(Enchantment.EnchantmentType.efficiency, 6)] };
+
+        // default mode (useBuyOrderPrices: false) wants BuyPrice, but there are no sell offers (0)
+        // so it should fall back to SellPrice
+        service.GetEnchantBreakdown(auction, bazaar, false).Sum(e => e.Item2).Should().Be(4_900_000);
+    }
+
+    [TestCase(false, "§7Enchants: §e5,000,000 ")]
+    [TestCase(true, "§7Enchants: §e4,900,000 ")]
+    public void EnchantFieldHonoursBuyOrderSetting(bool buyOrderPrices, string expected)
+    {
+        var data = new Coflnet.Sky.Api.Services.Description.DataContainer
+        {
+            inventory = new InventoryDataWithSettings { Settings = new DescriptionSetting { BuyOrderPrices = buyOrderPrices } },
+            bazaarPrices = new Dictionary<string, ItemPrice>
+            {
+                { "SIL_EX", new() { BuyPrice = 5_000_000, SellPrice = 4_900_000 } }
+            }.ToImmutableDictionary()
+        };
+        var builder = new System.Text.StringBuilder();
+
+        service.AddEnchantCost(new SaveAuction() { Tag = "DRILL", Enchantments = [new Enchantment(Enchantment.EnchantmentType.efficiency, 6)] }, builder, data);
+
+        builder.ToString().Should().Be(expected);
+    }
+
+    [TestCase(false, "50.0")]
+    [TestCase(true, "40.0")]
+    public void SkyblockGemsValue_DefaultUsesBuyPrice_SettingUsesSellPrice(bool buyOrderPrices, string expectedPerGem)
+    {
+        // previously-wrong site: this always read SellPrice regardless of the user's setting
+        var auction = new SaveAuction { Tag = "GEMSTONE_ITEM", Count = 1 };
+        var data = new Coflnet.Sky.Api.Services.Description.DataContainer
+        {
+            auctionRepresent = new() { (auction, new[] { "§7100 SkyBlock Gems" }) },
+            PriceEst = new() { new Coflnet.Sky.Sniper.Client.Model.PriceEstimate() },
+            bazaarPrices = new Dictionary<string, ItemPrice>
+            {
+                { "GEMSTONE_ITEM", new() { BuyPrice = 5_000, SellPrice = 4_000 } }
+            }.ToImmutableDictionary(),
+            mods = new() { new() },
+            modService = service,
+            inventory = new() { Settings = new DescriptionSetting { BuyOrderPrices = buyOrderPrices } }
+        };
+
+        new SkyblockGemsValue().Apply(data);
+
+        data.mods[0].Should().ContainSingle();
+        data.mods[0][0].Value.Should().Contain(expectedPerGem);
     }
 #pragma warning restore CS1591 // Missing XML comment for publicly visible type or member
 

@@ -113,7 +113,7 @@ public class InstantBuyMaxAmount : ICustomModifier
         else
         {
             var itemTag = FindBazaarItemTag(data.auctionRepresent);
-            var pricePerUnit = data.GetItemprice(itemTag, useBuyOrderPrices: true);
+            var pricePerUnit = data.GetItemprice(itemTag, instaBuy: true);
             if (pricePerUnit <= 0)
                 return;
             affordable = (long)(purse / (1 + SafetyMargin) / pricePerUnit);

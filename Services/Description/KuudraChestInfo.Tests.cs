@@ -12,11 +12,13 @@ namespace Coflnet.Sky.Api.Services.Description.Tests;
 public class KuudraChestInfoTests
 {
     /// <summary>Performs the kuudra chest info uses updated base coin cost per tier operation.</summary>
-    [TestCase("Basic Kuudra Key", 160_000 + 2 * 2_000 + 2 * 20_000)]
-    [TestCase("Hot Kuudra Key", 320_000 + 6 * 2_000 + 2 * 20_000)]
-    [TestCase("Burning Kuudra Key", 600_000 + 20 * 2_000 + 2 * 20_000)]
-    [TestCase("Fiery Kuudra Key", 1_200_000 + 60 * 2_000 + 2 * 20_000)]
-    [TestCase("Infernal Kuudra Key", 2_400_000 + 120 * 2_000 + 2 * 20_000)]
+    // Materials/star now price at BuyPrice by default (bazaar price selection rule), not SellPrice:
+    // materialPrice = min(sand BuyPrice 2_900, mycelium BuyPrice 1_900) = 1_900; starPrice = star BuyPrice 19_000.
+    [TestCase("Basic Kuudra Key", 160_000 + 2 * 1_900 + 2 * 19_000)]
+    [TestCase("Hot Kuudra Key", 320_000 + 6 * 1_900 + 2 * 19_000)]
+    [TestCase("Burning Kuudra Key", 600_000 + 20 * 1_900 + 2 * 19_000)]
+    [TestCase("Fiery Kuudra Key", 1_200_000 + 60 * 1_900 + 2 * 19_000)]
+    [TestCase("Infernal Kuudra Key", 2_400_000 + 120 * 1_900 + 2 * 19_000)]
     public void KuudraChestInfo_UsesUpdatedBaseCoinCostPerTier(string keyLine, long expectedCost)
     {
         var auctionRepresent = new List<(Core.SaveAuction auction, string[] desc)>();
@@ -131,8 +133,9 @@ public class KuudraChestInfoTests
         var added = data.mods.Last();
         var joined = string.Join("\n", added.Select(mod => mod.Value));
 
-        var expectedInfernalCost = ModDescriptionService.FormatPriceShort(2_400_000 + 120 * 2_000 + 2 * 20_000);
-        var unexpectedBasicCost = ModDescriptionService.FormatPriceShort(160_000 + 2 * 2_000 + 2 * 20_000);
+        // BuyPrice by default: materialPrice = min(2_900, 1_900) = 1_900; starPrice = 19_000
+        var expectedInfernalCost = ModDescriptionService.FormatPriceShort(2_400_000 + 120 * 1_900 + 2 * 19_000);
+        var unexpectedBasicCost = ModDescriptionService.FormatPriceShort(160_000 + 2 * 1_900 + 2 * 19_000);
 
         Assert.That(joined, Does.Contain("Detected Key: Infernal Kuudra Key"));
         Assert.That(joined, Does.Contain($"Key Cost (est): {expectedInfernalCost}"));
@@ -207,7 +210,8 @@ public class KuudraChestInfoTests
         var added = data.mods.Last();
         var joined = string.Join("\n", added.Select(mod => mod.Value));
 
-        var expectedTotal = ModDescriptionService.FormatPriceShort(100_000 + 100 * 500 + 2 * 20_000);
+        // BuyPrice by default: essence 490/ea, shard 19_000/ea (x2 parsed from the item name)
+        var expectedTotal = ModDescriptionService.FormatPriceShort(100_000 + 100 * 490 + 2 * 19_000);
         Assert.That(joined, Does.Contain(expectedTotal));
         Assert.That(joined, Does.Contain("Crimson Essence x100"));
         Assert.That(joined, Does.Contain("Kraken Shard"));
@@ -396,7 +400,8 @@ public class KuudraChestInfoTests
         var joined = string.Join("\n", data.mods.Last().Select(mod => mod.Value));
 
         var expectedTotal = ModDescriptionService.FormatPriceShort(214_085 + 3_446_438 + 252_000 + 7_588 + 184_826);
-        var expectedCost = ModDescriptionService.FormatPriceShort(320_000 + 6 * 1_347 + 2 * 20_250);
+        // BuyPrice by default: materialPrice = min(1_900, 1_300) = 1_300; starPrice = 20_000
+        var expectedCost = ModDescriptionService.FormatPriceShort(320_000 + 6 * 1_300 + 2 * 20_000);
 
         Assert.That(joined, Does.Contain("Detected Key: Hot Kuudra Key"));
         Assert.That(joined, Does.Contain("Crimson Essence x250"));
