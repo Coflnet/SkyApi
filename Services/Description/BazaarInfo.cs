@@ -21,26 +21,64 @@ public class BazaarInfo : ICustomModifier
     /// <summary>Gets the disable info name.</summary>
     public string DisableInfoName => "bazaar";
 
+    private const string PurseLoadKey = "bazaarInfoPurse";
+
+    /// <summary>A craft candidate ranked by profit, carrying the adjusted sell price used for display.</summary>
+    internal record CraftCandidate(ProfitableCraft Craft, double SellPrice, long Profit);
+
+    /// <summary>
+    /// Selects the top affordable crafts ranked by profit. Filters out crafts the player's purse
+    /// cannot cover (when <paramref name="purse"/> is given) before applying the tier skip/take, so
+    /// both premium and free tiers still see up to 3 rows out of the entries they can actually afford.
+    /// </summary>
+    internal static List<CraftCandidate> SelectCrafts(IEnumerable<ProfitableCraft> crafts, ISet<string> bazaarItems, long? purse, int skip)
+    {
+        return crafts
+                .Where(c => c.CraftCost > 0 && bazaarItems.Contains(c.ItemId) && c.Type == "crafting")
+                .Select(c => new CraftCandidate(c, c.SellPrice - 1, (long)(c.SellPrice * 0.99 - c.CraftCost - 1)))
+                .Where(c => c.Profit > 0)
+                .Where(c => purse == null || c.Craft.CraftCost <= purse)
+                .OrderByDescending(c => c.Profit)
+                .Skip(skip)
+                .Take(3)
+                .ToList();
+    }
+
+    /// <summary>
+    /// Selects the top affordable bazaar flips ranked by profit per hour. A flip is only affordable if
+    /// the player can afford at least one unit at the buy-order price (<see cref="BazaarFlip.SellPrice"/>).
+    /// </summary>
+    internal static List<BazaarFlip> SelectFlips(IEnumerable<BazaarFlip> flips, long? purse, int skip)
+    {
+        return flips
+            .Where(f => purse == null || f.SellPrice <= purse)
+            .OrderByDescending(f => f.ProfitPerHour)
+            .Skip(skip)
+            .Take(3)
+            .ToList();
+    }
+
+    /// <summary>
+    /// The tier rule shared by the crafts and flips lists: premium tiers with a non-expired
+    /// subscription see the top 3 entries (skip 0), everyone else sees entries ranked 4-6 (skip 3).
+    /// </summary>
+    internal static int TierSkip(AccountInfo accountInfo)
+        => accountInfo.Tier >= AccountTier.STARTER_PREMIUM && accountInfo.ExpiresAt > DateTime.UtcNow ? 0 : 3;
+
     /// <inheritdoc/>
+    /// <remarks>Both the crafts and flips lists are filtered to what the player's purse can afford
+    /// (via <see cref="PurseLoadKey"/>) before the tier skip/take is applied.</remarks>
     public void Apply(DataContainer data)
     {
         if (data.inventory.Version < 3)
             return; // not supported
         var bazaarItems = data.bazaarPrices.Keys.ToHashSet();
-        var skip = data.accountInfo.Tier >= Commands.Shared.AccountTier.STARTER_PREMIUM && data.accountInfo.ExpiresAt > DateTime.UtcNow ? 0 : 3;
-        var topCrafts = data.allCrafts.Values
-                .Where(c => c.CraftCost > 0 && bazaarItems.Contains(c.ItemId) && c.Type == "crafting")
-                .Select(c => new
-                {
-                    Craft = c,
-                    SellPrice = c.SellPrice - 1,
-                    Profit = (long)(c.SellPrice * 0.99 - c.CraftCost - 1)
-                })
-                .Where(c => c.Profit > 0)
-                .OrderByDescending(c => c.Profit)
-                .Skip(skip)
-                .Take(3)
-                .ToList();
+        var skip = TierSkip(data.accountInfo);
+        long? purse = null;
+        if (data.Loaded != null && data.Loaded.TryGetValue(PurseLoadKey, out var purseTask)
+            && long.TryParse(purseTask.Result, out var parsedPurse) && parsedPurse > 0)
+            purse = parsedPurse;
+        var topCrafts = SelectCrafts(data.allCrafts.Values, bazaarItems, purse, skip);
 
         var display = new List<DescModification>();
         data.mods.Add(display);
@@ -63,10 +101,7 @@ public class BazaarInfo : ICustomModifier
         var bazaarFlips = data.Loaded[nameof(BazaarInfo)].Result;
         var deserializedFlips = Newtonsoft.Json.JsonConvert.DeserializeObject<List<BazaarFlip>>(bazaarFlips);
         Console.WriteLine($"Got {deserializedFlips.Count} bazaar flips from bazaarflipper {bazaarFlips.Truncate(20)}");
-        var biggestSpreads = deserializedFlips
-        .OrderByDescending(b => b.ProfitPerHour)
-        .Skip(skip)
-        .Take(3).ToList();
+        var biggestSpreads = SelectFlips(deserializedFlips, purse, skip);
         if (biggestSpreads.Count > 0)
             display.Add(new($"{McColorCodes.GOLD}SkyC{McColorCodes.AQUA}ofl {McColorCodes.GRAY}● §7Best flips on avg:"));
         foreach (var spread in biggestSpreads)
@@ -131,6 +166,8 @@ public class BazaarInfo : ICustomModifier
     /// <inheritdoc/>
     public void Modify(ModDescriptionService.PreRequestContainer preRequest)
     {
+        if (!string.IsNullOrWhiteSpace(preRequest.mcName))
+            preRequest.ToLoad[PurseLoadKey] = InstantBuyMaxAmount.LoadPurse(preRequest.mcName);
         preRequest.ToLoad[nameof(BazaarInfo)] = Task.Run(async () =>
         {
             try

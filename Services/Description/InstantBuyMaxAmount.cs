@@ -45,7 +45,7 @@ public class InstantBuyMaxAmount : ICustomModifier
             preRequest.ToLoad[OrderBookLoadKey] = LoadSellOrders(itemTag);
     }
 
-    private static async Task<string> LoadPurse(string name)
+    internal static async Task<string> LoadPurse(string name)
     {
         try
         {
