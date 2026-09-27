@@ -14,8 +14,7 @@
             "launchBrowser": true,
             "launchUrl": "api",
             "environmentVariables": {
-                "ASPNETCORE_ENVIRONMENT": "Development",
-                "DONUT_API_BASE_URL": "https://donut.coflnet.com"
+                "ASPNETCORE_ENVIRONMENT": "Development"
             }
         },
         "SkyAuctionBase": {
@@ -25,8 +24,7 @@
             "launchUrl": "api",
             "applicationUrl": "http://localhost:5005",
             "environmentVariables": {
-                "ASPNETCORE_ENVIRONMENT": "Development",
-                "DONUT_API_BASE_URL": "https://donut.coflnet.com"
+                "ASPNETCORE_ENVIRONMENT": "Development"
             }
         }
     }
