@@ -245,6 +245,22 @@ public class PricesController : ControllerBase
     }
 
     /// <summary>
+    /// Gets a live snapshot of the current market for an item: BIN price distribution,
+    /// time-on-market buckets and active listing/seller counts. Auction-house only for now.
+    /// </summary>
+    /// <param name="itemTag">The item tag you want live market data for</param>
+    /// <param name="filters">Filter parameters - can be added directly as query parameters</param>
+    /// <returns></returns>
+    [Route("item/price/{itemTag}/analysis/live")]
+    [HttpGet]
+    [ResponseCache(Duration = 120, Location = ResponseCacheLocation.Any, NoStore = false, VaryByQueryKeys = new string[] { "*" })]
+    public async Task<PricesService.LiveMarketAnalysisResult> GetLiveAnalysis(string itemTag, [FromQuery] IDictionary<string, string> filters = null)
+    {
+        var dictFilters = filters as Dictionary<string, string> ?? (filters == null ? null : new Dictionary<string, string>(filters));
+        return await priceService.GetLiveMarketAnalysis(itemTag, dictFilters);
+    }
+
+    /// <summary>
     /// Returns all available filters with all available options
     /// </summary>
     /// <returns></returns>
