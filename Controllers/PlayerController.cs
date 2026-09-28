@@ -317,6 +317,7 @@ namespace Coflnet.Sky.Api.Controller
         /// <returns></returns>
         [Route("bazaar/flips")]
         [HttpGet]
+        [ResponseCache(Duration = 30, Location = ResponseCacheLocation.Any, NoStore = false, VaryByQueryKeys = new string[] { "apiKey" })]
         public async Task<List<PlayerState.Client.Model.CompletedBazaarFlip>> GetPlayerBazaarFlips([FromServices] ApiKeyService keyService,[FromServices] IBazaarProfitApi profitApi, string apiKey = null)
         {
             var keyInfo = await keyService.GetKeyInfo(this);
