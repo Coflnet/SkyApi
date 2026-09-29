@@ -49,8 +49,10 @@ public class ListPriceRecommend : ICustomModifier
         var suggestedPrice = priceEst.Median;
         var priceSource = "median";
         var priceInfo = JsonConvert.DeserializeObject<PriceInfo>(data.Loaded[nameof(ListPriceRecommend)].Result);
+        // Recommended is null whenever the item wasn't sent as flip to the player, which is the common case
+        var hasFlipEstimate = priceInfo.Recommended > 0;
 
-        if ((priceEst == null || priceEst.Volume <= 0.5) && priceInfo.Recommended.Value <= 0)
+        if ((priceEst == null || priceEst.Volume <= 0.5) && !hasFlipEstimate)
         {
             data.mods.Add([
                 new DescModification("Looks like this is not sold often"),
@@ -59,7 +61,7 @@ public class ListPriceRecommend : ICustomModifier
             ]);
             return;
         }
-        if (priceEst.MedianKey.Replace("&comb", "") != priceEst.ItemKey && priceInfo.Recommended.Value <= 0)
+        if (priceEst.MedianKey.Replace("&comb", "") != priceEst.ItemKey && !hasFlipEstimate)
         {
             data.mods.Add([
                 new DescModification("item has too few similar sales"),
@@ -85,7 +87,7 @@ public class ListPriceRecommend : ICustomModifier
             priceSource = "lbin (as configured)";
             suggestedPrice = priceEst.Lbin.Price - 1;
         }
-        if (priceInfo.Recommended != null && priceInfo.Recommended > 0 && !priceInfo.WasListedBefore && !priceInfo.WasChanged)
+        if (hasFlipEstimate && !priceInfo.WasListedBefore && !priceInfo.WasChanged)
         {
             suggestedPrice = priceInfo.Recommended.Value;
             priceSource = "Flip estimate";
