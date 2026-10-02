@@ -786,13 +786,17 @@ namespace Coflnet.Sky.Api.Controller
                     StringComparison.OrdinalIgnoreCase)
                         ? "de"
                         : "en";
-                var declaration = legalManifest.PremiumEarlyStart
+                // One snapshot for every field so a concurrent manifest refresh cannot mix versions.
+                var manifest = legalManifest.Current
+                    ?? throw new InvalidOperationException(
+                        "The legal manifest is unavailable.");
+                var declaration = manifest.PremiumEarlyStart
                     ?? throw new InvalidOperationException(
                         "The Premium declaration is unavailable.");
-                var agreement = legalManifest.Agreement
+                var agreement = manifest.Agreement
                     ?? throw new InvalidOperationException(
                         "The SkyCofl agreement identity is unavailable.");
-                var withdrawal = legalManifest.Withdrawal
+                var withdrawal = manifest.Withdrawal
                     ?? throw new InvalidOperationException(
                         "The withdrawal identity is unavailable.");
                 if (!string.Equals(
