@@ -41,7 +41,9 @@ public class LegalManifestServiceTests
             (_, token) =>
             {
                 delayEntered.TrySetResult();
-                return resume.Task.WaitAsync(token);
+                return resume.Task.IsCompleted
+                    ? Task.Delay(Timeout.InfiniteTimeSpan, token)
+                    : resume.Task.WaitAsync(token);
             });
 
         await service.StartAsync(CancellationToken.None);
@@ -109,7 +111,9 @@ public class LegalManifestServiceTests
             (_, token) =>
             {
                 delayEntered.TrySetResult();
-                return resume.Task.WaitAsync(token);
+                return resume.Task.IsCompleted
+                    ? Task.Delay(Timeout.InfiniteTimeSpan, token)
+                    : resume.Task.WaitAsync(token);
             });
 
         await service.StartAsync(CancellationToken.None);
@@ -157,15 +161,224 @@ public class LegalManifestServiceTests
             await service.StartAsync(CancellationToken.None));
     }
 
+    /// <summary>Drives the refresh loop one delay at a time.</summary>
+    private sealed class LoopDriver : IDisposable
+    {
+        private readonly SemaphoreSlim entered = new(0);
+        private readonly SemaphoreSlim gate = new(0);
+        public List<TimeSpan> Delays { get; } = [];
+
+        public Task Delay(TimeSpan duration, CancellationToken token)
+        {
+            lock (Delays)
+                Delays.Add(duration);
+            entered.Release();
+            return gate.WaitAsync(token);
+        }
+
+        /// <summary>Waits until the loop is waiting in a delay, i.e. one iteration finished.</summary>
+        public Task Settled() => entered.WaitAsync(TimeSpan.FromSeconds(5));
+
+        /// <summary>Lets the pending delay elapse and waits for the following iteration.</summary>
+        public async Task Tick()
+        {
+            gate.Release();
+            await Settled();
+        }
+
+        public void Dispose()
+        {
+            entered.Dispose();
+            gate.Dispose();
+        }
+    }
+
+    /// <summary>The first load publishes one snapshot and schedules the default refresh.</summary>
+    [Test]
+    public async Task FirstLoadPublishesSnapshotAndSchedulesRefresh()
+    {
+        var now = DateTimeOffset.Parse("2026-09-29T08:00:00Z");
+        using var driver = new LoopDriver();
+        using var service = CreateService(
+            new ManifestHandler(new Fixture("v1", now.AddDays(-1))), () => now, driver.Delay);
+
+        await service.StartAsync(CancellationToken.None);
+        await driver.Settled();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(service.Current.Withdrawal.Version, Is.EqualTo("v1"));
+            Assert.That(service.Agreement, Is.SameAs(service.Current.Agreement));
+            Assert.That(driver.Delays, Is.EqualTo(new[] { TimeSpan.FromSeconds(300) }));
+            Assert.That(TermsAcceptancePolicy.CurrentHash, Is.EqualTo(service.Agreement.Hash));
+        });
+    }
+
+    /// <summary>A manifest changed after the first load is picked up on the next refresh.</summary>
+    [Test]
+    public async Task ChangedManifestIsPickedUpOnNextRefresh()
+    {
+        var now = DateTimeOffset.Parse("2026-09-30T08:00:00Z");
+        using var driver = new LoopDriver();
+        var handler = new ManifestHandler(new Fixture("v1", now.AddDays(-2)));
+        using var service = CreateService(handler, () => now, driver.Delay);
+        await service.StartAsync(CancellationToken.None);
+        await driver.Settled();
+        var first = service.Current;
+
+        handler.Fixture = new Fixture("v2", now.AddDays(-1));
+        await driver.Tick();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(service.Current, Is.Not.SameAs(first));
+            Assert.That(service.Withdrawal.Version, Is.EqualTo("v2"));
+            Assert.That(service.Withdrawal.Sha256["en"], Is.Not.EqualTo(first.Withdrawal.Sha256["en"]));
+            Assert.That(service.Agreement.Hash, Is.Not.EqualTo(first.Agreement.Hash));
+            Assert.That(TermsAcceptancePolicy.CurrentHash, Is.EqualTo(service.Agreement.Hash));
+        });
+    }
+
+    /// <summary>An unchanged manifest keeps the same snapshot instance.</summary>
+    [Test]
+    public async Task UnchangedManifestKeepsSnapshotInstance()
+    {
+        var now = DateTimeOffset.Parse("2026-09-30T08:00:00Z");
+        using var driver = new LoopDriver();
+        using var service = CreateService(
+            new ManifestHandler(new Fixture("v1", now.AddDays(-2))), () => now, driver.Delay);
+        await service.StartAsync(CancellationToken.None);
+        await driver.Settled();
+        var first = service.Current;
+
+        await driver.Tick();
+
+        Assert.That(service.Current, Is.SameAs(first));
+    }
+
+    /// <summary>A failed refresh keeps the last good snapshot, retries soon and recovers.</summary>
+    [Test]
+    public async Task FailedRefreshKeepsPreviousSnapshot()
+    {
+        var now = DateTimeOffset.Parse("2026-09-30T08:00:00Z");
+        using var driver = new LoopDriver();
+        var handler = new ManifestHandler(new Fixture("v1", now.AddDays(-2)));
+        using var service = CreateService(handler, () => now, driver.Delay);
+        await service.StartAsync(CancellationToken.None);
+        await driver.Settled();
+        var first = service.Current;
+
+        handler.FailAll = true;
+        await driver.Tick();
+        Assert.Multiple(() =>
+        {
+            Assert.That(service.Current, Is.SameAs(first));
+            Assert.That(TermsAcceptancePolicy.CurrentHash, Is.EqualTo(first.Agreement.Hash));
+            Assert.That(driver.Delays.Last(), Is.EqualTo(TimeSpan.FromSeconds(30)));
+        });
+
+        handler.FailAll = false;
+        handler.Fixture = new Fixture("v2", now.AddDays(-1));
+        await driver.Tick();
+        Assert.That(service.Withdrawal.Version, Is.EqualTo("v2"));
+    }
+
+    /// <summary>A reader holding a snapshot taken before a swap never sees mixed values.</summary>
+    [Test]
+    public async Task SnapshotTakenBeforeSwapStaysConsistent()
+    {
+        var now = DateTimeOffset.Parse("2026-09-30T08:00:00Z");
+        using var driver = new LoopDriver();
+        var handler = new ManifestHandler(new Fixture("v1", now.AddDays(-2)));
+        using var service = CreateService(handler, () => now, driver.Delay);
+        await service.StartAsync(CancellationToken.None);
+        await driver.Settled();
+        var reader = service.Current;
+
+        handler.Fixture = new Fixture("v2", now.AddDays(-1));
+        await driver.Tick();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(reader.Withdrawal.Version, Is.EqualTo("v1"));
+            Assert.That(reader.Agreement.Version, Is.EqualTo("v1"));
+            Assert.That(reader.Agreement.Documents.All(item => item.Version == "v1"), Is.True);
+            Assert.That(service.Current.Withdrawal.Version, Is.EqualTo("v2"));
+            Assert.That(service.Current.Agreement.Version, Is.EqualTo("v2"));
+        });
+    }
+
+    /// <summary>A not yet effective agreement is staged only and the previous snapshot is kept.</summary>
+    [Test]
+    public async Task FutureAgreementAfterFirstLoadKeepsCurrentSnapshot()
+    {
+        var now = DateTimeOffset.Parse("2026-09-30T08:00:00Z");
+        using var driver = new LoopDriver();
+        var handler = new ManifestHandler(new Fixture("v1", now.AddDays(-2)));
+        using var service = CreateService(handler, () => now, driver.Delay);
+        await service.StartAsync(CancellationToken.None);
+        await driver.Settled();
+
+        handler.Fixture = new Fixture("v2", now.AddHours(2));
+        await driver.Tick();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(service.Withdrawal.Version, Is.EqualTo("v1"));
+            Assert.That(TermsAcceptancePolicy.GetAcceptanceAgreement(false).Version, Is.EqualTo("v2"));
+            Assert.That(driver.Delays.Last(), Is.EqualTo(TimeSpan.FromSeconds(300)));
+        });
+    }
+
+    /// <summary>The refresh interval is read from configuration and clamped to 30..3600 seconds.</summary>
+    [TestCase(null, 300)]
+    [TestCase("", 300)]
+    [TestCase("abc", 300)]
+    [TestCase("120", 120)]
+    [TestCase("1", 30)]
+    [TestCase("-5", 30)]
+    [TestCase("86400", 3600)]
+    public void RefreshIntervalIsClamped(string configured, int expectedSeconds)
+    {
+        var configuration = new ConfigurationBuilder().AddInMemoryCollection(
+            new Dictionary<string, string> { ["LEGAL_MANIFEST_REFRESH_SECONDS"] = configured }).Build();
+
+        Assert.That(
+            LegalManifestService.ResolveRefreshInterval(configuration),
+            Is.EqualTo(TimeSpan.FromSeconds(expectedSeconds)));
+    }
+
+    /// <summary>The configured refresh interval drives the loop delay.</summary>
+    [Test]
+    public async Task ConfiguredRefreshIntervalIsUsed()
+    {
+        var now = DateTimeOffset.Parse("2026-09-30T08:00:00Z");
+        using var driver = new LoopDriver();
+        using var service = CreateService(
+            new ManifestHandler(new Fixture("v1", now.AddDays(-2))),
+            () => now,
+            driver.Delay,
+            refreshSeconds: "45");
+        await service.StartAsync(CancellationToken.None);
+        await driver.Settled();
+
+        Assert.That(driver.Delays.Single(), Is.EqualTo(TimeSpan.FromSeconds(45)));
+    }
+
     private static LegalManifestService CreateService(
         HttpMessageHandler handler,
         Func<DateTimeOffset> utcNow,
         Func<TimeSpan, CancellationToken, Task> delay,
-        string url = "https://coflnet.com/legal/manifest.json") =>
+        string url = "https://coflnet.com/legal/manifest.json",
+        string refreshSeconds = null) =>
         new(
             new ClientFactory(new HttpClient(handler)),
             new ConfigurationBuilder().AddInMemoryCollection(
-                new Dictionary<string, string> { ["LEGAL_MANIFEST_URL"] = url }).Build(),
+                new Dictionary<string, string>
+                {
+                    ["LEGAL_MANIFEST_URL"] = url,
+                    ["LEGAL_MANIFEST_REFRESH_SECONDS"] = refreshSeconds
+                }).Build(),
             NullLogger<LegalManifestService>.Instance,
             utcNow,
             delay);
@@ -290,8 +503,8 @@ public class LegalManifestServiceTests
         public DocumentFixture(string key, string title, string version, DateTimeOffset effective)
         {
             Key = key;
-            English = Encoding.UTF8.GetBytes($"{key} English");
-            German = Encoding.UTF8.GetBytes($"{key} German");
+            English = Encoding.UTF8.GetBytes($"{key} English {version}");
+            German = Encoding.UTF8.GetBytes($"{key} German {version}");
             var englishHash = Hash(English);
             var germanHash = Hash(German);
             var acceptanceHash = Hash(Encoding.UTF8.GetBytes(
@@ -324,16 +537,20 @@ public class LegalManifestServiceTests
     private sealed class ManifestHandler(Fixture fixture, int failures = 0) : HttpMessageHandler
     {
         private int manifestRequests;
+        public Fixture Fixture { get; set; } = fixture;
+        public bool FailAll { get; set; }
 
         protected override Task<HttpResponseMessage> SendAsync(
             HttpRequestMessage request,
             CancellationToken cancellationToken)
         {
             var path = request.RequestUri!.AbsolutePath;
+            if (FailAll)
+                throw new HttpRequestException("manifest host down");
             if (path == "/legal/manifest.json"
                 && Interlocked.Increment(ref manifestRequests) <= failures)
                 throw new HttpRequestException("temporarily unavailable");
-            var content = path == "/legal/manifest.json" ? fixture.Manifest : fixture.Get(path);
+            var content = path == "/legal/manifest.json" ? Fixture.Manifest : Fixture.Get(path);
             return Task.FromResult(new HttpResponseMessage(
                 content == null ? HttpStatusCode.NotFound : HttpStatusCode.OK)
             {
