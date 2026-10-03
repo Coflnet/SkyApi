@@ -175,6 +175,13 @@ namespace Coflnet.Sky.Api
             services.AddSingleton<ItemSkinHandler>();
             services.AddHostedService<ItemSkinHandler>(di => di.GetService<ItemSkinHandler>());
             services.AddSingleton<DonutModDescriptionService>();
+            services.AddHttpClient(ModRatCheckService.HttpClientName, client =>
+            {
+                client.BaseAddress = new Uri(Configuration["RATCHECK_BASE_URL"] ?? "https://isthisarat.com");
+                client.Timeout = TimeSpan.FromSeconds(10);
+                client.DefaultRequestHeaders.UserAgent.ParseAdd("SkyApi/1.0 (+https://sky.coflnet.com; mod rat check proxy)");
+            });
+            services.AddSingleton<ModRatCheckService>();
             services.AddResponseCaching();
             services.AddResponseCompression();
             var redisOptions = ConfigurationOptions.Parse(Configuration["REDIS_HOST"]);

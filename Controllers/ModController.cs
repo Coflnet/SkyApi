@@ -1,6 +1,7 @@
 using System.Linq;
 using System.Threading.Tasks;
 using Coflnet.Sky.Core;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Coflnet.Sky.PlayerName.Client.Api;
@@ -11,6 +12,7 @@ using Coflnet.Sky.Api.Models.Mod;
 using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
 using Coflnet.Sky.Items.Client.Api;
+using System.Text.RegularExpressions;
 
 namespace Coflnet.Sky.Api.Controller
 {
@@ -254,6 +256,58 @@ namespace Coflnet.Sky.Api.Controller
                 throw;
             }
         }
+
+        /// <summary>
+        /// Checks whether a mod jar is a known malicious "rat" via isthisarat.com.
+        /// Proxied and cached server side because isthisarat.com sits behind a Cloudflare
+        /// challenge that a direct browser request can't pass (403, no CORS headers).
+        /// </summary>
+        /// <param name="hash">Sha256 hash (64 hex characters) of the mod jar to look up</param>
+        /// <param name="ratCheckService"></param>
+        [Route("ratcheck/{hash}")]
+        [HttpGet]
+        // overrides the controller-wide 1800s default to line up with ModRatCheckService's success cache ttl
+        [ResponseCache(Duration = 3600, Location = ResponseCacheLocation.Any, NoStore = false)]
+        [ProducesResponseType(typeof(RatCheckingResponse), 200)]
+        [ProducesResponseType(typeof(ErrorResponse), 400)]
+        [ProducesResponseType(typeof(ErrorResponse), 503)]
+        public async Task<IActionResult> RatCheck(string hash, [FromServices] ModRatCheckService ratCheckService)
+        {
+            if (!IsValidSha256(hash))
+            {
+                DisableResponseCaching();
+                return BadRequest(new ErrorResponse
+                {
+                    Slug = "invalid_hash",
+                    Message = "hash must be exactly 64 hexadecimal characters (a sha256 digest)"
+                });
+            }
+            hash = hash.ToLowerInvariant();
+
+            var result = await ratCheckService.CheckAsync(hash, HttpContext.RequestAborted);
+            if (!result.IsAvailable)
+            {
+                DisableResponseCaching();
+                return StatusCode(StatusCodes.Status503ServiceUnavailable, new ErrorResponse
+                {
+                    Slug = "ratcheck_unavailable",
+                    Message = "The mod scanner (isthisarat.com) is temporarily unavailable, please try again later"
+                });
+            }
+            return Ok(result.Response);
+        }
+
+        /// <summary>
+        /// The ResponseCache attribute puts its public max-age header on every response, errors included.
+        /// Without this the cdn/browser would keep serving an "unavailable" answer long after the scanner recovered.
+        /// </summary>
+        private void DisableResponseCaching()
+        {
+            Response.Headers.CacheControl = "no-store";
+        }
+
+        private static readonly Regex Sha256Pattern = new("^[0-9a-fA-F]{64}$", RegexOptions.Compiled);
+        private static bool IsValidSha256(string hash) => hash != null && Sha256Pattern.IsMatch(hash);
 
 
         private static void SetDefaultIfNonePassed(InventoryData inventory)
