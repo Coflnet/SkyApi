@@ -56,7 +56,7 @@ namespace Coflnet.Sky.Api.Controller
         /// <returns>An list of graph points</returns>
         [Route("{itemTag}/history/day")]
         [HttpGet]
-        [ResponseCache(Duration = 600, Location = ResponseCacheLocation.Any, NoStore = false)]
+        [ResponseCache(Duration = 300, Location = ResponseCacheLocation.Any, NoStore = false)]
         public async Task<List<Sky.Bazaar.Client.Model.GraphResult>> HistoryGraphDay(string itemTag)
         {
             return await bazaarClient.GetHistoryGraphAsync(itemTag, Ago(TimeSpan.FromDays(1)), Ago(TimeSpan.FromMilliseconds(2)));
