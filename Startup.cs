@@ -140,6 +140,7 @@ namespace Coflnet.Sky.Api
             });
             services.AddDbContext<HypixelContext>();
             services.AddTransient<KatService>();
+            services.AddSingleton<PetLevelingService>();
             services.AddSingleton<PremiumTierService>();
             services.AddSingleton<Core.Services.HypixelItemService>();
             services.AddSingleton<Core.Services.IHypixelItemStore>(di => di.GetRequiredService<Core.Services.HypixelItemService>());
