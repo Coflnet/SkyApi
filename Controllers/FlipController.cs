@@ -325,7 +325,7 @@ namespace Coflnet.Sky.Api.Controller
             return await bazaarFlipperApi.CopperGetAsync();
         }
         /// <summary>
-        /// Pets that sell for more at level 100 than at a low level, most profitable first
+        /// The best pet to level to 100 per exp category with the auction to buy it from, most profitable first
         /// </summary>
         [Route("pet/leveling")]
         [HttpGet]

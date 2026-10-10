@@ -12,7 +12,7 @@ using Newtonsoft.Json.Linq;
 
 namespace Coflnet.Sky.Api.Services
 {
-    /// <summary>Finds pets that sell for more once leveled.</summary>
+    /// <summary>Finds purchasable pets that sell for more once leveled.</summary>
     public class PetLevelingService
     {
         /// <summary>Configuration key overriding where the NEU pet constants are read from.</summary>
@@ -35,16 +35,51 @@ namespace Coflnet.Sky.Api.Services
         }
 
         /// <summary>
-        /// Gets the pets whose clean price at level 100 is above their low level clean price, most profitable first.
+        /// Gets for each exp category the pet with the biggest gain from leveling it to 100
+        /// that can currently be bought, most profitable first.
         /// </summary>
         public async Task<IEnumerable<PetLevelingFlip>> GetFlips()
         {
             var prices = await sniperClient.GetCleanPrices();
-            return prices.Keys
+            var candidates = prices.Keys
                 .Select(key => CreateFlip(key, prices))
                 .Where(flip => flip?.Profit > 0)
+                .ToList();
+            var purchasable = await sniperClient.GetPrices(candidates.Select(LowLevelPet));
+            return candidates
+                .Zip(purchasable, WithPurchasableAuction)
+                .Where(flip => flip?.Profit > 0)
+                .GroupBy(flip => flip.ExpType)
+                .Select(category => category.MaxBy(flip => flip.Profit))
                 .OrderByDescending(flip => flip.Profit)
                 .ToList();
+        }
+
+        private static SaveAuction LowLevelPet(PetLevelingFlip flip)
+        {
+            return new SaveAuction
+            {
+                Tag = flip.Tag,
+                Tier = flip.Tier,
+                Count = 1,
+                FlatenedNBT = new Dictionary<string, string> { { "exp", "0" } }
+            };
+        }
+
+        /// <summary>
+        /// Reprices the flip to the lowest bin of the low level pet, null if none is listed.
+        /// A lowest bin from another key is a different pet variant and does not count.
+        /// </summary>
+        private static PetLevelingFlip WithPurchasableAuction(PetLevelingFlip flip, Sniper.Client.Model.PriceEstimate estimate)
+        {
+            var lowestBin = estimate?.Lbin;
+            if (lowestBin == null || lowestBin.Price <= 0 || estimate.LbinKey == null || estimate.LbinKey != estimate.ItemKey)
+                return null;
+            flip.AuctionUuid = AuctionService.Instance.GetUuid(lowestBin.AuctionId);
+            flip.BuyPrice = lowestBin.Price;
+            flip.Profit = flip.SellPrice - flip.BuyPrice;
+            flip.CoinsPerExp = flip.ExpRequired > 0 ? (double)flip.Profit / flip.ExpRequired : 0;
+            return flip;
         }
 
         private PetLevelingFlip CreateFlip(string lowLevelKey, Dictionary<string, long> prices)

@@ -65,9 +65,9 @@ public class FlipControllerCacheTests
         Assert.That(premium.Evaluations, Is.Zero);
     }
 
-    /// <summary>Pet leveling flips rank pets by the gain from leveling them to 100.</summary>
+    /// <summary>Pet leveling flips name the auction of the best purchasable pet per exp category.</summary>
     [Test]
-    public async Task Pet_leveling_flips_rank_pets_by_level_100_gain()
+    public async Task Pet_leveling_flips_give_one_purchasable_auction_per_exp_category()
     {
         var constantsPath = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName());
         // exp per level counts up from 1, so 99 level ups cost 4950 at offset 0 and 6930 at offset 20
@@ -75,7 +75,7 @@ public class FlipControllerCacheTests
         {
             pet_rarity_offset = new { COMMON = 0, LEGENDARY = 20 },
             pet_levels = Enumerable.Range(1, 119),
-            pet_types = new { SHEEP = "ALCHEMY", OCELOT = "FORAGING", GOLDEN_DRAGON = "COMBAT" },
+            pet_types = new { SHEEP = "ALCHEMY", OCELOT = "FORAGING", MONKEY = "FORAGING", GIRAFFE = "FORAGING", GOLDEN_DRAGON = "COMBAT" },
             // levels to 200, its _100 price bucket also holds the higher levels
             custom_pet_leveling = new { GOLDEN_DRAGON = new { max_level = 200 } }
         }));
@@ -83,14 +83,26 @@ public class FlipControllerCacheTests
         {
             ["PET_OCELOT_COMMON_0"] = 100,
             ["PET_OCELOT_COMMON_100"] = 10_000,
-            ["PET_SHEEP_LEGENDARY_0"] = 1_000_000,
+            ["PET_SHEEP_LEGENDARY_0"] = 990_000,
             ["PET_SHEEP_LEGENDARY_100"] = 1_069_300,
+            // biggest foraging gain, but none is listed
+            ["PET_MONKEY_LEGENDARY_0"] = 1_000,
+            ["PET_MONKEY_LEGENDARY_100"] = 5_000_000,
+            // listed, but gains less than the ocelot of the same category
+            ["PET_GIRAFFE_COMMON_0"] = 100,
+            ["PET_GIRAFFE_COMMON_100"] = 5_100,
             ["PET_ROCK_COMMON_0"] = 500_000,
             ["PET_ROCK_COMMON_100"] = 400_000,
             ["PET_BEE_COMMON_0"] = 5_000,
             ["PET_GOLDEN_DRAGON_LEGENDARY_0"] = 500_000_000,
             ["PET_GOLDEN_DRAGON_LEGENDARY_100"] = 1_200_000_000,
             ["ASPECT_OF_THE_END"] = 100_000
+        }, new()
+        {
+            ["PET_OCELOT_COMMON"] = (0x123456789abcdef0, 100),
+            ["PET_SHEEP_LEGENDARY"] = (0x0fedcba987654321, 1_000_000),
+            ["PET_GIRAFFE_COMMON"] = (0x1111111111111111, 150),
+            ["PET_GOLDEN_DRAGON_LEGENDARY"] = (0x2222222222222222, 500_000_000)
         });
         try
         {
@@ -108,13 +120,15 @@ public class FlipControllerCacheTests
             var flips = JArray.Parse(body).Select(flip => (
                 Tag: flip.Value<string>("tag"),
                 ExpType: flip.Value<string>("expType"),
+                AuctionUuid: flip.Value<string>("auctionUuid"),
+                BuyPrice: flip.Value<long>("buyPrice"),
                 Profit: flip.Value<long>("profit"),
                 ExpRequired: flip.Value<long>("expRequired"),
                 CoinsPerExp: flip.Value<double>("coinsPerExp")));
             Assert.That(flips, Is.EqualTo(new[]
             {
-                ("PET_SHEEP", "ALCHEMY", 69_300L, 6_930L, 10d),
-                ("PET_OCELOT", "FORAGING", 9_900L, 4_950L, 2d)
+                ("PET_SHEEP", "ALCHEMY", "fedcba9876544321", 1_000_000L, 69_300L, 6_930L, 10d),
+                ("PET_OCELOT", "FORAGING", "123456789abc4def0", 100L, 9_900L, 4_950L, 2d)
             }));
         }
         finally
@@ -198,13 +212,30 @@ public class FlipControllerCacheTests
         }
     }
 
-    private sealed class CleanPriceSniperClient(Dictionary<string, long> cleanPrices) : ISniperClient
+    private sealed class CleanPriceSniperClient(
+        Dictionary<string, long> cleanPrices,
+        Dictionary<string, (long AuctionId, long Price)> lowestBins) : ISniperClient
     {
         public Task<Dictionary<string, long>> GetCleanPrices() => Task.FromResult(cleanPrices);
 
         public Task<List<Sniper.Client.Model.PriceEstimate>> GetPrices(
             IEnumerable<Core.SaveAuction> auctionRepresent, bool includeSelfLearning = true) =>
-            Task.FromResult(new List<Sniper.Client.Model.PriceEstimate>());
+            Task.FromResult(auctionRepresent.Select(LowestBinOf).ToList());
+
+        private Sniper.Client.Model.PriceEstimate LowestBinOf(Core.SaveAuction auction)
+        {
+            var key = $"{auction.Tag}_{auction.Tier}";
+            // the sniper keeps the count in the item key, listed pets are single items
+            var itemKey = $"{key} {auction.Count}";
+            if (!lowestBins.TryGetValue(key, out var lowestBin))
+                return new() { ItemKey = itemKey };
+            return new()
+            {
+                ItemKey = itemKey,
+                LbinKey = $"{key} 1",
+                Lbin = new() { AuctionId = lowestBin.AuctionId, Price = lowestBin.Price }
+            };
+        }
     }
 
     private sealed class TestPremiumTierService : PremiumTierService

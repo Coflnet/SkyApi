@@ -24,7 +24,11 @@ namespace Coflnet.Sky.Api.Models
         /// </summary>
         public int TargetLevel { get; set; }
         /// <summary>
-        /// Clean price of the low level pet
+        /// The auction to buy the low level pet from, usable as https://sky.coflnet.com/a/{uuid}
+        /// </summary>
+        public string AuctionUuid { get; set; }
+        /// <summary>
+        /// Price of the low level pet in <see cref="AuctionUuid"/>
         /// </summary>
         public long BuyPrice { get; set; }
         /// <summary>
