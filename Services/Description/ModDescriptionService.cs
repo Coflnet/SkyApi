@@ -2049,6 +2049,33 @@ public partial class ModDescriptionService : IDisposable
     /// <returns>true if a matching shard tag was found; otherwise, false.</returns>
     public static bool TryGetShardTagFromName(string name, out string tag)
     {
+        if (TryGetExactShardTagFromName(name, out tag))
+            return true;
+        var clearedname = ShardNameCleanup.Replace(name, "");
+        Console.WriteLine($"unknown shard name {name}, {clearedname}");
+        var closestDistance = Constants.ShardNames
+            .Select(s => (s, Distance: Fastenshtein.Levenshtein.Distance(clearedname.Replace(' ', '_'), s.Key)))
+            .OrderBy(x => x.Distance)
+            .FirstOrDefault();
+        if (closestDistance.Distance < 3)
+        {
+            tag = "SHARD_" + closestDistance.s.Value.ToUpper();
+            Console.WriteLine($"using closest shard name {tag} for {name}");
+            return true;
+        }
+        Console.WriteLine($"unknown shard name {name}, not using it");
+        tag = null;
+        return false;
+    }
+
+    /// <summary>
+    /// Resolves a shard tag from its display name only when the name is known exactly (shard name mapping or bazaar product), never by fuzzy matching.
+    /// </summary>
+    /// <param name="name">The display name of the shard.</param>
+    /// <param name="tag">When this method returns, contains the resolved shard tag if found; otherwise, null.</param>
+    /// <returns>true if the name matched exactly; otherwise, false.</returns>
+    public static bool TryGetExactShardTagFromName(string name, out string tag)
+    {
         var clearedname = ShardNameCleanup.Replace(name, "");
         if (Constants.ShardNames.TryGetValue(clearedname, out var shardTag))
             tag = "SHARD_" + shardTag.ToUpper();
@@ -2056,22 +2083,8 @@ public partial class ModDescriptionService : IDisposable
             tag = "SHARD_" + clearedname.Replace(' ', '_').ToUpperInvariant();
         else
         {
-            Console.WriteLine($"unknown shard name {name}, {clearedname}");
-            var closestDistance = Constants.ShardNames
-                .Select(s => (s, Distance: Fastenshtein.Levenshtein.Distance(clearedname.Replace(' ', '_'), s.Key)))
-                .OrderBy(x => x.Distance)
-                .FirstOrDefault();
-            if (closestDistance.Distance < 3)
-            {
-                tag = "SHARD_" + closestDistance.s.Value.ToUpper();
-                Console.WriteLine($"using closest shard name {tag} for {name}");
-            }
-            else
-            {
-                Console.WriteLine($"unknown shard name {name}, not using it");
-                tag = null;
-                return false;
-            }
+            tag = null;
+            return false;
         }
         return true;
     }
