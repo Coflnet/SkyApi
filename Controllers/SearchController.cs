@@ -23,16 +23,23 @@ namespace Coflnet.Sky.Api.Controller
     public class SearchController : ControllerBase
     {
         static Regex validCharRegex = new Regex("[^-a-zA-Z0-9_\\.' ]");
+        /// <summary>
+        /// Empty answers are only cached for 5 minutes so new items show up quickly
+        /// </summary>
+        private const string EmptyResultCacheControl = "public,max-age=300";
         private IItemsApi itemsApi;
         private SearchService searchService;
+        private ItemFilterSearchService itemFilterSearch;
 
         /// <summary>
         /// Creates a new instance of <see cref="SearchController"/>
         /// </summary>
         /// <param name="itemsApi"></param>
         /// <param name="searchService"></param>
-        public SearchController(IItemsApi itemsApi, SearchService searchService)
+        /// <param name="itemFilterSearch"></param>
+        public SearchController(IItemsApi itemsApi, SearchService searchService, ItemFilterSearchService itemFilterSearch)
         {
+            this.itemFilterSearch = itemFilterSearch;
             this.itemsApi = itemsApi;
             this.searchService = searchService;
         }
@@ -45,25 +52,30 @@ namespace Coflnet.Sky.Api.Controller
         /// <returns>An array of search results matching the searchValue</returns>
         [Route("item/search/{searchVal}")]
         [HttpGet]
-        [ResponseCache(Duration = 3600, Location = ResponseCacheLocation.Any, NoStore = false)]
+        [ResponseCache(Duration = 3600, Location = ResponseCacheLocation.Any, NoStore = false, VaryByQueryKeys = new[] { "expectedResults" })]
         public async Task<List<SearchResultItem>> SearchItem(string searchVal, int expectedResults = 5)
         {
             var wantedResults = Math.Min(expectedResults, 30);
             searchVal = searchVal.ToLower().Replace('’', '\'');
             var itemsResult = await itemsApi.ItemsSearchTermGetAsync(searchVal, wantedResults + 5);
-            var results = itemsResult?.Select(i => new SearchResultItem(new ItemDetails.ItemSearchResult()
+            var results = itemsResult?.Select(i => ItemSearchResults.ToResult(i.Text, i.Tag, i.Flags, ItemSearchResults.FromSearchTier(i.Tier))).ToList()
+                ?? new List<SearchResultItem>();
+            if (results.Count == 0 && searchVal.Contains(' '))
             {
-                Name = i.Text + (i.Flags.Value.HasFlag(Items.Client.Model.ItemFlags.BAZAAR) ? " - bazaar"
-                        : i.Flags.Value.HasFlag(Items.Client.Model.ItemFlags.AUCTION) ? "" : " - not on ah"),
-                Tag = i.Tag,
-                IconUrl = "https://sky.coflnet.com/static/icon/" + i.Tag,
-                HitCount = i.Flags.Value.HasFlag(Items.Client.Model.ItemFlags.AUCTION) ? 50 : 0,
-                Tier = (Tier)i.Tier - 1
-
-            })).ToList() ?? new List<SearchResultItem>();
+                var parsed = await itemFilterSearch.TryParseAsync(searchVal, HttpContext.RequestAborted);
+                // an answer cut short by the time budget must not be cached (response cache or CDN)
+                if (parsed.TimedOut)
+                    HttpContext.Response.Headers.CacheControl = "no-store";
+                else if (parsed.Results.Count == 0)
+                    HttpContext.Response.Headers.CacheControl = EmptyResultCacheControl;
+                return parsed.Results;
+            }
             results = searchService.RankSearchResults(searchVal, results);
             // return wantedResults except if they all have the same text
-            return ExtendIfSame(results, wantedResults);
+            var extended = ExtendIfSame(results, wantedResults);
+            if (extended.Count == 0)
+                HttpContext.Response.Headers.CacheControl = EmptyResultCacheControl;
+            return extended;
         }
 
         private static List<SearchResultItem> ExtendIfSame(List<SearchResultItem> results, int limit = 5)
