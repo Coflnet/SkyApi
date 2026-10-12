@@ -49,6 +49,7 @@ namespace Coflnet.Sky.Api.Controller
         public async Task<List<SearchResultItem>> SearchItem(string searchVal, int expectedResults = 5)
         {
             var wantedResults = Math.Min(expectedResults, 30);
+            searchVal = searchVal.ToLower().Replace('’', '\'');
             var itemsResult = await itemsApi.ItemsSearchTermGetAsync(searchVal, wantedResults + 5);
             var results = itemsResult?.Select(i => new SearchResultItem(new ItemDetails.ItemSearchResult()
             {
@@ -59,7 +60,8 @@ namespace Coflnet.Sky.Api.Controller
                 HitCount = i.Flags.Value.HasFlag(Items.Client.Model.ItemFlags.AUCTION) ? 50 : 0,
                 Tier = (Tier)i.Tier - 1
 
-            })).ToList();
+            })).ToList() ?? new List<SearchResultItem>();
+            results = searchService.RankSearchResults(searchVal, results);
             // return wantedResults except if they all have the same text
             return ExtendIfSame(results, wantedResults);
         }
@@ -81,16 +83,25 @@ namespace Coflnet.Sky.Api.Controller
         /// </summary>
         /// <param name="searchVal">The search term to search for</param>
         /// <param name="limit">The maximum amount of results to return</param>
+        /// <param name="update">Wait longer for slow sources (eg. resolving unknown players), used when the user explicitly refreshes</param>
         /// <returns></returns>
         [Route("search/{searchVal}")]
         [HttpGet]
-        [ResponseCache(Duration = 3600, Location = ResponseCacheLocation.Any, NoStore = false)]
-        public async Task<IEnumerable<SearchResultItem>> FullSearch(string searchVal, int limit = 5)
+        [ResponseCache(Duration = 3600, Location = ResponseCacheLocation.Any, NoStore = false, VaryByQueryKeys = new[] { "update", "limit" })]
+        public async Task<IEnumerable<SearchResultItem>> FullSearch(string searchVal, int limit = 5, bool update = false)
         {
             searchVal = searchVal.ToLower().Replace('’', '\'');
-            var collection = await ExecuteSearch(searchVal, 2000);
-            if (collection.Count == 0) // search again
-                collection = await ExecuteSearch(searchVal);
+            ConcurrentQueue<SearchResultItem> collection;
+            if (update)
+            {
+                collection = await ExecuteSearch(searchVal, UPDATE_TIMEOUT_MS);
+            }
+            else
+            {
+                collection = await ExecuteSearch(searchVal, FAST_TIMEOUT_MS);
+                if (collection.Count == 0) // search again
+                    collection = await ExecuteSearch(searchVal, RETRY_TIMEOUT_MS);
+            }
             var result = searchService.RankSearchResults(searchVal, collection.Where(r => r.Type != "internal"));
             if (result.Count == 0)
             {
@@ -111,7 +122,11 @@ namespace Coflnet.Sky.Api.Controller
             return ExtendIfSame(result, limit);
         }
 
-        private async Task<ConcurrentQueue<SearchResultItem>> ExecuteSearch(string searchVal, int timeout = 3000)
+        private const int FAST_TIMEOUT_MS = 600;
+        private const int RETRY_TIMEOUT_MS = 1500;
+        private const int UPDATE_TIMEOUT_MS = 2500;
+
+        private async Task<ConcurrentQueue<SearchResultItem>> ExecuteSearch(string searchVal, int timeout)
         {
             var cancelationSource = new CancellationTokenSource();
             cancelationSource.CancelAfter(timeout);
