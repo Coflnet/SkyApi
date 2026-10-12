@@ -22,7 +22,7 @@ public class NotificationTarget
     /// When Type is FIREBASE this is the token
     /// When Type is EMAIL this is the email address
     /// </summary>
-    public string Target { get; set; }
+    public string? Target { get; set; }
     /// <summary>Gets or sets the type.</summary>
     public TargetType Type { get; set; }
     /// <summary>Gets or sets the when.</summary>
@@ -35,7 +35,7 @@ public class NotificationTarget
     /// </summary>
     /// <value></value>
     [MaxLength(32)]
-    public string Name { get; set; }
+    public string? Name { get; set; }
     /// <summary>Gets or sets the use count.</summary>
     public int UseCount { get; set; }
     // string enum
