@@ -325,6 +325,16 @@ namespace Coflnet.Sky.Api.Controller
             return await bazaarFlipperApi.CopperGetAsync();
         }
         /// <summary>
+        /// The best pet to level to 100 per exp category with the auction to buy it from, most profitable first
+        /// </summary>
+        [Route("pet/leveling")]
+        [HttpGet]
+        [ResponseCache(Duration = 120, Location = ResponseCacheLocation.Any, NoStore = false)]
+        public async Task<IEnumerable<PetLevelingFlip>> GetPetLevelingFlips([FromServices] PetLevelingService petLevelingService)
+        {
+            return await petLevelingService.GetFlips();
+        }
+        /// <summary>
         /// Forge flips from dwarfern mines
         /// </summary>
         [Route("forge")]
