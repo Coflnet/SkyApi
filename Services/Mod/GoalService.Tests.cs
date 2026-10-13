@@ -534,4 +534,84 @@ public class GoalServiceTests
         Assert.DoesNotThrow(() => holder.RaiseChanged());
         await Task.Delay(300);
     }
+
+    private async Task<(GoalListHolder holder, Goal goal)> CompletedSellGoal()
+    {
+        GoalListHolder holder = null;
+        service.HolderFactory = _ => Task.FromResult(holder = new GoalListHolder(() => list));
+        var goal = SellGoal();
+        list.Goals.Add(goal);
+        list.FocusId = goal.Id;
+        await service.OnInventory("u1", "Steve", Inventory(46, (10, Legs, 1)));
+        goal.Root.DoneAt = DateTime.UtcNow;
+        var before = DisplayPushes;
+        holder.RaiseChanged();
+        await Eventually(() => DisplayPushes > before);
+        LastHud().Lines.Select(l => l.Text).Should().Contain(t => t.Contains("Goal complete"));
+        return (holder, goal);
+    }
+
+    /// <summary>The click lines of a completed goal never trigger a chat hint push.</summary>
+    [Test]
+    public async Task CompletedGoal_DoesNotPushExpect()
+    {
+        await CompletedSellGoal();
+
+        publisher.Verify(p => p.ExpectForUser(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<int>()), Times.Never);
+    }
+
+    /// <summary>Removing the last goal outside clears the hud once.</summary>
+    [Test]
+    public async Task OutsideRemoveOfLastGoal_ClearsHudOnce()
+    {
+        var (holder, goal) = await CompletedSellGoal();
+        var before = DisplayPushes;
+
+        list.Goals.Remove(goal);
+        list.FocusId = null;
+        holder.RaiseChanged();
+        await Eventually(() => DisplayPushes > before);
+        holder.RaiseChanged();
+        await Task.Delay(200);
+
+        DisplayPushes.Should().Be(before + 1);
+        LastHud().Clear.Should().BeTrue();
+    }
+
+    /// <summary>Removing the focused goal outside shows the remaining goal.</summary>
+    [Test]
+    public async Task OutsideRemoveOfFocusedGoal_ShowsRemainingGoal()
+    {
+        var (holder, goal) = await CompletedSellGoal();
+        var other = BuyGoal("OTHER", 2);
+        other.Title = "Other goal";
+        list.Goals.Add(other);
+        var before = DisplayPushes;
+
+        list.Goals.Remove(goal);
+        // the focus still points to the removed goal
+        holder.RaiseChanged();
+        await Eventually(() => DisplayPushes > before);
+
+        LastHud().Title.Should().Contain("Other goal");
+        LastHud().Clear.Should().BeFalse();
+    }
+
+    /// <summary>Resetting a completed goal outside shows its first step again.</summary>
+    [Test]
+    public async Task OutsideResetOfCompletedGoal_ShowsStepAgain()
+    {
+        var (holder, goal) = await CompletedSellGoal();
+        var before = DisplayPushes;
+
+        GoalProgressEvaluator.Reset(goal);
+        holder.RaiseChanged();
+        await Eventually(() => DisplayPushes > before);
+
+        var texts = LastHud().Lines.Select(l => l.Text).ToList();
+        texts.Should().NotContain(t => t.Contains("Goal complete"));
+        texts.Should().NotBeEmpty();
+        // the crafted item is still in the last known inventory, so the sell step is next (no cookie: no command)
+        texts[0].Should().Contain("Sell");
+    }
 }
