@@ -9,6 +9,9 @@ using Coflnet.Sky.Bazaar.Flipper.Client.Model;
 using Coflnet.Sky.Commands.MC;
 using Coflnet.Sky.Commands.Shared;
 using Coflnet.Sky.Crafts.Client.Model;
+using Coflnet.Sky.Api.Services.Mod;
+using Microsoft.Extensions.DependencyInjection;
+using Newtonsoft.Json;
 
 namespace Coflnet.Sky.Api.Services.Description;
 
@@ -22,6 +25,8 @@ public class BazaarInfo : ICustomModifier
     public string DisableInfoName => "bazaar";
 
     private const string PurseLoadKey = "bazaarInfoPurse";
+    private const string PendingLoadKey = "pendingBzSearch";
+    private const string GoalPanelLoadKey = "goalPanel";
 
     /// <summary>A craft candidate ranked by profit, carrying the adjusted sell price used for display.</summary>
     internal record CraftCandidate(ProfitableCraft Craft, double SellPrice, long Profit);
@@ -143,6 +148,43 @@ public class BazaarInfo : ICustomModifier
                 display.Add(new(builder.Build()));
             }
         }
+
+        AddPendingSearches(data, display);
+        AddGoalPanel(data, display);
+    }
+
+    private static void AddGoalPanel(DataContainer data, List<DescModification> display)
+    {
+        if (data.Loaded == null || !data.Loaded.TryGetValue(GoalPanelLoadKey, out var panelTask)
+            || panelTask.Result is not { Length: > 0 } json)
+            return;
+        var panel = JsonConvert.DeserializeObject<GoalPanelData>(json);
+        if (panel?.Entries == null || panel.Entries.Count == 0)
+            return;
+        display.Add(new($"{McColorCodes.GRAY}For your goal:"));
+        foreach (var entry in panel.Entries)
+        {
+            var builder = new LoreBuilder()
+                .AddText($"§a● §6order {entry.Amount}x {entry.Name.Truncate(22)}", "Click to set the amount and open the bazaar page", entry.Command);
+            display.Add(new(builder.Build()));
+        }
+    }
+
+    private static void AddPendingSearches(DataContainer data, List<DescModification> display)
+    {
+        if (data.Loaded == null || !data.Loaded.TryGetValue(PendingLoadKey, out var pendingTask)
+            || pendingTask.Result is not { Length: > 0 } json)
+            return;
+        var pending = JsonConvert.DeserializeObject<List<PendingBazaarSearch>>(json);
+        if (pending == null || pending.Count == 0)
+            return;
+        display.Add(new($"{McColorCodes.GRAY}Pending searches:"));
+        foreach (var search in pending)
+        {
+            var builder = new LoreBuilder()
+                .AddText($"§a● §6{search.Name.Truncate(22)}", $"Click to search {search.Name} in the bazaar", $"/cofl bazaarsearch {search.Name}");
+            display.Add(new(builder.Build()));
+        }
     }
 
     // add these helper methods to the class
@@ -168,6 +210,10 @@ public class BazaarInfo : ICustomModifier
     {
         if (!string.IsNullOrWhiteSpace(preRequest.mcName))
             preRequest.ToLoad[PurseLoadKey] = InstantBuyMaxAmount.LoadPurse(preRequest.mcName);
+        if (preRequest.userId != null)
+            preRequest.ToLoad[PendingLoadKey] = LoadPending(preRequest);
+        if (preRequest.userId != null && !string.IsNullOrWhiteSpace(preRequest.mcName))
+            preRequest.ToLoad[GoalPanelLoadKey] = LoadGoalPanel(preRequest);
         preRequest.ToLoad[nameof(BazaarInfo)] = Task.Run(async () =>
         {
             try
@@ -182,5 +228,55 @@ public class BazaarInfo : ICustomModifier
                 return "[]";
             }
         });
+    }
+
+    private static async Task<string> LoadGoalPanel(ModDescriptionService.PreRequestContainer preRequest)
+    {
+        try
+        {
+            var idTask = preRequest.userId;
+            if (await Task.WhenAny(idTask, Task.Delay(TimeSpan.FromSeconds(3))) != idTask)
+                return "";
+            var userId = await idTask;
+            if (string.IsNullOrEmpty(userId))
+                return "";
+            var service = DiHandler.GetService<GoalService>();
+            await service.EnsureLoaded(userId, preRequest.mcName);
+            return JsonConvert.SerializeObject(service.GetPanel(preRequest.mcName));
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine("Error loading goal panel: " + ex);
+            return "";
+        }
+    }
+
+    private static async Task<string> LoadPending(ModDescriptionService.PreRequestContainer preRequest)
+    {
+        try
+        {
+            var idTask = preRequest.userId;
+            if (await Task.WhenAny(idTask, Task.Delay(TimeSpan.FromSeconds(3))) != idTask)
+                return "[]";
+            var userId = await idTask;
+            if (string.IsNullOrEmpty(userId))
+                return "[]";
+            var service = DiHandler.GetService<IPendingBazaarSearchService>();
+            var pending = await service.Get(userId);
+            var chestName = preRequest.inventory?.ChestName;
+            if (!string.IsNullOrEmpty(chestName)
+                && pending.Any(p => chestName.Contains(p.Name, StringComparison.OrdinalIgnoreCase)))
+            {
+                _ = service.RemoveMatching(userId, chestName).ContinueWith(t => Console.WriteLine("Failed to remove pending bazaar search " + t.Exception),
+                    TaskContinuationOptions.OnlyOnFaulted);
+                pending = pending.Where(p => !chestName.Contains(p.Name, StringComparison.OrdinalIgnoreCase)).ToList();
+            }
+            return JsonConvert.SerializeObject(pending);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine("Error loading pending bazaar searches: " + ex);
+            return "[]";
+        }
     }
 }

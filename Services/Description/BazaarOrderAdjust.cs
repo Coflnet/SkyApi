@@ -29,6 +29,7 @@ public class BazaarOrderAdjust : ICustomModifier
         var offerLookup = data.auctionRepresent.Take(slotCount).Where(x => x.auction != null).ToLookup(x => (x.auction.ItemName.Contains("BUY"), x.auction.Tag));
         var buySum = 0L;
         var sellSum = 0L;
+        var orders = new List<(string tag, bool isBuy, long amount)>();
         for (int i = 0; i < slotCount; i++)
         {
             var auction = data.auctionRepresent[i].auction;
@@ -101,6 +102,7 @@ public class BazaarOrderAdjust : ICustomModifier
                 var amountParsed = total - filled;
                 if (claimType != "coins")
                     amountParsed += claimAmount;
+                orders.Add((auction.Tag, isBuy, amountParsed));
                 if (isBuy)
                 {
                     buySum += (long)(price * amountParsed) ;
@@ -109,6 +111,17 @@ public class BazaarOrderAdjust : ICustomModifier
                 {
                     sellSum += (long)(price * amountParsed) + claimAmount;
                 }
+            }
+        }
+        if (!string.IsNullOrEmpty(data.userId))
+        {
+            try
+            {
+                _ = DiHandler.GetService<Services.Mod.GoalService>().OnBazaarOrders(data.userId, orders);
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine("Failed to forward bazaar orders to goals " + e.Message);
             }
         }
         var extra = new List<Models.Mod.DescModification>();

@@ -601,19 +601,20 @@ public class ModDescriptionServiceTests
 
     private static IEnumerable<TestCaseData> MatchingModifierCases()
     {
+        // the catch-all goal guide always matches last
         // "Bazaar Orders" satisfies both "Bazaar Orders$" and "^Bazaar " (which only needs the trailing space)
-        yield return new TestCaseData("Bazaar Orders", new[] { typeof(BazaarOrderAdjust), typeof(BazaarInfo) });
+        yield return new TestCaseData("Bazaar Orders", new[] { typeof(BazaarOrderAdjust), typeof(BazaarInfo), typeof(GoalGuideModifier) });
         // 4 leading spaces also satisfy the 2-space "You  " prefix used for auction house highlighting
-        yield return new TestCaseData("You    Trade", new[] { typeof(TradeInfoDisplay), typeof(AuctionHouseHighlighting) });
-        yield return new TestCaseData("Create BIN Auction", new[] { typeof(ListPriceRecommend) });
-        yield return new TestCaseData("Auctions Browser", new[] { typeof(FlipOnNextPage), typeof(StartedAgoToEndsIn), typeof(AuctionHouseHighlighting) });
-        yield return new TestCaseData("Community Shop", new[] { typeof(BitsCoinValue), typeof(SkyblockGemsValue) });
-        yield return new TestCaseData(null, new[] { typeof(InventoryInfo) }); // null chest name falls back to "Crafting"
-        yield return new TestCaseData("Pet - Round 3", new[] { typeof(DarkAuctionPetAdjust) });
-        yield return new TestCaseData("(1/2) Fish Family", new[] { typeof(FishFamilyCalculator) });
-        yield return new TestCaseData("Obsidian Chest", new[] { typeof(DungeonChestInfo) });
-        yield return new TestCaseData("Paid Chest", new[] { typeof(KuudraChestInfo) });
-        yield return new TestCaseData("Something ➜ Instant Buy", new[] { typeof(BazaarPriceUpdater), typeof(InstantBuyMaxAmount) });
+        yield return new TestCaseData("You    Trade", new[] { typeof(TradeInfoDisplay), typeof(AuctionHouseHighlighting), typeof(GoalGuideModifier) });
+        yield return new TestCaseData("Create BIN Auction", new[] { typeof(ListPriceRecommend), typeof(GoalGuideModifier) });
+        yield return new TestCaseData("Auctions Browser", new[] { typeof(FlipOnNextPage), typeof(StartedAgoToEndsIn), typeof(AuctionHouseHighlighting), typeof(GoalGuideModifier) });
+        yield return new TestCaseData("Community Shop", new[] { typeof(BitsCoinValue), typeof(SkyblockGemsValue), typeof(GoalGuideModifier) });
+        yield return new TestCaseData(null, new[] { typeof(InventoryInfo), typeof(GoalGuideModifier) }); // null chest name falls back to "Crafting"
+        yield return new TestCaseData("Pet - Round 3", new[] { typeof(DarkAuctionPetAdjust), typeof(GoalGuideModifier) });
+        yield return new TestCaseData("(1/2) Fish Family", new[] { typeof(FishFamilyCalculator), typeof(GoalGuideModifier) });
+        yield return new TestCaseData("Obsidian Chest", new[] { typeof(DungeonChestInfo), typeof(GoalGuideModifier) });
+        yield return new TestCaseData("Paid Chest", new[] { typeof(KuudraChestInfo), typeof(GoalGuideModifier) });
+        yield return new TestCaseData("Something ➜ Instant Buy", new[] { typeof(BazaarPriceUpdater), typeof(InstantBuyMaxAmount), typeof(GoalGuideModifier) });
     }
 
     [TestCaseSource(nameof(MatchingModifierCases))]

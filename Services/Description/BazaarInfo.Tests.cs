@@ -111,4 +111,80 @@ public class BazaarInfoTests
 
         BazaarInfo.TierSkip(accountInfo).Should().Be(expectedSkip);
     }
+
+    /// <summary>Pending searches render a header and a clickable row per search.</summary>
+    [Test]
+    public void Apply_RendersPendingSearches()
+    {
+        var pending = new List<Coflnet.Sky.Api.Models.Mod.PendingBazaarSearch>
+        {
+            new() { Name = "Enchanted Diamond", CreatedAt = DateTime.UtcNow }
+        };
+        var data = new DataContainer
+        {
+            inventory = new Coflnet.Sky.Api.Models.Mod.InventoryDataWithSettings { Version = 3, Settings = Coflnet.Sky.Api.Models.Mod.DescriptionSetting.Default },
+            bazaarPrices = System.Collections.Immutable.ImmutableDictionary<string, Coflnet.Sky.Bazaar.Client.Model.ItemPrice>.Empty,
+            allCrafts = new(),
+            itemTagToName = new(),
+            accountInfo = new AccountInfo(),
+            mods = new(),
+            Loaded = new()
+            {
+                ["bazaarInfoPurse"] = System.Threading.Tasks.Task.FromResult("0"),
+                [nameof(BazaarInfo)] = System.Threading.Tasks.Task.FromResult("[]"),
+                ["pendingBzSearch"] = System.Threading.Tasks.Task.FromResult(Newtonsoft.Json.JsonConvert.SerializeObject(pending))
+            }
+        };
+
+        new BazaarInfo().Apply(data);
+
+        var rendered = Newtonsoft.Json.JsonConvert.SerializeObject(data.mods);
+        rendered.Should().Contain("Pending searches:");
+        rendered.Should().Contain("Click to search Enchanted Diamond in the bazaar");
+        rendered.Should().Contain("/cofl bazaarsearch Enchanted Diamond");
+    }
+
+    /// <summary>Without pending searches no header is rendered.</summary>
+    [Test]
+    public void Apply_NoPending_NoHeader()
+    {
+        var data = new DataContainer
+        {
+            inventory = new Coflnet.Sky.Api.Models.Mod.InventoryDataWithSettings { Version = 3, Settings = Coflnet.Sky.Api.Models.Mod.DescriptionSetting.Default },
+            bazaarPrices = System.Collections.Immutable.ImmutableDictionary<string, Coflnet.Sky.Bazaar.Client.Model.ItemPrice>.Empty,
+            allCrafts = new(), itemTagToName = new(), accountInfo = new AccountInfo(), mods = new(),
+            Loaded = new() { [nameof(BazaarInfo)] = System.Threading.Tasks.Task.FromResult("[]") }
+        };
+        new BazaarInfo().Apply(data);
+        Newtonsoft.Json.JsonConvert.SerializeObject(data.mods).Should().NotContain("Pending searches:");
+    }
+
+    /// <summary>Goal panel entries render a header and a clickable order row.</summary>
+    [Test]
+    public void Apply_RendersGoalPanel()
+    {
+        var panel = new Coflnet.Sky.Api.Services.Mod.GoalPanelData
+        {
+            Entries = { new() { Name = "Enchanted Diamond", Amount = 64, Command = "/cofl bzorder 64 Enchanted Diamond" } }
+        };
+        var data = new DataContainer
+        {
+            inventory = new Coflnet.Sky.Api.Models.Mod.InventoryDataWithSettings { Version = 3, Settings = Coflnet.Sky.Api.Models.Mod.DescriptionSetting.Default },
+            bazaarPrices = System.Collections.Immutable.ImmutableDictionary<string, Coflnet.Sky.Bazaar.Client.Model.ItemPrice>.Empty,
+            allCrafts = new(), itemTagToName = new(), accountInfo = new AccountInfo(), mods = new(),
+            Loaded = new()
+            {
+                [nameof(BazaarInfo)] = System.Threading.Tasks.Task.FromResult("[]"),
+                ["goalPanel"] = System.Threading.Tasks.Task.FromResult(Newtonsoft.Json.JsonConvert.SerializeObject(panel))
+            }
+        };
+
+        new BazaarInfo().Apply(data);
+
+        var rendered = Newtonsoft.Json.JsonConvert.SerializeObject(data.mods);
+        rendered.Should().Contain("For your goal:");
+        rendered.Should().Contain("order 64x Enchanted Diamond");
+        rendered.Should().Contain("Click to set the amount and open the bazaar page");
+        rendered.Should().Contain("/cofl bzorder 64 Enchanted Diamond");
+    }
 }

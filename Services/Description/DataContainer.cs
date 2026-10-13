@@ -40,6 +40,8 @@ public class DataContainer
     /// Minecraft name of the player the description is computed for, used to look up player state.
     /// </summary>
     internal string mcName;
+    /// <summary>The Coflnet user id of the requesting player, null if unknown.</summary>
+    internal string userId;
 
     /// <summary>Gets or sets the items.</summary>
     public List<Item> Items { get; internal set; }

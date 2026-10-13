@@ -133,6 +133,13 @@ namespace Coflnet.Sky.Api
             services.AddSingleton<IAccountDeletionClient, IndexerAccountDeletionClient>();
             services.AddSingleton<AccountDeletionService>();
             services.AddSingleton<ApiKeyService>();
+            services.AddMemoryCache();
+            services.AddSingleton<Services.Mod.IModUserResolver, Services.Mod.ModUserResolver>();
+            services.AddSingleton<Services.Mod.IModUserPublisher, Services.Mod.ModUserPublisher>();
+            services.AddSingleton<Services.Mod.IBoosterCookieService, Services.Mod.BoosterCookieService>();
+            services.AddSingleton<Services.Mod.IPendingBazaarSearchService, Services.Mod.PendingBazaarSearchService>();
+            services.AddSingleton<Coflnet.Sky.Commands.Shared.Goals.GoalPlanner>();
+            services.AddSingleton<Services.Mod.GoalService>();
             services.AddSingleton<AuctionService>();
             services.AddHttpClient("DonutApi", client =>
             {

@@ -110,6 +110,10 @@ internal static partial class ChestNamePatterns
     [GeneratedRegex("^Order options")]
     internal static partial Regex OrderOptions { get; }
 
+    /// <summary>Matches every chest name.</summary>
+    [GeneratedRegex(".*")]
+    internal static partial Regex AnyChest { get; }
+
     /// <summary>Consume booster cookie confirmation.</summary>
     [GeneratedRegex("^Consume Booster Cookie")]
     internal static partial Regex BoosterCookie { get; }

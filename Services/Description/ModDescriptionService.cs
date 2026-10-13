@@ -88,6 +88,7 @@ public partial class ModDescriptionService : IDisposable
     private readonly FlipTracker.Client.Api.ITrackerApi trackerApi;
     private readonly IItemsApi itemsApi;
     private readonly Core.Services.ExoticColorService exoticColorService;
+    private readonly Mod.GoalService? goalService;
     private readonly TimeSpan settingsTimeout;
     private readonly TimeSpan accountInfoTimeout;
     private readonly TimeSpan sniperTimeout;
@@ -134,7 +135,8 @@ public partial class ModDescriptionService : IDisposable
                                  Core.Services.HypixelItemService itemService,
                                  FlipTracker.Client.Api.ITrackerApi trackerApi,
                                  IItemsApi itemsApi,
-                                 Core.Services.ExoticColorService exoticColorService)
+                                 Core.Services.ExoticColorService exoticColorService,
+                                 Mod.GoalService? goalService = null)
     {
         this.craftsApi = craftsApi;
         this.settingsService = settingsService;
@@ -154,6 +156,7 @@ public partial class ModDescriptionService : IDisposable
         this.trackerApi = trackerApi;
         this.itemsApi = itemsApi;
         this.exoticColorService = exoticColorService;
+        this.goalService = goalService;
         settingsTimeout = GetTimeout(config, "DESCRIPTION_SETTINGS_TIMEOUT_MS", 750);
         accountInfoTimeout = GetTimeout(config, "DESCRIPTION_ACCOUNT_TIMEOUT_MS", 250);
         sniperTimeout = GetTimeout(config, "DESCRIPTION_SNIPER_TIMEOUT_MS", 1000);
@@ -192,6 +195,9 @@ public partial class ModDescriptionService : IDisposable
         Register(ChestNamePatterns.PaidChest, new KuudraChestInfo());
         Register(ChestNamePatterns.OrderOptions, new BazaarFlipSuggest());
         Register(ChestNamePatterns.BoosterCookie, new BoosterCookieValueInfo());
+        // all matching modifiers run (GetMatchingModifiers returns every match in registration order),
+        // so the catch-all goal guide sits last and works on top of the screen specific ones.
+        Register(ChestNamePatterns.AnyChest, new GoalGuideModifier());
     }
 
     /// <summary>
@@ -516,6 +522,11 @@ public partial class ModDescriptionService : IDisposable
         /// The Minecraft username of the player.
         /// </summary>
         public string? mcName;
+        /// <summary>
+        /// Task resolving the Coflnet user id of the requesting player (null if unknown). Set once the settings lookup started.
+        /// </summary>
+        public Task<string?>? userId => userIdSource.Task;
+        internal readonly TaskCompletionSource<string?> userIdSource = new(TaskCreationOptions.RunContinuationsAsynchronously);
     }
 
     private async Task ComputeDescriptions(InventoryDataWithSettings inventory, string mcName, string sessionId, List<(SaveAuction auction, string[] desc)> auctionRepresent, List<List<DescModification>> result)
@@ -547,6 +558,7 @@ public partial class ModDescriptionService : IDisposable
         var pricesTask = GetPrices(auctionRepresent.Select(a => a.auction),
             inventory.Settings.Fields.Any(f => f.Contains(DescriptionField.AiEstimate)));
         var userInfo = await userInfoTask;
+        preRequest.userIdSource.TrySetResult(userInfo.UserId);
 
         List<Item> items = new();
         using (ActivitySource.StartActivity("inventory.publish", ActivityKind.Internal))
@@ -554,6 +566,8 @@ public partial class ModDescriptionService : IDisposable
             try
             {
                 items = ProduceInventory(inventory, mcName, userInfo.UserId, auctionRepresent);
+                if (!string.IsNullOrEmpty(userInfo.UserId))
+                    _ = goalService?.OnInventory(userInfo.UserId, mcName, items);
             }
             catch (Exception e)
             {
@@ -618,7 +632,8 @@ public partial class ModDescriptionService : IDisposable
             accountInfo = userInfo,
             flips = flips?.ToLookup(f => f.AuctionId),
             Loaded = preRequest.ToLoad,
-            mcName = mcName
+            mcName = mcName,
+            userId = userInfo.UserId
         };
 
         using var renderActivity = ActivitySource.StartActivity("description.render", ActivityKind.Internal);
