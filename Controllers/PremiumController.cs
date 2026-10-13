@@ -348,6 +348,10 @@ namespace Coflnet.Sky.Api.Controller
         /// <param name="provider">ad provider to use, either "linkvertise" (default) or "lootlabs"</param>
         [Route("linkvertise")]
         [HttpGet]
+        [ProducesResponseType(typeof(string), StatusCodes.Status200OK, "text/plain")]
+        [ProducesResponseType(StatusCodes.Status302Found)]
+        [ProducesResponseType(typeof(string), StatusCodes.Status400BadRequest, "text/plain")]
+        [ProducesResponseType(typeof(string), StatusCodes.Status401Unauthorized, "text/plain")]
         public async Task<IActionResult> Linkvertise(
             string? hash,
             string? state,

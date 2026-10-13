@@ -372,6 +372,26 @@ public class PremiumControllerTests
     }
 
     [Test]
+    public void AdLinkResponseIsDeclaredAsPlainText()
+    {
+        var declared = typeof(PremiumController)
+            .GetMethod(nameof(PremiumController.Linkvertise))
+            .GetCustomAttributes(typeof(Microsoft.AspNetCore.Mvc.ProducesResponseTypeAttribute), inherit: false)
+            .Cast<Microsoft.AspNetCore.Mvc.ProducesResponseTypeAttribute>()
+            .Where(a => a.StatusCode == 200)
+            .ToList();
+
+        Assert.That(declared, Has.Count.EqualTo(1));
+        Assert.Multiple(() =>
+        {
+            Assert.That(declared[0].Type, Is.EqualTo(typeof(string)));
+            var contentTypes = new Microsoft.AspNetCore.Mvc.Formatters.MediaTypeCollection();
+            ((Microsoft.AspNetCore.Mvc.ApiExplorer.IApiResponseMetadataProvider)declared[0]).SetContentTypes(contentTypes);
+            Assert.That(contentTypes, Does.Contain("text/plain"));
+        });
+    }
+
+    [Test]
     public void ForwardPaymentErrors_ForwardsUpstreamMessage()
     {
         var upstream = new ApiException(
