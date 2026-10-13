@@ -38,7 +38,7 @@ public class GoalServiceTests
     }
 
     /// <summary>Creates a service wired to mocks, shared with the controller tests.</summary>
-    internal static (GoalService, Mock<IModUserPublisher>, Mock<ISettingsApi>, Mock<ICraftsApi>, Mock<IForgeApi>, GoalList) Create()
+    internal static (GoalService, Mock<IModUserPublisher>, Mock<ISettingsApi>, Mock<ICraftsApi>, Mock<IForgeApi>, GoalList) Create(CookieState cookie = CookieState.Unknown)
     {
         var publisher = new Mock<IModUserPublisher>();
         var settingsApi = new Mock<ISettingsApi>();
@@ -46,7 +46,7 @@ public class GoalServiceTests
             .ReturnsAsync(new Coflnet.Sky.Settings.Client.Client.ApiResponse<string>(HttpStatusCode.NoContent, null));
         var settings = new SettingsService(new Mock<IConfiguration>().Object, Mock.Of<ILogger<SettingsService>>(), settingsApi.Object);
         var cookies = new Mock<IBoosterCookieService>();
-        cookies.Setup(c => c.Get(It.IsAny<string>())).ReturnsAsync(CookieState.Unknown);
+        cookies.Setup(c => c.Get(It.IsAny<string>())).ReturnsAsync(cookie);
         var crafts = new Mock<ICraftsApi>();
         var forge = new Mock<IForgeApi>();
         var list = new GoalList();
@@ -308,6 +308,7 @@ public class GoalServiceTests
     [Test]
     public async Task Hud_ShortAuctionId_FallsBackToAh()
     {
+        (service, publisher, settingsApi, craftsApi, forgeApi, list) = Create(CookieState.Active);
         service.LowestBinSource = _ => Task.FromResult(new AuctionOffer("70e3559483ce4da8b", 2_500_000));
         list.Goals.Add(Necron());
         list.FocusId = list.Goals[0].Id;
@@ -349,6 +350,7 @@ public class GoalServiceTests
     [Test]
     public async Task Hud_NoOffer_PlainAuctionLine()
     {
+        (service, publisher, settingsApi, craftsApi, forgeApi, list) = Create(CookieState.Active);
         service.LowestBinSource = _ => Task.FromResult<AuctionOffer>(null);
         list.Goals.Add(Necron());
         list.FocusId = list.Goals[0].Id;
@@ -357,6 +359,36 @@ public class GoalServiceTests
 
         LastHud().Lines[0].OnClick.Should().Be("/ah");
         LastHud().Lines[0].Text.Should().EndWith("(auction)");
+    }
+
+    /// <summary>Regression: without a booster cookie /ah is rejected by Hypixel, the line gets no click and no expect push.</summary>
+    [Test]
+    public async Task Hud_NoCookie_AuctionWithoutUuid_HasNoAhCommand()
+    {
+        service.LowestBinSource = _ => Task.FromResult(new AuctionOffer("70e3559483ce4da8b", 2_500_000));
+        list.Goals.Add(Necron());
+        list.FocusId = list.Goals[0].Id;
+
+        await service.OnInventory("u1", "Steve", Inventory(46));
+
+        LastHud().Lines[0].OnClick.Should().BeNull();
+        LastHud().Lines[0].Text.Should().EndWith("at the Auction Master");
+        publisher.Verify(p => p.ExpectForUser("u1", "/ah", It.IsAny<int>()), Times.Never);
+    }
+
+    /// <summary>Without a cookie a plain auction line says where to go instead of running /ah.</summary>
+    [Test]
+    public async Task Hud_NoCookie_NoOffer_AuctionLineHasNoCommand()
+    {
+        service.LowestBinSource = _ => Task.FromResult<AuctionOffer>(null);
+        list.Goals.Add(Necron());
+        list.FocusId = list.Goals[0].Id;
+
+        await service.OnInventory("u1", "Steve", Inventory(46));
+
+        LastHud().Lines[0].OnClick.Should().BeNull();
+        LastHud().Lines[0].Hover.Should().Contain("Auction Master");
+        publisher.Verify(p => p.ExpectForUser("u1", "/ah", It.IsAny<int>()), Times.Never);
     }
 
     /// <summary>The guide reads the cached offer and never looks it up itself.</summary>
@@ -402,5 +434,104 @@ public class GoalServiceTests
         await service.OnInventory("u1", "Steve", Inventory(46));
 
         service.GetPanel("Steve").FirstAuctionName.Should().BeNull();
+    }
+
+    private const string Legs = "NECRON_LEGGINGS";
+
+    private Goal SellGoal() => new()
+    {
+        Title = "Legs",
+        RootItemTag = Legs,
+        Quantity = 1,
+        Root = new GoalStep
+        {
+            Id = "sell", Kind = StepKind.Sell, ItemTag = Legs, Quantity = 1,
+            Children = { new GoalStep { Id = "craft", Kind = StepKind.Craft, ItemTag = Legs, Quantity = 1 } }
+        }
+    };
+
+    private static async Task Eventually(Func<bool> condition)
+    {
+        for (var i = 0; i < 100 && !condition(); i++)
+            await Task.Delay(20);
+    }
+
+    private int DisplayPushes => publisher.Invocations.Count(i => i.Method.Name == nameof(IModUserPublisher.DisplayForUser));
+
+    /// <summary>A list change made outside this pod (chat completed the Sell step) is shown on the hud once.</summary>
+    [Test]
+    public async Task ListChangedOutside_PushesCompleteLineOnce()
+    {
+        GoalListHolder holder = null;
+        service.HolderFactory = _ => Task.FromResult(holder = new GoalListHolder(() => list));
+        var goal = SellGoal();
+        list.Goals.Add(goal);
+        list.FocusId = goal.Id;
+        await service.OnInventory("u1", "Steve", Inventory(46, (10, Legs, 1)));
+        goal.Root.DoneAt.Should().BeNull();
+        var before = DisplayPushes;
+
+        goal.Root.DoneAt = DateTime.UtcNow;
+        holder.RaiseChanged();
+        await Eventually(() => DisplayPushes > before);
+        holder.RaiseChanged();
+        await Task.Delay(200);
+
+        DisplayPushes.Should().Be(before + 1);
+        LastHud().Lines.Select(l => l.Text).Should().Contain(t => t.Contains("Goal complete"));
+    }
+
+    /// <summary>A change that does not alter the hud pushes nothing.</summary>
+    [Test]
+    public async Task ListChangedOutside_SameHud_PushesNothing()
+    {
+        GoalListHolder holder = null;
+        service.HolderFactory = _ => Task.FromResult(holder = new GoalListHolder(() => list));
+        var goal = SellGoal();
+        list.Goals.Add(goal);
+        list.FocusId = goal.Id;
+        await service.OnInventory("u1", "Steve", Inventory(46, (10, Legs, 1)));
+        var before = DisplayPushes;
+
+        holder.RaiseChanged();
+        await Task.Delay(300);
+
+        DisplayPushes.Should().Be(before);
+    }
+
+    /// <summary>A pod that never showed the hud of the user has no inventory and leaves the push to the pod that did.</summary>
+    [Test]
+    public async Task ListChangedOutside_HudNeverShownHere_PushesNothing()
+    {
+        GoalListHolder holder = null;
+        service.HolderFactory = _ => Task.FromResult(holder = new GoalListHolder(() => list));
+        var goal = SellGoal();
+        list.Goals.Add(goal);
+        list.FocusId = goal.Id;
+        await service.EnsureLoaded("u1", "Steve");
+        var before = DisplayPushes;
+
+        goal.Root.DoneAt = DateTime.UtcNow;
+        holder.RaiseChanged();
+        await Task.Delay(300);
+
+        DisplayPushes.Should().Be(before);
+    }
+
+    /// <summary>A failing refresh in the change callback is logged and never thrown.</summary>
+    [Test]
+    public async Task ListChangedOutside_FailingRefresh_DoesNotThrow()
+    {
+        GoalListHolder holder = null;
+        service.HolderFactory = _ => Task.FromResult(holder = new GoalListHolder(() => list));
+        var goal = SellGoal();
+        list.Goals.Add(goal);
+        list.FocusId = goal.Id;
+        await service.OnInventory("u1", "Steve", Inventory(46, (10, Legs, 1)));
+        publisher.Setup(p => p.DisplayForUser(It.IsAny<string>(), It.IsAny<object>())).ThrowsAsync(new InvalidOperationException("down"));
+
+        goal.Root.DoneAt = DateTime.UtcNow;
+        Assert.DoesNotThrow(() => holder.RaiseChanged());
+        await Task.Delay(300);
     }
 }

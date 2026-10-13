@@ -33,6 +33,12 @@ public interface ICustomModifier
     /// See <see cref="InfoDisplayDisable"/>.
     /// </summary>
     string DisableInfoName => GetType().Name;
+    /// <summary>
+    /// True for modifiers whose list must not replace the panel of the screen (the mod only shows the
+    /// last extra list): <see cref="ModDescriptionService"/> then folds the list of the modifier (or its
+    /// re-enable placeholder) into the previous panel, see <see cref="InfoDisplayJoin"/>.
+    /// </summary>
+    bool AbsorbsPreviousPanel => false;
 }
 
 /// <summary>

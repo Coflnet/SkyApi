@@ -1,3 +1,5 @@
+using Coflnet.Sky.Bazaar.Client.Model;
+using System.Collections.Immutable;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -230,5 +232,51 @@ public class GoalGuideModifierTests
     {
         ChestNamePatterns.AnyChest.IsMatch("How many do you want?").Should().BeTrue();
         ChestNamePatterns.AnyChest.IsMatch("Crafting").Should().BeTrue();
+    }
+
+    /// <summary>Without a booster cookie the sell hint says where to go and has no /ah or /bz command.</summary>
+    [Test]
+    public void Sell_NoCookie_NoCommand()
+    {
+        WithStep(StepKind.Sell, 1, cookie: false);
+        var data = Screen("SkyBlock Menu");
+        modifier.Apply(data);
+        var line = Panel(data);
+        line.Should().Contain("List Enchanted Diamond").And.Contain("at the Auction Master");
+        line.ToLowerInvariant().Should().NotContain("onclick");
+    }
+
+    /// <summary>Bazaar items are sold at the bazaar without a cookie.</summary>
+    [Test]
+    public void Sell_NoCookie_BazaarItem_SaysBazaar()
+    {
+        WithStep(StepKind.Sell, 1, cookie: false);
+        var data = Screen("SkyBlock Menu");
+        data.bazaarPrices = new Dictionary<string, ItemPrice> { [Tag] = new ItemPrice() }.ToImmutableDictionary();
+        modifier.Apply(data);
+        Panel(data).Should().Contain("at the Bazaar");
+        Panel(data).ToLowerInvariant().Should().NotContain("onclick");
+    }
+
+    /// <summary>With a cookie the sell hint still opens /ah.</summary>
+    [Test]
+    public void Sell_WithCookie_OpensAh()
+    {
+        WithStep(StepKind.Sell, 1, cookie: true);
+        var data = Screen("SkyBlock Menu");
+        modifier.Apply(data);
+        Panel(data).Should().Contain("/ah");
+        Panel(data).ToLowerInvariant().Should().Contain("onclick");
+    }
+
+    /// <summary>The auction hint without offer uuid has no /ah fallback without a cookie.</summary>
+    [Test]
+    public void Auction_NoCookie_NoUuid_NoAhCommand()
+    {
+        WithStep(StepKind.Auction, 1, cookie: false, offer: new AuctionOffer("70e3559483ce4da8b", 2_500_000));
+        var data = Screen("SkyBlock Menu");
+        modifier.Apply(data);
+        Panel(data).Should().Contain("at the Auction Master");
+        Panel(data).ToLowerInvariant().Should().NotContain("onclick");
     }
 }

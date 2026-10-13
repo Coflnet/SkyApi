@@ -44,6 +44,12 @@ public sealed class GoalListHolder : IDisposable
     /// <summary>The current list (kept up to date by the underlying subscription)</summary>
     public GoalList Value => getter() ?? new GoalList();
 
+    /// <summary>Raised after the list was replaced by a change made outside this pod (cleared on dispose).</summary>
+    public event Action Changed;
+
+    /// <summary>Signals that the list changed, called by the subscription behind the holder.</summary>
+    public void RaiseChanged() => Changed?.Invoke();
+
     /// <summary>Creates a holder.</summary>
     public GoalListHolder(Func<GoalList> getter, IDisposable inner = null)
     {
@@ -52,7 +58,11 @@ public sealed class GoalListHolder : IDisposable
     }
 
     /// <inheritdoc/>
-    public void Dispose() => inner?.Dispose();
+    public void Dispose()
+    {
+        Changed = null;
+        inner?.Dispose();
+    }
 }
 
 /// <summary>What the player should do next for the focused goal, read from the goal cache.</summary>
@@ -127,7 +137,9 @@ public class GoalService : IGoalGuideSource, IDisposable
         HolderFactory = async userId =>
         {
             var value = await SelfUpdatingValue<GoalList>.Create(userId, SettingsKey, () => new GoalList());
-            return new GoalListHolder(() => value.Value, value);
+            var holder = new GoalListHolder(() => value.Value, value);
+            value.AfterChange += _ => holder.RaiseChanged();
+            return holder;
         };
     }
 
@@ -165,11 +177,45 @@ public class GoalService : IGoalGuideSource, IDisposable
                 if (value is Lazy<Task<Entry>> l && l.Value.IsCompletedSuccessfully)
                     l.Value.Result.Dispose();
             });
-            return new Lazy<Task<Entry>>(async () => new Entry { Holder = await HolderFactory(userId) });
+            return new Lazy<Task<Entry>>(async () =>
+            {
+                var entry = new Entry { Holder = await HolderFactory(userId) };
+                entry.Holder.Changed += () => _ = OnListChanged(userId, entry);
+                return entry;
+            });
         });
         var task = lazy.Value;
         _ = task.ContinueWith(t => entries.Remove(userId), CancellationToken.None, TaskContinuationOptions.OnlyOnFaulted, TaskScheduler.Default);
         return task;
+    }
+
+    /// <summary>
+    /// The list was changed outside this pod (for example a step completed from chat), shows it on the hud
+    /// with the last known inventory. Never throws.
+    /// </summary>
+    private async Task OnListChanged(string userId, Entry e)
+    {
+        try
+        {
+            // a pod that never showed this hud has no inventory to judge the steps with, the next upload refreshes it
+            if (e.LastHash == null)
+                return;
+            await e.Gate.WaitAsync();
+            try
+            {
+                if (Evaluate(e, e.LastForging))
+                    await Persist(userId, e);
+                await RefreshHud(userId, e, false);
+            }
+            finally
+            {
+                e.Gate.Release();
+            }
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to refresh the goal hud of {UserId} after a change", userId);
+        }
     }
 
     /// <summary>Extracts the item counts of the player inventory slots.</summary>
@@ -359,6 +405,12 @@ public class GoalService : IGoalGuideSource, IDisposable
         return result;
     }
 
+    private bool IsBazaarItem(string tag)
+    {
+        try { return tag != null && BazaarTagSource().Contains(tag); }
+        catch (Exception) { return false; }
+    }
+
     /// <summary>Builds the hud and pushes it when changed (or the last push is older than the refresh interval). Caller holds the gate.</summary>
     private async Task RefreshHud(string userId, Entry e, bool force)
     {
@@ -370,7 +422,7 @@ public class GoalService : IGoalGuideSource, IDisposable
         e.HasCookie = BoosterCookieService.HasCookie(description, await cookies.Get(e.McName));
         var auctionTags = focusProgress?.Actionable.Where(s => s.Kind == StepKind.Auction).Select(s => s.ItemTag) ?? Enumerable.Empty<string>();
         var offers = await LoadOffers(auctionTags);
-        var dto = GoalHud.BuildDisplay(list, e.Progress, e.HasCookie, names, tag => BazaarUtils.GetSearchValue(tag, names(tag)), offers);
+        var dto = GoalHud.BuildDisplay(list, e.Progress, e.HasCookie, names, tag => BazaarUtils.GetSearchValue(tag, names(tag)), offers, IsBazaarItem);
         var hash = GoalHud.Hash(dto);
         var hashChanged = hash != e.LastHash;
         var stale = Now() - e.LastPush > HudRefreshInterval;

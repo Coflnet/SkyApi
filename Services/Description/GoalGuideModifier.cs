@@ -35,6 +35,9 @@ public class GoalGuideModifier : ICustomModifier
         this.sourceFactory = sourceFactory;
     }
 
+    /// <summary>The step must not hide the info panel of the screen it is shown on.</summary>
+    public bool AbsorbsPreviousPanel => true;
+
     /// <inheritdoc/>
     public void Modify(ModDescriptionService.PreRequestContainer preRequest)
     {
@@ -162,12 +165,19 @@ public class GoalGuideModifier : ICustomModifier
         if (s.Is("BIN Auction View") && s.TagAt(13) == ctx.Step.ItemTag)
             return new Guide($"Buy {ctx.ItemName} now", s.Find("Buy Item Right Now", 31));
         if (ctx.Offer == null)
-            return new Guide($"Buy {ctx.ItemName} on the auction house", OnClick: "/ah", Hover: "Click to open the auction house");
-        var hint = $"Buy {ctx.ItemName} on the auction house ({GoalHud.ShortPrice(ctx.Offer.Price)}{ProfitNote(ctx)})";
+            return OpenAuctionHouse(ctx, $"Buy {ctx.ItemName} on the auction house", $"Buy {ctx.ItemName}");
+        var price = $"({GoalHud.ShortPrice(ctx.Offer.Price)}{ProfitNote(ctx)})";
+        var hint = $"Buy {ctx.ItemName} on the auction house {price}";
         return ctx.Offer.ViewCommand() is { } command
             ? new Guide(hint, OnClick: command, Hover: "Click to view the cheapest auction")
-            : new Guide(hint, OnClick: "/ah", Hover: "Click to open the auction house");
+            : OpenAuctionHouse(ctx, hint, $"Buy {ctx.ItemName} {price}");
     }
+
+    /// <summary>/ah needs a booster cookie, without one the hint only says where to go.</summary>
+    private static Guide OpenAuctionHouse(GoalGuideContext ctx, string hint, string noCookieHint)
+        => ctx.HasCookie
+            ? new Guide(hint, OnClick: "/ah", Hover: "Click to open the auction house")
+            : new Guide(noCookieHint + GoalHud.AtAuctionMaster, Hover: GoalHud.NoCookieAuctionHover);
 
     private static string ProfitNote(GoalGuideContext ctx)
         => GoalHud.PriceDifference(ctx.Step, ctx.Offer) switch
@@ -203,7 +213,11 @@ public class GoalGuideModifier : ICustomModifier
         if (s.Is("Create BIN Auction"))
             return new Guide($"Set the price of {ctx.ItemName} (see the price suggestion)");
         var bazaar = s.Data.bazaarPrices?.ContainsKey(ctx.Step.ItemTag ?? "") ?? false;
-        return bazaar && ctx.HasCookie
+        if (!ctx.HasCookie)
+            return bazaar
+                ? new Guide($"List {ctx.ItemName}" + GoalHud.AtBazaar, Hover: GoalHud.NoCookieBazaarHover)
+                : new Guide($"List {ctx.ItemName}" + GoalHud.AtAuctionMaster, Hover: GoalHud.NoCookieAuctionHover);
+        return bazaar
             ? new Guide($"List {ctx.ItemName}", OnClick: $"/bz {ctx.SearchName}", Hover: "Click to open the bazaar page")
             : new Guide($"List {ctx.ItemName}", OnClick: "/ah", Hover: "Click to open the auction house");
     }

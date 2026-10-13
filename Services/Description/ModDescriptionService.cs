@@ -674,31 +674,50 @@ public partial class ModDescriptionService : IDisposable
         {
             await task;
         }
+        // one list per item slot, everything after is added by the modifiers below
+        var slotListCount = container.mods.Count;
         foreach (var item in matchingModifiers)
         {
             try
             {
-                var modifier = item.Modifier;
-                var disableName = modifier.DisableInfoName;
-                if (disableName != null && modifier.IsInfoDisabled(container))
-                {
-                    // player turned this info display off: skip it and leave only an invisible
-                    // empty-space handle so it can be re-enabled without cluttering the tooltip.
-                    InfoDisplayDisable.AddReenablePlaceholder(container, disableName);
-                    continue;
-                }
-                var addedFromIndex = container.mods.Count;
-                modifier.Apply(container);
-                // one place keeps every panel line short enough for the screen, before the disable handle is added
-                InfoDisplayWrap.Apply(container.mods, addedFromIndex);
-                // one place stamps the standardized disable button onto the display it just added.
-                InfoDisplayDisable.StampDisableButton(container, addedFromIndex, disableName);
+                ApplyModifier(container, item.Modifier, slotListCount);
             }
             catch (Exception e)
             {
                 logger.LogError(e, "failed to apply custom modifier " + item.ChestName);
             }
         }
+    }
+
+    /// <summary>
+    /// Runs one custom modifier: skips it when the player disabled it (leaving only the re-enable
+    /// placeholder), wraps and stamps what it added and lets modifiers that must not hide the panel of
+    /// the screen join their list with it.
+    /// </summary>
+    /// <param name="container">The data of the open screen, its mods hold one list per item slot first</param>
+    /// <param name="modifier">The modifier to run</param>
+    /// <param name="slotListCount">Number of item slot lists at the start of mods</param>
+    internal static void ApplyModifier(DataContainer container, ICustomModifier modifier, int slotListCount)
+    {
+        var disableName = modifier.DisableInfoName;
+        if (disableName != null && modifier.IsInfoDisabled(container))
+        {
+            // player turned this info display off: skip it and leave only an invisible
+            // empty-space handle so it can be re-enabled without cluttering the tooltip.
+            var placeholderFrom = container.mods.Count;
+            InfoDisplayDisable.AddReenablePlaceholder(container, disableName);
+            if (modifier.AbsorbsPreviousPanel)
+                InfoDisplayJoin.Apply(container.mods, slotListCount, placeholderFrom, appendAfterPanel: true);
+            return;
+        }
+        var addedFromIndex = container.mods.Count;
+        modifier.Apply(container);
+        // one place keeps every panel line short enough for the screen, before the disable handle is added
+        InfoDisplayWrap.Apply(container.mods, addedFromIndex);
+        // one place stamps the standardized disable button onto the display it just added.
+        InfoDisplayDisable.StampDisableButton(container, addedFromIndex, disableName);
+        if (modifier.AbsorbsPreviousPanel)
+            InfoDisplayJoin.Apply(container.mods, slotListCount, addedFromIndex);
     }
 
     private void CheckUpToDateCache()
