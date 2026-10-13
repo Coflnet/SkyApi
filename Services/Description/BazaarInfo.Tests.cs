@@ -187,4 +187,36 @@ public class BazaarInfoTests
         rendered.Should().Contain("Click to set the amount and open the bazaar page");
         rendered.Should().Contain("/cofl bzorder 64 Enchanted Diamond");
     }
+
+    /// <summary>A pending auction is announced directly under the goal header.</summary>
+    [Test]
+    public void Apply_RendersAuctionFirstHint()
+    {
+        var panel = new Coflnet.Sky.Api.Services.Mod.GoalPanelData
+        {
+            FirstAuctionName = "Wither Leggings",
+            Entries = { new() { Name = "Diamante's Handle", Amount = 8, Command = "/cofl bzorder 8 Diamante's Handle" } }
+        };
+        var data = new DataContainer
+        {
+            inventory = new Coflnet.Sky.Api.Models.Mod.InventoryDataWithSettings { Version = 3, Settings = Coflnet.Sky.Api.Models.Mod.DescriptionSetting.Default },
+            bazaarPrices = System.Collections.Immutable.ImmutableDictionary<string, Coflnet.Sky.Bazaar.Client.Model.ItemPrice>.Empty,
+            allCrafts = new(), itemTagToName = new(), accountInfo = new AccountInfo(), mods = new(),
+            Loaded = new()
+            {
+                [nameof(BazaarInfo)] = System.Threading.Tasks.Task.FromResult("[]"),
+                ["goalPanel"] = System.Threading.Tasks.Task.FromResult(Newtonsoft.Json.JsonConvert.SerializeObject(panel))
+            }
+        };
+
+        new BazaarInfo().Apply(data);
+
+        var rendered = Newtonsoft.Json.JsonConvert.SerializeObject(data.mods);
+        var header = rendered.IndexOf("For your goal:", StringComparison.Ordinal);
+        var hint = rendered.IndexOf("§eFirst buy Wither Leggings on the auction house", StringComparison.Ordinal);
+        var row = rendered.IndexOf("order 8x Diamante", StringComparison.Ordinal);
+        header.Should().BeGreaterThan(-1);
+        hint.Should().BeGreaterThan(header);
+        row.Should().BeGreaterThan(hint);
+    }
 }

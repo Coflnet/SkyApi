@@ -1,3 +1,4 @@
+using System;
 using System.Linq;
 using System.Threading.Tasks;
 using Coflnet.Sky.Api.Services;
@@ -113,14 +114,19 @@ public class PricesController : ControllerBase
     /// </summary>
     /// <param name="itemTag">The tag of the item</param>
     /// <param name="count">How many items to search for (and include in cost)</param>
+    /// <param name="minAgeSeconds">Ignore auction house listings younger than this many seconds (0 to 3600, default 0), freshly listed underpriced auctions are sniped within seconds. Ignored for bazaar items</param>
     /// <returns>The current buy and cost (for how much given count could be sold) and how many items are available for purchase</returns>
     [Route("item/price/{itemTag}/current")]
     [HttpGet]
-    [ResponseCache(Duration = 180, Location = ResponseCacheLocation.Any, NoStore = false, VaryByQueryKeys = new string[] { "count" })]
-    public async Task<CurrentPrice> GetCurrentPrice(string itemTag, int count = 1)
+    [ResponseCache(Duration = 180, Location = ResponseCacheLocation.Any, NoStore = false, VaryByQueryKeys = new string[] { "count", "minAgeSeconds" })]
+    public async Task<CurrentPrice> GetCurrentPrice(string itemTag, int count = 1, int minAgeSeconds = 0)
     {
-        return await priceService.GetCurrentPrice(itemTag, count);
+        return await priceService.GetCurrentPrice(itemTag, count, ClampMinAge(minAgeSeconds));
     }
+
+    /// <summary>Clamps the requested minimum listing age to 0..3600 seconds, null when no filter is requested.</summary>
+    internal static TimeSpan? ClampMinAge(int seconds)
+        => seconds <= 0 ? null : TimeSpan.FromSeconds(Math.Min(seconds, 3600));
     /// <summary>
     /// Gets the price history for an item for the last 24 hours
     /// </summary>

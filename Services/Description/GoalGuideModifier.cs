@@ -161,10 +161,21 @@ public class GoalGuideModifier : ICustomModifier
             return new Guide("Confirm the purchase", s.Find("Confirm Purchase", 11));
         if (s.Is("BIN Auction View") && s.TagAt(13) == ctx.Step.ItemTag)
             return new Guide($"Buy {ctx.ItemName} now", s.Find("Buy Item Right Now", 31));
-        return string.IsNullOrEmpty(ctx.LbinUuid)
-            ? new Guide($"Buy {ctx.ItemName} on the auction house", OnClick: "/ah", Hover: "Click to open the auction house")
-            : new Guide($"Buy {ctx.ItemName} on the auction house", OnClick: $"/viewauction {ctx.LbinUuid}", Hover: "Click to view the lowest bin");
+        if (ctx.Offer == null)
+            return new Guide($"Buy {ctx.ItemName} on the auction house", OnClick: "/ah", Hover: "Click to open the auction house");
+        var hint = $"Buy {ctx.ItemName} on the auction house ({GoalHud.ShortPrice(ctx.Offer.Price)}{ProfitNote(ctx)})";
+        return ctx.Offer.ViewCommand() is { } command
+            ? new Guide(hint, OnClick: command, Hover: "Click to view the cheapest auction")
+            : new Guide(hint, OnClick: "/ah", Hover: "Click to open the auction house");
     }
+
+    private static string ProfitNote(GoalGuideContext ctx)
+        => GoalHud.PriceDifference(ctx.Step, ctx.Offer) switch
+        {
+            > 0 and var diff => $", {GoalHud.ShortPrice(diff)} less profit than planned",
+            < 0 and var diff => $", {GoalHud.ShortPrice(-diff)} more profit than planned",
+            _ => ""
+        };
 
     private static Guide Craft(Screen s, GoalGuideContext ctx)
     {

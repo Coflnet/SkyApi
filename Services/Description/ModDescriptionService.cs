@@ -689,6 +689,8 @@ public partial class ModDescriptionService : IDisposable
                 }
                 var addedFromIndex = container.mods.Count;
                 modifier.Apply(container);
+                // one place keeps every panel line short enough for the screen, before the disable handle is added
+                InfoDisplayWrap.Apply(container.mods, addedFromIndex);
                 // one place stamps the standardized disable button onto the display it just added.
                 InfoDisplayDisable.StampDisableButton(container, addedFromIndex, disableName);
             }

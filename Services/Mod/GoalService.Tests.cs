@@ -11,7 +11,6 @@ using Coflnet.Sky.Commands.Shared.Goals;
 using Coflnet.Sky.Crafts.Client.Api;
 using Coflnet.Sky.PlayerState.Client.Api;
 using Coflnet.Sky.Settings.Client.Api;
-using Coflnet.Sky.Sniper.Client.Api;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -52,7 +51,7 @@ public class GoalServiceTests
         var forge = new Mock<IForgeApi>();
         var list = new GoalList();
         var service = new GoalService(settings, publisher.Object, cookies.Object, Mock.Of<IPlayerStateApi>(),
-            Mock.Of<IAuctionApi>(), new GoalPlanner(crafts.Object, forge.Object), new ServiceCollection().BuildServiceProvider(),
+            new GoalPlanner(crafts.Object, forge.Object), new ServiceCollection().BuildServiceProvider(),
             Mock.Of<ILogger<GoalService>>())
         {
             HolderFactory = _ => Task.FromResult(new GoalListHolder(() => list)),
@@ -175,5 +174,233 @@ public class GoalServiceTests
         panel.Entries.Should().ContainSingle();
         panel.Entries[0].Amount.Should().Be(7);
         panel.Entries[0].Command.Should().StartWith("/cofl bzorder search 7 ");
+    }
+
+    private static Goal TwoSameItemGoal() => new()
+    {
+        Title = "g",
+        RootItemTag = "R",
+        Quantity = 1,
+        Root = new GoalStep
+        {
+            Kind = StepKind.Craft,
+            ItemTag = "R",
+            Quantity = 1,
+            Children =
+            {
+                new GoalStep { Id = "s1", Kind = StepKind.BuyOrder, ItemTag = "X", Quantity = 15 },
+                new GoalStep { Id = "s2", Kind = StepKind.BuyOrder, ItemTag = "X", Quantity = 17 },
+            }
+        }
+    };
+
+    /// <summary>Two actionable steps of one item show as one panel row with the summed amount.</summary>
+    [Test]
+    public async Task GetPanel_MergesSameItem()
+    {
+        var goal = TwoSameItemGoal();
+        list.Goals.Add(goal);
+        list.FocusId = goal.Id;
+        await service.OnInventory("u1", "Steve", Inventory(46));
+
+        var panel = service.GetPanel("Steve");
+
+        panel.Entries.Should().ContainSingle();
+        panel.Entries[0].Amount.Should().Be(32);
+        panel.Entries[0].Command.Should().StartWith("/cofl bzorder search 32 ");
+    }
+
+    /// <summary>The guide context carries the merged quantity and the id of a real step.</summary>
+    [Test]
+    public async Task GetGuideContext_UsesMergedQuantity()
+    {
+        var goal = TwoSameItemGoal();
+        list.Goals.Add(goal);
+        list.FocusId = goal.Id;
+        await service.OnInventory("u1", "Steve", Inventory(46));
+
+        var ctx = service.GetGuideContext("Steve");
+
+        ctx.Quantity.Should().Be(32);
+        ctx.Step.Id.Should().Be("s1");
+    }
+
+    /// <summary>Ordering the merged line marks every merged step, but not steps that are not actionable.</summary>
+    [Test]
+    public async Task MarkOrdered_MarksMergedStepsOnly()
+    {
+        var goal = TwoSameItemGoal();
+        goal.Root.Children.Add(new GoalStep { Id = "s3", Kind = StepKind.BuyOrder, ItemTag = "X", Quantity = 4, DoneAt = DateTime.UtcNow });
+        list.Goals.Add(goal);
+        list.FocusId = goal.Id;
+        await service.OnInventory("u1", "Steve", Inventory(46));
+        settingsApi.Invocations.Clear();
+
+        await service.MarkOrdered("Steve", "s1");
+
+        goal.Root.Children[0].OrderedAt.Should().NotBeNull();
+        goal.Root.Children[1].OrderedAt.Should().NotBeNull();
+        goal.Root.Children[2].OrderedAt.Should().BeNull();
+        settingsApi.Verify(s => s.UpdateSettingAsync("u1", "goals", It.IsAny<string>(), It.IsAny<int>(), It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    /// <summary>An unchanged hud is pushed again after the refresh interval, without a new expectation.</summary>
+    [Test]
+    public async Task OnInventory_RepushesUnchangedHudAfterInterval()
+    {
+        var now = new DateTime(2026, 1, 1, 12, 0, 0, DateTimeKind.Utc);
+        service.Now = () => now;
+        var goal = BuyGoal("X", 7);
+        list.Goals.Add(goal);
+        list.FocusId = goal.Id;
+        var items = Inventory(46);
+
+        await service.OnInventory("u1", "Steve", items);
+        now = now.AddSeconds(10);
+        await service.OnInventory("u1", "Steve", items);
+        publisher.Verify(p => p.DisplayForUser("u1", It.IsAny<object>()), Times.Once);
+
+        now = now.AddSeconds(GoalService.HudRefreshInterval.TotalSeconds + 1);
+        await service.OnInventory("u1", "Steve", items);
+
+        publisher.Verify(p => p.DisplayForUser("u1", It.IsAny<object>()), Times.Exactly(2));
+        publisher.Verify(p => p.ExpectForUser("u1", It.IsAny<string>(), It.IsAny<int>()), Times.Once);
+    }
+
+    private const string FullUuid = "70e3559483ce4da8b1c2d3e4f5a6b7c8";
+
+    private static Goal Necron() => new()
+    {
+        Title = "Necron's Leggings",
+        RootItemTag = "NECRON_LEGGINGS",
+        Quantity = 1,
+        Root = new GoalStep
+        {
+            Id = "root", Kind = StepKind.Craft, ItemTag = "NECRON_LEGGINGS", Quantity = 1,
+            Children =
+            {
+                new GoalStep { Id = "bz", Kind = StepKind.InstaBuy, ItemTag = "HANDLE", Quantity = 8 },
+                new GoalStep { Id = "ah", Kind = StepKind.Auction, ItemTag = "WITHER_LEGGINGS", Quantity = 1, UnitPrice = 2_500_000 },
+            }
+        }
+    };
+
+    private InfoDisplayDto LastHud() => (InfoDisplayDto)publisher.Invocations.Last(i => i.Method.Name == nameof(IModUserPublisher.DisplayForUser)).Arguments[1];
+
+    /// <summary>The auction line is first, links the full uuid from the lowest bin source and states the lost profit.</summary>
+    [Test]
+    public async Task Hud_AuctionFirstWithFullUuidFromLowestBinSource()
+    {
+        service.LowestBinSource = tag => Task.FromResult(tag == "WITHER_LEGGINGS" ? new AuctionOffer(FullUuid, 2_900_000) : null);
+        list.Goals.Add(Necron());
+        list.FocusId = list.Goals[0].Id;
+
+        await service.OnInventory("u1", "Steve", Inventory(46));
+
+        var hud = LastHud();
+        hud.Lines[0].OnClick.Should().MatchRegex("^/viewauction [0-9a-f]{32}$");
+        hud.Lines[0].Text.Should().Contain("(auction)").And.EndWith("§c-400k profit");
+        hud.Lines[1].Text.Should().StartWith("§7then Buy 8x");
+        publisher.Verify(p => p.ExpectForUser("u1", "/viewauction " + FullUuid, It.IsAny<int>()), Times.Once);
+    }
+
+    /// <summary>A short (17 character) sniper id is not a valid auction uuid, the line opens the auction house instead.</summary>
+    [Test]
+    public async Task Hud_ShortAuctionId_FallsBackToAh()
+    {
+        service.LowestBinSource = _ => Task.FromResult(new AuctionOffer("70e3559483ce4da8b", 2_500_000));
+        list.Goals.Add(Necron());
+        list.FocusId = list.Goals[0].Id;
+
+        await service.OnInventory("u1", "Steve", Inventory(46));
+
+        LastHud().Lines[0].OnClick.Should().Be("/ah");
+    }
+
+    /// <summary>Offers are cached for 20 seconds and a changed cheapest auction changes the pushed hud.</summary>
+    [Test]
+    public async Task Hud_OfferCachedFor20Seconds_ThenRefreshed()
+    {
+        var now = new DateTime(2026, 1, 1, 12, 0, 0, DateTimeKind.Utc);
+        service.Now = () => now;
+        var price = 2_500_000L;
+        var lookups = 0;
+        service.LowestBinSource = _ => { lookups++; return Task.FromResult(new AuctionOffer(FullUuid, price)); };
+        list.Goals.Add(Necron());
+        list.FocusId = list.Goals[0].Id;
+        var items = Inventory(46);
+
+        await service.OnInventory("u1", "Steve", items);
+        price = 3_000_000;
+        now = now.AddSeconds(19);
+        await service.OnInventory("u1", "Steve", items);
+        lookups.Should().Be(1);
+        publisher.Verify(p => p.DisplayForUser("u1", It.IsAny<object>()), Times.Once);
+
+        now = now.AddSeconds(2);
+        await service.OnInventory("u1", "Steve", items);
+
+        lookups.Should().Be(2);
+        publisher.Verify(p => p.DisplayForUser("u1", It.IsAny<object>()), Times.Exactly(2));
+        LastHud().Lines[0].Text.Should().Contain("3m");
+    }
+
+    /// <summary>Without a bin the line keeps the plain auction text.</summary>
+    [Test]
+    public async Task Hud_NoOffer_PlainAuctionLine()
+    {
+        service.LowestBinSource = _ => Task.FromResult<AuctionOffer>(null);
+        list.Goals.Add(Necron());
+        list.FocusId = list.Goals[0].Id;
+
+        await service.OnInventory("u1", "Steve", Inventory(46));
+
+        LastHud().Lines[0].OnClick.Should().Be("/ah");
+        LastHud().Lines[0].Text.Should().EndWith("(auction)");
+    }
+
+    /// <summary>The guide reads the cached offer and never looks it up itself.</summary>
+    [Test]
+    public async Task GetGuideContext_AuctionStepFirstWithCachedOffer()
+    {
+        var lookups = 0;
+        service.LowestBinSource = _ => { lookups++; return Task.FromResult(new AuctionOffer(FullUuid, 2_500_000)); };
+        list.Goals.Add(Necron());
+        list.FocusId = list.Goals[0].Id;
+        await service.OnInventory("u1", "Steve", Inventory(46));
+        lookups = 0;
+
+        var ctx = service.GetGuideContext("Steve");
+
+        ctx.Kind.Should().Be(StepKind.Auction);
+        ctx.Offer.Should().Be(new AuctionOffer(FullUuid, 2_500_000));
+        lookups.Should().Be(0);
+    }
+
+    /// <summary>The panel names the pending auction item so the bazaar rows are not bought first.</summary>
+    [Test]
+    public async Task GetPanel_NamesPendingAuction()
+    {
+        service.LowestBinSource = _ => Task.FromResult<AuctionOffer>(null);
+        list.Goals.Add(Necron());
+        list.FocusId = list.Goals[0].Id;
+        await service.OnInventory("u1", "Steve", Inventory(46));
+
+        var panel = service.GetPanel("Steve");
+
+        panel.FirstAuctionName.Should().NotBeNullOrEmpty();
+        panel.Entries.Should().ContainSingle().Which.Amount.Should().Be(8);
+    }
+
+    /// <summary>Without a pending auction the panel has no hint.</summary>
+    [Test]
+    public async Task GetPanel_NoAuction_NoHint()
+    {
+        var goal = BuyGoal("X", 7);
+        list.Goals.Add(goal);
+        list.FocusId = goal.Id;
+        await service.OnInventory("u1", "Steve", Inventory(46));
+
+        service.GetPanel("Steve").FirstAuctionName.Should().BeNull();
     }
 }

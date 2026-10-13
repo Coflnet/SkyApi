@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
@@ -28,10 +29,10 @@ public class GoalGuideModifierTests
         modifier = new GoalGuideModifier(() => source.Object);
     }
 
-    private void WithStep(StepKind kind = StepKind.BuyOrder, long qty = 64, bool cookie = true)
+    private void WithStep(StepKind kind = StepKind.BuyOrder, long qty = 64, bool cookie = true, AuctionOffer offer = null, double? unitPrice = null)
     {
-        var step = new GoalStep { Id = "s1", Kind = kind, ItemTag = Tag, Quantity = qty };
-        source.Setup(s => s.GetGuideContext("Ekwav")).Returns(new GoalGuideContext(step, kind, "Enchanted Diamond", "Enchanted Diamond", qty, cookie));
+        var step = new GoalStep { Id = "s1", Kind = kind, ItemTag = Tag, Quantity = qty, UnitPrice = unitPrice };
+        source.Setup(s => s.GetGuideContext("Ekwav")).Returns(new GoalGuideContext(step, kind, "Enchanted Diamond", "Enchanted Diamond", qty, cookie, offer));
     }
 
     private static DataContainer Screen(string title, params (int slot, string name, string tag)[] slots)
@@ -144,6 +145,51 @@ public class GoalGuideModifierTests
         var data = Screen("BIN Auction View", (13, "§aEnchanted Diamond", Tag), (31, "§6Buy Item Right Now", null));
         modifier.Apply(data);
         Highlighted(data).Should().Be(31);
+    }
+
+    /// <summary>The auction hint names the price and the profit change and links the full uuid.</summary>
+    [Test]
+    public void AuctionStep_HintShowsPriceAndProfitChange()
+    {
+        WithStep(StepKind.Auction, 1, offer: new AuctionOffer("70e3559483ce4da8b1c2d3e4f5a6b7c8", 2_900_000), unitPrice: 2_500_000);
+        var data = Screen("Chest", (0, "§fStone", "STONE"));
+        modifier.Apply(data);
+        Panel(data).Should().Contain("Buy Enchanted Diamond on the auction house (2.9m, 400k less profit than planned)")
+            .And.Contain("Click to view the cheapest auction");
+    }
+
+    /// <summary>A short sniper id is never turned into a view command.</summary>
+    [Test]
+    public void AuctionStep_ShortId_OpensAuctionHouse()
+    {
+        WithStep(StepKind.Auction, 1, offer: new AuctionOffer("70e3559483ce4da8b", 2_500_000), unitPrice: 2_500_000);
+        var data = Screen("Chest", (0, "§fStone", "STONE"));
+        modifier.Apply(data);
+        var panel = Newtonsoft.Json.JsonConvert.SerializeObject(data.mods.Skip(54));
+        panel.Should().Contain("/ah").And.NotContain("viewauction");
+        Panel(data).Should().Contain("(2.5m)").And.NotContain("profit");
+    }
+
+    /// <summary>The guide takes the first actionable step, which is the auction step because the evaluator orders it first.</summary>
+    [Test]
+    public void AuctionComesFirst_GuideFollowsAuctionStep()
+    {
+        var goal = new Goal
+        {
+            Root = new GoalStep
+            {
+                Id = "r", Kind = StepKind.Craft, ItemTag = "R", Quantity = 1,
+                Children =
+                {
+                    new GoalStep { Id = "bz", Kind = StepKind.InstaBuy, ItemTag = "BZ", Quantity = 8 },
+                    new GoalStep { Id = "ah", Kind = StepKind.Auction, ItemTag = Tag, Quantity = 1 },
+                }
+            }
+        };
+        var progress = GoalProgressEvaluator.Evaluate(goal, new Dictionary<string, long>(), new Dictionary<string, long>(), new HashSet<string>(), DateTime.UtcNow);
+        var first = GoalHud.MergeSameItem(progress.Actionable).First();
+        first.Id.Should().Be("ah");
+        first.Kind.Should().Be(StepKind.Auction);
     }
 
     /// <summary>An unrelated chest only gets the hint, no highlight.</summary>

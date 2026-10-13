@@ -10,7 +10,6 @@ using Coflnet.Sky.Commands.Shared.Goals;
 using Coflnet.Sky.Core;
 using Coflnet.Sky.Crafts.Client.Api;
 using Coflnet.Sky.PlayerState.Client.Api;
-using Coflnet.Sky.Sniper.Client.Api;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -33,6 +32,8 @@ public class GoalPanelData
 {
     /// <summary>Actionable bazaar steps of the focused goal</summary>
     public List<GoalPanelEntry> Entries { get; set; } = new();
+    /// <summary>Display name of the first pending auction house item, set while an auction step is actionable (it is bought before the bazaar items)</summary>
+    public string FirstAuctionName { get; set; }
 }
 
 /// <summary>Holds the live goal list of a user, disposable so the settings subscription can be released.</summary>
@@ -61,8 +62,8 @@ public sealed class GoalListHolder : IDisposable
 /// <param name="SearchName">Name to search for on the bazaar</param>
 /// <param name="Quantity">Amount needed</param>
 /// <param name="HasCookie">Whether the player has a booster cookie (bazaar from anywhere)</param>
-/// <param name="LbinUuid">Cached lowest bin auction uuid of the item, if known</param>
-public record GoalGuideContext(GoalStep Step, StepKind Kind, string ItemName, string SearchName, long Quantity, bool HasCookie, string LbinUuid = null);
+/// <param name="Offer">Cached cheapest active auction of the item, if known</param>
+public record GoalGuideContext(GoalStep Step, StepKind Kind, string ItemName, string SearchName, long Quantity, bool HasCookie, AuctionOffer Offer = null);
 
 /// <summary>Source of the guide context for <see cref="Description.GoalGuideModifier"/>.</summary>
 public interface IGoalGuideSource
@@ -83,39 +84,46 @@ public class GoalService : IGoalGuideSource, IDisposable
 {
     /// <summary>Settings key the goal list is stored under.</summary>
     public const string SettingsKey = "goals";
-    private static readonly TimeSpan LbinCacheTime = TimeSpan.FromSeconds(60);
+    private static readonly TimeSpan OfferCacheTime = TimeSpan.FromSeconds(20);
 
     private readonly SettingsService settings;
     private readonly IModUserPublisher publisher;
     private readonly IBoosterCookieService cookies;
     private readonly IPlayerStateApi stateApi;
-    private readonly IAuctionApi auctionApi;
     private readonly GoalPlanner planner;
     private readonly IServiceProvider services;
     private readonly ILogger<GoalService> logger;
     private readonly MemoryCache entries = new(new MemoryCacheOptions());
     private readonly ConcurrentDictionary<string, string> userByMcName = new(StringComparer.OrdinalIgnoreCase);
-    private (DateTime at, Dictionary<string, long> lbins) lbinCache;
-    private readonly SemaphoreSlim lbinLock = new(1, 1);
+    private readonly ConcurrentDictionary<string, (DateTime at, AuctionOffer offer)> offerCache = new();
 
     /// <summary>Overridable factory for the per user list (tests replace it).</summary>
     internal Func<string, Task<GoalListHolder>> HolderFactory;
     /// <summary>Overridable source of the tags traded on the bazaar (tests replace it).</summary>
     internal Func<ISet<string>> BazaarTagSource;
+    /// <summary>Overridable lookup of the cheapest active BIN of an item, null when there is none (tests replace it).</summary>
+    internal Func<string, Task<AuctionOffer>> LowestBinSource;
+    /// <summary>Overridable clock (tests replace it).</summary>
+    internal Func<DateTime> Now = () => DateTime.UtcNow;
+    /// <summary>
+    /// How long an unchanged hud is not pushed again. The mod keeps the hud only in memory and nothing tells the api
+    /// when the game restarted, so the next inventory upload after this interval restores it.
+    /// </summary>
+    internal static readonly TimeSpan HudRefreshInterval = TimeSpan.FromSeconds(30);
 
     /// <summary>Creates a new instance.</summary>
     public GoalService(SettingsService settings, IModUserPublisher publisher, IBoosterCookieService cookies,
-        IPlayerStateApi stateApi, IAuctionApi auctionApi, GoalPlanner planner, IServiceProvider services, ILogger<GoalService> logger)
+        IPlayerStateApi stateApi, GoalPlanner planner, IServiceProvider services, ILogger<GoalService> logger)
     {
         this.settings = settings;
         this.publisher = publisher;
         this.cookies = cookies;
         this.stateApi = stateApi;
-        this.auctionApi = auctionApi;
         this.planner = planner;
         this.services = services;
         this.logger = logger;
         BazaarTagSource = () => Mod.DeserializedCache.BazaarItems.Keys.ToHashSet();
+        LowestBinSource = LoadLowestBin;
         HolderFactory = async userId =>
         {
             var value = await SelfUpdatingValue<GoalList>.Create(userId, SettingsKey, () => new GoalList());
@@ -319,44 +327,39 @@ public class GoalService : IGoalGuideSource, IDisposable
         return tags;
     }
 
-    private async Task<Dictionary<string, long>> GetLbins()
+    // PricesService uses a scoped db context, so it is resolved in a fresh scope per lookup
+    private async Task<AuctionOffer> LoadLowestBin(string tag)
     {
-        await lbinLock.WaitAsync();
         try
         {
-            if (lbinCache.lbins != null && DateTime.UtcNow - lbinCache.at < LbinCacheTime)
-                return lbinCache.lbins;
-            var raw = await auctionApi.ApiAuctionLbinsGetAsync();
-            lbinCache = (DateTime.UtcNow, raw.Where(l => l.Value != null).ToDictionary(l => l.Key, l => l.Value.AuctionId));
-            return lbinCache.lbins;
-        }
-        finally
-        {
-            lbinLock.Release();
-        }
-    }
-
-    private async Task<Dictionary<string, string>> LbinUuids(IEnumerable<string> tags)
-    {
-        var result = new Dictionary<string, string>();
-        var wanted = tags.Where(t => t != null).Distinct().ToList();
-        if (wanted.Count == 0)
-            return result;
-        try
-        {
-            var lbins = await GetLbins();
-            foreach (var tag in wanted)
-                if (lbins.TryGetValue(tag, out var id))
-                    result[tag] = AuctionService.Instance.GetUuid(id);
+            using var scope = services.CreateScope();
+            var (cost, uuid, _) = await scope.ServiceProvider.GetRequiredService<PricesService>().GetLowestBinData(tag);
+            return uuid == null ? null : new AuctionOffer(uuid, cost);
         }
         catch (Exception ex)
         {
-            logger.LogWarning(ex, "Could not load lowest bins for goals");
+            logger.LogWarning(ex, "Could not load the lowest bin of {Tag} for goals", tag);
+            return null;
+        }
+    }
+
+    private async Task<Dictionary<string, AuctionOffer>> LoadOffers(IEnumerable<string> tags)
+    {
+        var result = new Dictionary<string, AuctionOffer>();
+        foreach (var tag in tags.Where(t => t != null).Distinct())
+        {
+            if (!offerCache.TryGetValue(tag, out var cached) || Now() - cached.at >= OfferCacheTime)
+            {
+                cached = (Now(), await LowestBinSource(tag));
+                offerCache[tag] = cached;
+            }
+            if (cached.offer != null)
+                result[tag] = cached.offer;
         }
         return result;
     }
 
-    /// <summary>Builds the hud and pushes it when changed (or about to expire). Caller holds the gate.</summary>
+    /// <summary>Builds the hud and pushes it when changed (or the last push is older than the refresh interval). Caller holds the gate.</summary>
     private async Task RefreshHud(string userId, Entry e, bool force)
     {
         var list = e.Holder.Value;
@@ -366,16 +369,16 @@ public class GoalService : IGoalGuideSource, IDisposable
         var description = await settings.GetCurrentValue<DescriptionSetting>(userId, "description", () => DescriptionSetting.Default);
         e.HasCookie = BoosterCookieService.HasCookie(description, await cookies.Get(e.McName));
         var auctionTags = focusProgress?.Actionable.Where(s => s.Kind == StepKind.Auction).Select(s => s.ItemTag) ?? Enumerable.Empty<string>();
-        var lbins = await LbinUuids(auctionTags);
-        var dto = GoalHud.BuildDisplay(list, e.Progress, e.HasCookie, names, tag => BazaarUtils.GetSearchValue(tag, names(tag)), lbins);
+        var offers = await LoadOffers(auctionTags);
+        var dto = GoalHud.BuildDisplay(list, e.Progress, e.HasCookie, names, tag => BazaarUtils.GetSearchValue(tag, names(tag)), offers);
         var hash = GoalHud.Hash(dto);
         var hashChanged = hash != e.LastHash;
-        var expiring = (DateTime.UtcNow - e.LastPush).TotalSeconds > dto.Ttl - 60;
-        if (!force && !hashChanged && !expiring)
+        var stale = Now() - e.LastPush > HudRefreshInterval;
+        if (!force && !hashChanged && !stale)
             return;
         await publisher.DisplayForUser(userId, dto);
         e.LastHash = hash;
-        e.LastPush = DateTime.UtcNow;
+        e.LastPush = Now();
         if (hashChanged && !dto.Clear && focusProgress?.Actionable.Count > 0
             && dto.Lines.FirstOrDefault()?.OnClick is { Length: > 0 } command && command.StartsWith('/'))
             await publisher.ExpectForUser(userId, command, 120);
@@ -524,7 +527,10 @@ public class GoalService : IGoalGuideSource, IDisposable
             if (focus == null || !e.Progress.TryGetValue(focus.Id, out var progress))
                 return data;
             var names = NameLookup();
-            foreach (var step in progress.Actionable.Where(s => s.Kind is StepKind.BuyOrder or StepKind.InstaBuy))
+            var merged = GoalHud.MergeSameItem(progress.Actionable);
+            if (merged.FirstOrDefault(s => s.Kind == StepKind.Auction) is { } auction)
+                data.FirstAuctionName = names(auction.ItemTag) ?? auction.ItemTag;
+            foreach (var step in merged.Where(s => s.Kind is StepKind.BuyOrder or StepKind.InstaBuy))
             {
                 var name = names(step.ItemTag) ?? step.ItemTag;
                 var search = BazaarUtils.GetSearchValue(step.ItemTag, name);
@@ -558,15 +564,15 @@ public class GoalService : IGoalGuideSource, IDisposable
             var focus = list?.Goals.FirstOrDefault(g => g.Id == list.FocusId) ?? list?.Goals.FirstOrDefault();
             if (focus == null || !e.Progress.TryGetValue(focus.Id, out var progress))
                 return null;
-            var step = progress.Actionable.FirstOrDefault();
+            var step = GoalHud.MergeSameItem(progress.Actionable).FirstOrDefault();
             if (step == null)
                 return null;
             var name = NameLookup()(step.ItemTag) ?? step.ItemTag;
-            string lbin = null;
-            if (step.Kind == StepKind.Auction && step.ItemTag != null && lbinCache.lbins != null
-                && lbinCache.lbins.TryGetValue(step.ItemTag, out var auctionId))
-                lbin = AuctionService.Instance.GetUuid(auctionId);
-            return new GoalGuideContext(step, step.Kind, name, BazaarUtils.GetSearchValue(step.ItemTag, name), step.Quantity, e.HasCookie, lbin);
+            // cache only, the hud refresh keeps it warm
+            AuctionOffer offer = null;
+            if (step.Kind == StepKind.Auction && step.ItemTag != null && offerCache.TryGetValue(step.ItemTag, out var cached))
+                offer = cached.offer;
+            return new GoalGuideContext(step, step.Kind, name, BazaarUtils.GetSearchValue(step.ItemTag, name), step.Quantity, e.HasCookie, offer);
         }
         catch (Exception ex)
         {
@@ -589,7 +595,14 @@ public class GoalService : IGoalGuideSource, IDisposable
                 var step = e.Holder.Value.Goals.Select(g => FindStep(g.Root, stepId)).FirstOrDefault(s => s != null);
                 if (step == null || step.OrderedAt != null || step.DoneAt != null)
                     return;
-                step.OrderedAt = DateTime.UtcNow;
+                var now = DateTime.UtcNow;
+                step.OrderedAt = now;
+                // steps merged into the same hud line are ordered together
+                var goal = e.Holder.Value.Goals.First(g => FindStep(g.Root, stepId) != null);
+                if (e.Progress.TryGetValue(goal.Id, out var progress))
+                    foreach (var other in progress.Actionable.Where(o => o != step && o.Kind == step.Kind && o.ItemTag == step.ItemTag
+                        && o.OrderedAt == null && o.DoneAt == null))
+                        other.OrderedAt = now;
                 await Persist(userId, e);
                 Evaluate(e, e.LastForging);
                 await RefreshHud(userId, e, false);

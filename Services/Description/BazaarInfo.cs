@@ -162,6 +162,8 @@ public class BazaarInfo : ICustomModifier
         if (panel?.Entries == null || panel.Entries.Count == 0)
             return;
         display.Add(new($"{McColorCodes.GRAY}For your goal:"));
+        if (!string.IsNullOrEmpty(panel.FirstAuctionName))
+            display.Add(new($"{McColorCodes.YELLOW}First buy {panel.FirstAuctionName} on the auction house"));
         foreach (var entry in panel.Entries)
         {
             var builder = new LoreBuilder()

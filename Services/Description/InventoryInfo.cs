@@ -53,7 +53,7 @@ public class InventoryInfo : ICustomModifier
         var display = new List<Models.Mod.DescModification>();
         if (data.inventory.ChestName == null && data.inventory.Version <= 2) // 1.8.9 inventory
         {
-            display.Add(new(McColorCodes.BLACK + "_______________________________§7___"));
+            display.Add(new(McColorCodes.BLACK + new string('_', InfoDisplayWrap.MaxVisibleLength - 3) + "§7___"));
         }
         currentLine.Insert(0, McColorCodes.GRAY);
         foreach (var word in words)
@@ -61,7 +61,7 @@ public class InventoryInfo : ICustomModifier
             // Calculate visible length by removing color codes
             var visibleLength = Regex.Replace(currentLine.ToString(), "§.", "").Length;
 
-            if (currentLine.Length > 0 && visibleLength + 1 + Regex.Replace(word, "§.", "").Length > 35 || IsStartOfcommand(word))
+            if (currentLine.Length > 0 && visibleLength + 1 + Regex.Replace(word, "§.", "").Length > InfoDisplayWrap.MaxVisibleLength || IsStartOfcommand(word))
             {
                 result.AppendLine(currentLine.ToString());
                 display.Add(new(currentLine.ToString()));

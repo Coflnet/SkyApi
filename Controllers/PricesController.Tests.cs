@@ -1,3 +1,4 @@
+using System;
 using Coflnet.Sky.Core;
 using NUnit.Framework;
 
@@ -37,6 +38,18 @@ public class PricesControllerTests
         var auction = new SaveAuction { FlatenedNBT = new() { ["uid"] = itemUuid } };
 
         Assert.That(PricesController.TryGetItemUid(auction, out _), Is.False);
+    }
+
+    [TestCase(0, null)]
+    [TestCase(-5, null)]
+    [TestCase(90, 90)]
+    [TestCase(3600, 3600)]
+    [TestCase(100000, 3600)]
+    public void ClampMinAge_ClampsToAnHour(int seconds, int? expected)
+    {
+        var result = PricesController.ClampMinAge(seconds);
+
+        Assert.That(result, Is.EqualTo(expected is null ? null : TimeSpan.FromSeconds(expected.Value)));
     }
 }
 #pragma warning restore CS1591
