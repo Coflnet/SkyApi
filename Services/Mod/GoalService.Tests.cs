@@ -38,7 +38,7 @@ public class GoalServiceTests
     }
 
     /// <summary>Creates a service wired to mocks, shared with the controller tests.</summary>
-    internal static (GoalService, Mock<IModUserPublisher>, Mock<ISettingsApi>, Mock<ICraftsApi>, Mock<IForgeApi>, GoalList) Create(CookieState cookie = CookieState.Unknown)
+    internal static (GoalService, Mock<IModUserPublisher>, Mock<ISettingsApi>, Mock<ICraftsApi>, Mock<IForgeApi>, GoalList) Create(CookieState cookie = CookieState.Unknown, IPlayerStateApi stateApi = null)
     {
         var publisher = new Mock<IModUserPublisher>();
         var settingsApi = new Mock<ISettingsApi>();
@@ -50,7 +50,7 @@ public class GoalServiceTests
         var crafts = new Mock<ICraftsApi>();
         var forge = new Mock<IForgeApi>();
         var list = new GoalList();
-        var service = new GoalService(settings, publisher.Object, cookies.Object, Mock.Of<IPlayerStateApi>(),
+        var service = new GoalService(settings, publisher.Object, cookies.Object, stateApi ?? Mock.Of<IPlayerStateApi>(),
             new GoalPlanner(crafts.Object, forge.Object), new ServiceCollection().BuildServiceProvider(),
             Mock.Of<ILogger<GoalService>>())
         {
@@ -116,6 +116,81 @@ public class GoalServiceTests
     {
         await service.OnInventory("u1", "Steve", Inventory(46, (10, "X", 2)));
         publisher.Verify(p => p.DisplayForUser(It.IsAny<string>(), It.IsAny<object>()), Times.Never);
+    }
+
+    /// <summary>Only unfinished forge steps require a player-state lookup.</summary>
+    [TestCase(false, false, 0)]
+    [TestCase(true, false, 1)]
+    [TestCase(true, true, 0)]
+    public async Task OnInventory_OnlyLoadsPlayerStateForPendingForge(bool forge, bool completed, int calls)
+    {
+        var state = new Mock<IPlayerStateApi>();
+        (service, publisher, settingsApi, craftsApi, forgeApi, list) = Create(stateApi: state.Object);
+        var goal = BuyGoal();
+        goal.Root.Kind = StepKind.Craft;
+        goal.Root.Children.Add(new GoalStep { Kind = forge ? StepKind.Forge : StepKind.BuyOrder,
+            ItemTag = "PART", Quantity = 1, DoneAt = completed ? DateTime.UtcNow : null });
+        list.Goals.Add(goal);
+
+        await service.OnInventory("u1", "Steve", Inventory(46));
+
+        state.Verify(s => s.PlayerStatePlayerIdExtractedGetAsync("Steve", It.IsAny<int>(), It.IsAny<CancellationToken>()), Times.Exactly(calls));
+    }
+
+    /// <summary>Reuse request settings without another HTTP lookup, including the NoCookie override.</summary>
+    [Test]
+    public async Task OnInventory_ReusesLoadedDescriptionSettingsForCookieGuidance()
+    {
+        (service, publisher, settingsApi, craftsApi, forgeApi, list) = Create(CookieState.Active);
+        list.Goals.Add(BuyGoal("BZ"));
+
+        await service.OnInventory("u1", "Steve", Inventory(46), description: new() { NoCookie = true });
+
+        settingsApi.Verify(s => s.GetSettingWithHttpInfoAsync("u1", "description", It.IsAny<int>(), It.IsAny<CancellationToken>()), Times.Never);
+        service.GetGuideContext("Steve").HasCookie.Should().BeFalse();
+    }
+
+    /// <summary>A subscription replacement during a lookup must not be overwritten with the old list.</summary>
+    [Test]
+    public async Task OnInventory_PersistsCurrentListWhenSubscriptionReplacesItDuringForgeLookup()
+    {
+        var state = new Mock<IPlayerStateApi>();
+        var lookup = new TaskCompletionSource<PlayerState.Client.Model.ExtractedInfo>();
+        state.Setup(s => s.PlayerStatePlayerIdExtractedGetAsync("Steve", It.IsAny<int>(), It.IsAny<CancellationToken>())).Returns(lookup.Task);
+        (service, publisher, settingsApi, craftsApi, forgeApi, list) = Create(stateApi: state.Object);
+        var old = BuyGoal();
+        old.Root.Kind = StepKind.Forge;
+        var current = new GoalList { Goals = { old } };
+        service.HolderFactory = _ => Task.FromResult(new GoalListHolder(() => current));
+        var refresh = service.OnInventory("u1", "Steve", Inventory(46, (10, "X", 2)));
+        var replacement = BuyGoal();
+        current = new GoalList { Goals = { replacement } };
+
+        lookup.SetResult(new());
+        await refresh;
+
+        replacement.Root.DoneAt.Should().NotBeNull();
+        settingsApi.Verify(s => s.UpdateSettingAsync("u1", "goals",
+            It.Is<string>(json => json.Contains(replacement.Id) && !json.Contains(old.Id)),
+            It.IsAny<int>(), It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    /// <summary>Reset cannot make two active flips claim the same item orders.</summary>
+    [Test]
+    public async Task Reset_RejectsAnotherActiveBazaarFlipForSameItem()
+    {
+        var goal = BuyGoal();
+        goal.BazaarFlip = new();
+        var other = BuyGoal();
+        other.BazaarFlip = new();
+        list.Goals.AddRange(new[] { goal, other });
+        var created = goal.CreatedAt;
+
+        var reset = () => service.Reset("u1", goal.Id);
+
+        (await reset.Should().ThrowAsync<CoflnetException>()).Which.Slug.Should().Be("bazaar_goal_active");
+        goal.CreatedAt.Should().Be(created);
+        settingsApi.Verify(s => s.UpdateSettingAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<int>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
     /// <summary>Open buy orders mark the matching todo buy step as ordered.</summary>
@@ -265,6 +340,49 @@ public class GoalServiceTests
 
         publisher.Verify(p => p.DisplayForUser("u1", It.IsAny<object>()), Times.Exactly(2));
         publisher.Verify(p => p.ExpectForUser("u1", It.IsAny<string>(), It.IsAny<int>()), Times.Once);
+    }
+
+    /// <summary>An awaited inventory evaluation makes the matching next step available to description guides.</summary>
+    [Test]
+    public async Task OnInventory_UpdatesGuideBeforeReturning()
+    {
+        var goal = new Goal
+        {
+            Title = "Craft X", RootItemTag = "CRAFTED_X", Quantity = 1,
+            Root = new GoalStep
+            {
+                Kind = StepKind.Craft, ItemTag = "CRAFTED_X", Quantity = 1,
+                Children = { new GoalStep { Kind = StepKind.BuyOrder, ItemTag = "X", Quantity = 2 } }
+            }
+        };
+        list.Goals.Add(goal);
+        list.FocusId = goal.Id;
+        await service.OnInventory("u1", "Steve", Inventory(46));
+        service.GetGuideContext("Steve").Kind.Should().Be(StepKind.BuyOrder);
+        await service.OnInventory("u1", "Steve", Inventory(46, (10, "X", 2)));
+        service.GetGuideContext("Steve").Kind.Should().Be(StepKind.Craft);
+    }
+
+    /// <summary>A reconnect restores identical HUD and expected command immediately; regular uploads stay deduplicated.</summary>
+    [Test]
+    public async Task OnInventory_ForcedRefreshRepushesHudAndExpectedCommandBeforeInterval()
+    {
+        var now = new DateTime(2026, 1, 1, 12, 0, 0, DateTimeKind.Utc);
+        service.Now = () => now;
+        var goal = BuyGoal("X", 7);
+        list.Goals.Add(goal);
+        list.FocusId = goal.Id;
+        var items = Inventory(46);
+
+        await service.OnInventory("u1", "Steve", items);
+        await service.OnInventory("u1", "Steve", items);
+        publisher.Verify(p => p.DisplayForUser("u1", It.IsAny<object>()), Times.Once);
+        publisher.Verify(p => p.ExpectForUser("u1", It.IsAny<string>(), It.IsAny<int>()), Times.Once);
+
+        await service.OnInventory("u1", "Steve", items, force: true);
+        await service.OnInventory("u1", "Steve", items);
+        publisher.Verify(p => p.DisplayForUser("u1", It.IsAny<object>()), Times.Exactly(2));
+        publisher.Verify(p => p.ExpectForUser("u1", It.IsAny<string>(), It.IsAny<int>()), Times.Exactly(2));
     }
 
     private const string FullUuid = "70e3559483ce4da8b1c2d3e4f5a6b7c8";

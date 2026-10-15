@@ -30,6 +30,14 @@ namespace SkyApi.Services.Description;
 public class ModDescriptionServiceTests
 {
 
+    [TestCase("{}", false)]
+    [TestCase("{\"forceGoalRefresh\":true}", true)]
+    [TestCase("{\"forceGoalRefresh\":false}", false)]
+    public void InventoryRequest_ForceGoalRefreshIsOptionalAndBindsClientProperty(string json, bool expected)
+    {
+        JsonConvert.DeserializeObject<InventoryDataWithSettings>(json).ForceGoalRefresh.Should().Be(expected);
+    }
+
     Mock<ISynchronousClient> synchronousClient;
     Mock<IAsynchronousClient> asynchronousClient = null!;
     Mock<IReadableConfiguration> readableConfiguration;

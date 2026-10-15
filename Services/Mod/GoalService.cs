@@ -248,8 +248,8 @@ public class GoalService : IGoalGuideSource, IDisposable
         }
     }
 
-    /// <summary>Evaluates the goals of the user against the inventory and updates the hud. Never throws.</summary>
-    public async Task OnInventory(string userId, string mcName, List<Item> items)
+    /// <summary>Evaluates inventory before guides are built; force restores unchanged HUD and expected-command state after reconnect. Never throws.</summary>
+    public async Task OnInventory(string userId, string mcName, List<Item> items, bool force = false, DescriptionSetting description = null)
     {
         try
         {
@@ -263,7 +263,8 @@ public class GoalService : IGoalGuideSource, IDisposable
             if (list?.Goals == null || list.Goals.Count == 0)
                 return;
             var counts = ExtractCounts(items);
-            var forging = await LoadForgingTags(mcName);
+            var forging = list.Goals.Any(g => HasPendingForge(g.Root))
+                ? await LoadForgingTags(mcName) : new HashSet<string>();
             await e.Gate.WaitAsync();
             try
             {
@@ -271,8 +272,8 @@ public class GoalService : IGoalGuideSource, IDisposable
                 e.LastForging = forging;
                 var changed = Evaluate(e, forging);
                 if (changed)
-                    await settings.UpdateSetting(userId, SettingsKey, list);
-                await RefreshHud(userId, e, false);
+                    await Persist(userId, e);
+                await RefreshHud(userId, e, force, description);
             }
             finally
             {
@@ -354,6 +355,10 @@ public class GoalService : IGoalGuideSource, IDisposable
         return changed;
     }
 
+    private static bool HasPendingForge(GoalStep step)
+        => step != null && !step.DoneAt.HasValue
+            && (step.Kind == StepKind.Forge || step.Children.Any(HasPendingForge));
+
     private async Task<ISet<string>> LoadForgingTags(string mcName)
     {
         var tags = new HashSet<string>();
@@ -412,13 +417,13 @@ public class GoalService : IGoalGuideSource, IDisposable
     }
 
     /// <summary>Builds the hud and pushes it when changed (or the last push is older than the refresh interval). Caller holds the gate.</summary>
-    private async Task RefreshHud(string userId, Entry e, bool force)
+    private async Task RefreshHud(string userId, Entry e, bool force, DescriptionSetting description = null)
     {
         var list = e.Holder.Value;
         var names = NameLookup();
         var focus = list.Goals.FirstOrDefault(g => g.Id == list.FocusId) ?? list.Goals.FirstOrDefault();
         var focusProgress = focus == null ? null : e.Progress.GetValueOrDefault(focus.Id);
-        var description = await settings.GetCurrentValue<DescriptionSetting>(userId, "description", () => DescriptionSetting.Default);
+        description ??= await settings.GetCurrentValue<DescriptionSetting>(userId, "description", () => DescriptionSetting.Default);
         e.HasCookie = BoosterCookieService.HasCookie(description, await cookies.Get(e.McName));
         var auctionTags = focusProgress?.Actionable.Where(s => s.Kind == StepKind.Auction).Select(s => s.ItemTag) ?? Enumerable.Empty<string>();
         var offers = await LoadOffers(auctionTags);
@@ -431,7 +436,7 @@ public class GoalService : IGoalGuideSource, IDisposable
         await publisher.DisplayForUser(userId, dto);
         e.LastHash = hash;
         e.LastPush = Now();
-        if (hashChanged && !dto.Clear && focusProgress?.Actionable.Count > 0
+        if ((force || hashChanged) && !dto.Clear && focusProgress?.Actionable.Count > 0
             && dto.Lines.FirstOrDefault()?.OnClick is { Length: > 0 } command && command.StartsWith('/'))
             await publisher.ExpectForUser(userId, command, 120);
     }
@@ -552,6 +557,10 @@ public class GoalService : IGoalGuideSource, IDisposable
             var goal = e.Holder.Value.Goals.FirstOrDefault(g => g.Id == id);
             if (goal == null)
                 return false;
+            if (goal.BazaarFlip != null && e.Holder.Value.Goals.Any(other => other.Id != goal.Id
+                && other.BazaarFlip != null && other.RootItemTag == goal.RootItemTag
+                && BazaarFlipProgress.Next(other) != BazaarFlipAction.Done))
+                throw new CoflnetException("bazaar_goal_active", "Finish or remove the active Bazaar flip for this item before resetting this goal.");
             GoalProgressEvaluator.Reset(goal);
             await Persist(userId, e);
             Evaluate(e, e.LastForging);

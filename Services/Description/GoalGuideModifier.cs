@@ -97,8 +97,6 @@ public class GoalGuideModifier : ICustomModifier
             if (guide.Fill != null)
                 lines.Add(guide.Fill);
             data.mods.Add(lines);
-            if (guide.MarkOrdered)
-                _ = MarkOrdered(data.mcName, ctx.Step.Id);
         }
         catch (Exception ex)
         {
@@ -106,19 +104,7 @@ public class GoalGuideModifier : ICustomModifier
         }
     }
 
-    private async Task MarkOrdered(string mcName, string stepId)
-    {
-        try
-        {
-            await sourceFactory().MarkOrdered(mcName, stepId);
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine("Error marking goal step ordered: " + ex.Message);
-        }
-    }
-
-    private sealed record Guide(string Hint, int? Slot = null, string OnClick = null, string Hover = null, DescModification Fill = null, bool MarkOrdered = false);
+    private sealed record Guide(string Hint, int? Slot = null, string OnClick = null, string Hover = null, DescModification Fill = null);
 
     private static Guide BuyOrder(Screen s, GoalGuideContext ctx, DataContainer data)
     {
@@ -133,7 +119,7 @@ public class GoalGuideModifier : ICustomModifier
         if (s.Is("How much do you want to pay?") && s.MatchesItem(ctx))
             return new Guide("Pick Top Order +0.1 to be first in line", s.Find("Top Order +0.1", 12));
         if (s.Is("Confirm Buy Order") && s.MatchesItem(ctx))
-            return new Guide("Confirm the order", s.FindConfirm(), MarkOrdered: true);
+            return new Guide("Confirm the order", s.FindConfirm());
         return ctx.HasCookie
             ? new Guide($"Open the bazaar page: /cofl bzorder {qty} {ctx.SearchName}", OnClick: $"/cofl bzorder {qty} {ctx.SearchName}", Hover: "Click to open the bazaar page")
             : new Guide("Open the bazaar and use the search", OnClick: $"/cofl bazaarsearch {ctx.SearchName}", Hover: $"Click to search {ctx.ItemName}");

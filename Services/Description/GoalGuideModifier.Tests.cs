@@ -117,15 +117,15 @@ public class GoalGuideModifierTests
         Highlighted(data).Should().Be(12);
     }
 
-    /// <summary>The confirm screen highlights the confirm item and marks the step ordered.</summary>
+    /// <summary>Viewing confirmation highlights the button without recording an order that was not placed.</summary>
     [Test]
-    public void ConfirmScreen_HighlightsAndMarksOrdered()
+    public void ConfirmScreen_HighlightsWithoutMarkingOrdered()
     {
         WithStep();
         var data = Screen("Confirm Buy Order", (13, "§aConfirm Buy Order", Tag), (30, "§aGo Back", null), (31, "§cCancel Buy Order", null));
         modifier.Apply(data);
         Highlighted(data).Should().Be(13);
-        source.Verify(s => s.MarkOrdered("Ekwav", "s1"), Times.Once);
+        source.Verify(s => s.MarkOrdered(It.IsAny<string>(), It.IsAny<string>()), Times.Never);
     }
 
     /// <summary>Confirm screens of a different product are not marked.</summary>

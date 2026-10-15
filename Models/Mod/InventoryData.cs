@@ -47,6 +47,8 @@ public class InventoryDataWithSettings : InventoryData
     /// Incremental version of the client library to know supported features
     /// </summary>
     public int Version { get; set; }
+    /// <summary>Restores goal HUD and command guidance after a backend reconnect.</summary>
+    public bool ForceGoalRefresh { get; set; }
 }
 
 /// <summary>Represents a pricing breakdown.</summary>

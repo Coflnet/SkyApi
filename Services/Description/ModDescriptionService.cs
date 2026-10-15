@@ -567,7 +567,8 @@ public partial class ModDescriptionService : IDisposable
             {
                 items = ProduceInventory(inventory, mcName, userInfo.UserId, auctionRepresent);
                 if (!string.IsNullOrEmpty(userInfo.UserId))
-                    _ = goalService?.OnInventory(userInfo.UserId, mcName, items);
+                    if (goalService != null)
+                        await goalService.OnInventory(userInfo.UserId, mcName, items, inventory.ForceGoalRefresh, inventory.Settings);
             }
             catch (Exception e)
             {
