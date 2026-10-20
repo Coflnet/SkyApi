@@ -306,9 +306,9 @@ namespace Coflnet.Sky.Api
             services.AddSingleton<ItemFilterSearchService>();
             services.AddSingleton<Coflnet.Sky.Indexer.Client.Api.IUserApi>(
                 new Coflnet.Sky.Indexer.Client.Api.UserApi(Configuration["INDEXER_BASE_URL"]));
-            services.AddSingleton<Mayor.Client.Api.IElectionPeriodsApiApi>(a =>
+            services.AddSingleton<Mayor.Client.Api.IElectionPeriodsApi>(a =>
             {
-                return new Mayor.Client.Api.ElectionPeriodsApiApi(Configuration["MAYOR_BASE_URL"]);
+                return new Mayor.Client.Api.ElectionPeriodsApi(Configuration["MAYOR_BASE_URL"]);
             });
             services.AddSingleton<Proxy.Client.Api.IBaseApi>(a =>
             {
