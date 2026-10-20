@@ -19,12 +19,12 @@ namespace Coflnet.Sky.Api.Controller;
 [ResponseCache(Duration = 120, Location = ResponseCacheLocation.Any, NoStore = false)]
 public class MayorController : ControllerBase
 {
-    IElectionPeriodsApiApi mayorService;
+    IElectionPeriodsApi mayorService;
     /// <summary>
     /// Creates a new instance of <see cref="KatController"/>
     /// </summary>
     /// <param name="mayorService"></param>
-    public MayorController(IElectionPeriodsApiApi mayorService)
+    public MayorController(IElectionPeriodsApi mayorService)
     {
         this.mayorService = mayorService;
     }
