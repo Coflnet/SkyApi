@@ -87,7 +87,7 @@ public class ListPriceRecommend : ICustomModifier
             priceSource = "lbin (as configured)";
             suggestedPrice = priceEst.Lbin.Price - 1;
         }
-        if (hasFlipEstimate && !priceInfo.WasListedBefore && !priceInfo.WasChanged)
+        if (hasFlipEstimate && !priceInfo.WasListedBefore && !priceInfo.WasChanged && !WasCraftedSincePurchase(priceInfo, data))
         {
             suggestedPrice = priceInfo.Recommended.Value;
             priceSource = "Flip estimate";
@@ -185,7 +185,8 @@ public class ListPriceRecommend : ICustomModifier
             {
                 result.WasChanged = true;
             }
-            var sameitemListings = recentListingsOfItem.Where(o => o.AuctioneerId == targetAuction.AuctioneerId).ToList();
+            result.PurchasedTag = likelyPurchase?.Tag;
+            var sameitemListings = recentListingsOfItem.Where(o => o.AuctioneerId == targetAuction.AuctioneerId && o.Tag == targetAuction.Tag).ToList();
 
             result.LastListings = sameitemListings.Where(o => o.Start > DateTime.UtcNow.AddMinutes(-10) && ComparisonKey(o) == ComparisonKey(targetAuction)).Select(a => a.StartingBid).ToList();
             if (itemUuid != null)
@@ -197,6 +198,14 @@ public class ListPriceRecommend : ICustomModifier
         });
         preRequest.ToLoad.Add(nameof(ListPriceRecommend), task);
         return;
+    }
+
+    /// <summary>
+    /// Crafting keeps the uuid of one input item, so a flip estimate stored for that uuid belongs to the input item
+    /// </summary>
+    private static bool WasCraftedSincePurchase(PriceInfo priceInfo, DataContainer data)
+    {
+        return priceInfo.PurchasedTag != null && priceInfo.PurchasedTag != data.auctionRepresent[13].auction?.Tag;
     }
 
     private string ComparisonKey(Core.SaveAuction likelyPurchase)
@@ -228,6 +237,8 @@ public class ListPriceRecommend : ICustomModifier
         public bool WasChanged { get; set; }
         /// <summary>Gets or sets the was listed before.</summary>
         public bool WasListedBefore { get; set; }
+        /// <summary>Gets or sets the tag of the item the player bought with the same uuid.</summary>
+        public string PurchasedTag { get; set; }
     }
 
     private async Task<List<Core.SaveAuction>> LoadLastListings(Core.SaveAuction targetAuction, string playerUuid)
@@ -246,8 +257,9 @@ public class ListPriceRecommend : ICustomModifier
         if (uuid != null)
             uidLong = ModDescriptionService.GetUidFromString(uuid);
         var query = context.Auctions
-            .Where(a => a.ItemId == itemId && a.End > DateTime.UtcNow.AddDays(-14)
-                && (a.SellerId == context.Players.Where(p => p.UuId == playerUuid).Select(p => p.Id).FirstOrDefault()
+            // any item id for the uuid, crafting keeps the uuid of an input item but changes the tag
+            .Where(a => a.End > DateTime.UtcNow.AddDays(-14)
+                && (a.ItemId == itemId && a.SellerId == context.Players.Where(p => p.UuId == playerUuid).Select(p => p.Id).FirstOrDefault()
                     || a.NBTLookup.Any(n => n.KeyId == key && n.Value == uidLong)))
             .AsSplitQuery().AsNoTracking()
             .Include(a => a.Enchantments)
