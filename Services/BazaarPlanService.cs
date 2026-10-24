@@ -31,6 +31,9 @@ public class BazaarPlanService
     public const string PremiumUrl = "https://sky.coflnet.com/premium";
     private const int MaxOrders = 10;
     private const double PurseShare = 2.0 / 3.0;
+    private const double MaxSellTaxRate = 0.1;
+    private const string NamesCacheKey = "bazaarplan:itemnames";
+    private static readonly TimeSpan NamesCacheTime = TimeSpan.FromMinutes(10);
 
     private readonly IFleetApi fleetApi;
     private readonly IItemsApi itemsApi;
@@ -68,10 +71,24 @@ public class BazaarPlanService
             horizon = h;
         }
 
-        var uuid = await accounts.GetVerifiedUuid(user);
-        var name = await accounts.GetName(uuid);
+        if (req.ActiveHorizonHours is { } ah && (double.IsNaN(ah) || double.IsInfinity(ah) || ah <= 0))
+            throw new CoflnetException("invalid_horizon", "The active horizon must be a finite number of hours greater than 0.");
+        if (req.SellTaxRate is { } tax && (double.IsNaN(tax) || tax < 0 || tax > MaxSellTaxRate))
+            throw new CoflnetException("invalid_tax", $"The sell tax rate must be between 0 and {MaxSellTaxRate.ToString(CultureInfo.InvariantCulture)}.");
+        if (req.BudgetCoins is { } b && (double.IsNaN(b) || double.IsInfinity(b) || b < 0))
+            throw new CoflnetException("invalid_budget", "The budget must be a finite number of coins, 0 or more.");
+
+        string uuid, name;
+        try
+        {
+            uuid = await accounts.GetVerifiedUuid(user);
+            name = await accounts.GetName(uuid);
+        }
+        catch (Exception e) when (e is not CoflnetException)
+        {
+            throw Unavailable(e, "Account lookup failed for plan of user {UserId}", userId);
+        }
         var warnings = new List<string>();
-        var (budget, budgetSource) = await ResolveBudget(req.BudgetCoins, name);
 
         List<BazaarPlayerOrder> open;
         var ordersEstimated = false;
@@ -94,8 +111,8 @@ public class BazaarPlanService
 
         var live = open.Where(o => !o.IsExpired).ToList();
         var openBuys = live.Where(o => !o.IsSell && o.Amount - o.FilledAmount > 0).ToList();
-        // this caller is the single owner of the subtraction, the engine receives the budget that is really free
-        var planBudget = Math.Max(0, budget - openBuys.Sum(o => (double)(o.Amount - o.FilledAmount) * o.PricePerUnit));
+        var commitment = openBuys.Sum(o => (double)(o.Amount - o.FilledAmount) * o.PricePerUnit);
+        var (budget, planBudget, budgetSource) = await ResolveBudget(req.BudgetCoins, name, commitment, userId);
         var held = HeldExposure(live);
         var freeSlots = ordersKnown ? Math.Max(0, TotalOrderSlots - live.Count) : (int?)null;
         var openTags = openBuys.Select(o => o.ItemTag).Distinct().ToList();
@@ -148,7 +165,7 @@ public class BazaarPlanService
         if (!IsPaid(tier))
             ApplyFreeTier(result, userId);
         if (result.Quote != null)
-            cache.Set(CacheKey(userId, result.Quote.QuoteId), result, new DateTimeOffset(DateTime.SpecifyKind(result.Quote.ExpiresAt, DateTimeKind.Utc)));
+            cache.Set(CacheKey(userId, result.Quote.QuoteId), result, new DateTimeOffset(AsUtc(result.Quote.ExpiresAt)));
         return result;
     }
 
@@ -157,7 +174,21 @@ public class BazaarPlanService
     {
         if (string.IsNullOrEmpty(quoteId) || !cache.TryGetValue(CacheKey(userId, quoteId), out BazaarPlanResponse plan))
             return null;
-        return plan.Quote.ExpiresAt.ToUniversalTime() > DateTime.UtcNow ? plan : null;
+        return AsUtc(plan.Quote.ExpiresAt) > DateTime.UtcNow ? plan : null;
+    }
+
+    /// <summary>Normalizes a timestamp to UTC; an unspecified kind is taken as UTC, like the planner sends it.</summary>
+    public static DateTime AsUtc(DateTime time) => time.Kind switch
+    {
+        DateTimeKind.Utc => time,
+        DateTimeKind.Local => time.ToUniversalTime(),
+        _ => DateTime.SpecifyKind(time, DateTimeKind.Utc)
+    };
+
+    private CoflnetException Unavailable(Exception e, string template, string userId)
+    {
+        logger.LogError(e, template, userId);
+        return new CoflnetException("plan_unavailable", "The plan is currently unavailable, please try again shortly.");
     }
 
     /// <summary>Whether the tier includes at least Starter Premium.</summary>
@@ -195,13 +226,40 @@ public class BazaarPlanService
         return result;
     }
 
-    private async Task<(double budget, string source)> ResolveBudget(double? requested, string playerName)
+    /// <summary>
+    /// Resolves the budget shown to the user and the coins the planner may spend. The purse is already net of the coins
+    /// placed in open BUY orders, so those must never be subtracted from a purse based figure a second time.
+    /// <list type="bullet">
+    /// <item>purse-estimate (no budget given): spendable = floor(2/3 * purse), capped by the purse. SkyApi knows no
+    /// unplaced intents, so nothing else is subtracted and the open buy commitment is not counted again.</item>
+    /// <item>request (explicit budget): the budget is the user's total cap including coins already in open BUY orders,
+    /// spendable = min(budget - openBuyCommitment, purse) when the purse is known, else budget - openBuyCommitment,
+    /// never below 0.</item>
+    /// </list>
+    /// </summary>
+    private async Task<(double budget, double spendable, string source)> ResolveBudget(double? requested, string playerName, double openBuyCommitment, string userId)
     {
-        if (requested is > 0 && !double.IsInfinity(requested.Value))
-            return (requested.Value, "request");
-        var coins = await purse.LoadPurse(playerName);
+        double? coins;
+        try
+        {
+            coins = await purse.LoadPurse(playerName);
+        }
+        catch (Exception e) when (e is not CoflnetException)
+        {
+            throw Unavailable(e, "Purse lookup failed for plan of user {UserId}", userId);
+        }
+        if (requested is > 0)
+        {
+            var spendable = requested.Value - openBuyCommitment;
+            if (coins is > 0)
+                spendable = Math.Min(spendable, coins.Value);
+            return (requested.Value, Math.Max(0, spendable), "request");
+        }
         if (coins is > 0)
-            return (Math.Floor(coins.Value * PurseShare), "purse-estimate");
+        {
+            var estimate = Math.Floor(coins.Value * PurseShare);
+            return (estimate, Math.Min(estimate, coins.Value), "purse-estimate");
+        }
         throw new CoflnetException("budget_required", "Your purse is unknown, please set a budget.");
     }
 
@@ -272,7 +330,12 @@ public class BazaarPlanService
     {
         try
         {
-            return (await itemsApi.ItemNamesGetAsync()).GroupBy(i => i.Tag).ToDictionary(g => g.Key, g => g.First().Name);
+            if (cache.TryGetValue(NamesCacheKey, out Dictionary<string, string> cached))
+                return cached;
+            var loaded = (await itemsApi.ItemNamesGetAsync()).GroupBy(i => i.Tag).ToDictionary(g => g.Key, g => g.First().Name);
+            if (loaded.Count > 0)
+                cache.Set(NamesCacheKey, loaded, NamesCacheTime);
+            return loaded;
         }
         catch (Exception e)
         {
@@ -289,6 +352,23 @@ public class BazaarPlanService
         result.HiddenCount = all.Count - result.Orders.Count;
         result.PremiumUrl = result.HiddenCount > 0 ? PremiumUrl : null;
         result.UnqualifiedInvestingCandidates = new();
+        if (result.HiddenCount == 0)
+            return;
+
+        // totals and investing state describe the visible rows only, otherwise they reveal the hidden ones
+        var visible = result.Orders;
+        if (result.Portfolio != null)
+        {
+            var spent = visible.Where(o => !o.IsSell).Sum(o => o.PricePerUnit * o.Amount);
+            result.Portfolio.SpentCoins = spent;
+            result.Portfolio.RemainingBudgetCoins = Math.Max(0, result.Portfolio.BudgetCoins - spent);
+            result.Portfolio.FreeSlotsAfter = Math.Max(0, result.Portfolio.FreeSlotsBefore - visible.Count);
+        }
+        if (all.Any(o => o.Mode == "Investing"))
+        {
+            result.InvestingStatus = visible.Any(o => o.Mode == "Investing") ? "Allocated" : "EmptyQualified";
+            result.InvestingReasonCodes = new();
+        }
     }
 
     private static BazaarPlanQuote MapQuote(FleetQuoteDto q) => q == null ? null : new()

@@ -223,7 +223,7 @@ public class FlipControllerBazaarPlanTests
     [Test]
     public async Task Plan_forwards_modes_horizon_budget_and_open_buy_tags_unchanged_with_preview_true()
     {
-        using var h = new Harness();
+        using var h = new Harness { Purse = 50_000_000 };
         h.Orders.Orders =
         [
             BuyOrder("OPEN_BUY", 100, 40, 1000),
@@ -413,6 +413,148 @@ public class FlipControllerBazaarPlanTests
         Assert.That(JObject.Parse(await second.Content.ReadAsStringAsync()).Value<string>("slug"), Is.EqualTo("bazaar_goal_active"));
     }
 
+    /// <summary>The purse is already net of coins placed in BUY orders, they must not be subtracted again.</summary>
+    [Test]
+    public async Task Plan_purse_estimate_does_not_subtract_placed_buy_orders_twice()
+    {
+        using var h = new Harness { Purse = 6_000_000 };
+        h.Orders.Orders = [BuyOrder("OPEN_BUY", 3000, 0, 1000)];
+
+        var response = await h.Post(Url, "{}", "free-1");
+
+        Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+        Assert.That(h.Fleet.Requests.Single().Traders.Single().BudgetCoins, Is.EqualTo(4_000_000));
+    }
+
+    /// <summary>An explicit budget is the total cap, coins in open buys count against it and the purse limits it.</summary>
+    [Test]
+    public async Task Plan_request_budget_is_a_total_cap_net_of_open_buys()
+    {
+        using var h = new Harness { Purse = 10_000_000 };
+        h.Orders.Orders = [BuyOrder("OPEN_BUY", 3000, 0, 1000)];
+
+        await h.Post(Url, "{\"budgetCoins\": 5000000}", "free-1");
+        h.Purse = 1_500_000;
+        await h.Post(Url, "{\"budgetCoins\": 5000000}", "free-1");
+        h.Purse = null;
+        await h.Post(Url, "{\"budgetCoins\": 5000000}", "free-1");
+        h.Orders.Orders = [BuyOrder("OPEN_BUY", 9000, 0, 1000)];
+        await h.Post(Url, "{\"budgetCoins\": 5000000}", "free-1");
+
+        Assert.That(h.Fleet.Requests.Select(r => r.Traders.Single().BudgetCoins), Is.EqualTo(new[] { 2_000_000d, 1_500_000d, 2_000_000d, 0d }));
+    }
+
+    /// <summary>Free users must not learn about hidden orders from totals or the investing state.</summary>
+    [Test]
+    public async Task Plan_free_tier_portfolio_totals_reflect_only_visible_orders()
+    {
+        using var h = new Harness();
+        h.Fleet.Orders = _=> Enumerable.Range(1, 12).Select(i => Order("ITEM_" + i, i <= 11 ? "Investing" : "Active")).ToList();
+
+        var free = JObject.Parse(await (await h.Post(Url, "{}", "free-7")).Content.ReadAsStringAsync());
+        var paid = JObject.Parse(await (await h.Post(Url, "{}", "premium-7")).Content.ReadAsStringAsync());
+
+        var visible = free["orders"]!.Count();
+        var portfolio = free["portfolio"]!;
+        Assert.Multiple(() =>
+        {
+            Assert.That(visible, Is.EqualTo(3));
+            Assert.That(portfolio.Value<double>("spentCoins"), Is.EqualTo(visible * 100 * 100));
+            Assert.That(portfolio.Value<double>("remainingBudgetCoins"), Is.EqualTo(portfolio.Value<double>("budgetCoins") - visible * 100 * 100));
+            Assert.That(portfolio.Value<int>("freeSlotsAfter"), Is.EqualTo(21 - visible));
+            Assert.That(free.Value<string>("investingStatus"), Is.EqualTo("Allocated"));
+            Assert.That(free["investingReasonCodes"], Is.Empty);
+            Assert.That(paid["portfolio"]!.Value<double>("spentCoins"), Is.EqualTo(12 * 100 * 100));
+            Assert.That(paid["investingReasonCodes"], Is.Not.Empty);
+        });
+    }
+
+    /// <summary>A tag the free user cannot see in the sample answers like an unknown one.</summary>
+    [Test]
+    public async Task Track_free_tier_hidden_tag_returns_404()
+    {
+        using var h = new Harness();
+        h.Fleet.Orders = _ => Enumerable.Range(1, 12).Select(i => Order("ITEM_" + i)).ToList();
+        var plan = JObject.Parse(await (await h.Post(Url, "{}", "free-7")).Content.ReadAsStringAsync());
+        var shown = plan["orders"]!.Select(o => o.Value<string>("itemTag")).ToHashSet();
+        var hidden = Enumerable.Range(1, 12).Select(i => "ITEM_" + i).First(t => !shown.Contains(t));
+
+        var response = await h.Post(Url + "/track", Track(plan.SelectToken("quote.quoteId")!.ToString(), hidden), "free-7");
+
+        Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.NotFound));
+        Assert.That(h.Goals, Is.Empty);
+    }
+
+    /// <summary>Invalid numbers are rejected instead of silently replaced by defaults.</summary>
+    [TestCase("{\"budgetCoins\": -5}", "invalid_budget")]
+    [TestCase("{\"budgetCoins\": NaN}", "invalid_budget")]
+    [TestCase("{\"budgetCoins\": Infinity}", "invalid_budget")]
+    [TestCase("{\"sellTaxRate\": -0.01}", "invalid_tax")]
+    [TestCase("{\"sellTaxRate\": 0.11}", "invalid_tax")]
+    [TestCase("{\"sellTaxRate\": NaN}", "invalid_tax")]
+    [TestCase("{\"activeHorizonHours\": 0}", "invalid_horizon")]
+    [TestCase("{\"activeHorizonHours\": -2}", "invalid_horizon")]
+    [TestCase("{\"activeHorizonHours\": Infinity}", "invalid_horizon")]
+    public async Task Plan_rejects_invalid_numbers_with_400(string body, string slug)
+    {
+        using var h = new Harness();
+
+        var response = await h.Post(Url, body, "free-1");
+
+        Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.BadRequest), await response.Content.ReadAsStringAsync());
+        Assert.That(JObject.Parse(await response.Content.ReadAsStringAsync()).Value<string>("slug"), Is.EqualTo(slug));
+        Assert.That(h.Fleet.Requests, Is.Empty);
+    }
+
+    /// <summary>The item names are global data and downloaded once, not per request.</summary>
+    [Test]
+    public async Task Plan_caches_item_names_across_requests()
+    {
+        using var h = new Harness();
+        h.Fleet.Orders = _ => [Order("ITEM_A")];
+
+        var first = JObject.Parse(await (await h.Post(Url, "{}", "premium-1")).Content.ReadAsStringAsync());
+        var afterFirst = h.Items.Calls;
+        await h.Post(Url, "{}", "premium-2");
+
+        Assert.That(h.Items.Calls, Is.EqualTo(afterFirst));
+        Assert.That(first["orders"]![0]!.Value<string>("itemName"), Is.EqualTo("Name of ITEM_A"));
+    }
+
+    /// <summary>Quote expiry is compared in UTC whatever kind the planner timestamp has.</summary>
+    [Test]
+    public void AsUtc_normalizes_all_kinds()
+    {
+        var utc = new DateTime(2026, 1, 1, 12, 0, 0, DateTimeKind.Utc);
+        Assert.Multiple(() =>
+        {
+            Assert.That(BazaarPlanService.AsUtc(utc), Is.EqualTo(utc));
+            Assert.That(BazaarPlanService.AsUtc(utc.ToLocalTime()).Kind, Is.EqualTo(DateTimeKind.Utc));
+            Assert.That(BazaarPlanService.AsUtc(utc.ToLocalTime()), Is.EqualTo(utc));
+            Assert.That(BazaarPlanService.AsUtc(new DateTime(2026, 1, 1, 12, 0, 0, DateTimeKind.Unspecified)), Is.EqualTo(utc));
+        });
+    }
+
+    /// <summary>Unexpected failures of the lookups are an outage, not a server error.</summary>
+    [Test]
+    public async Task Plan_lookup_failures_return_503_plan_unavailable()
+    {
+        using var h = new Harness();
+        h.Purse = null;
+        h.PurseFails = true;
+        var purseDown = await h.Post(Url, "{}", "free-1");
+        h.PurseFails = false;
+        h.ResolverFails = true;
+        var accountDown = await h.Post(Url, "{}", "free-1");
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(purseDown.StatusCode, Is.EqualTo(HttpStatusCode.ServiceUnavailable));
+            Assert.That(accountDown.StatusCode, Is.EqualTo(HttpStatusCode.ServiceUnavailable));
+        });
+        Assert.That(JObject.Parse(await accountDown.Content.ReadAsStringAsync()).Value<string>("slug"), Is.EqualTo("plan_unavailable"));
+    }
+
     private static string Track(string quoteId, string tag) => JsonConvert.SerializeObject(new { quoteId, itemTag = tag });
 
     private static async Task<string> Sample(Harness h, int user)
@@ -441,12 +583,17 @@ public class FlipControllerBazaarPlanTests
         public RecordingFleet Fleet { get; }
         public FakeOrders Orders { get; } = new();
         public double? Purse { get => purse.Value; set => purse.Value = value; }
+        public bool PurseFails { get => purse.Fail; set => purse.Fail = value; }
+        public bool ResolverFails { get => FakeResolver.Fail; set => FakeResolver.Fail = value; }
+        public CountingItems Items { get; }
         public GoalList GoalList { get; }
         public List<Goal> Goals => GoalList.Goals;
         private readonly FakePurse purse = new() { Value = 3_000_000 };
 
         public Harness()
         {
+            FakeResolver.Fail = false;
+            Items = (CountingItems)(object)DispatchProxy.Create<IItemsApi, CountingItems>();
             Fleet = (RecordingFleet)(object)DispatchProxy.Create<IFleetApi, RecordingFleet>();
             var (goalService, _, _, _, _, list) = GoalServiceTests.Create();
             GoalList = list;
@@ -466,7 +613,7 @@ public class FlipControllerBazaarPlanTests
                             .AddScheme<AuthenticationSchemeOptions, TestAuthenticationHandler>("CustomScheme", _ => { });
                         services.AddSingleton<PremiumTierService>(new TestPremiumTierService());
                         services.AddSingleton(DispatchProxy.Create<IBazaarFlipperApi, FlipControllerCacheTests.EmptyAsyncProxy>());
-                        services.AddSingleton(DispatchProxy.Create<IItemsApi, FlipControllerCacheTests.EmptyAsyncProxy>());
+                        services.AddSingleton<IItemsApi>((IItemsApi)(object)Items);
                         services.AddSingleton<IFleetApi>((IFleetApi)(object)Fleet);
                         services.AddSingleton(goalService);
                         services.AddScoped<IBazaarUserOrders>(_ => Orders);
@@ -550,8 +697,11 @@ public class FlipControllerBazaarPlanTests
                 response = new FleetAllocateResponse(status: "Ok", quote: new FleetQuoteDto(), assignments:
                 [
                     new TraderAllocationDto(traderId: id, orders: orders, modesServed: request.Traders.Single().Strategies,
-                        unqualifiedInvestingCandidates: Candidates(id), investingStatus: "Unavailable", investingReasonCodes: ["InvestingCandidatesNotReady"],
-                        portfolio: new PortfolioSummaryDto(budgetCoins: budget, remainingBudgetCoins: budget, reserveOwner: "Caller", suppressedItemTags: []))
+                        unqualifiedInvestingCandidates: Candidates(id), investingStatus: orders.Any(o => o.Mode == "Investing") ? "Allocated" : "Unavailable",
+                        investingReasonCodes: orders.Any(o => o.Mode == "Investing") ? ["HiddenReason"] : ["InvestingCandidatesNotReady"],
+                        portfolio: new PortfolioSummaryDto(budgetCoins: budget, spentCoins: orders.Sum(o => o.PricePerUnit * o.Amount),
+                            remainingBudgetCoins: budget - orders.Sum(o => o.PricePerUnit * o.Amount), freeSlotsBefore: 21,
+                            freeSlotsAfter: 21 - orders.Count, reserveOwner: "Caller", suppressedItemTags: []))
                 ]);
             }
             response.Quote ??= new FleetQuoteDto();
@@ -560,6 +710,34 @@ public class FlipControllerBazaarPlanTests
             response.Quote.GeneratedAt = DateTime.UtcNow;
             response.Quote.ExpiresAt = DateTime.UtcNow + QuoteLifetime;
             return response;
+        }
+    }
+
+    /// <summary>Counts item name downloads and names every tag of the plan.</summary>
+    public class CountingItems : DispatchProxy
+    {
+        /// <summary>Number of downloads.</summary>
+        public int Calls { get; private set; }
+
+        /// <inheritdoc/>
+        protected override object Invoke(MethodInfo targetMethod, object[] args)
+        {
+            Calls++;
+            var resultType = targetMethod.ReturnType.GenericTypeArguments[0];
+            var list = (System.Collections.IList)Activator.CreateInstance(resultType)!;
+            var elementType = resultType.GenericTypeArguments[0];
+            foreach (var tag in new[] { "ITEM_A", "ITEM_B" })
+            {
+                var ctor = elementType.GetConstructors().OrderByDescending(c => c.GetParameters().Length).First();
+                var item = ctor.Invoke(ctor.GetParameters().Select(p => p.Name!.ToLowerInvariant() switch
+                {
+                    "tag" => (object)tag,
+                    "name" => "Name of " + tag,
+                    _ => p.ParameterType.IsValueType ? Activator.CreateInstance(p.ParameterType) : null
+                }).ToArray());
+                list.Add(item);
+            }
+            return typeof(Task).GetMethod(nameof(Task.FromResult))!.MakeGenericMethod(resultType).Invoke(null, [list])!;
         }
     }
 
@@ -581,12 +759,14 @@ public class FlipControllerBazaarPlanTests
     private sealed class FakePurse : IPurseLoader
     {
         public double? Value { get; set; }
-        public Task<double?> LoadPurse(string playerName) => Task.FromResult(Value);
+        public bool Fail { get; set; }
+        public Task<double?> LoadPurse(string playerName) => Fail ? throw new InvalidOperationException("purse down") : Task.FromResult(Value);
     }
 
     private sealed class FakeResolver : IVerifiedAccountResolver
     {
-        public Task<string> GetVerifiedUuid(GoogleUser user) => Task.FromResult("uuid-" + user.Id);
+        public static bool Fail { get; set; }
+        public Task<string> GetVerifiedUuid(GoogleUser user) => Fail ? throw new InvalidOperationException("accounts down") : Task.FromResult("uuid-" + user.Id);
         public Task<string> GetName(string uuid) => Task.FromResult("Player" + uuid["uuid-".Length..]);
     }
 
