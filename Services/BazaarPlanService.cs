@@ -62,8 +62,8 @@ public class BazaarPlanService
     /// <param name="tier">Tier of the caller</param>
     /// <param name="req">Overrides</param>
     /// <param name="userId">Id used for quote ownership and sampling</param>
-    /// <param name="fullPlan">Skips the free tier sampling and does not hand out a quote; only for confirming an item the caller already saw</param>
-    public async Task<BazaarPlanResponse> Plan(GoogleUser user, string tier, BazaarPlanRequest req, string userId, bool fullPlan = false)
+    /// <param name="forTracking">Paid tiers get the full plan, free tiers the same sample as on the plan route; no quote is handed out</param>
+    public async Task<BazaarPlanResponse> Plan(GoogleUser user, string tier, BazaarPlanRequest req, string userId, bool forTracking = false)
     {
         req ??= new BazaarPlanRequest();
         var modes = CanonicalModes(req.Modes);
@@ -167,10 +167,10 @@ public class BazaarPlanService
             HiddenCount = 0
         };
 
-        if (fullPlan)
-            return result;
         if (!IsPaid(tier))
             ApplyFreeTier(result, userId);
+        if (forTracking)
+            return result;
         if (result.Quote != null)
             cache.Set(CacheKey(userId, result.Quote.QuoteId), result, new DateTimeOffset(AsUtc(result.Quote.ExpiresAt)));
         return result;

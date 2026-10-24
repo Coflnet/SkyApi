@@ -623,7 +623,7 @@ public class FlipControllerBazaarPlanTests
     public async Task TrackItem_with_api_key_tracks_for_the_key_user_and_returns_contract()
     {
         using var h = new Harness();
-        h.Keys.Add(SecretKey, "5", true);
+        h.Keys.Add(SecretKey, "105", true);
         h.Fleet.Orders = _ => [Order("ITEM_A", amount: 192, entry: 105.1, exit: 209.9)];
 
         var response = await h.PostKey(TrackItemUrl, TrackItem("ITEM_A", new { expectedEntryPrice = 105.1 }), SecretKey);
@@ -633,7 +633,7 @@ public class FlipControllerBazaarPlanTests
         var json = JObject.Parse(body);
         Assert.Multiple(() =>
         {
-            Assert.That(h.Fleet.Requests.Single().Traders.Single().Id, Is.EqualTo("uuid-5"));
+            Assert.That(h.Fleet.Requests.Single().Traders.Single().Id, Is.EqualTo("uuid-105"));
             Assert.That(h.Goals, Has.Count.EqualTo(1));
             Assert.That(h.Goals.Single().Quantity, Is.EqualTo(192));
             Assert.That(json.Value<string>("itemTag"), Is.EqualTo("ITEM_A"));
@@ -655,13 +655,15 @@ public class FlipControllerBazaarPlanTests
     public async Task TrackItem_unknown_inactive_key_and_no_auth_are_401()
     {
         using var h = new Harness();
-        h.Keys.Add("inactive-key", "5", false);
+        h.Keys.Add("inactive-key", "105", false);
+        h.Keys.Add("unflagged-key", "105", null);
         h.Fleet.Orders = _ => [Order("ITEM_A")];
 
         var unknown = await h.PostKey(TrackItemUrl, TrackItem("ITEM_A"), "unknown-key");
         var inactive = await h.PostKey(TrackItemUrl, TrackItem("ITEM_A"), "inactive-key");
         var none = await h.Post(TrackItemUrl, TrackItem("ITEM_A"), null);
         var emptyKey = await h.PostKey(TrackItemUrl, TrackItem("ITEM_A"), " ");
+        var unflagged = await h.PostKey(TrackItemUrl, TrackItem("ITEM_A"), "unflagged-key");
 
         Assert.Multiple(() =>
         {
@@ -669,6 +671,7 @@ public class FlipControllerBazaarPlanTests
             Assert.That(inactive.StatusCode, Is.EqualTo(HttpStatusCode.Unauthorized));
             Assert.That(none.StatusCode, Is.EqualTo(HttpStatusCode.Unauthorized));
             Assert.That(emptyKey.StatusCode, Is.EqualTo(HttpStatusCode.Unauthorized));
+            Assert.That(unflagged.StatusCode, Is.EqualTo(HttpStatusCode.Unauthorized), "a key that is not confirmed active is inactive");
             Assert.That(h.Fleet.Requests, Is.Empty);
             Assert.That(h.Goals, Is.Empty);
         });
@@ -693,7 +696,7 @@ public class FlipControllerBazaarPlanTests
     public async Task Api_key_alone_does_not_open_plan_and_track_routes()
     {
         using var h = new Harness();
-        h.Keys.Add(SecretKey, "5", true);
+        h.Keys.Add(SecretKey, "105", true);
         h.Fleet.Orders = _ => [Order("ITEM_A")];
 
         var plan = await h.PostKey(Url, "{}", SecretKey);
@@ -712,7 +715,7 @@ public class FlipControllerBazaarPlanTests
     public async Task TrackItem_item_not_in_plan_is_409_not_in_plan()
     {
         using var h = new Harness();
-        h.Keys.Add(SecretKey, "5", true);
+        h.Keys.Add(SecretKey, "105", true);
         h.Fleet.Orders = _ => [Order("ITEM_A")];
 
         var response = await h.PostKey(TrackItemUrl, TrackItem("ITEM_B"), SecretKey);
@@ -734,7 +737,7 @@ public class FlipControllerBazaarPlanTests
     public async Task TrackItem_second_active_flip_is_409_bazaar_goal_active()
     {
         using var h = new Harness();
-        h.Keys.Add(SecretKey, "5", true);
+        h.Keys.Add(SecretKey, "105", true);
         h.Fleet.Orders = _ => [Order("ITEM_A")];
 
         var first = await h.PostKey(TrackItemUrl, TrackItem("ITEM_A"), SecretKey);
@@ -750,24 +753,92 @@ public class FlipControllerBazaarPlanTests
         await h.Goal.PendingHudRefresh.WaitAsync(TimeSpan.FromSeconds(10));
     }
 
-    /// <summary>Free users only see sampled rows (ranks 4 to 10) but can confirm any item, also rank 1.</summary>
+    /// <summary>Free users can only track what the plan route shows them, anything else needs premium.</summary>
     [Test]
-    public async Task TrackItem_free_tier_can_track_rank_one_without_sampling()
+    public async Task TrackItem_free_tier_tracks_only_the_sample_and_hidden_items_need_premium()
     {
         using var h = new Harness();
         h.Fleet.Orders = _ => Enumerable.Range(1, 12).Select(i => Order("ITEM_" + i)).ToList();
-        var visible = await Sample(h, 7);
-        Assert.That(visible.Split(','), Does.Not.Contain("ITEM_1"));
+        var visible = (await Sample(h, 7)).Split(',');
+        var hidden = Enumerable.Range(1, 12).Select(i => "ITEM_" + i).First(t => !visible.Contains(t));
 
-        var response = await h.Post(TrackItemUrl, TrackItem("ITEM_1"), "free-7");
+        var blocked = await h.Post(TrackItemUrl, TrackItem(hidden), "free-7");
+        var rankOne = await h.Post(TrackItemUrl, TrackItem("ITEM_1"), "free-7");
+        var allowed = await h.Post(TrackItemUrl, TrackItem(visible[0]), "free-7");
 
-        Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.OK), await response.Content.ReadAsStringAsync());
-        Assert.That(h.Goals.Single().Plan.QuoteId, Is.Not.Null);
-        // no quote of the full plan is handed out, the hidden rows stay out of the track route
-        var quoteId = JObject.Parse(await response.Content.ReadAsStringAsync()).Value<string>("quoteId");
-        var viaQuote = await h.Post(Url + "/track", Track(quoteId, "ITEM_2"), "free-7");
-        Assert.That(viaQuote.StatusCode, Is.EqualTo(HttpStatusCode.Conflict));
+        Assert.Multiple(() =>
+        {
+            Assert.That(blocked.StatusCode, Is.EqualTo(HttpStatusCode.Conflict));
+            Assert.That(JObject.Parse(blocked.Content.ReadAsStringAsync().Result).Value<string>("slug"), Is.EqualTo("premium_required"));
+            Assert.That(rankOne.StatusCode, Is.EqualTo(HttpStatusCode.Conflict), "rank 1 is never in the free sample");
+            Assert.That(allowed.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+            Assert.That(h.Goals, Has.Count.EqualTo(1));
+        });
         await h.Goal.PendingHudRefresh.WaitAsync(TimeSpan.FromSeconds(10));
+    }
+
+    /// <summary>A free user gets the identical answer for a hidden item and an item that is not in the plan at all.</summary>
+    [Test]
+    public async Task TrackItem_free_tier_cannot_learn_whether_a_hidden_item_exists()
+    {
+        using var h = new Harness();
+        h.Fleet.Orders = _ => Enumerable.Range(1, 12).Select(i => Order("ITEM_" + i)).ToList();
+
+        var hidden = await h.Post(TrackItemUrl, TrackItem("ITEM_1"), "free-7");
+        var missing = await h.Post(TrackItemUrl, TrackItem("NOT_IN_ANY_PLAN"), "free-7");
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(hidden.StatusCode, Is.EqualTo(missing.StatusCode));
+            Assert.That(hidden.Content.ReadAsStringAsync().Result.Replace("ITEM_1", "X"),
+                Is.EqualTo(missing.Content.ReadAsStringAsync().Result.Replace("NOT_IN_ANY_PLAN", "X")));
+            Assert.That(h.Goals, Is.Empty);
+        });
+    }
+
+    /// <summary>A valid key is used when the Google headers do not authenticate; an authenticated Google user wins.</summary>
+    [Test]
+    public async Task TrackItem_key_works_next_to_unauthenticated_google_headers_and_google_user_wins()
+    {
+        using var h = new Harness();
+        h.Keys.Add(SecretKey, "105", true);
+        h.Fleet.Orders = _ => [Order("ITEM_A")];
+
+        var emptyToken = await h.PostKey(TrackItemUrl, TrackItem("ITEM_A"), SecretKey, ("GoogleToken", ""));
+        h.Goals.Clear();
+        var bogusAuth = await h.PostKey(TrackItemUrl, TrackItem("ITEM_A"), SecretKey, ("Authorization", "Basic abc"));
+        h.Goals.Clear();
+        h.Fleet.Requests.Clear();
+        var both = await h.PostKey(TrackItemUrl, TrackItem("ITEM_A"), SecretKey, ("GoogleToken", "premium-1"));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(emptyToken.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+            Assert.That(bogusAuth.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+            Assert.That(both.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+            Assert.That(h.Fleet.Requests.Single().Traders.Single().Id, Is.EqualTo("uuid-1"));
+        });
+        await h.Goal.PendingHudRefresh.WaitAsync(TimeSpan.FromSeconds(10));
+    }
+
+    /// <summary>An order without exit price cannot be tracked and is a 409 on both routes instead of a server error.</summary>
+    [Test]
+    public async Task Track_routes_return_409_plan_order_incomplete_without_exit_price()
+    {
+        using var h = new Harness();
+        h.Fleet.Orders = _ => { var o = Order("ITEM_A"); o.ExitPrice = null; return [o]; };
+        var plan = JObject.Parse(await (await h.Post(Url, "{}", "premium-1")).Content.ReadAsStringAsync());
+
+        var byQuote = await h.Post(Url + "/track", Track(plan.SelectToken("quote.quoteId")!.ToString(), "ITEM_A"), "premium-1");
+        var byItem = await h.Post(TrackItemUrl, TrackItem("ITEM_A"), "premium-1");
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(byQuote.StatusCode, Is.EqualTo(HttpStatusCode.Conflict));
+            Assert.That(byItem.StatusCode, Is.EqualTo(HttpStatusCode.Conflict));
+            Assert.That(JObject.Parse(byQuote.Content.ReadAsStringAsync().Result).Value<string>("slug"), Is.EqualTo("plan_order_incomplete"));
+            Assert.That(JObject.Parse(byItem.Content.ReadAsStringAsync().Result).Value<string>("slug"), Is.EqualTo("plan_order_incomplete"));
+        });
     }
 
     /// <summary>The plan validation slugs apply before the planner is asked.</summary>
@@ -778,7 +849,7 @@ public class FlipControllerBazaarPlanTests
     public async Task TrackItem_validates_like_the_plan_route(string body, string slug)
     {
         using var h = new Harness();
-        h.Keys.Add(SecretKey, "5", true);
+        h.Keys.Add(SecretKey, "105", true);
         h.Fleet.Orders = _ => [Order("ITEM_A")];
 
         var response = await h.PostKey(TrackItemUrl, body, SecretKey);
@@ -793,7 +864,7 @@ public class FlipControllerBazaarPlanTests
     public async Task TrackItem_without_budget_and_purse_is_400_budget_required()
     {
         using var h = new Harness { Purse = null };
-        h.Keys.Add(SecretKey, "5", true);
+        h.Keys.Add(SecretKey, "105", true);
 
         var response = await h.PostKey(TrackItemUrl, TrackItem("ITEM_A"), SecretKey);
 
@@ -811,7 +882,7 @@ public class FlipControllerBazaarPlanTests
     public async Task TrackItem_flags_price_change_beyond_max_of_point_one_and_two_percent(double fresh, double expected, bool changed)
     {
         using var h = new Harness();
-        h.Keys.Add(SecretKey, "5", true);
+        h.Keys.Add(SecretKey, "105", true);
         h.Fleet.Orders = _ => [Order("ITEM_A", entry: fresh, exit: fresh * 2)];
 
         var response = await h.PostKey(TrackItemUrl, TrackItem("ITEM_A", new { expectedEntryPrice = expected }), SecretKey);
@@ -832,7 +903,7 @@ public class FlipControllerBazaarPlanTests
     public async Task TrackItem_engine_failure_is_503_plan_unavailable()
     {
         using var h = new Harness();
-        h.Keys.Add(SecretKey, "5", true);
+        h.Keys.Add(SecretKey, "105", true);
         h.Fleet.Fail = new HttpRequestException("down");
 
         var response = await h.PostKey(TrackItemUrl, TrackItem("ITEM_A"), SecretKey);
@@ -847,8 +918,8 @@ public class FlipControllerBazaarPlanTests
     public async Task TrackItem_never_logs_the_api_key()
     {
         using var h = new Harness();
-        h.Keys.Add(SecretKey, "5", true);
-        h.Keys.Add("broken-" + SecretKey, "6", true);
+        h.Keys.Add(SecretKey, "105", true);
+        h.Keys.Add("broken-" + SecretKey, "106", true);
         h.Keys.FailWith = new HttpRequestException("GET /api/ApiKey/validate/broken-" + SecretKey + " failed");
         h.Fleet.Orders = _ => [Order("ITEM_A")];
 
@@ -951,11 +1022,13 @@ public class FlipControllerBazaarPlanTests
             return await client.SendAsync(request);
         }
 
-        public async Task<HttpResponseMessage> PostKey(string url, string json, string apiKey)
+        public async Task<HttpResponseMessage> PostKey(string url, string json, string apiKey, params (string name, string value)[] extra)
         {
             using var request = new HttpRequestMessage(System.Net.Http.HttpMethod.Post, url) { Content = new StringContent(json, Encoding.UTF8, "application/json") };
             request.Headers.Add("X-ClientId", "bazaar-plan-test");
             request.Headers.Add("x-api-key", apiKey);
+            foreach (var (name, value) in extra)
+                request.Headers.TryAddWithoutValidation(name, value);
             return await client.SendAsync(request);
         }
 
@@ -1099,7 +1172,7 @@ public class FlipControllerBazaarPlanTests
     /// <summary>Api key validation without the key service: key to user id and whether it is active.</summary>
     public sealed class FakeKeys : ApiKeyService
     {
-        private readonly Dictionary<string, (string user, bool active)> known = new();
+        private readonly Dictionary<string, (string user, bool? active)> known = new();
         /// <summary>Thrown for keys starting with broken-.</summary>
         public Exception FailWith { get; set; }
 
@@ -1107,7 +1180,7 @@ public class FlipControllerBazaarPlanTests
         public FakeKeys() : base(null) { }
 
         /// <summary>Registers a key.</summary>
-        public void Add(string key, string userId, bool active) => known[key] = (userId, active);
+        public void Add(string key, string userId, bool? active) => known[key] = (userId, active);
 
         /// <inheritdoc/>
         public override Task<Coflnet.Sky.ModCommands.Client.Model.ApiKeyInfoResponse> GetKeyInfo(ControllerBase controller)
@@ -1115,9 +1188,13 @@ public class FlipControllerBazaarPlanTests
             var key = controller.Request.Headers["x-api-key"].ToString();
             if (FailWith != null && key.StartsWith("broken-"))
                 throw FailWith;
-            if (!known.TryGetValue(key, out var entry) || !entry.active)
+            if (!known.TryGetValue(key, out var entry))
                 throw new CoflnetException("unauthorized", "Invalid API key");
-            return Task.FromResult(new Coflnet.Sky.ModCommands.Client.Model.ApiKeyInfoResponse { UserId = entry.user, IsActive = true });
+            // inactive keys are answered with their info here, the real validation endpoint rejects them
+            var info = new Coflnet.Sky.ModCommands.Client.Model.ApiKeyInfoResponse { UserId = entry.user };
+            if (entry.active != null)
+                info.IsActive = entry.active;
+            return Task.FromResult(info);
         }
     }
 
@@ -1146,7 +1223,7 @@ public class FlipControllerBazaarPlanTests
     {
         public TestPremiumTierService() : base(null, null) { }
 
-        public override Task<string> GetTier(GoogleUser user) => Task.FromResult("logged_in");
+        public override Task<string> GetTier(GoogleUser user) => Task.FromResult(user.Id >= 100 ? "starter_premium" : "logged_in");
 
         public override Task<(GoogleUser user, string tier)> GetUserAndTier(ControllerBase controllerInstance)
         {

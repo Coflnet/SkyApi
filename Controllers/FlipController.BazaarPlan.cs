@@ -80,7 +80,7 @@ namespace Coflnet.Sky.Api.Controller
             {
                 await goals.AddBazaarPlan(userId, order, plan.Quote, requestId, userLookupMs);
             }
-            catch (CoflnetException e) when (e.Slug == "bazaar_goal_active")
+            catch (CoflnetException e) when (e.Slug is "bazaar_goal_active" or "plan_order_incomplete")
             {
                 return StatusCode(StatusCodes.Status409Conflict, new { slug = e.Slug, message = e.Message });
             }
@@ -109,17 +109,11 @@ namespace Coflnet.Sky.Api.Controller
             var userTimer = System.Diagnostics.Stopwatch.StartNew();
             GoogleUser user;
             string tier;
-            if (Request.Headers.ContainsKey(premiumTierService.HeaderName) || Request.Headers.ContainsKey("Authorization"))
-            {
-                // same gate as [Authorize]: a token the authentication handler rejected does not count
-                if (User?.Identity?.IsAuthenticated != true)
-                    return Unauthorized();
+            // an authenticated Google user wins, otherwise a non blank api key header is used
+            if (User?.Identity?.IsAuthenticated == true)
                 (user, tier) = await premiumTierService.GetUserAndTier(this);
-            }
             else if (Request.Headers.TryGetValue("x-api-key", out var apiKeyHeader) && !string.IsNullOrWhiteSpace(apiKeyHeader))
-            {
                 (user, tier) = await ResolveApiKeyUser(keys);
-            }
             else
                 return Unauthorized();
             if (user == null)
@@ -138,7 +132,7 @@ namespace Coflnet.Sky.Api.Controller
                     InvestingHorizonHours = request.InvestingHorizonHours,
                     BudgetCoins = request.BudgetCoins,
                     SellTaxRate = request.SellTaxRate
-                }, userId, fullPlan: true);
+                }, userId, forTracking: true);
             }
             catch (CoflnetException e) when (e.Slug == "plan_unavailable")
             {
@@ -150,13 +144,16 @@ namespace Coflnet.Sky.Api.Controller
             }
 
             var order = plan.Orders.Find(o => !o.IsSell && o.ItemTag == request.ItemTag);
+            if (order == null && !BazaarPlanService.IsPaid(tier))
+                // the same answer for hidden and missing items, otherwise the response reveals the hidden rows
+                return StatusCode(StatusCodes.Status409Conflict, new { slug = "premium_required", message = "Tracking this item needs SkyCofl Starter Premium. Free accounts can track their three sampled orders." });
             if (order == null || plan.Quote == null)
                 return StatusCode(StatusCodes.Status409Conflict, new { slug = "not_in_plan", message = $"{request.ItemTag} is not in your plan right now, refresh it." });
             try
             {
                 await goals.AddBazaarPlan(userId, order, plan.Quote, requestId, userLookupMs);
             }
-            catch (CoflnetException e) when (e.Slug == "bazaar_goal_active")
+            catch (CoflnetException e) when (e.Slug is "bazaar_goal_active" or "plan_order_incomplete")
             {
                 return StatusCode(StatusCodes.Status409Conflict, new { slug = e.Slug, message = e.Message });
             }
@@ -182,7 +179,7 @@ namespace Coflnet.Sky.Api.Controller
             try
             {
                 var info = await keys.GetKeyInfo(this);
-                if (info == null || info.IsActive == false || !int.TryParse(info.UserId, out var id) || id <= 0)
+                if (info == null || info.IsActive != true || !int.TryParse(info.UserId, out var id) || id <= 0)
                     return (null, null);
                 var user = new GoogleUser { Id = id };
                 return (user, await premiumTierService.GetTier(user));
