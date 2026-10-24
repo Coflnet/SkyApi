@@ -54,7 +54,7 @@ public class PremiumTierService
     }
 
     /// <summary>Returns the authenticated user and their highest active chat quota tier.</summary>
-    public async Task<(GoogleUser user, string tier)> GetUserAndTier(ControllerBase controllerInstance)
+    public virtual async Task<(GoogleUser user, string tier)> GetUserAndTier(ControllerBase controllerInstance)
     {
         var user = await GetUserOrDefault(controllerInstance);
         if (user == null)

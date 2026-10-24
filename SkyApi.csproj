@@ -13,18 +13,23 @@
     <ProjectReference Include="../dev/hypixel.csproj" />
     <ProjectReference Include="../SkyBackendForFrontend/SkyBackendForFrontend.csproj" />
   </ItemGroup>
+  <ItemGroup>
+    <!-- golden planner answers used by the tests only, found by walking up from the test output -->
+    <Content Remove="Fixtures\**" />
+    <None Remove="Fixtures\**" />
+  </ItemGroup>
   <PropertyGroup>
     <DefaultItemExcludes>$(DefaultItemExcludes);Client\**\*</DefaultItemExcludes>
   </PropertyGroup>
 
   <ItemGroup>
     <PackageReference Include="AutoMapper" Version="16.2.0" />
-    <PackageReference Include="Coflnet.Sky.Bazaar.Flipper.Client" Version="0.9.0" />
+    <PackageReference Include="Coflnet.Sky.Bazaar.Flipper.Client" Version="0.10.0-local" />
     <PackageReference Include="Coflnet.DiscordBot.Client" Version="0.0.1" />
-    <PackageReference Include="Coflnet.Payments.Client" Version="0.28.0" />
+    <PackageReference Include="Coflnet.Payments.Client" Version="0.29.0" />
     <PackageReference Include="Coflnet.Sky.Indexer.Client" Version="0.1.1" />
     <PackageReference Include="Coflnet.Sky.ModCommands.Client" Version="0.10.1" />
-    <PackageReference Include="Coflnet.Sky.PlayerState.Client" Version="0.17.0" />
+    <PackageReference Include="Coflnet.Sky.PlayerState.Client" Version="0.19.0" />
     <PackageReference Include="Coflnet.Sky.Proxy.Client" Version="1.0.0" />
     <PackageReference Include="AspNetCoreRateLimit" Version="5.0.0" />
     <PackageReference Include="Coflnet.Sky.Subscriptions.Client" Version="1.0.0" />

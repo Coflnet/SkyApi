@@ -1,0 +1,17 @@
+{
+  "quote": { "quoteId": "00000000-0000-0000-0000-000000000001", "requestId": "fixture", "marketFrameId": "2026-10-24T12:00:00.0000000Z|inv-0", "generatedAt": "2026-10-24T12:00:00Z", "expiresAt": "2026-10-24T12:03:00Z", "policyId": "fixed-price-no-reprice", "policyVersion": 1, "modelVersion": null, "engineVersion": "fixture" },
+  "status": "Ok",
+  "assignments": [
+    {
+      "traderId": "a",
+      "spentCoins": 0,
+      "orders": [],
+      "modesServed": ["Investing"],
+      "investingStatus": "EmptyQualified",
+      "investingReasonCodes": ["NoQualifiedCandidates"],
+      "unqualifiedInvestingCandidates": [],
+      "accountStateRevision": null,
+      "portfolio": { "budgetCoins": 1000000, "spentCoins": 0, "remainingBudgetCoins": 1000000, "reserveCoins": null, "reserveOwner": "Caller", "freeSlotsBefore": 5, "freeSlotsAfter": 5, "freeInventorySlotsBefore": null, "freeInventorySlotsAfter": null, "heldExposureCoins": 0, "suppressedItemTags": [] }
+    }
+  ]
+}

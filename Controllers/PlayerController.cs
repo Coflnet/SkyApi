@@ -283,15 +283,8 @@ namespace Coflnet.Sky.Api.Controller
                 throw new CoflnetException("invalid_uuid", "The provided string does not seem to be a valid minecraft account uuid.");
         }
 
-        private async Task<string> GetVerifiedPlayerUuid(GoogleUser user)
-        {
-            var mcUser = await connectApi.ConnectUserUserIdGetAsync(user.Id.ToString());
-            var uuid = mcUser.Accounts.Where(a => a.Verified).OrderByDescending(a => a.LastRequestedAt).FirstOrDefault()?.AccountUuid;
-            if (uuid == null)
-                throw new CoflnetException("no_verified_account", "You need to verify on a minecraft account with our mod first");
-
-            return uuid.Trim('"');
-        }
+        private Task<string> GetVerifiedPlayerUuid(GoogleUser user)
+            => new VerifiedAccountResolver(connectApi).GetVerifiedUuid(user);
 
 
         /// <summary>

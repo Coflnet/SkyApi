@@ -13,7 +13,7 @@ public class AuctionConverter
 {
     Dictionary<string, Enchantment.EnchantmentType> EnchantLookup = new();
 
-    IElectionPeriodsApiApi mayorService;
+    IElectionPeriodsApi mayorService;
     private ILogger<AuctionConverter> logger;
     private PropertyMapper propertyMapper = new PropertyMapper();
     private readonly Dictionary<int, string> YearToMayorName = new();
@@ -27,7 +27,7 @@ public class AuctionConverter
          ];
 
     /// <summary>Initializes a new instance of the <see cref="AuctionConverter"/> class.</summary>
-    public AuctionConverter(IElectionPeriodsApiApi mayorService, ILogger<AuctionConverter> logger, MappingCenter mappingCenter, ICraftsApi craftsApi)
+    public AuctionConverter(IElectionPeriodsApi mayorService, ILogger<AuctionConverter> logger, MappingCenter mappingCenter, ICraftsApi craftsApi)
     {
         this.logger = logger;
         foreach (var item in Enum.GetValues<Enchantment.EnchantmentType>())

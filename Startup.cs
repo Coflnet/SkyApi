@@ -167,6 +167,10 @@ namespace Coflnet.Sky.Api
                 client.Timeout = TimeSpan.FromSeconds(3);
             });
             services.AddScoped<BazaarUserOrders>();
+            services.AddScoped<IBazaarUserOrders>(sp => sp.GetRequiredService<BazaarUserOrders>());
+            services.AddScoped<IVerifiedAccountResolver, VerifiedAccountResolver>();
+            services.AddSingleton<IPurseLoader, PurseLoader>();
+            services.AddScoped<BazaarPlanService>();
             services.AddSingleton<LegalManifestService>();
             services.AddHostedService(service =>
                 service.GetRequiredService<LegalManifestService>());
@@ -304,9 +308,9 @@ namespace Coflnet.Sky.Api
             services.AddSingleton<ItemFilterSearchService>();
             services.AddSingleton<Coflnet.Sky.Indexer.Client.Api.IUserApi>(
                 new Coflnet.Sky.Indexer.Client.Api.UserApi(Configuration["INDEXER_BASE_URL"]));
-            services.AddSingleton<Mayor.Client.Api.IElectionPeriodsApiApi>(a =>
+            services.AddSingleton<Mayor.Client.Api.IElectionPeriodsApi>(a =>
             {
-                return new Mayor.Client.Api.ElectionPeriodsApiApi(Configuration["MAYOR_BASE_URL"]);
+                return new Mayor.Client.Api.ElectionPeriodsApi(Configuration["MAYOR_BASE_URL"]);
             });
             services.AddSingleton<Proxy.Client.Api.IBaseApi>(a =>
             {

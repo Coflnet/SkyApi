@@ -14,7 +14,7 @@ using StackExchange.Redis;
 namespace Coflnet.Sky.Api.Services;
 
 /// <summary>Reads live fill state published by SkyBazaar; player state supplies customer history only.</summary>
-public class BazaarUserOrders([FromKeyedServices("bazaar")] IConnectionMultiplexer redis, IPlayerStateApi playerState, IHttpClientFactory clients = null, ILogger<BazaarUserOrders> logger = null)
+public class BazaarUserOrders([FromKeyedServices("bazaar")] IConnectionMultiplexer redis, IPlayerStateApi playerState, IHttpClientFactory clients = null, ILogger<BazaarUserOrders> logger = null) : IBazaarUserOrders
 {
     private readonly ILogger<BazaarUserOrders> log = logger ?? NullLogger<BazaarUserOrders>.Instance;
 

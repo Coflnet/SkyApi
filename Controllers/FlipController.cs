@@ -28,7 +28,7 @@ namespace Coflnet.Sky.Api.Controller
     [ApiController]
     [Route("api/flip")]
     [ResponseCache(Duration = 120, Location = ResponseCacheLocation.Any, NoStore = false)]
-    public class FlipController : ControllerBase
+    public partial class FlipController : ControllerBase
     {
         private IConfiguration config;
         private TfmService tfm;
