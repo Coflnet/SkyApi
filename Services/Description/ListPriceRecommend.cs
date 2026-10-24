@@ -256,16 +256,25 @@ public class ListPriceRecommend : ICustomModifier
         var uuid = targetAuction.FlatenedNBT?.GetValueOrDefault("uuid");
         if (uuid != null)
             uidLong = ModDescriptionService.GetUidFromString(uuid);
-        var query = context.Auctions
-            // any item id for the uuid, crafting keeps the uuid of an input item but changes the tag
-            .Where(a => a.End > DateTime.UtcNow.AddDays(-14)
-                && (a.ItemId == itemId && a.SellerId == context.Players.Where(p => p.UuId == playerUuid).Select(p => p.Id).FirstOrDefault()
-                    || a.NBTLookup.Any(n => n.KeyId == key && n.Value == uidLong)))
-            .AsSplitQuery().AsNoTracking()
+        var minEnd = DateTime.UtcNow.AddDays(-14);
+        var ofItem = await LoadWithDetails(context.Auctions
+            .Where(a => a.ItemId == itemId && a.End > minEnd
+                && (a.SellerId == context.Players.Where(p => p.UuId == playerUuid).Select(p => p.Id).FirstOrDefault()
+                    || a.NBTLookup.Any(n => n.KeyId == key && n.Value == uidLong))));
+        // separate query for any item id of the uuid, crafting keeps the uuid of an input item but changes the tag
+        if (uuid == null)
+            return ofItem.OrderByDescending(o => o.Start).ToList();
+        var ofUid = await LoadWithDetails(context.Auctions
+            .Where(a => a.NBTLookup.Any(n => n.KeyId == key && n.Value == uidLong) && a.End > minEnd && a.ItemId != itemId));
+        return ofItem.Concat(ofUid).OrderByDescending(o => o.Start).ToList();
+    }
+
+    private static Task<List<Core.SaveAuction>> LoadWithDetails(IQueryable<Core.SaveAuction> query)
+    {
+        return query.AsSplitQuery().AsNoTracking()
             .Include(a => a.Enchantments)
             .Include(a => a.NbtData)
             .Take(10)
             .ToListAsync();
-        return (await query).OrderByDescending(o => o.Start).ToList();
     }
 }
