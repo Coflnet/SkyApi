@@ -413,7 +413,11 @@ public class FlipControllerBazaarPlanTests
         Assert.That(JObject.Parse(await second.Content.ReadAsStringAsync()).Value<string>("slug"), Is.EqualTo("bazaar_goal_active"));
     }
 
-    /// <summary>The purse is already net of coins placed in BUY orders, they must not be subtracted again.</summary>
+    /// <summary>
+    /// The purse is already net of coins placed in BUY orders, so it is never reduced by them again. The two-thirds cap
+    /// applies to the total bazaar exposure: floor(2/3 * (6M + 3M)) = 6M, minus the 3M already placed = 3M spendable
+    /// (the old double count gave 4M - 3M = 1M).
+    /// </summary>
     [Test]
     public async Task Plan_purse_estimate_does_not_subtract_placed_buy_orders_twice()
     {
@@ -423,7 +427,7 @@ public class FlipControllerBazaarPlanTests
         var response = await h.Post(Url, "{}", "free-1");
 
         Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.OK));
-        Assert.That(h.Fleet.Requests.Single().Traders.Single().BudgetCoins, Is.EqualTo(4_000_000));
+        Assert.That(h.Fleet.Requests.Single().Traders.Single().BudgetCoins, Is.EqualTo(3_000_000));
     }
 
     /// <summary>An explicit budget is the total cap, coins in open buys count against it and the purse limits it.</summary>

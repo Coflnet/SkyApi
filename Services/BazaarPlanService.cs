@@ -230,8 +230,9 @@ public class BazaarPlanService
     /// Resolves the budget shown to the user and the coins the planner may spend. The purse is already net of the coins
     /// placed in open BUY orders, so those must never be subtracted from a purse based figure a second time.
     /// <list type="bullet">
-    /// <item>purse-estimate (no budget given): spendable = floor(2/3 * purse), capped by the purse. SkyApi knows no
-    /// unplaced intents, so nothing else is subtracted and the open buy commitment is not counted again.</item>
+    /// <item>purse-estimate (no budget, or a budget of 0, given): cap = floor(2/3 * (purse + openBuyCommitment)), the two
+    /// thirds apply to the total bazaar exposure. spendable = min(cap - openBuyCommitment, purse), never below 0. The
+    /// purse is already net of placed buys so it is never reduced by them again. SkyApi knows no unplaced intents.</item>
     /// <item>request (explicit budget): the budget is the user's total cap including coins already in open BUY orders,
     /// spendable = min(budget - openBuyCommitment, purse) when the purse is known, else budget - openBuyCommitment,
     /// never below 0.</item>
@@ -257,8 +258,8 @@ public class BazaarPlanService
         }
         if (coins is > 0)
         {
-            var estimate = Math.Floor(coins.Value * PurseShare);
-            return (estimate, Math.Min(estimate, coins.Value), "purse-estimate");
+            var cap = Math.Floor((coins.Value + openBuyCommitment) * PurseShare);
+            return (cap, Math.Max(0, Math.Min(cap - openBuyCommitment, coins.Value)), "purse-estimate");
         }
         throw new CoflnetException("budget_required", "Your purse is unknown, please set a budget.");
     }
