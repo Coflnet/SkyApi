@@ -117,7 +117,17 @@ public class GoalGuideModifier : ICustomModifier
             return new Guide($"Custom Amount -> enter {qty}", slot, Fill: FillSign(data, s, qty, slot, $"{McColorCodes.GRAY}[set {McColorCodes.YELLOW}{qty:N0}{McColorCodes.GRAY}]"));
         }
         if (s.Is("How much do you want to pay?") && s.MatchesItem(ctx))
+        {
+            // plan goals carry the planned entry price, the custom price slot enters exactly that
+            var customSlot = ctx.Step.UnitPrice.HasValue ? s.Find("Custom Price", -1) : -1;
+            if (customSlot >= 0)
+            {
+                var entry = FormatPrice(ctx.Step.UnitPrice.Value);
+                return new Guide($"Custom price -> enter {entry}", customSlot,
+                    Fill: FillSign(s.Data, s, entry, customSlot, $"{McColorCodes.GRAY}[set price {McColorCodes.YELLOW}{entry}{McColorCodes.GRAY}]", "per unit", "Custom Price"));
+            }
             return new Guide("Pick Top Order +0.1 to be first in line", s.Find("Top Order +0.1", 12));
+        }
         if (s.Is("Confirm Buy Order") && s.MatchesItem(ctx))
             return new Guide("Confirm the order", s.FindConfirm());
         return ctx.HasCookie
@@ -194,28 +204,34 @@ public class GoalGuideModifier : ICustomModifier
         return new Guide("Go to the Forge", OnClick: "/warp forge", Hover: "Click to warp to the forge");
     }
 
+    private static string FormatPrice(double price) => price.ToString("0.##", CultureInfo.InvariantCulture);
+
     private static Guide Sell(Screen s, GoalGuideContext ctx)
     {
+        var at = ctx.Step.UnitPrice is { } exit ? $" @ {FormatPrice(exit)}" : "";
         if (s.Is("Create BIN Auction"))
             return new Guide($"Set the price of {ctx.ItemName} (see the price suggestion)");
         var bazaar = s.Data.bazaarPrices?.ContainsKey(ctx.Step.ItemTag ?? "") ?? false;
         if (!ctx.HasCookie)
             return bazaar
-                ? new Guide($"List {ctx.ItemName}" + GoalHud.AtBazaar, Hover: GoalHud.NoCookieBazaarHover)
-                : new Guide($"List {ctx.ItemName}" + GoalHud.AtAuctionMaster, Hover: GoalHud.NoCookieAuctionHover);
+                ? new Guide($"List {ctx.ItemName}{at}" + GoalHud.AtBazaar, Hover: GoalHud.NoCookieBazaarHover)
+                : new Guide($"List {ctx.ItemName}{at}" + GoalHud.AtAuctionMaster, Hover: GoalHud.NoCookieAuctionHover);
         return bazaar
-            ? new Guide($"List {ctx.ItemName}", OnClick: $"/bz {ctx.SearchName}", Hover: "Click to open the bazaar page")
-            : new Guide($"List {ctx.ItemName}", OnClick: "/ah", Hover: "Click to open the auction house");
+            ? new Guide($"List {ctx.ItemName}{at}", OnClick: $"/bz {ctx.SearchName}", Hover: "Click to open the bazaar page")
+            : new Guide($"List {ctx.ItemName}{at}", OnClick: "/ah", Hover: "Click to open the auction house");
     }
 
     private static DescModification FillSign(DataContainer data, Screen s, long amount, int slot, string text)
+        => FillSign(data, s, amount.ToString(CultureInfo.InvariantCulture), slot, text, "to order", "Custom Amount");
+
+    private static DescModification FillSign(DataContainer data, Screen s, string value, int slot, string text, string signLine, string defaultButton)
     {
-        var hover = $"{McColorCodes.GRAY}Fills the sign with {McColorCodes.YELLOW}{amount:N0}";
+        var hover = $"{McColorCodes.GRAY}Fills the sign with {McColorCodes.YELLOW}{value}";
         var builder = new LoreBuilder();
         if (data.inventory != null && data.inventory.Version >= 4)
-            builder.AddFillSign(text, "to order", amount.ToString(CultureInfo.InvariantCulture), s.NameAt(slot) ?? "Custom Amount", slot, hover);
+            builder.AddFillSign(text, signLine, value, s.NameAt(slot) ?? defaultButton, slot, hover);
         else
-            builder.AddText(text, hover + $"\n{McColorCodes.AQUA}Click to copy, then paste it into Custom Amount", $"copy:{amount}");
+            builder.AddText(text, hover + $"\n{McColorCodes.AQUA}Click to copy, then paste it into {defaultButton}", $"copy:{value}");
         return builder.BuildLine();
     }
 

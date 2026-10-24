@@ -279,4 +279,36 @@ public class GoalGuideModifierTests
         Panel(data).Should().Contain("at the Auction Master");
         Panel(data).ToLowerInvariant().Should().NotContain("onclick");
     }
+
+    /// <summary>A planned entry price is entered on the custom price sign instead of the top order hint.</summary>
+    [Test]
+    public void PriceScreen_WithPlannedPrice_FillsCustomPrice()
+    {
+        WithStep(unitPrice: 105.1);
+        var data = Screen("How much do you want to pay?", (10, "§aSame as Top Order", null), (12, "§aTop Order +0.1", null), (15, "§aCustom Price", null));
+        modifier.Apply(data);
+        Highlighted(data).Should().Be(15);
+        Panel(data).Should().Contain("Custom price").And.Contain("enter 105.1").And.Contain("fillsign:").And.Contain("\\u0022value\\u0022:\\u0022105.1\\u0022");
+    }
+
+    /// <summary>Without a custom price slot the top order hint stays.</summary>
+    [Test]
+    public void PriceScreen_WithPlannedPriceButNoCustomSlot_FallsBackToTopOrder()
+    {
+        WithStep(unitPrice: 105.1);
+        var data = Screen("How much do you want to pay?", (10, "§aSame as Top Order", null), (12, "§aTop Order +0.1", null));
+        modifier.Apply(data);
+        Highlighted(data).Should().Be(12);
+        Panel(data).Should().Contain("Top Order");
+    }
+
+    /// <summary>The sell hint names the planned exit price.</summary>
+    [Test]
+    public void Sell_WithPlannedPrice_NamesExitPrice()
+    {
+        WithStep(StepKind.Sell, 1, cookie: true, unitPrice: 209.9);
+        var data = Screen("SkyBlock Menu");
+        modifier.Apply(data);
+        Panel(data).Should().Contain("List Enchanted Diamond @ 209.9");
+    }
 }

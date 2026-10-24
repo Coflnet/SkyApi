@@ -497,6 +497,68 @@ public class GoalService : IGoalGuideSource, IDisposable
         return goal;
     }
 
+    /// <summary>
+    /// Creates and focuses a guided bazaar flip goal from a planned order. There can be only one unfinished flip per item.
+    /// </summary>
+    /// <exception cref="CoflnetException">bazaar_goal_active when an unfinished flip of the item exists, plan_order_incomplete without exit price</exception>
+    public async Task<Goal> AddBazaarPlan(string userId, Models.Bazaar.BazaarPlanOrder order, Models.Bazaar.BazaarPlanQuote quote)
+    {
+        if (order.ExitPrice is not { } exitPrice || order.OriginalQuantity <= 0)
+            throw new CoflnetException("plan_order_incomplete", "This order has no exit price or quantity and cannot be tracked.");
+        var e = await GetEntry(userId);
+        var name = string.IsNullOrEmpty(order.ItemName) ? NameLookup()(order.ItemTag) ?? order.ItemTag : order.ItemName;
+        var quantity = order.OriginalQuantity;
+        var goal = new Goal
+        {
+            Title = quantity > 1 ? $"{name} ×{quantity}" : name,
+            RootItemTag = order.ItemTag,
+            Quantity = quantity,
+            Source = "website",
+            Root = new GoalStep { Kind = StepKind.Sell, ItemTag = order.ItemTag, Quantity = quantity, UnitPrice = exitPrice },
+            BazaarFlip = new(),
+            Plan = new BazaarPlanInfo
+            {
+                Mode = order.Mode,
+                QuoteId = quote.QuoteId,
+                MarketFrameId = quote.MarketFrameId,
+                PolicyId = quote.PolicyId,
+                PolicyVersion = quote.PolicyVersion,
+                ModelVersion = quote.ModelVersion,
+                GeneratedAt = quote.GeneratedAt,
+                ExpiresAt = quote.ExpiresAt,
+                OriginalQuantity = quantity,
+                EntryPrice = order.EntryPrice,
+                ExitPrice = exitPrice,
+                SellTaxRate = order.SellTaxRate,
+                TaxSource = order.TaxSource,
+                EstimatedNetProfit = order.EstimatedNetProfit,
+                HorizonHours = order.CapitalLockHorizonHours,
+                ConfidenceStatus = order.Confidence?.Status,
+                Probability = order.Confidence?.Probability,
+                LowerBound = order.Confidence?.LowerBound,
+                ReasonCodes = order.Confidence?.ReasonCodes
+            }
+        };
+        await e.Gate.WaitAsync();
+        try
+        {
+            var list = e.Holder.Value;
+            if (list.Goals.Any(other => other.BazaarFlip != null && other.RootItemTag == goal.RootItemTag
+                && BazaarFlipProgress.Next(other) != BazaarFlipAction.Done))
+                throw new CoflnetException("bazaar_goal_active", "Finish or remove the active Bazaar flip for this item before tracking another one.");
+            list.Goals.Add(goal);
+            list.FocusId = goal.Id;
+            await Persist(userId, e);
+            Evaluate(e, e.LastForging);
+            await RefreshHud(userId, e, true);
+        }
+        finally
+        {
+            e.Gate.Release();
+        }
+        return goal;
+    }
+
     /// <summary>Removes a goal, returns false when it does not exist.</summary>
     public async Task<bool> Remove(string userId, string id)
     {

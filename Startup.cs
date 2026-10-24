@@ -169,6 +169,10 @@ namespace Coflnet.Sky.Api
                 client.Timeout = TimeSpan.FromSeconds(3);
             });
             services.AddScoped<BazaarUserOrders>();
+            services.AddScoped<IBazaarUserOrders>(sp => sp.GetRequiredService<BazaarUserOrders>());
+            services.AddScoped<IVerifiedAccountResolver, VerifiedAccountResolver>();
+            services.AddSingleton<IPurseLoader, PurseLoader>();
+            services.AddScoped<BazaarPlanService>();
             services.AddSingleton<LegalManifestService>();
             services.AddHostedService(service =>
                 service.GetRequiredService<LegalManifestService>());

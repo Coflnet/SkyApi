@@ -732,4 +732,34 @@ public class GoalServiceTests
         // the crafted item is still in the last known inventory, so the sell step is next (no cookie: no command)
         texts[0].Should().Contain("Sell");
     }
+
+    private static Coflnet.Sky.Api.Models.Bazaar.BazaarPlanOrder PlanOrder(string tag = "X") => new()
+    {
+        ItemTag = tag, ItemName = "Item X", Mode = "Active", OriginalQuantity = 64, EntryPrice = 10, ExitPrice = 15, SellTaxRate = 0.0125,
+        TaxSource = "Assumption", EstimatedNetProfit = 300, CapitalLockHorizonHours = 1, Confidence = new() { Status = "NotApplicable" }
+    };
+
+    private static Coflnet.Sky.Api.Models.Bazaar.BazaarPlanQuote PlanQuote() => new()
+    {
+        QuoteId = "q1", GeneratedAt = DateTime.UtcNow, ExpiresAt = DateTime.UtcNow.AddMinutes(3)
+    };
+
+    /// <summary>A plan goal is a guided flip, and an unfinished flip of the same item blocks the next one.</summary>
+    [Test]
+    public async Task AddBazaarPlan_RejectsSecondActiveFlipForSameItem()
+    {
+        var goal = await service.AddBazaarPlan("u1", PlanOrder(), PlanQuote());
+
+        goal.BazaarFlip.Should().NotBeNull();
+        goal.Root.Kind.Should().Be(StepKind.Sell);
+        goal.Quantity.Should().Be(64);
+        goal.Plan.QuoteId.Should().Be("q1");
+        list.FocusId.Should().Be(goal.Id);
+        var second = async () => await service.AddBazaarPlan("u1", PlanOrder(), PlanQuote());
+        (await second.Should().ThrowAsync<CoflnetException>()).Which.Slug.Should().Be("bazaar_goal_active");
+        list.Goals.Should().HaveCount(1);
+        // another item is independent
+        await service.AddBazaarPlan("u1", PlanOrder("Y"), PlanQuote());
+        list.Goals.Should().HaveCount(2);
+    }
 }
