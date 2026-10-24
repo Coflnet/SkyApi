@@ -8,6 +8,8 @@ using System.Reflection;
 using System.Security.Claims;
 using System.Text;
 using System.Text.Encodings.Web;
+using System.Threading;
+using Moq;
 using System.Threading.Tasks;
 using Coflnet.Sky.Api.Models;
 using Coflnet.Sky.Api.Services;
@@ -414,6 +416,52 @@ public class FlipControllerBazaarPlanTests
     }
 
     /// <summary>
+    /// The request confirms once the goal is saved, a hud publisher that never answers must not delay it.
+    /// The hud (display and expect command) is still pushed once the publisher is released.
+    /// </summary>
+    [Test]
+    public async Task Track_returns_before_blocked_hud_publisher_and_refreshes_hud_afterwards()
+    {
+        using var h = new Harness();
+        h.Fleet.Orders = _ => [Order("ITEM_A", amount: 192, entry: 105.1, exit: 209.9)];
+        var plan = JObject.Parse(await (await h.Post(Url, "{}", "premium-1")).Content.ReadAsStringAsync());
+        var quoteId = plan.SelectToken("quote.quoteId")!.ToString();
+        var release = new TaskCompletionSource();
+        var displayed = 0;
+        h.Publisher.Setup(p => p.DisplayForUser(It.IsAny<string>(), It.IsAny<object>()))
+            .Returns(async () => { Interlocked.Increment(ref displayed); await release.Task; return 1L; });
+
+        var response = await h.Post(Url + "/track", Track(quoteId, "ITEM_A"), "premium-1").WaitAsync(TimeSpan.FromSeconds(10));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.NoContent));
+            Assert.That(h.Goals, Has.Count.EqualTo(1), "goal is persisted before the response");
+            Assert.That(h.Goal.PendingHudRefresh.IsCompleted, Is.False, "hud refresh is still blocked");
+        });
+        release.SetResult();
+        await h.Goal.PendingHudRefresh.WaitAsync(TimeSpan.FromSeconds(10));
+        Assert.That(displayed, Is.EqualTo(1));
+        h.Publisher.Verify(p => p.DisplayForUser(It.IsAny<string>(), It.IsAny<object>()), Times.Once);
+    }
+
+    /// <summary>A failing hud refresh is logged in the background and never fails the already confirmed request.</summary>
+    [Test]
+    public async Task Track_background_hud_failure_does_not_fail_request()
+    {
+        using var h = new Harness();
+        h.Fleet.Orders = _ => [Order("ITEM_A", amount: 192, entry: 105.1, exit: 209.9)];
+        var plan = JObject.Parse(await (await h.Post(Url, "{}", "premium-1")).Content.ReadAsStringAsync());
+        h.Publisher.Setup(p => p.DisplayForUser(It.IsAny<string>(), It.IsAny<object>())).ThrowsAsync(new InvalidOperationException("boom"));
+
+        var response = await h.Post(Url + "/track", Track(plan.SelectToken("quote.quoteId")!.ToString(), "ITEM_A"), "premium-1");
+        await h.Goal.PendingHudRefresh.WaitAsync(TimeSpan.FromSeconds(10));
+
+        Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.NoContent));
+        Assert.That(h.Goals, Has.Count.EqualTo(1));
+    }
+
+    /// <summary>
     /// The purse is already net of coins placed in BUY orders, so it is never reduced by them again. The two-thirds cap
     /// applies to the total bazaar exposure: floor(2/3 * (6M + 3M)) = 6M, minus the 3M already placed = 3M spendable
     /// (the old double count gave 4M - 3M = 1M).
@@ -591,6 +639,8 @@ public class FlipControllerBazaarPlanTests
         public bool ResolverFails { get => FakeResolver.Fail; set => FakeResolver.Fail = value; }
         public CountingItems Items { get; }
         public GoalList GoalList { get; }
+        public Moq.Mock<IModUserPublisher> Publisher { get; }
+        public GoalService Goal { get; }
         public List<Goal> Goals => GoalList.Goals;
         private readonly FakePurse purse = new() { Value = 3_000_000 };
 
@@ -599,8 +649,10 @@ public class FlipControllerBazaarPlanTests
             FakeResolver.Fail = false;
             Items = (CountingItems)(object)DispatchProxy.Create<IItemsApi, CountingItems>();
             Fleet = (RecordingFleet)(object)DispatchProxy.Create<IFleetApi, RecordingFleet>();
-            var (goalService, _, _, _, _, list) = GoalServiceTests.Create();
+            var (goalService, publisher, _, _, _, list) = GoalServiceTests.Create();
             GoalList = list;
+            Publisher = publisher;
+            Goal = goalService;
             host = new HostBuilder()
                 .ConfigureWebHost(builder => builder
                     .UseTestServer()

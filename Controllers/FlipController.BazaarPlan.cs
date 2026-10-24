@@ -61,7 +61,10 @@ namespace Coflnet.Sky.Api.Controller
         public async Task<IActionResult> PostBazaarPlanTrack([FromBody] BazaarPlanTrackRequest request,
             [FromServices] BazaarPlanService planService, [FromServices] GoalService goals)
         {
+            var requestId = Guid.NewGuid().ToString("N")[..8];
+            var userTimer = System.Diagnostics.Stopwatch.StartNew();
             var (user, _) = await premiumTierService.GetUserAndTier(this);
+            var userLookupMs = userTimer.ElapsedMilliseconds;
             if (user == null)
                 return Unauthorized();
             var userId = user.Id.ToString();
@@ -73,7 +76,7 @@ namespace Coflnet.Sky.Api.Controller
                 return NotFound(new { slug = "order_not_found", message = "The plan has no such order." });
             try
             {
-                await goals.AddBazaarPlan(userId, order, plan.Quote);
+                await goals.AddBazaarPlan(userId, order, plan.Quote, requestId, userLookupMs);
             }
             catch (CoflnetException e) when (e.Slug == "bazaar_goal_active")
             {
