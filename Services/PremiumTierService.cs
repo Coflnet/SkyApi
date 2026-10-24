@@ -60,16 +60,22 @@ public class PremiumTierService
         if (user == null)
             return (null, "anonymous");
 
+        return (user, await GetTier(user));
+    }
+
+    /// <summary>Highest active chat quota tier of an already authenticated user.</summary>
+    public virtual async Task<string> GetTier(GoogleUser user)
+    {
         var products = new List<string> { "starter_premium", "premium", "premium_plus" };
         var owns = await userApi.UserUserIdOwnsUntilPostAsync(user.Id.ToString(), requestBody: products);
         var now = DateTime.UtcNow;
         if (owns.TryGetValue("premium_plus", out var premiumPlus) && premiumPlus > now)
-            return (user, "premium_plus");
+            return "premium_plus";
         if (owns.TryGetValue("premium", out var premium) && premium > now)
-            return (user, "premium");
+            return "premium";
         if (owns.TryGetValue("starter_premium", out var starter) && starter > now)
-            return (user, "starter_premium");
-        return (user, "logged_in");
+            return "starter_premium";
+        return "logged_in";
     }
 
     private async Task<bool> OwnsProduct(ControllerBase controllerInstance, string name)

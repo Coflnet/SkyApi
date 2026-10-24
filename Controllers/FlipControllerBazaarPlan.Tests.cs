@@ -8,6 +8,8 @@ using System.Reflection;
 using System.Security.Claims;
 using System.Text;
 using System.Text.Encodings.Web;
+using System.Threading;
+using Moq;
 using System.Threading.Tasks;
 using Coflnet.Sky.Api.Models;
 using Coflnet.Sky.Api.Services;
@@ -414,6 +416,52 @@ public class FlipControllerBazaarPlanTests
     }
 
     /// <summary>
+    /// The request confirms once the goal is saved, a hud publisher that never answers must not delay it.
+    /// The hud (display and expect command) is still pushed once the publisher is released.
+    /// </summary>
+    [Test]
+    public async Task Track_returns_before_blocked_hud_publisher_and_refreshes_hud_afterwards()
+    {
+        using var h = new Harness();
+        h.Fleet.Orders = _ => [Order("ITEM_A", amount: 192, entry: 105.1, exit: 209.9)];
+        var plan = JObject.Parse(await (await h.Post(Url, "{}", "premium-1")).Content.ReadAsStringAsync());
+        var quoteId = plan.SelectToken("quote.quoteId")!.ToString();
+        var release = new TaskCompletionSource();
+        var displayed = 0;
+        h.Publisher.Setup(p => p.DisplayForUser(It.IsAny<string>(), It.IsAny<object>()))
+            .Returns(async () => { Interlocked.Increment(ref displayed); await release.Task; return 1L; });
+
+        var response = await h.Post(Url + "/track", Track(quoteId, "ITEM_A"), "premium-1").WaitAsync(TimeSpan.FromSeconds(10));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.NoContent));
+            Assert.That(h.Goals, Has.Count.EqualTo(1), "goal is persisted before the response");
+            Assert.That(h.Goal.PendingHudRefresh.IsCompleted, Is.False, "hud refresh is still blocked");
+        });
+        release.SetResult();
+        await h.Goal.PendingHudRefresh.WaitAsync(TimeSpan.FromSeconds(10));
+        Assert.That(displayed, Is.EqualTo(1));
+        h.Publisher.Verify(p => p.DisplayForUser(It.IsAny<string>(), It.IsAny<object>()), Times.Once);
+    }
+
+    /// <summary>A failing hud refresh is logged in the background and never fails the already confirmed request.</summary>
+    [Test]
+    public async Task Track_background_hud_failure_does_not_fail_request()
+    {
+        using var h = new Harness();
+        h.Fleet.Orders = _ => [Order("ITEM_A", amount: 192, entry: 105.1, exit: 209.9)];
+        var plan = JObject.Parse(await (await h.Post(Url, "{}", "premium-1")).Content.ReadAsStringAsync());
+        h.Publisher.Setup(p => p.DisplayForUser(It.IsAny<string>(), It.IsAny<object>())).ThrowsAsync(new InvalidOperationException("boom"));
+
+        var response = await h.Post(Url + "/track", Track(plan.SelectToken("quote.quoteId")!.ToString(), "ITEM_A"), "premium-1");
+        await h.Goal.PendingHudRefresh.WaitAsync(TimeSpan.FromSeconds(10));
+
+        Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.NoContent));
+        Assert.That(h.Goals, Has.Count.EqualTo(1));
+    }
+
+    /// <summary>
     /// The purse is already net of coins placed in BUY orders, so it is never reduced by them again. The two-thirds cap
     /// applies to the total bazaar exposure: floor(2/3 * (6M + 3M)) = 6M, minus the 3M already placed = 3M spendable
     /// (the old double count gave 4M - 3M = 1M).
@@ -559,6 +607,335 @@ public class FlipControllerBazaarPlanTests
         Assert.That(JObject.Parse(await accountDown.Content.ReadAsStringAsync()).Value<string>("slug"), Is.EqualTo("plan_unavailable"));
     }
 
+    private const string TrackItemUrl = "/api/flip/bazaar/plan/track-item";
+    private const string SecretKey = "sk-very-secret-key-1234567890";
+
+    private static string TrackItem(string tag, object extra = null)
+    {
+        var body = JObject.FromObject(new { itemTag = tag });
+        if (extra != null)
+            body.Merge(JObject.FromObject(extra));
+        return body.ToString();
+    }
+
+    /// <summary>An api key alone authenticates the track-item route and tracks for the user of the key.</summary>
+    [Test]
+    public async Task TrackItem_with_api_key_tracks_for_the_key_user_and_returns_contract()
+    {
+        using var h = new Harness();
+        h.Keys.Add(SecretKey, "105", true);
+        h.Fleet.Orders = _ => [Order("ITEM_A", amount: 192, entry: 105.1, exit: 209.9)];
+
+        var response = await h.PostKey(TrackItemUrl, TrackItem("ITEM_A", new { expectedEntryPrice = 105.1 }), SecretKey);
+
+        var body = await response.Content.ReadAsStringAsync();
+        Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.OK), body);
+        var json = JObject.Parse(body);
+        Assert.Multiple(() =>
+        {
+            Assert.That(h.Fleet.Requests.Single().Traders.Single().Id, Is.EqualTo("uuid-105"));
+            Assert.That(h.Goals, Has.Count.EqualTo(1));
+            Assert.That(h.Goals.Single().Quantity, Is.EqualTo(192));
+            Assert.That(json.Value<string>("itemTag"), Is.EqualTo("ITEM_A"));
+            Assert.That(json.Value<string>("itemName"), Is.EqualTo("Name of ITEM_A"));
+            Assert.That(json.Value<int>("originalQuantity"), Is.EqualTo(192));
+            Assert.That(json.Value<double>("entryPrice"), Is.EqualTo(105.1));
+            Assert.That(json.Value<double>("exitPrice"), Is.EqualTo(209.9));
+            Assert.That(json.Value<double>("estimatedNetProfit"), Is.EqualTo(1000));
+            Assert.That(json.Value<double>("capitalLockHorizonHours"), Is.EqualTo(1));
+            Assert.That(json.Value<string>("quoteId"), Is.EqualTo(h.Goals.Single().Plan.QuoteId));
+            Assert.That(json.Value<bool>("priceChanged"), Is.False);
+            Assert.That(response.Headers.CacheControl?.NoStore, Is.True);
+        });
+        await h.Goal.PendingHudRefresh.WaitAsync(TimeSpan.FromSeconds(10));
+    }
+
+    /// <summary>Unknown and inactive keys and requests without any auth are 401 and never reach the planner.</summary>
+    [Test]
+    public async Task TrackItem_unknown_inactive_key_and_no_auth_are_401()
+    {
+        using var h = new Harness();
+        h.Keys.Add("inactive-key", "105", false);
+        h.Keys.Add("unflagged-key", "105", null);
+        h.Fleet.Orders = _ => [Order("ITEM_A")];
+
+        var unknown = await h.PostKey(TrackItemUrl, TrackItem("ITEM_A"), "unknown-key");
+        var inactive = await h.PostKey(TrackItemUrl, TrackItem("ITEM_A"), "inactive-key");
+        var none = await h.Post(TrackItemUrl, TrackItem("ITEM_A"), null);
+        var emptyKey = await h.PostKey(TrackItemUrl, TrackItem("ITEM_A"), " ");
+        var unflagged = await h.PostKey(TrackItemUrl, TrackItem("ITEM_A"), "unflagged-key");
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(unknown.StatusCode, Is.EqualTo(HttpStatusCode.Unauthorized));
+            Assert.That(inactive.StatusCode, Is.EqualTo(HttpStatusCode.Unauthorized));
+            Assert.That(none.StatusCode, Is.EqualTo(HttpStatusCode.Unauthorized));
+            Assert.That(emptyKey.StatusCode, Is.EqualTo(HttpStatusCode.Unauthorized));
+            Assert.That(unflagged.StatusCode, Is.EqualTo(HttpStatusCode.Unauthorized), "a key that is not confirmed active is inactive");
+            Assert.That(h.Fleet.Requests, Is.Empty);
+            Assert.That(h.Goals, Is.Empty);
+        });
+    }
+
+    /// <summary>The Google token path works like on the other plan routes.</summary>
+    [Test]
+    public async Task TrackItem_with_google_token_tracks()
+    {
+        using var h = new Harness();
+        h.Fleet.Orders = _ => [Order("ITEM_A")];
+
+        var response = await h.Post(TrackItemUrl, TrackItem("ITEM_A"), "premium-1");
+
+        Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+        Assert.That(h.Goals, Has.Count.EqualTo(1));
+        await h.Goal.PendingHudRefresh.WaitAsync(TimeSpan.FromSeconds(10));
+    }
+
+    /// <summary>The key does not open any other plan route, they stay behind [Authorize].</summary>
+    [Test]
+    public async Task Api_key_alone_does_not_open_plan_and_track_routes()
+    {
+        using var h = new Harness();
+        h.Keys.Add(SecretKey, "105", true);
+        h.Fleet.Orders = _ => [Order("ITEM_A")];
+
+        var plan = await h.PostKey(Url, "{}", SecretKey);
+        var track = await h.PostKey(Url + "/track", Track(Guid.NewGuid().ToString(), "ITEM_A"), SecretKey);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(plan.StatusCode, Is.EqualTo(HttpStatusCode.Unauthorized));
+            Assert.That(track.StatusCode, Is.EqualTo(HttpStatusCode.Unauthorized));
+            Assert.That(h.Fleet.Requests, Is.Empty);
+        });
+    }
+
+    /// <summary>An item that is not in the fresh plan is a 409 not_in_plan, a missing tag a 400.</summary>
+    [Test]
+    public async Task TrackItem_item_not_in_plan_is_409_not_in_plan()
+    {
+        using var h = new Harness();
+        h.Keys.Add(SecretKey, "105", true);
+        h.Fleet.Orders = _ => [Order("ITEM_A")];
+
+        var response = await h.PostKey(TrackItemUrl, TrackItem("ITEM_B"), SecretKey);
+        var missing = await h.PostKey(TrackItemUrl, "{}", SecretKey);
+
+        var body = JObject.Parse(await response.Content.ReadAsStringAsync());
+        Assert.Multiple(() =>
+        {
+            Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.Conflict));
+            Assert.That(body.Value<string>("slug"), Is.EqualTo("not_in_plan"));
+            Assert.That(body.Value<string>("message"), Is.EqualTo("ITEM_B is not in your plan right now, refresh it."));
+            Assert.That(missing.StatusCode, Is.EqualTo(HttpStatusCode.BadRequest));
+            Assert.That(h.Goals, Is.Empty);
+        });
+    }
+
+    /// <summary>The one active flip per item guard applies.</summary>
+    [Test]
+    public async Task TrackItem_second_active_flip_is_409_bazaar_goal_active()
+    {
+        using var h = new Harness();
+        h.Keys.Add(SecretKey, "105", true);
+        h.Fleet.Orders = _ => [Order("ITEM_A")];
+
+        var first = await h.PostKey(TrackItemUrl, TrackItem("ITEM_A"), SecretKey);
+        var second = await h.PostKey(TrackItemUrl, TrackItem("ITEM_A"), SecretKey);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(first.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+            Assert.That(second.StatusCode, Is.EqualTo(HttpStatusCode.Conflict));
+            Assert.That(JObject.Parse(second.Content.ReadAsStringAsync().Result).Value<string>("slug"), Is.EqualTo("bazaar_goal_active"));
+            Assert.That(h.Goals, Has.Count.EqualTo(1));
+        });
+        await h.Goal.PendingHudRefresh.WaitAsync(TimeSpan.FromSeconds(10));
+    }
+
+    /// <summary>Free users can only track what the plan route shows them, anything else needs premium.</summary>
+    [Test]
+    public async Task TrackItem_free_tier_tracks_only_the_sample_and_hidden_items_need_premium()
+    {
+        using var h = new Harness();
+        h.Fleet.Orders = _ => Enumerable.Range(1, 12).Select(i => Order("ITEM_" + i)).ToList();
+        var visible = (await Sample(h, 7)).Split(',');
+        var hidden = Enumerable.Range(1, 12).Select(i => "ITEM_" + i).First(t => !visible.Contains(t));
+
+        var blocked = await h.Post(TrackItemUrl, TrackItem(hidden), "free-7");
+        var rankOne = await h.Post(TrackItemUrl, TrackItem("ITEM_1"), "free-7");
+        var allowed = await h.Post(TrackItemUrl, TrackItem(visible[0]), "free-7");
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(blocked.StatusCode, Is.EqualTo(HttpStatusCode.Conflict));
+            Assert.That(JObject.Parse(blocked.Content.ReadAsStringAsync().Result).Value<string>("slug"), Is.EqualTo("premium_required"));
+            Assert.That(rankOne.StatusCode, Is.EqualTo(HttpStatusCode.Conflict), "rank 1 is never in the free sample");
+            Assert.That(allowed.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+            Assert.That(h.Goals, Has.Count.EqualTo(1));
+        });
+        await h.Goal.PendingHudRefresh.WaitAsync(TimeSpan.FromSeconds(10));
+    }
+
+    /// <summary>A free user gets the identical answer for a hidden item and an item that is not in the plan at all.</summary>
+    [Test]
+    public async Task TrackItem_free_tier_cannot_learn_whether_a_hidden_item_exists()
+    {
+        using var h = new Harness();
+        h.Fleet.Orders = _ => Enumerable.Range(1, 12).Select(i => Order("ITEM_" + i)).ToList();
+
+        var hidden = await h.Post(TrackItemUrl, TrackItem("ITEM_1"), "free-7");
+        var missing = await h.Post(TrackItemUrl, TrackItem("NOT_IN_ANY_PLAN"), "free-7");
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(hidden.StatusCode, Is.EqualTo(missing.StatusCode));
+            Assert.That(hidden.Content.ReadAsStringAsync().Result.Replace("ITEM_1", "X"),
+                Is.EqualTo(missing.Content.ReadAsStringAsync().Result.Replace("NOT_IN_ANY_PLAN", "X")));
+            Assert.That(h.Goals, Is.Empty);
+        });
+    }
+
+    /// <summary>A valid key is used when the Google headers do not authenticate; an authenticated Google user wins.</summary>
+    [Test]
+    public async Task TrackItem_key_works_next_to_unauthenticated_google_headers_and_google_user_wins()
+    {
+        using var h = new Harness();
+        h.Keys.Add(SecretKey, "105", true);
+        h.Fleet.Orders = _ => [Order("ITEM_A")];
+
+        var emptyToken = await h.PostKey(TrackItemUrl, TrackItem("ITEM_A"), SecretKey, ("GoogleToken", ""));
+        h.Goals.Clear();
+        var bogusAuth = await h.PostKey(TrackItemUrl, TrackItem("ITEM_A"), SecretKey, ("Authorization", "Basic abc"));
+        h.Goals.Clear();
+        h.Fleet.Requests.Clear();
+        var both = await h.PostKey(TrackItemUrl, TrackItem("ITEM_A"), SecretKey, ("GoogleToken", "premium-1"));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(emptyToken.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+            Assert.That(bogusAuth.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+            Assert.That(both.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+            Assert.That(h.Fleet.Requests.Single().Traders.Single().Id, Is.EqualTo("uuid-1"));
+        });
+        await h.Goal.PendingHudRefresh.WaitAsync(TimeSpan.FromSeconds(10));
+    }
+
+    /// <summary>An order without exit price cannot be tracked and is a 409 on both routes instead of a server error.</summary>
+    [Test]
+    public async Task Track_routes_return_409_plan_order_incomplete_without_exit_price()
+    {
+        using var h = new Harness();
+        h.Fleet.Orders = _ => { var o = Order("ITEM_A"); o.ExitPrice = null; return [o]; };
+        var plan = JObject.Parse(await (await h.Post(Url, "{}", "premium-1")).Content.ReadAsStringAsync());
+
+        var byQuote = await h.Post(Url + "/track", Track(plan.SelectToken("quote.quoteId")!.ToString(), "ITEM_A"), "premium-1");
+        var byItem = await h.Post(TrackItemUrl, TrackItem("ITEM_A"), "premium-1");
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(byQuote.StatusCode, Is.EqualTo(HttpStatusCode.Conflict));
+            Assert.That(byItem.StatusCode, Is.EqualTo(HttpStatusCode.Conflict));
+            Assert.That(JObject.Parse(byQuote.Content.ReadAsStringAsync().Result).Value<string>("slug"), Is.EqualTo("plan_order_incomplete"));
+            Assert.That(JObject.Parse(byItem.Content.ReadAsStringAsync().Result).Value<string>("slug"), Is.EqualTo("plan_order_incomplete"));
+        });
+    }
+
+    /// <summary>The plan validation slugs apply before the planner is asked.</summary>
+    [TestCase("{\"itemTag\":\"ITEM_A\",\"modes\":[\"investing\"],\"investingHorizonHours\":0}", "invalid_horizon")]
+    [TestCase("{\"itemTag\":\"ITEM_A\",\"modes\":[\"investing\"],\"investingHorizonHours\":49}", "invalid_horizon")]
+    [TestCase("{\"itemTag\":\"ITEM_A\",\"modes\":[\"investing\"]}", "invalid_horizon")]
+    [TestCase("{\"itemTag\":\"ITEM_A\",\"modes\":[\"nope\"]}", "invalid_modes")]
+    public async Task TrackItem_validates_like_the_plan_route(string body, string slug)
+    {
+        using var h = new Harness();
+        h.Keys.Add(SecretKey, "105", true);
+        h.Fleet.Orders = _ => [Order("ITEM_A")];
+
+        var response = await h.PostKey(TrackItemUrl, body, SecretKey);
+
+        Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.BadRequest));
+        Assert.That(JObject.Parse(await response.Content.ReadAsStringAsync()).Value<string>("slug"), Is.EqualTo(slug));
+        Assert.That(h.Fleet.Requests, Is.Empty);
+    }
+
+    /// <summary>Without budget and purse a budget is required.</summary>
+    [Test]
+    public async Task TrackItem_without_budget_and_purse_is_400_budget_required()
+    {
+        using var h = new Harness { Purse = null };
+        h.Keys.Add(SecretKey, "105", true);
+
+        var response = await h.PostKey(TrackItemUrl, TrackItem("ITEM_A"), SecretKey);
+
+        Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.BadRequest));
+        Assert.That(JObject.Parse(await response.Content.ReadAsStringAsync()).Value<string>("slug"), Is.EqualTo("budget_required"));
+    }
+
+    /// <summary>A moved entry price is tracked with the fresh terms and flagged, small moves are not.</summary>
+    [TestCase(100.0, 100.0, false)]
+    [TestCase(100.0, 101.9, false)]
+    [TestCase(100.0, 102.1, true)]
+    [TestCase(100.0, 97.0, true)]
+    [TestCase(1.0, 1.09, false)]
+    [TestCase(1.0, 1.2, true)]
+    public async Task TrackItem_flags_price_change_beyond_max_of_point_one_and_two_percent(double fresh, double expected, bool changed)
+    {
+        using var h = new Harness();
+        h.Keys.Add(SecretKey, "105", true);
+        h.Fleet.Orders = _ => [Order("ITEM_A", entry: fresh, exit: fresh * 2)];
+
+        var response = await h.PostKey(TrackItemUrl, TrackItem("ITEM_A", new { expectedEntryPrice = expected }), SecretKey);
+
+        var json = JObject.Parse(await response.Content.ReadAsStringAsync());
+        Assert.Multiple(() =>
+        {
+            Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+            Assert.That(json.Value<bool>("priceChanged"), Is.EqualTo(changed));
+            Assert.That(json.Value<double>("entryPrice"), Is.EqualTo(fresh), "always the fresh terms");
+            Assert.That(h.Goals.Single().Plan.EntryPrice, Is.EqualTo(fresh));
+        });
+        await h.Goal.PendingHudRefresh.WaitAsync(TimeSpan.FromSeconds(10));
+    }
+
+    /// <summary>An engine outage is a 503 plan_unavailable.</summary>
+    [Test]
+    public async Task TrackItem_engine_failure_is_503_plan_unavailable()
+    {
+        using var h = new Harness();
+        h.Keys.Add(SecretKey, "105", true);
+        h.Fleet.Fail = new HttpRequestException("down");
+
+        var response = await h.PostKey(TrackItemUrl, TrackItem("ITEM_A"), SecretKey);
+
+        Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.ServiceUnavailable));
+        Assert.That(JObject.Parse(await response.Content.ReadAsStringAsync()).Value<string>("slug"), Is.EqualTo("plan_unavailable"));
+        Assert.That(h.Goals, Is.Empty);
+    }
+
+    /// <summary>The api key is never logged, also not when the key validation or the planner fail.</summary>
+    [Test]
+    public async Task TrackItem_never_logs_the_api_key()
+    {
+        using var h = new Harness();
+        h.Keys.Add(SecretKey, "105", true);
+        h.Keys.Add("broken-" + SecretKey, "106", true);
+        h.Keys.FailWith = new HttpRequestException("GET /api/ApiKey/validate/broken-" + SecretKey + " failed");
+        h.Fleet.Orders = _ => [Order("ITEM_A")];
+
+        await h.PostKey(TrackItemUrl, TrackItem("ITEM_A"), SecretKey);
+        await h.PostKey(TrackItemUrl, TrackItem("ITEM_B"), SecretKey);
+        await h.PostKey(TrackItemUrl, TrackItem("ITEM_A"), "unknown-" + SecretKey);
+        h.Fleet.Fail = new HttpRequestException("down");
+        await h.PostKey(TrackItemUrl, TrackItem("ITEM_A"), SecretKey);
+        await h.PostKey(TrackItemUrl, TrackItem("ITEM_A"), "broken-" + SecretKey);
+        await h.Goal.PendingHudRefresh.WaitAsync(TimeSpan.FromSeconds(10));
+
+        Assert.That(h.Logs.Entries, Is.Not.Empty);
+        Assert.That(h.Logs.Entries.Where(e => e.Contains(SecretKey)), Is.Empty);
+        Assert.That(h.Logs.Entries, Has.Some.Contains("HttpRequestException"), "the failed validation is still diagnosable");
+    }
+
     private static string Track(string quoteId, string tag) => JsonConvert.SerializeObject(new { quoteId, itemTag = tag });
 
     private static async Task<string> Sample(Harness h, int user)
@@ -591,6 +968,10 @@ public class FlipControllerBazaarPlanTests
         public bool ResolverFails { get => FakeResolver.Fail; set => FakeResolver.Fail = value; }
         public CountingItems Items { get; }
         public GoalList GoalList { get; }
+        public FakeKeys Keys { get; } = new();
+        public CapturingLogs Logs { get; } = new();
+        public Moq.Mock<IModUserPublisher> Publisher { get; }
+        public GoalService Goal { get; }
         public List<Goal> Goals => GoalList.Goals;
         private readonly FakePurse purse = new() { Value = 3_000_000 };
 
@@ -599,9 +980,12 @@ public class FlipControllerBazaarPlanTests
             FakeResolver.Fail = false;
             Items = (CountingItems)(object)DispatchProxy.Create<IItemsApi, CountingItems>();
             Fleet = (RecordingFleet)(object)DispatchProxy.Create<IFleetApi, RecordingFleet>();
-            var (goalService, _, _, _, _, list) = GoalServiceTests.Create();
+            var (goalService, publisher, _, _, _, list) = GoalServiceTests.Create();
             GoalList = list;
+            Publisher = publisher;
+            Goal = goalService;
             host = new HostBuilder()
+                .ConfigureLogging(b => b.AddProvider(Logs))
                 .ConfigureWebHost(builder => builder
                     .UseTestServer()
                     .UseEnvironment(Environments.Production)
@@ -616,6 +1000,7 @@ public class FlipControllerBazaarPlanTests
                         services.AddAuthentication("CustomScheme")
                             .AddScheme<AuthenticationSchemeOptions, TestAuthenticationHandler>("CustomScheme", _ => { });
                         services.AddSingleton<PremiumTierService>(new TestPremiumTierService());
+                        services.AddSingleton<ApiKeyService>(Keys);
                         services.AddSingleton(DispatchProxy.Create<IBazaarFlipperApi, FlipControllerCacheTests.EmptyAsyncProxy>());
                         services.AddSingleton<IItemsApi>((IItemsApi)(object)Items);
                         services.AddSingleton<IFleetApi>((IFleetApi)(object)Fleet);
@@ -634,6 +1019,16 @@ public class FlipControllerBazaarPlanTests
             request.Headers.Add("X-ClientId", "bazaar-plan-test");
             if (token != null)
                 request.Headers.Add("GoogleToken", token);
+            return await client.SendAsync(request);
+        }
+
+        public async Task<HttpResponseMessage> PostKey(string url, string json, string apiKey, params (string name, string value)[] extra)
+        {
+            using var request = new HttpRequestMessage(System.Net.Http.HttpMethod.Post, url) { Content = new StringContent(json, Encoding.UTF8, "application/json") };
+            request.Headers.Add("X-ClientId", "bazaar-plan-test");
+            request.Headers.Add("x-api-key", apiKey);
+            foreach (var (name, value) in extra)
+                request.Headers.TryAddWithoutValidation(name, value);
             return await client.SendAsync(request);
         }
 
@@ -774,9 +1169,61 @@ public class FlipControllerBazaarPlanTests
         public Task<string> GetName(string uuid) => Task.FromResult("Player" + uuid["uuid-".Length..]);
     }
 
+    /// <summary>Api key validation without the key service: key to user id and whether it is active.</summary>
+    public sealed class FakeKeys : ApiKeyService
+    {
+        private readonly Dictionary<string, (string user, bool? active)> known = new();
+        /// <summary>Thrown for keys starting with broken-.</summary>
+        public Exception FailWith { get; set; }
+
+        /// <summary>Creates the fake.</summary>
+        public FakeKeys() : base(null) { }
+
+        /// <summary>Registers a key.</summary>
+        public void Add(string key, string userId, bool? active) => known[key] = (userId, active);
+
+        /// <inheritdoc/>
+        public override Task<Coflnet.Sky.ModCommands.Client.Model.ApiKeyInfoResponse> GetKeyInfo(ControllerBase controller)
+        {
+            var key = controller.Request.Headers["x-api-key"].ToString();
+            if (FailWith != null && key.StartsWith("broken-"))
+                throw FailWith;
+            if (!known.TryGetValue(key, out var entry))
+                throw new CoflnetException("unauthorized", "Invalid API key");
+            // inactive keys are answered with their info here, the real validation endpoint rejects them
+            var info = new Coflnet.Sky.ModCommands.Client.Model.ApiKeyInfoResponse { UserId = entry.user };
+            if (entry.active != null)
+                info.IsActive = entry.active;
+            return Task.FromResult(info);
+        }
+    }
+
+    /// <summary>Captures every log message and exception text.</summary>
+    public sealed class CapturingLogs : ILoggerProvider
+    {
+        /// <summary>Formatted entries, with exception.</summary>
+        public System.Collections.Concurrent.ConcurrentBag<string> Entries { get; } = new();
+
+        /// <inheritdoc/>
+        public ILogger CreateLogger(string categoryName) => new Capture(Entries);
+
+        /// <inheritdoc/>
+        public void Dispose() { }
+
+        private sealed class Capture(System.Collections.Concurrent.ConcurrentBag<string> entries) : ILogger
+        {
+            public IDisposable BeginScope<TState>(TState state) where TState : notnull => null;
+            public bool IsEnabled(LogLevel logLevel) => true;
+            public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception exception, Func<TState, Exception, string> formatter)
+                => entries.Add(formatter(state, exception) + " " + exception);
+        }
+    }
+
     private sealed class TestPremiumTierService : PremiumTierService
     {
         public TestPremiumTierService() : base(null, null) { }
+
+        public override Task<string> GetTier(GoogleUser user) => Task.FromResult(user.Id >= 100 ? "starter_premium" : "logged_in");
 
         public override Task<(GoogleUser user, string tier)> GetUserAndTier(ControllerBase controllerInstance)
         {

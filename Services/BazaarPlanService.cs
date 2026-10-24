@@ -58,7 +58,12 @@ public class BazaarPlanService
 
     /// <summary>Computes the plan of the user.</summary>
     /// <exception cref="CoflnetException">invalid_modes, invalid_horizon, budget_required, no_verified_account, invalid_plan_request or plan_unavailable</exception>
-    public async Task<BazaarPlanResponse> Plan(GoogleUser user, string tier, BazaarPlanRequest req, string userId)
+    /// <param name="user">The caller</param>
+    /// <param name="tier">Tier of the caller</param>
+    /// <param name="req">Overrides</param>
+    /// <param name="userId">Id used for quote ownership and sampling</param>
+    /// <param name="forTracking">Paid tiers get the full plan, free tiers the same sample as on the plan route; no quote is handed out</param>
+    public async Task<BazaarPlanResponse> Plan(GoogleUser user, string tier, BazaarPlanRequest req, string userId, bool forTracking = false)
     {
         req ??= new BazaarPlanRequest();
         var modes = CanonicalModes(req.Modes);
@@ -164,6 +169,8 @@ public class BazaarPlanService
 
         if (!IsPaid(tier))
             ApplyFreeTier(result, userId);
+        if (forTracking)
+            return result;
         if (result.Quote != null)
             cache.Set(CacheKey(userId, result.Quote.QuoteId), result, new DateTimeOffset(AsUtc(result.Quote.ExpiresAt)));
         return result;

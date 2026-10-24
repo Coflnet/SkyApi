@@ -501,11 +501,15 @@ public class GoalService : IGoalGuideSource, IDisposable
     /// Creates and focuses a guided bazaar flip goal from a planned order. There can be only one unfinished flip per item.
     /// </summary>
     /// <exception cref="CoflnetException">bazaar_goal_active when an unfinished flip of the item exists, plan_order_incomplete without exit price</exception>
-    public async Task<Goal> AddBazaarPlan(string userId, Models.Bazaar.BazaarPlanOrder order, Models.Bazaar.BazaarPlanQuote quote)
+    public async Task<Goal> AddBazaarPlan(string userId, Models.Bazaar.BazaarPlanOrder order, Models.Bazaar.BazaarPlanQuote quote,
+        string requestId = null, long userLookupMs = 0)
     {
+        var timer = System.Diagnostics.Stopwatch.StartNew();
+        var traceId = System.Diagnostics.Activity.Current?.TraceId.ToString();
         if (order.ExitPrice is not { } exitPrice || order.OriginalQuantity <= 0)
             throw new CoflnetException("plan_order_incomplete", "This order has no exit price or quantity and cannot be tracked.");
         var e = await GetEntry(userId);
+        var entryMs = timer.ElapsedMilliseconds;
         var name = string.IsNullOrEmpty(order.ItemName) ? NameLookup()(order.ItemTag) ?? order.ItemTag : order.ItemName;
         var quantity = order.OriginalQuantity;
         var goal = new Goal
@@ -539,6 +543,7 @@ public class GoalService : IGoalGuideSource, IDisposable
                 ReasonCodes = order.Confidence?.ReasonCodes
             }
         };
+        long persistMs;
         await e.Gate.WaitAsync();
         try
         {
@@ -548,15 +553,46 @@ public class GoalService : IGoalGuideSource, IDisposable
                 throw new CoflnetException("bazaar_goal_active", "Finish or remove the active Bazaar flip for this item before tracking another one.");
             list.Goals.Add(goal);
             list.FocusId = goal.Id;
+            var persistStart = timer.ElapsedMilliseconds;
             await Persist(userId, e);
-            Evaluate(e, e.LastForging);
-            await RefreshHud(userId, e, true);
+            persistMs = timer.ElapsedMilliseconds - persistStart;
         }
         finally
         {
             e.Gate.Release();
         }
+        // the goal is saved, the hud is not needed to confirm the request
+        PendingHudRefresh = Task.Run(() => RefreshHudInBackground(userId, e, requestId, traceId, userLookupMs, entryMs, persistMs));
         return goal;
+    }
+
+    /// <summary>The latest background hud refresh of a tracked plan (tests await it).</summary>
+    internal Task PendingHudRefresh = Task.CompletedTask;
+
+    private async Task RefreshHudInBackground(string userId, Entry e, string requestId, string traceId, long userLookupMs, long entryMs, long persistMs)
+    {
+        var timer = System.Diagnostics.Stopwatch.StartNew();
+        var outcome = "ok";
+        try
+        {
+            await e.Gate.WaitAsync();
+            try
+            {
+                Evaluate(e, e.LastForging);
+                await RefreshHud(userId, e, true);
+            }
+            finally
+            {
+                e.Gate.Release();
+            }
+        }
+        catch (Exception ex)
+        {
+            outcome = "failed";
+            logger.LogError(ex, "Failed to refresh the hud after tracking bazaar plan {RequestId}", requestId);
+        }
+        logger.LogInformation("Bazaar plan track {RequestId} (trace {TraceId}): user lookup {UserMs}ms, entry load {EntryMs}ms, persist {PersistMs}ms, background hud refresh {HudMs}ms ({Outcome})",
+            requestId, traceId, userLookupMs, entryMs, persistMs, timer.ElapsedMilliseconds, outcome);
     }
 
     /// <summary>Removes a goal, returns false when it does not exist.</summary>

@@ -32,6 +32,59 @@ public class BazaarPlanTrackRequest
     public string ItemTag { get; set; }
 }
 
+/// <summary>Request to re-plan and track the buy order of one item in game, without a quote of this service.</summary>
+public class BazaarPlanTrackItemRequest
+{
+    /// <summary>Tag of the item to track, required.</summary>
+    public string ItemTag { get; set; }
+
+    /// <summary>Requested modes, same as for the plan.</summary>
+    public List<string> Modes { get; set; }
+
+    /// <summary>Investing horizon in hours, same rules as for the plan.</summary>
+    public int? InvestingHorizonHours { get; set; }
+
+    /// <summary>Coins to plan with, same rules as for the plan.</summary>
+    public long? BudgetCoins { get; set; }
+
+    /// <summary>Attested sell tax fraction.</summary>
+    public double? SellTaxRate { get; set; }
+
+    /// <summary>Entry price the caller saw; a different fresh entry is flagged in the response.</summary>
+    public double? ExpectedEntryPrice { get; set; }
+}
+
+/// <summary>Terms an item was tracked with.</summary>
+public class BazaarPlanTrackItemResponse
+{
+    /// <summary>Tag of the item.</summary>
+    public string ItemTag { get; set; }
+
+    /// <summary>Display name of the item.</summary>
+    public string ItemName { get; set; }
+
+    /// <summary>Quantity of the tracked cycle.</summary>
+    public int OriginalQuantity { get; set; }
+
+    /// <summary>Fresh buy price per unit.</summary>
+    public double EntryPrice { get; set; }
+
+    /// <summary>Fresh sell price per unit.</summary>
+    public double? ExitPrice { get; set; }
+
+    /// <summary>Estimated profit after tax in coins.</summary>
+    public double EstimatedNetProfit { get; set; }
+
+    /// <summary>Hours the capital stays locked at most.</summary>
+    public double CapitalLockHorizonHours { get; set; }
+
+    /// <summary>Quote the tracked terms come from.</summary>
+    public string QuoteId { get; set; }
+
+    /// <summary>True when the fresh entry price differs from the expected one by more than max(0.1, 2%).</summary>
+    public bool PriceChanged { get; set; }
+}
+
 /// <summary>Identity and validity of the quote an allocation was computed from.</summary>
 public class BazaarPlanQuote
 {

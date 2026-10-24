@@ -125,6 +125,8 @@ namespace Coflnet.Sky.Api
                     .AllowAnyOrigin());
             });
 
+            // registered before the exporter so the url is redacted before it is exported
+            services.AddOpenTelemetry().WithTracing(builder => builder.AddProcessor(new Services.UrlRedactionProcessor()));
             services.AddJaeger(Configuration, 0.001, 60);
             services.AddOpenTelemetry().WithTracing(builder => builder
                 .AddSource(DeepSeekChatService.ActivitySourceName)
