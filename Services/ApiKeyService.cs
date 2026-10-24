@@ -15,7 +15,7 @@ public class ApiKeyService
         this.keyApi = keyApi;
     }
     /// <summary>Gets key info.</summary>
-    public async Task<ModCommands.Client.Model.ApiKeyInfoResponse> GetKeyInfo(ControllerBase controller)
+    public virtual async Task<ModCommands.Client.Model.ApiKeyInfoResponse> GetKeyInfo(ControllerBase controller)
     {
         var Request = controller.Request;
         var apiKey = Request.Headers.TryGetValue("X-Api-Key", out Microsoft.Extensions.Primitives.StringValues value) ? value.ToString() :
