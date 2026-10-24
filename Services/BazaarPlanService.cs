@@ -407,6 +407,7 @@ public class BazaarPlanService
             EventId = o.Confidence.EventId, Probability = o.Confidence.Probability, LowerBound = o.Confidence.LowerBound,
             ConfidenceLevel = o.Confidence.ConfidenceLevel, SupportDomainId = o.Confidence.SupportDomainId,
             ModelId = o.Confidence.ModelId, CalibrationId = o.Confidence.CalibrationId, Status = o.Confidence.Status,
+            QualifyThreshold = o.Confidence.QualifyThreshold, EvidenceSource = o.Confidence.EvidenceSource,
             ReasonCodes = o.Confidence.ReasonCodes ?? new()
         }
     };

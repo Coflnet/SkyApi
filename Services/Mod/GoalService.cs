@@ -540,6 +540,8 @@ public class GoalService : IGoalGuideSource, IDisposable
                 ConfidenceStatus = order.Confidence?.Status,
                 Probability = order.Confidence?.Probability,
                 LowerBound = order.Confidence?.LowerBound,
+                QualifyThreshold = order.Confidence?.QualifyThreshold,
+                EvidenceSource = order.Confidence?.EvidenceSource,
                 ReasonCodes = order.Confidence?.ReasonCodes
             }
         };

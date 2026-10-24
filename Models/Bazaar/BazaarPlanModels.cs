@@ -174,6 +174,12 @@ public class BazaarPlanConfidence
     /// <summary>Domain the evidence covers.</summary>
     public string SupportDomainId { get; set; }
 
+    /// <summary>Probability bar (fraction) the engine used to qualify the order; null when not reported.</summary>
+    public double? QualifyThreshold { get; set; }
+
+    /// <summary>Where the evidence comes from: "simulation" or "prospective"; null when not reported.</summary>
+    public string EvidenceSource { get; set; }
+
     /// <summary>Identifier of the model.</summary>
     public string ModelId { get; set; }
 
