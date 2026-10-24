@@ -74,6 +74,8 @@ namespace Coflnet.Sky.Api
             
             services.AddSwaggerGen(c =>
             {
+                // object values are written as a null-only schema, which the client generator turns into an empty enum
+                c.DocumentFilter<Coflnet.OpenApi.NullOnlySchemaDocumentFilter>();
                 c.SwaggerDoc("v1", new OpenApiInfo
                 {
                     Title = "SkyApi",
