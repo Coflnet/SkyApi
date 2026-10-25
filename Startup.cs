@@ -310,6 +310,8 @@ namespace Coflnet.Sky.Api
             services.AddSingleton<DiscordBot.Client.Api.IMessageApi>(new DiscordBot.Client.Api.MessageApi(Configuration["DISCORD_BOT_BASE_URL"]));
             services.AddCoflService();
             services.AddSingleton<ItemFilterSearchService>();
+            services.AddActiveAuctions();
+            services.AddSingleton<ActiveAuctionHintService>();
             services.AddSingleton<Coflnet.Sky.Indexer.Client.Api.IUserApi>(
                 new Coflnet.Sky.Indexer.Client.Api.UserApi(Configuration["INDEXER_BASE_URL"]));
             services.AddSingleton<Mayor.Client.Api.IElectionPeriodsApi>(a =>

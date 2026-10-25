@@ -3,6 +3,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using Coflnet.Sky.Commands;
 using Coflnet.Sky.Filter;
@@ -53,6 +54,13 @@ namespace Coflnet.Sky.Api.Controller
         ItemDetails itemDetails;
         IMapper mapper;
         private PremiumTierService premiumTierService;
+        ActiveAuctionReplica activeReplica;
+        ActiveAuctionQueryService activeQueryService;
+        ActiveSearchQueryResolver activeSearchResolver;
+        ActiveAuctionHintService hintService;
+
+        /// <summary>Database query used while the replica is not ready, replaceable for tests</summary>
+        internal Func<ActiveAuctionQuery, string[], Dictionary<string, string>, Task<ActiveAuctionQueryResult>> DbFallback;
 
         /// <summary>
         /// Creates a new instance of <see cref="AuctionsController"/>
@@ -88,8 +96,17 @@ namespace Coflnet.Sky.Api.Controller
                                   PremiumTierService premiumTierService,
                                   Auctions.Client.Api.IExportApi exportApi,
                                   IMapper mapper,
-                                  ItemDetails itemDetails)
+                                  ItemDetails itemDetails,
+                                  ActiveAuctionReplica activeReplica,
+                                  ActiveAuctionQueryService activeQueryService,
+                                  ActiveSearchQueryResolver activeSearchResolver,
+                                  ActiveAuctionHintService hintService)
         {
+            this.activeReplica = activeReplica;
+            this.activeQueryService = activeQueryService;
+            this.activeSearchResolver = activeSearchResolver;
+            this.hintService = hintService;
+            DbFallback = QueryActiveFromDatabase;
             this.auctionService = auctionService;
             this.context = context;
             this.logger = logger;
@@ -136,6 +153,8 @@ namespace Coflnet.Sky.Api.Controller
             }
             if (result != null && string.IsNullOrEmpty(result.ItemName))
                 result.ItemName = ItemDetails.TagToName(result.Tag);
+            if (activeReplica != null && hintService != null && activeReplica.Set.TryGet(uid, out var active))
+                hintService.HintSeller(active);
             // order enchants
             var prices = modDescriptionService.GetEnchantBreakdown(result, modDescriptionService.DeserializedCache.BazaarItems)
                 .GroupBy(e => e.e.Type).Select(g => g.First()).ToDictionary(e => e.e.Type, e => e.Item2);
@@ -215,37 +234,118 @@ namespace Coflnet.Sky.Api.Controller
             return result;
         }
         /// <summary>
-        /// Filter all currently active auctions across every item.
-        /// Intended for offer research (e.g. find every active auction matching a given filter set).
-        /// Backed by a separate active-only database that stays in sync with the live auction house.
+        /// Explore all currently active auctions across every item (served from memory).
+        /// Query parameters: <c>page</c> (0 based), <c>pageSize</c> (1-100, default 50),
+        /// <c>orderBy</c> (LOWEST_PRICE, HIGHEST_PRICE, ENDING_SOON, NEWEST), <c>tags</c> (comma separated item tags),
+        /// <c>armorSet</c>, <c>categories</c> (comma separated), <c>itemNameContains</c>, <c>perTagLimit</c>,
+        /// <c>q</c> (free text like "final destination 7 sharpness"). Every other parameter is an item filter.
         /// </summary>
-        /// <param name="query">Filter dictionary, plus optional <c>page</c>, <c>pageSize</c> and <c>orderBy</c>.</param>
-        /// <param name="activeAuctionFilterService">Injected filter service.</param>
-        /// <returns>Matching active auctions (paged).</returns>
+        /// <param name="query">All query parameters</param>
+        /// <param name="cancellationToken"></param>
+        /// <returns>A page of matching auctions plus per tag counts</returns>
         [Route("auctions/active/filter")]
         [HttpGet]
-        [ResponseCache(Duration = 30, Location = ResponseCacheLocation.Any, NoStore = false, VaryByQueryKeys = ["*"])]
-        public async Task<List<SaveAuction>> GetActiveFiltered(
-            [FromQuery] IDictionary<string, string> query,
-            [FromServices] ActiveAuctionFilterService activeAuctionFilterService)
+        [ResponseCache(Duration = 5, Location = ResponseCacheLocation.Any, NoStore = false, VaryByQueryKeys = ["*"])]
+        public async Task<ActionResult<ActiveAuctionQueryResult>> GetActiveFiltered(
+            [FromQuery] IDictionary<string, string> query, CancellationToken cancellationToken = default)
         {
-            int page = 0;
-            int pageSize = 50;
-            var filters = query?.ToDictionary(entry => entry.Key, entry => entry.Value) ?? new Dictionary<string, string>();
-            if (filters.TryGetValue("page", out var pageStr))
+            var p = new Dictionary<string, string>(query ?? new Dictionary<string, string>(), StringComparer.OrdinalIgnoreCase);
+            string Get(string key) => p.TryGetValue(key, out var v) && !string.IsNullOrWhiteSpace(v) ? v.Trim() : null;
+            string[] List(string key) => Get(key)?.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
+            int.TryParse(Get("page"), out var page);
+            if (!int.TryParse(Get("pageSize"), out var pageSize))
+                pageSize = 50;
+            var order = ActiveSortOrder.LOWEST_PRICE;
+            if (Get("orderBy") != null && !Enum.TryParse(Get("orderBy"), true, out order))
+                throw new CoflnetException("invalid_order", $"orderBy has to be one of {string.Join(", ", Enum.GetNames<ActiveSortOrder>())}");
+            int? perTagLimit = int.TryParse(Get("perTagLimit"), out var limit) && limit > 0 ? limit : null;
+
+            var filters = ActiveAuctionQueryService.CleanFilters(p);
+            var tags = List("tags") ?? Array.Empty<string>();
+            var armorSet = Get("armorSet");
+            var nameContains = Get("itemNameContains");
+            if (Get("q") != null)
             {
-                int.TryParse(pageStr, out page);
-                filters.Remove("page");
+                var resolved = await activeSearchResolver.ResolveAsync(Get("q"), cancellationToken);
+                tags = tags.Concat(resolved.Tags).ToArray();
+                foreach (var f in resolved.Filters)
+                    filters.TryAdd(f.Key, f.Value); // explicit parameters win
+                nameContains ??= resolved.ItemNameContains;
             }
-            if (filters.TryGetValue("pageSize", out var sizeStr))
-            {
-                int.TryParse(sizeStr, out pageSize);
-                filters.Remove("pageSize");
-            }
-            filters.Remove("orderBy");
-            var offset = Math.Max(0, page) * Math.Clamp(pageSize, 1, 500);
-            return (await activeAuctionFilterService.QueryAuctions(filters, pageSize, offset)).ToList();
+            var activeQuery = new ActiveAuctionQuery(filters, tags, armorSet, List("categories"), nameContains,
+                order, Math.Max(0, page), Math.Clamp(pageSize, 1, ActiveAuctionQueryEngine.MaxPageSize), perTagLimit);
+
+            if (activeReplica.IsReady)
+                return await activeQueryService.QueryAsync(activeQuery, cancellationToken);
+
+            var resolvedTags = await activeQueryService.ResolveTagsAsync(activeQuery);
+            if (resolvedTags.Length is >= 1 and <= 4)
+                return await DbFallback(activeQuery, resolvedTags, filters);
+            Response.Headers["Retry-After"] = "30";
+            return StatusCode(StatusCodes.Status503ServiceUnavailable, new { error = "not_ready" });
         }
+
+        private async Task<ActiveAuctionQueryResult> QueryActiveFromDatabase(ActiveAuctionQuery q, string[] tags, Dictionary<string, string> filters)
+        {
+            var itemIds = tags.Select(t => itemDetails.GetItemIdForTag(t)).ToArray();
+            var now = DateTime.UtcNow;
+            var select = fe.AddFilters(context.Auctions.AsNoTracking()
+                .Where(a => itemIds.Contains(a.ItemId) && a.End > now), filters);
+            if (!string.IsNullOrEmpty(q.ItemNameContains))
+                select = select.Where(a => a.ItemName.Contains(q.ItemNameContains));
+            if (q.SellerId != null)
+                select = select.Where(a => a.AuctioneerId == q.SellerId);
+            var ordered = q.OrderBy switch
+            {
+                ActiveSortOrder.ENDING_SOON => select.OrderBy(a => a.End),
+                ActiveSortOrder.NEWEST => select.OrderByDescending(a => a.Start),
+                ActiveSortOrder.HIGHEST_PRICE => select.OrderByDescending(a => a.HighestBidAmount == 0 ? a.StartingBid : a.HighestBidAmount),
+                _ => select.OrderBy(a => a.HighestBidAmount == 0 ? a.StartingBid : a.HighestBidAmount)
+            };
+            var items = await ordered.ThenBy(a => a.UId).Skip(q.Page * q.PageSize).Take(q.PageSize)
+                .Select(a => new ActiveAuctionPreview
+                {
+                    Uuid = a.Uuid,
+                    Tag = a.Tag,
+                    ItemName = a.ItemName,
+                    Tier = a.Tier,
+                    Bin = a.Bin,
+                    StartingBid = a.StartingBid,
+                    HighestBidAmount = a.HighestBidAmount,
+                    Start = a.Start,
+                    End = a.End,
+                    Count = a.Count,
+                    AuctioneerId = a.AuctioneerId
+                }).ToListAsync();
+            // no facets without the replica, the total is only a lower bound
+            return new ActiveAuctionQueryResult(items, q.Page * q.PageSize + items.Count, new Dictionary<string, int>(),
+                false, DateTime.UtcNow, tags);
+        }
+
+        /// <summary>
+        /// Number of active auctions the explorer knows about
+        /// </summary>
+        /// <returns>count, whether the store is ready and when it was last snapshotted</returns>
+        [Route("auctions/active/count")]
+        [HttpGet]
+        [ResponseCache(Duration = 5, Location = ResponseCacheLocation.Any, NoStore = false)]
+        public object GetActiveCount()
+        {
+            return new { count = activeReplica.Set.Count, ready = activeReplica.IsReady, snapshotAt = activeReplica.Set.Snapshot.BuiltAt };
+        }
+
+        /// <summary>
+        /// Shows how a free text search is interpreted by the explorer (tags, filters, name)
+        /// </summary>
+        /// <param name="q">Search text like "final destination 7 sharpness"</param>
+        /// <param name="cancellationToken"></param>
+        [Route("auctions/active/resolve")]
+        [HttpGet]
+        [ResponseCache(Duration = 60, Location = ResponseCacheLocation.Any, NoStore = false, VaryByQueryKeys = ["q"])]
+        public Task<ResolvedActiveQuery> ResolveActiveQuery(string q, CancellationToken cancellationToken = default)
+            => activeSearchResolver.ResolveAsync(q, cancellationToken);
+
         /// <summary>
         /// Please credit us with providing data for whatever you are doing.
         /// You can also manually request a review to get older data on the discord.
