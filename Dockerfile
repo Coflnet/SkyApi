@@ -1,10 +1,10 @@
 FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 WORKDIR /build
-ARG CACHEBUST=13
+ARG CACHEBUST=14
 RUN git clone --depth=1 https://github.com/Coflnet/HypixelSkyblock.git dev \
     && git clone --depth=1 https://github.com/Coflnet/SkyBackendForFrontend.git \
     && git clone --depth=1 https://github.com/Coflnet/SkyFilter.git
-ARG SHARED_GOALS_REVISION=46583b1535f24b91a15259919e262c7783c98bf7
+ARG SHARED_GOALS_REVISION=ab78f38e3dbb75b509deb719154d9725405b9284
 RUN git -C /build/SkyBackendForFrontend fetch --depth=1 origin "$SHARED_GOALS_REVISION" \
     && git -C /build/SkyBackendForFrontend checkout --detach FETCH_HEAD
 WORKDIR /build/sky

@@ -36,7 +36,7 @@ public class ActiveAuctionsControllerTests
         fallbackQuery = null;
         set = new ActiveAuctionSet();
         replica = new ActiveAuctionReplica(new ConfigurationBuilder().Build(), set, null, null, NullLogger<ActiveAuctionReplica>.Instance);
-        queryService = new Mock<ActiveAuctionQueryService>(null, null, null, null);
+        queryService = new Mock<ActiveAuctionQueryService>(null, null, null, null, null, null);
         queryService.Setup(q => q.QueryAsync(It.IsAny<ActiveAuctionQuery>(), It.IsAny<CancellationToken>())).ReturnsAsync(Stored);
         queryService.Setup(q => q.ResolveTagsAsync(It.IsAny<ActiveAuctionQuery>()))
             .ReturnsAsync((ActiveAuctionQuery q) => q.Tags);
