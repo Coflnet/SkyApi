@@ -334,6 +334,27 @@ public class FlipControllerBazaarPlanTests
         });
     }
 
+    /// <summary>Qualify threshold and evidence source pass through to the wire and into the tracked goal.</summary>
+    [Test]
+    public async Task Plan_passes_qualify_threshold_and_evidence_source_through()
+    {
+        using var h = new Harness();
+        h.Fleet.Orders = _ => [QualifiedSimulated("ITEM_A")];
+
+        var plan = JObject.Parse(await (await h.Post(Url, "{}", "premium-1")).Content.ReadAsStringAsync());
+        var confidence = plan["orders"]![0]!["confidence"]!;
+        var track = await h.Post(Url + "/track", Track(plan.SelectToken("quote.quoteId")!.ToString(), "ITEM_A"), "premium-1");
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(confidence.Value<double>("qualifyThreshold"), Is.EqualTo(0.9));
+            Assert.That(confidence.Value<string>("evidenceSource"), Is.EqualTo("simulation"));
+            Assert.That(track.StatusCode, Is.EqualTo(HttpStatusCode.NoContent));
+            Assert.That(h.Goals.Single().Plan.QualifyThreshold, Is.EqualTo(0.9));
+            Assert.That(h.Goals.Single().Plan.EvidenceSource, Is.EqualTo("simulation"));
+        });
+    }
+
     /// <summary>The planner rejecting the request is a 400 with its message, a failing planner a 503.</summary>
     [Test]
     public async Task Plan_maps_planner_rejection_to_400_and_outage_to_503()
@@ -942,6 +963,14 @@ public class FlipControllerBazaarPlanTests
     {
         var plan = JObject.Parse(await (await h.Post(Url, "{}", "free-" + user)).Content.ReadAsStringAsync());
         return string.Join(",", plan["orders"]!.Select(o => o.Value<string>("itemTag")));
+    }
+
+    private static OrderRecommendationDto QualifiedSimulated(string tag)
+    {
+        var o = Order(tag, "Investing");
+        o.Confidence = new FillConfidenceDto(eventId: "e", probability: 0.93, lowerBound: 0.91, confidenceLevel: 0.95, qualifyThreshold: 0.9,
+            evidenceSource: "simulation", modelId: "investing-policy-v1", status: "Qualified", reasonCodes: ["SimulationEvidenceQualified"]);
+        return o;
     }
 
     private static OrderRecommendationDto Order(string tag, string mode = "Active", int amount = 100, double entry = 100, double exit = 150) =>
