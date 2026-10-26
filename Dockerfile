@@ -4,7 +4,7 @@ ARG CACHEBUST=15
 RUN git clone --depth=1 https://github.com/Coflnet/HypixelSkyblock.git dev \
     && git clone --depth=1 https://github.com/Coflnet/SkyBackendForFrontend.git \
     && git clone --depth=1 https://github.com/Coflnet/SkyFilter.git
-ARG SHARED_GOALS_REVISION=375482b3edaa720082da32812bbb909f109d13e6
+ARG SHARED_GOALS_REVISION=7f85193b1a47ad5e134439f9efceed96174a1ae5
 RUN git -C /build/SkyBackendForFrontend fetch --depth=1 origin "$SHARED_GOALS_REVISION" \
     && git -C /build/SkyBackendForFrontend checkout --detach FETCH_HEAD
 WORKDIR /build/sky
