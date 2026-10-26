@@ -1,5 +1,16 @@
 using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
+using Coflnet.Sky.Api.Services;
+using Coflnet.Sky.Commands.Shared;
 using Coflnet.Sky.Core;
+using Coflnet.Sky.Items.Client.Api;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging.Abstractions;
+using Moq;
 using NUnit.Framework;
 
 namespace Coflnet.Sky.Api.Controller;
@@ -50,6 +61,60 @@ public class PricesControllerTests
         var result = PricesController.ClampMinAge(seconds);
 
         Assert.That(result, Is.EqualTo(expected is null ? null : TimeSpan.FromSeconds(expected.Value)));
+    }
+
+    private const string Tag = "GARDEN_WARRIOR_FERMENTO";
+    private const int ItemId = 15057;
+    private static readonly DateTime Today = DateTime.UtcNow.Date;
+
+    private static async Task<List<AveragePrice>> FullHistory(string database, DateTime[] aggregatedDays, DateTime[] soldAt)
+    {
+        var options = new DbContextOptionsBuilder<HypixelContext>().UseInMemoryDatabase(database).Options;
+        using var context = new HypixelContext(options);
+        context.Prices.AddRange(aggregatedDays.Select(d => new AveragePrice { ItemId = ItemId, Date = d, Avg = 40_000_000 }));
+        context.Auctions.AddRange(soldAt.Select((end, i) => new SaveAuction
+        { Uuid = "a" + i, Tag = Tag, ItemId = ItemId, End = end, HighestBidAmount = 45_000_000, Count = 1 }));
+        await context.SaveChangesAsync();
+        var itemDetails = new ItemDetails(Mock.Of<IItemsApi>());
+        itemDetails.TagLookup[Tag] = ItemId;
+        DiHandler.OverrideService<ItemDetails, ItemDetails>(itemDetails);
+        var controller = new PricesController(new PricesService(context, null, null, null), context, null,
+            NullLogger<PricesController>.Instance, null, null, null, null, null, itemDetails)
+        { ControllerContext = new ControllerContext { HttpContext = new DefaultHttpContext() } };
+        return (await controller.GetFullHistory(Tag)).ToList();
+    }
+
+    [Test]
+    public async Task GetFullHistory_ItemWithoutAggregateRowsReturnsAuctionHistory()
+    {
+        var sold = Today.AddDays(-20).AddHours(12);
+
+        var result = await FullHistory(nameof(GetFullHistory_ItemWithoutAggregateRowsReturnsAuctionHistory), [], [sold]);
+
+        Assert.That(result, Has.Count.EqualTo(1));
+        Assert.That(result[0].Date, Is.EqualTo(sold.Date));
+        Assert.That(result[0].Avg, Is.EqualTo(45_000_000));
+    }
+
+    [Test]
+    public async Task GetFullHistory_StaleAggregateIsExtendedFromTheDayAfterItsLastRow()
+    {
+        var aggregated = new[] { Today.AddDays(-41), Today.AddDays(-40) };
+        var sold = new[] { Today.AddDays(-40).AddHours(12), Today.AddDays(-20).AddHours(12) };
+
+        var result = await FullHistory(nameof(GetFullHistory_StaleAggregateIsExtendedFromTheDayAfterItsLastRow), aggregated, sold);
+
+        Assert.That(result.Select(p => p.Date), Is.EqualTo(new[] { Today.AddDays(-41), Today.AddDays(-40), Today.AddDays(-20) }));
+    }
+
+    [Test]
+    public async Task GetFullHistory_CurrentAggregateIsReturnedUnchanged()
+    {
+        var sold = Today.AddDays(-20).AddHours(12);
+
+        var result = await FullHistory(nameof(GetFullHistory_CurrentAggregateIsReturnedUnchanged), [Today.AddDays(-1)], [sold]);
+
+        Assert.That(result.Select(p => p.Date), Is.EqualTo(new[] { Today.AddDays(-1) }));
     }
 }
 #pragma warning restore CS1591

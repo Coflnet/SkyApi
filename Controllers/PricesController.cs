@@ -177,13 +177,51 @@ public class PricesController : ControllerBase
     public async Task<IEnumerable<AveragePrice>> GetFullHistory(string itemTag)
     {
         var id = itemDetails.GetItemIdForTag(itemTag, true);
-        var all = await context.Prices.Where(p => p.ItemId == id).ToListAsync();
-        if (all.Count == 0)
+        var aggregated = await context.Prices.Where(p => p.ItemId == id).ToListAsync();
+        var all = await AppendMissingRecentDays(aggregated, DateTime.UtcNow, async start =>
         {
+            try
+            {
+                return await priceService.GetHistory(itemTag, start, DateTime.UtcNow, null);
+            }
+            catch (Exception e)
+            {
+                logger.LogError(e, "Could not fill recent full history for {itemTag}", itemTag);
+                return Enumerable.Empty<AveragePrice>();
+            }
+        });
+        if (all.Count == 0)
             Response.Headers["X-Item-Id"] = id.ToString();
-            return Enumerable.Empty<AveragePrice>();
-        }
         return all;
+    }
+
+    /// <summary>How far back the full history is filled from auctions when the daily aggregate is missing or stale</summary>
+    private static readonly TimeSpan MaxFullHistoryFill = TimeSpan.FromDays(180);
+
+    /// <summary>
+    /// The daily Prices aggregate can lag behind or have no rows at all (e.g. items added after it stalled),
+    /// appends the days after its last row from the source the month/week history use.
+    /// </summary>
+    private static async Task<List<AveragePrice>> AppendMissingRecentDays(
+        List<AveragePrice> aggregated, DateTime now, Func<DateTime, Task<IEnumerable<AveragePrice>>> loadSince)
+    {
+        var start = FullHistoryGapStart(aggregated, now);
+        if (start == null)
+            return aggregated;
+        var recent = await loadSince(start.Value);
+        return aggregated.Concat(recent.Where(p => p.Date >= start.Value)).ToList();
+    }
+
+    /// <summary>Start of the period missing from the aggregate, null when it already contains the previous day</summary>
+    private static DateTime? FullHistoryGapStart(IReadOnlyCollection<AveragePrice> aggregated, DateTime now)
+    {
+        var earliest = (now - MaxFullHistoryFill).Date;
+        if (aggregated.Count == 0)
+            return earliest;
+        var dayAfterLast = aggregated.Max(p => p.Date).Date.AddDays(1);
+        if (dayAfterLast >= now.Date.AddDays(-1))
+            return null;
+        return dayAfterLast < earliest ? earliest : dayAfterLast;
     }
 
     /// <summary>
