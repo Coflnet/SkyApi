@@ -238,7 +238,10 @@ namespace Coflnet.Sky.Api.Controller
         /// Query parameters: <c>page</c> (0 based), <c>pageSize</c> (1-100, default 50),
         /// <c>orderBy</c> (LOWEST_PRICE, HIGHEST_PRICE, ENDING_SOON, NEWEST), <c>tags</c> (comma separated item tags),
         /// <c>armorSet</c>, <c>categories</c> (comma separated), <c>itemNameContains</c>, <c>perTagLimit</c>,
-        /// <c>q</c> (free text like "final destination 7 sharpness"). Every other parameter is an item filter.
+        /// <c>q</c> (free text like "final destination 7 sharpness", searched as item name contains plus filters).
+        /// With <c>q</c> the response also carries <c>suggestions</c>: array of <c>{kind: "armorSet"|"item", key, label, tags}</c>
+        /// that can be selected by repeating the request with <c>armorSet</c> or <c>tags</c> set (<c>q</c> then stays as name predicate).
+        /// Every other parameter is an item filter.
         /// </summary>
         /// <param name="query">All query parameters</param>
         /// <param name="cancellationToken"></param>
@@ -265,6 +268,7 @@ namespace Coflnet.Sky.Api.Controller
             var tags = List("tags") ?? Array.Empty<string>();
             var armorSet = Get("armorSet");
             var nameContains = Get("itemNameContains");
+            ActiveQuerySuggestion[] suggestions = null;
             if (Get("q") != null)
             {
                 var resolved = await activeSearchResolver.ResolveAsync(Get("q"), cancellationToken);
@@ -272,19 +276,23 @@ namespace Coflnet.Sky.Api.Controller
                 foreach (var f in resolved.Filters)
                     filters.TryAdd(f.Key, f.Value); // explicit parameters win
                 nameContains ??= resolved.ItemNameContains;
+                suggestions = resolved.Suggestions;
             }
             var activeQuery = new ActiveAuctionQuery(filters, tags, armorSet, List("categories"), nameContains,
                 order, Math.Max(0, page), Math.Clamp(pageSize, 1, ActiveAuctionQueryEngine.MaxPageSize), perTagLimit);
 
             if (activeReplica.IsReady)
-                return await activeQueryService.QueryAsync(activeQuery, cancellationToken);
+                return WithSuggestions(await activeQueryService.QueryAsync(activeQuery, cancellationToken), suggestions);
 
             var resolvedTags = await activeQueryService.ResolveTagsAsync(activeQuery);
             if (resolvedTags.Length is >= 1 and <= 4)
-                return await DbFallback(activeQuery, resolvedTags, filters);
+                return WithSuggestions(await DbFallback(activeQuery, resolvedTags, filters), suggestions);
             Response.Headers["Retry-After"] = "30";
             return StatusCode(StatusCodes.Status503ServiceUnavailable, new { error = "not_ready" });
         }
+
+        private static ActiveAuctionQueryResult WithSuggestions(ActiveAuctionQueryResult result, ActiveQuerySuggestion[] suggestions)
+            => suggestions == null ? result : result with { Suggestions = suggestions };
 
         private async Task<ActiveAuctionQueryResult> QueryActiveFromDatabase(ActiveAuctionQuery q, string[] tags, Dictionary<string, string> filters)
         {
