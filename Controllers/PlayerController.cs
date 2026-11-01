@@ -1,3 +1,5 @@
+using System;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 using Coflnet.Sky.Core;
 using Microsoft.AspNetCore.Mvc;
@@ -10,6 +12,8 @@ using Coflnet.Sky.PlayerName;
 using Coflnet.Sky.Api.Services;
 using Coflnet.Sky.PlayerState.Client.Api;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.Extensions.Logging;
+using Coflnet.Sky.Core.Archive;
 
 namespace Coflnet.Sky.Api.Controller
 {
@@ -29,6 +33,8 @@ namespace Coflnet.Sky.Api.Controller
         private ItemDetails itemDetails;
         private readonly GoogletokenService googletokenService;
         private readonly McConnect.Api.IConnectApi connectApi;
+        private readonly IArchivedAuctionsReader archive;
+        private readonly ILogger<PlayerController> logger;
 
         /// <summary>
         /// Creates a new instance of <see cref="PlayerController"/>
@@ -40,8 +46,12 @@ namespace Coflnet.Sky.Api.Controller
         /// <param name="playerStateApi"></param>
         /// <param name="googletokenService"></param>
         /// <param name="connectApi"></param>
-        public PlayerController(HypixelContext context, FilterEngine filterEngine, PlayerNameService playerNameApi, ItemDetails itemDetails, IPlayerStateApi playerStateApi, GoogletokenService googletokenService, McConnect.Api.IConnectApi connectApi)
+        /// <param name="archive">Reader for auctions that only exist in the auction archive (null: MariaDB only)</param>
+        /// <param name="logger">Logger for archive fallback failures</param>
+        public PlayerController(HypixelContext context, FilterEngine filterEngine, PlayerNameService playerNameApi, ItemDetails itemDetails, IPlayerStateApi playerStateApi, GoogletokenService googletokenService, McConnect.Api.IConnectApi connectApi, IArchivedAuctionsReader archive = null, ILogger<PlayerController> logger = null)
         {
+            this.archive = archive;
+            this.logger = logger;
             this.context = context;
             this.filterEngine = filterEngine;
             this.playerNameApi = playerNameApi;
@@ -150,14 +160,16 @@ namespace Coflnet.Sky.Api.Controller
                 var expression = filterEngine.GetMatchExpression(filters, true);
                 baseSelect = baseSelect.Where(expression);
             }
+            var hasFilters = filters != null && filters.Count > 0;
             if (page < 30)
             {
                 var auctions = await baseSelect.OrderByDescending(a => a.Id).Take(300).ToListAsync();
-                return auctions.OrderByDescending(a => a.End)
-                    .Skip(offset)
-                    .Take(pageSize)
-                    .Select(a => new AuctionResult(a))
-                    .ToList();
+                var sorted = auctions.OrderByDescending(a => a.End).ToList();
+                var results = sorted.Skip(offset).Take(pageSize).Select(a => new AuctionResult(a)).ToList();
+                // fewer than 300 rows means MariaDB has no more: older auctions (months deleted from MariaDB) continue in the archive
+                if (results.Count < pageSize && auctions.Count < 300 && !hasFilters)
+                    results.AddRange(await GetArchivedContinuationAsync(playerUuid, Math.Max(0, offset - sorted.Count), pageSize - results.Count));
+                return results;
             }
             var batch = await baseSelect
                         .OrderByDescending(a => a.Id)
@@ -165,9 +177,34 @@ namespace Coflnet.Sky.Api.Controller
                         .Take(pageSize)
                         .ToListAsync();
 
-            return batch.OrderByDescending(a => a.End)
+            var page2 = batch.OrderByDescending(a => a.End)
                     .Select(a => new AuctionResult(a))
                     .ToList();
+            if (page2.Count < pageSize && !hasFilters)
+            {
+                var dbTotal = batch.Count > 0 ? offset + batch.Count : await baseSelect.CountAsync();
+                page2.AddRange(await GetArchivedContinuationAsync(playerUuid, Math.Max(0, offset - dbTotal), pageSize - page2.Count));
+            }
+            return page2;
+        }
+
+        /// <summary>
+        /// Auctions of the player that are only in the auction archive (not in MariaDB any more), after skipping <paramref name="skip"/> of them.
+        /// Filters can not be applied to archived rows, so filtered requests stay MariaDB-only (documented degradation).
+        /// </summary>
+        private async Task<List<AuctionResult>> GetArchivedContinuationAsync(string playerUuid, long skip, int take)
+        {
+            if (archive?.Options.Enabled != true)
+                return new List<AuctionResult>();
+            var sellerId = await context.Players.Where(p => p.UuId == playerUuid).Select(p => p.Id).FirstOrDefaultAsync();
+            var archived = await ArchivedPlayerAuctions.TryCollectForPageAsync(archive, InMariaDbAsync, sellerId, skip, take, logger, HttpContext?.RequestAborted ?? default);
+            return archived.Select(ArchivedPlayerAuctions.ToAuctionResult).ToList();
+        }
+
+        private async Task<HashSet<long>> InMariaDbAsync(IReadOnlyCollection<long> uids)
+        {
+            var list = uids.ToList();
+            return (await context.Auctions.Where(a => list.Contains(a.UId)).Select(a => a.UId).ToListAsync()).ToHashSet();
         }
 
         /// <summary>
@@ -196,7 +233,7 @@ namespace Coflnet.Sky.Api.Controller
                         .OrderByDescending(a => a.End)
                         .ToListAsync();
 
-            return auctions.Select(a => new SoldAuction
+            var exported = auctions.Select(a => new SoldAuction
             {
                 Id = a.Id,
                 Uuid = a.Uuid,
@@ -213,7 +250,40 @@ namespace Coflnet.Sky.Api.Controller
                 Enchantments = a.Enchantments,
                 FlattenedNbt = a.FlatenedNBT
             }).ToList();
+            if (archive?.Options.Enabled != true)
+                return exported;
+            var archived = await GetArchivedForExportAsync(playerUuid);
+            exported.AddRange(archived.Select(a => ArchivedPlayerAuctions.ToSoldAuction(a, playerUuid)));
+            return exported.OrderByDescending(a => a.End).ToList();
         }
+
+        /// <summary>
+        /// Months already deleted from MariaDB only exist in the archive (every page, bounded by the page cap). A failing page is not hidden:
+        /// a short export would look complete, so the request fails with <c>archive_unavailable</c> and the caller retries.
+        /// Hitting the page cap while the archive reports more rows fails the same way with <c>archive_export_truncated</c>
+        /// (the export format has no truncation marker; the error middleware answers CoflnetException with HTTP 400).
+        /// </summary>
+        private async Task<List<ArchivedAuctionDto>> GetArchivedForExportAsync(string playerUuid)
+        {
+            var sellerId = await context.Players.Where(p => p.UuId == playerUuid).Select(p => p.Id).FirstOrDefaultAsync();
+            try
+            {
+                return await ArchivedPlayerAuctions.CollectAsync(archive, InMariaDbAsync, sellerId, 0, int.MaxValue, ExportMaxPages, archive.Options.ExportTimeout, HttpContext?.RequestAborted ?? default, failOnTruncation: true);
+            }
+            catch (ArchiveTruncatedException ex)
+            {
+                logger?.LogWarning(ex, "Archive export of player {PlayerUuid} hit the page cap", playerUuid);
+                throw new CoflnetException("archive_export_truncated", "The player has more archived auctions than one export can contain, the export would be incomplete.");
+            }
+            catch (ArchiveReadException ex)
+            {
+                logger?.LogWarning(ex, "Archive read failed during export of player {PlayerUuid}", playerUuid);
+                throw new CoflnetException("archive_unavailable", "Older auctions could not be loaded from the archive, the export would be incomplete. Please try again later.");
+            }
+        }
+
+        /// <summary>Archive pages (1000 auctions each) read for one export.</summary>
+        internal const int ExportMaxPages = 200;
 
         private int ExtractItemIdFromFilter(Dictionary<string, string> filters, string itemTag)
         {

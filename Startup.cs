@@ -35,6 +35,7 @@ using Microsoft.AspNetCore.Authentication;
 using Microsoft.IdentityModel.Tokens;
 using OpenTelemetry.Trace;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace Coflnet.Sky.Api
@@ -347,6 +348,7 @@ namespace Coflnet.Sky.Api
             services.AddSingleton<TfmService>();
             services.AddSingleton<ModDescriptionService>();
             services.AddSingleton<AuctionConverter>();
+            services.AddHttpClient<IArchivedAuctionsReader, HttpArchivedAuctionsReader>(c => c.Timeout = Timeout.InfiniteTimeSpan);
             services.AddSingleton<Auctions.Client.Api.IExportApi>(p => new Auctions.Client.Api.ExportApi(Configuration["AUCTIONS_BASE_URL"]));
             services.AddSingleton<MappingCenter>(di =>
             {
