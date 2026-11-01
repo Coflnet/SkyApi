@@ -87,7 +87,7 @@ public class ListPriceRecommend : ICustomModifier
             priceSource = "lbin (as configured)";
             suggestedPrice = priceEst.Lbin.Price - 1;
         }
-        if (hasFlipEstimate && !priceInfo.WasListedBefore && !priceInfo.WasChanged && !WasCraftedSincePurchase(priceInfo, data))
+        if (hasFlipEstimate && !priceInfo.WasListedBefore && !priceInfo.WasChanged && IsEstimateOfThisItem(priceInfo, data))
         {
             suggestedPrice = priceInfo.Recommended.Value;
             priceSource = "Flip estimate";
@@ -201,11 +201,12 @@ public class ListPriceRecommend : ICustomModifier
     }
 
     /// <summary>
-    /// Crafting keeps the uuid of one input item, so a flip estimate stored for that uuid belongs to the input item
+    /// Crafting keeps the uuid of one input item, so a flip estimate stored for that uuid may belong to the input item.
+    /// Only trust it when the purchase was found and has the tag of the item being listed.
     /// </summary>
-    private static bool WasCraftedSincePurchase(PriceInfo priceInfo, DataContainer data)
+    private static bool IsEstimateOfThisItem(PriceInfo priceInfo, DataContainer data)
     {
-        return priceInfo.PurchasedTag != null && priceInfo.PurchasedTag != data.auctionRepresent[13].auction?.Tag;
+        return priceInfo.PurchasedTag != null && priceInfo.PurchasedTag == data.auctionRepresent[13].auction?.Tag;
     }
 
     private string ComparisonKey(Core.SaveAuction likelyPurchase)

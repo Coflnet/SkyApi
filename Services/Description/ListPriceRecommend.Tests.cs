@@ -47,12 +47,15 @@ public class ListPriceRecommendTests
     /// <summary>
     /// Regression: crafting keeps the uuid of an input item, the flip estimate of the bought input item
     /// was suggested for the crafted item (e.g. runeblade ring crafted into a runeblade artifact).
+    /// Without a known purchase tag (purchase not found) the estimate can't be attributed to the item either.
     /// </summary>
-    [Test]
-    public void FlipEstimateOfItemWithOtherTagIsIgnored()
+    [TestCase("RUNEBLADE_RING", "median")]
+    [TestCase(null, "median")]
+    [TestCase("RUNEBLADE_ARTIFACT", "Flip estimate")]
+    public void FlipEstimateIsOnlyUsedForItemWithPurchasedTag(string purchasedTag, string expectedSource)
     {
         // json so the stored purchase tag is passed along even where PriceInfo doesn't declare it
-        var priceInfo = "{\"Recommended\":1000000,\"PurchasedTag\":\"RUNEBLADE_RING\"}";
+        var priceInfo = JsonConvert.SerializeObject(new { Recommended = 1_000_000, PurchasedTag = purchasedTag });
         var data = CreateData(new PriceEstimate { Median = 3_000_000, Volume = 5, ItemKey = "artifact", MedianKey = "artifact", Lbin = new() }, priceInfo);
         data.auctionRepresent[13].auction.Tag = "RUNEBLADE_ARTIFACT";
         data.auctionRepresent[13].auction.FlatenedNBT = new();
@@ -61,8 +64,7 @@ public class ListPriceRecommendTests
         new ListPriceRecommend().Apply(data);
 
         var display = data.mods.Last().Select(m => m.Value).ToList();
-        display.Should().Contain(v => v.StartsWith("Based on") && v.Contains("median"));
-        display.Should().NotContain(v => v.Contains("Flip estimate"));
+        display.Should().ContainSingle(v => v.StartsWith("Based on")).Which.Should().Contain(expectedSource);
     }
 
     private static DataContainer CreateData(PriceEstimate estimate, string priceInfo = null)
