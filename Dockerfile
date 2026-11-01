@@ -1,4 +1,9 @@
 FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
+# Keep MSBuild nodes, the MSBuild server and VBCSCompiler from outliving a RUN step,
+# so their /tmp/MSBuild* pipe files cannot vanish while BuildKit snapshots the layer.
+ENV MSBUILDDISABLENODEREUSE=1 \
+    DOTNET_CLI_DO_NOT_USE_MSBUILD_SERVER=1 \
+    UseSharedCompilation=false
 WORKDIR /build
 ARG CACHEBUST=15
 RUN git clone --depth=1 https://github.com/Coflnet/HypixelSkyblock.git dev \
