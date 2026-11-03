@@ -5,6 +5,7 @@ using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
 using AwesomeAssertions;
+using Coflnet.Sky.Api.Models.Mod;
 using Coflnet.Sky.Commands.Shared;
 using Coflnet.Sky.Core;
 using Coflnet.Sky.Commands.Shared.Goals;
@@ -761,5 +762,142 @@ public class GoalServiceTests
         // another item is independent
         await service.AddBazaarPlan("u1", PlanOrder("Y"), PlanQuote());
         list.Goals.Should().HaveCount(2);
+    }
+
+    private Goal WolfToothFlip(string mode = "Active")
+    {
+        var goal = new Goal
+        {
+            Title = "Bazaar flip: Wolf Tooth ×4383", RootItemTag = "WOLF_TOOTH", Quantity = 4383, BazaarFlip = new(),
+            Root = new GoalStep { Kind = StepKind.Sell, ItemTag = "WOLF_TOOTH", Quantity = 4383 },
+            // quoted half an hour ago when the best buy order was 376.5
+            Plan = new BazaarPlanInfo { Mode = mode, GeneratedAt = DateTime.UtcNow.AddMinutes(-30), OriginalQuantity = 4383, EntryPrice = 376.6,
+                ExitPrice = 390, SellTaxRate = 0.0125 }
+        };
+        list.Goals.Add(goal);
+        list.FocusId = goal.Id;
+        return goal;
+    }
+
+    private static List<Item> ProductPage(string tag, string topOrders) => BazaarTopOrderReaderTests.BazaarScreen(54,
+        (13, "§aProduct", tag, ""), (15, "§aCreate Buy Order", null, topOrders));
+
+    private static List<Item> WolfToothPayScreen() => BazaarTopOrderReaderTests.BuyPriceScreen(BazaarTopOrderReaderTests.WolfToothCustomPriceLore);
+
+    private double? GuidePrice() => service.GetGuideContext("Steve").Step.UnitPrice;
+
+    private string GuidePanel(List<Item> screen)
+    {
+        var data = new Description.DataContainer
+        {
+            inventory = new InventoryDataWithSettings { ChestName = "How much do you want to pay?", Version = 4 },
+            Items = screen,
+            auctionRepresent = screen.Select(i => (new SaveAuction { ItemName = i.ItemName, Tag = i.Tag }, new string[0])).ToList(),
+            mods = screen.Select(_ => new List<DescModification>()).ToList(),
+            mcName = "Steve"
+        };
+        new Description.GoalGuideModifier(() => service).Apply(data);
+        return string.Join("\n", data.mods.Skip(screen.Count).SelectMany(l => l).Select(m => m.Value));
+    }
+
+    /// <summary>
+    /// Regression: on the price screen the guide said "Custom price -> enter 376.6" (the quote's entry) while the screen listed
+    /// three better orders up to 376.9, and the hud said "@ 377". Both now re-apply the Active rule to the open order book.
+    /// </summary>
+    [Test]
+    public async Task PayScreen_RefreshesStaleEntryPriceOfHudAndGuide()
+    {
+        WolfToothFlip();
+        await service.OnInventory("u1", "Steve", ProductPage("WOLF_TOOTH", BazaarTopOrderReaderTests.TopOrders("376.7")));
+        GuidePrice().Should().Be(376.8);
+        LastHud().Lines[0].Text.Should().EndWith("§7@ §6376.8");
+
+        var pay = WolfToothPayScreen();
+        await service.OnInventory("u1", "Steve", pay);
+
+        GuidePrice().Should().Be(377.0);
+        LastHud().Lines[0].Text.Should().Be("§aPlace buy order: 4,383x WOLF_TOOTH §7@ §6377");
+        GuidePanel(pay).Should().Contain("Custom price -\\u003E enter 377").And.Contain("set price \\u00A7e377")
+            .And.NotContain("376.6").And.NotContain("no margin");
+    }
+
+    /// <summary>A refreshed price without margin after tax keeps the price but warns on the hud and on the guide step.</summary>
+    [Test]
+    public async Task PayScreen_WithoutMarginWarnsOnHudAndGuide()
+    {
+        WolfToothFlip();
+        await service.OnInventory("u1", "Steve", ProductPage("WOLF_TOOTH", BazaarTopOrderReaderTests.TopOrders("386.0")));
+        var pay = BazaarTopOrderReaderTests.BuyPriceScreen(BazaarTopOrderReaderTests.TopOrders("386.0"));
+        await service.OnInventory("u1", "Steve", pay);
+
+        GuidePrice().Should().Be(386.1);
+        LastHud().Lines[0].Text.Should().StartWith(BazaarFlipProgress.NoMarginWarning);
+        GuidePanel(pay).Should().Contain("no margin at current top order, re-quote").And.Contain("enter 386.1");
+    }
+
+    /// <summary>A price screen is attributed to the product page opened before it, never to the goal item by default.</summary>
+    [Test]
+    public async Task PayScreen_WithoutProductPageOfTheItemKeepsPlannedPrice()
+    {
+        WolfToothFlip();
+        await service.OnInventory("u1", "Steve", ProductPage("ENCHANTED_BONE", ""));
+        await service.OnInventory("u1", "Steve", WolfToothPayScreen());
+
+        GuidePrice().Should().Be(376.6);
+    }
+
+    /// <summary>The price screen belongs to the latest product page: Wolf Tooth, then another item, then the price screen.</summary>
+    [Test]
+    public async Task PayScreen_AfterAnotherProductPageDoesNotCreditTheGoalItem()
+    {
+        WolfToothFlip();
+        await service.OnInventory("u1", "Steve", ProductPage("WOLF_TOOTH", ""));
+        await service.OnInventory("u1", "Steve", ProductPage("ENCHANTED_BONE", ""));
+        await service.OnInventory("u1", "Steve", WolfToothPayScreen());
+
+        GuidePrice().Should().Be(376.6);
+    }
+
+    /// <summary>A price screen opened more than five minutes after the product page is not attributed to it.</summary>
+    [Test]
+    public async Task PayScreen_AttributionExpiresAfterFiveMinutes()
+    {
+        WolfToothFlip();
+        var t0 = DateTime.UtcNow;
+        service.Now = () => t0;
+        await service.OnInventory("u1", "Steve", ProductPage("WOLF_TOOTH", ""));
+        service.Now = () => t0 + GoalService.ProductPageAttribution + TimeSpan.FromSeconds(1);
+        await service.OnInventory("u1", "Steve", WolfToothPayScreen());
+        GuidePrice().Should().Be(376.6);
+
+        service.Now = () => t0 + GoalService.ProductPageAttribution;
+        await service.OnInventory("u1", "Steve", WolfToothPayScreen());
+        GuidePrice().Should().Be(377.0, "exactly at the limit still counts");
+    }
+
+    /// <summary>Investing plans bid a policy quantile, the open order book does not change their entry.</summary>
+    [Test]
+    public async Task PayScreen_InvestingPlanKeepsPlannedPrice()
+    {
+        WolfToothFlip("Investing");
+        await service.OnInventory("u1", "Steve", ProductPage("WOLF_TOOTH", BazaarTopOrderReaderTests.TopOrders("376.7")));
+        await service.OnInventory("u1", "Steve", WolfToothPayScreen());
+
+        GuidePrice().Should().Be(376.6);
+        LastHud().Lines[0].Text.Should().EndWith("§7@ §6376.6");
+    }
+
+    /// <summary>The represented auction tag names enchantment products, whose NBT id is ENCHANTED_BOOK.</summary>
+    [Test]
+    public async Task ProductPage_UsesRepresentedTag()
+    {
+        var goal = WolfToothFlip();
+        goal.RootItemTag = goal.Root.ItemTag = "ENCHANTMENT_SHARPNESS_5";
+        var page = ProductPage("ENCHANTED_BOOK", BazaarTopOrderReaderTests.TopOrders("1,000.0"));
+        var represented = page.Select((_, i) => i == 13 ? "ENCHANTMENT_SHARPNESS_5" : null).ToList();
+
+        await service.OnInventory("u1", "Steve", page, representedTags: represented);
+
+        GuidePrice().Should().Be(1000.1);
     }
 }

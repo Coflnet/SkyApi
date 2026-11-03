@@ -61,7 +61,7 @@ public partial class ModDescriptionService : IDisposable
     /// <summary>
     /// Gets a value indicating whether the service is running in development mode.
     /// </summary>
-    public static bool IsDevMode { get; } = System.Net.Dns.GetHostName().Contains("ekwav");
+    public static bool IsDevMode { get; internal set; } = System.Net.Dns.GetHostName().Contains("ekwav");
     private readonly ICraftsApi craftsApi;
     private readonly ISniperClient sniperClient;
     private readonly AhListChecker ahListChecker;
@@ -89,6 +89,11 @@ public partial class ModDescriptionService : IDisposable
     private readonly IItemsApi itemsApi;
     private readonly Core.Services.ExoticColorService exoticColorService;
     private readonly Mod.GoalService? goalService;
+    private readonly IInstanceSettingsClient? instanceSettings;
+    private static readonly TimeSpan InstanceSettingsTtl = TimeSpan.FromSeconds(20);
+    private static readonly TimeSpan NoSettingsTtl = TimeSpan.FromSeconds(15);
+    // backoff so an outage of the instance settings service doesn't make every request wait for the lookup
+    private static readonly TimeSpan InstanceFailureTtl = TimeSpan.FromSeconds(5);
     private readonly TimeSpan settingsTimeout;
     private readonly TimeSpan accountInfoTimeout;
     private readonly TimeSpan sniperTimeout;
@@ -136,7 +141,8 @@ public partial class ModDescriptionService : IDisposable
                                  FlipTracker.Client.Api.ITrackerApi trackerApi,
                                  IItemsApi itemsApi,
                                  Core.Services.ExoticColorService exoticColorService,
-                                 Mod.GoalService? goalService = null)
+                                 Mod.GoalService? goalService = null,
+                                 IInstanceSettingsClient? instanceSettings = null)
     {
         this.craftsApi = craftsApi;
         this.settingsService = settingsService;
@@ -157,6 +163,7 @@ public partial class ModDescriptionService : IDisposable
         this.itemsApi = itemsApi;
         this.exoticColorService = exoticColorService;
         this.goalService = goalService;
+        this.instanceSettings = instanceSettings;
         settingsTimeout = GetTimeout(config, "DESCRIPTION_SETTINGS_TIMEOUT_MS", 750);
         accountInfoTimeout = GetTimeout(config, "DESCRIPTION_ACCOUNT_TIMEOUT_MS", 250);
         sniperTimeout = GetTimeout(config, "DESCRIPTION_SNIPER_TIMEOUT_MS", 1000);
@@ -211,8 +218,15 @@ public partial class ModDescriptionService : IDisposable
         customModifiers.Where(m => m.ChestName.IsMatch(chestName ?? "Crafting")).ToArray();
 
     private readonly MemoryCache settingsCache = new(new MemoryCacheOptions { SizeLimit = 1000 });
+    // signed-out entries live apart so they can't evict signed-in entries (which hold subscriptions)
+    private readonly MemoryCache instanceCache = new(new MemoryCacheOptions { SizeLimit = 5000 });
     private readonly ConcurrentDictionary<string, Lazy<Task<SettingsCacheEntry>>> settingsLoads = new();
     private int disposed;
+    internal static TimeSpan NoSettingsTtlForTests => NoSettingsTtl;
+    internal static TimeSpan InstanceSettingsTtlForTests => InstanceSettingsTtl;
+    internal static TimeSpan InstanceFailureTtlForTests => InstanceFailureTtl;
+    internal int SignedInCacheCountForTests => settingsCache.Count;
+    internal int InstanceCacheCountForTests => instanceCache.Count;
 
     private sealed class SettingsCacheEntry(SelfUpdatingValue<DescriptionSetting> settings, Task<SelfUpdatingValue<AccountInfo>> accountInfo) : IDisposable
     {
@@ -568,7 +582,8 @@ public partial class ModDescriptionService : IDisposable
                 items = ProduceInventory(inventory, mcName, userInfo.UserId, auctionRepresent);
                 if (!string.IsNullOrEmpty(userInfo.UserId))
                     if (goalService != null)
-                        await goalService.OnInventory(userInfo.UserId, mcName, items, inventory.ForceGoalRefresh, inventory.Settings);
+                        await goalService.OnInventory(userInfo.UserId, mcName, items, inventory.ForceGoalRefresh, inventory.Settings,
+                            auctionRepresent.Select(a => a.auction?.Tag).ToList());
             }
             catch (Exception e)
             {
@@ -919,17 +934,22 @@ public partial class ModDescriptionService : IDisposable
             return (DescriptionSetting.Default, Task.FromResult(new AccountInfo { UserId = "1" }));
 
         using var activity = ActivitySource.StartActivity("settings.resolve", ActivityKind.Internal);
-        if (settingsCache.TryGetValue<SettingsCacheEntry>(sessionId, out var cached))
+        if (playeruuid == null)
+            return (fallback, Task.FromResult(new AccountInfo()));
+        // keyed by the hashed id (name + session) so equal session ids of different players can't collide
+        var cacheKey = idConverter.ComputeConnectionId(playeruuid, sessionId).Item2;
+        if (settingsCache.TryGetValue<SettingsCacheEntry>(cacheKey, out var cached)
+            || instanceCache.TryGetValue(cacheKey, out cached))
         {
             activity?.SetTag("cache.hit", true);
             return (cached.Settings.Value ?? fallback, GetAccountInfo(cached));
         }
 
         activity?.SetTag("cache.hit", false);
-        var lazy = settingsLoads.GetOrAdd(sessionId, _ => new Lazy<Task<SettingsCacheEntry>>(
-            () => LoadSettings(playeruuid, sessionId), LazyThreadSafetyMode.ExecutionAndPublication));
+        var lazy = settingsLoads.GetOrAdd(cacheKey, _ => new Lazy<Task<SettingsCacheEntry>>(
+            () => LoadSettings(cacheKey), LazyThreadSafetyMode.ExecutionAndPublication));
         var load = lazy.Value;
-        _ = RemoveSettingsLoadWhenComplete(sessionId, lazy, load);
+        _ = RemoveSettingsLoadWhenComplete(cacheKey, lazy, load);
         try
         {
             var entry = await load.WaitAsync(settingsTimeout);
@@ -951,12 +971,11 @@ public partial class ModDescriptionService : IDisposable
         return (fallback, Task.FromResult(new AccountInfo()));
     }
 
-    private async Task<SettingsCacheEntry> LoadSettings(string playeruuid, string sessionId)
+    private async Task<SettingsCacheEntry> LoadSettings(string conId)
     {
-        var conId = idConverter.ComputeConnectionId(playeruuid, sessionId).Item2;
         var userId = await settingsService.GetCurrentValue<string>("mod", conId, () => null);
         if (userId == null)
-            return null;
+            return await LoadInstanceOrEmptySettings(conId);
 
         var accountInfo = SelfUpdatingValue<AccountInfo>.Create(userId, "accountInfo", () => new());
         SelfUpdatingValue<DescriptionSetting> description;
@@ -972,19 +991,61 @@ public partial class ModDescriptionService : IDisposable
         }
 
         var entry = new SettingsCacheEntry(description, accountInfo);
+        if (!TryCacheEntry(conId, entry, new MemoryCacheEntryOptions { Size = 1, SlidingExpiration = TimeSpan.FromMinutes(30) }))
+            return null;
+        _ = RemoveSettingsEntryOnAccountFailure(conId, entry);
+        return entry;
+    }
+
+    /// <summary>
+    /// Signed-out users: use the settings stored per mod instance. Found, not found and failed results
+    /// are cached shortly (no live updates for them, and a login has to replace them quickly).
+    /// </summary>
+    private async Task<SettingsCacheEntry> LoadInstanceOrEmptySettings(string conId)
+    {
+        var result = await GetInstanceDescription(conId);
+        // a null value is the negative entry, the callers fall back to the request/default settings
+        var entry = new SettingsCacheEntry(SelfUpdatingValue<DescriptionSetting>.CreateNoUpdate(result.Setting),
+            Task.FromResult(SelfUpdatingValue<AccountInfo>.CreateNoUpdate(new AccountInfo())));
+        if (Volatile.Read(ref disposed) != 0)
+            return entry;
+        instanceCache.Set(conId, entry, new MemoryCacheEntryOptions { Size = 1, AbsoluteExpirationRelativeToNow = GetInstanceTtl(result.Status) });
+        return entry;
+    }
+
+    // a failure is cached only briefly (defaults meanwhile), the state is unknown so it is asked again soon
+    private static TimeSpan GetInstanceTtl(InstanceSettingsStatus status) => status switch
+    {
+        InstanceSettingsStatus.Found => InstanceSettingsTtl,
+        InstanceSettingsStatus.Failed => InstanceFailureTtl,
+        _ => NoSettingsTtl
+    };
+
+    private async Task<InstanceSettingsResult> GetInstanceDescription(string conId)
+    {
+        if (instanceSettings == null)
+            return InstanceSettingsResult.None;
+        try
+        {
+            return await instanceSettings.GetDescription(conId, CancellationToken.None);
+        }
+        catch (Exception e)
+        {
+            logger.LogWarning(e, "Instance settings lookup failed; using defaults");
+            return InstanceSettingsResult.Failed;
+        }
+    }
+
+    private bool TryCacheEntry(string key, SettingsCacheEntry entry, MemoryCacheEntryOptions options)
+    {
         if (Volatile.Read(ref disposed) != 0)
         {
             entry.Dispose();
-            return null;
+            return false;
         }
 
-        settingsCache.Set(sessionId, entry, new MemoryCacheEntryOptions
-        {
-            Size = 1,
-            SlidingExpiration = TimeSpan.FromMinutes(30)
-        }.RegisterPostEvictionCallback(static (_, value, _, _) => (value as IDisposable)?.Dispose()));
-        _ = RemoveSettingsEntryOnAccountFailure(sessionId, entry);
-        return entry;
+        settingsCache.Set(key, entry, options.RegisterPostEvictionCallback(static (_, value, _, _) => (value as IDisposable)?.Dispose()));
+        return true;
     }
 
     private async Task RemoveSettingsEntryOnAccountFailure(string sessionId, SettingsCacheEntry entry)
@@ -2211,5 +2272,6 @@ public partial class ModDescriptionService : IDisposable
             return;
         settingsCache.Compact(1);
         settingsCache.Dispose();
+        instanceCache.Dispose();
     }
 }

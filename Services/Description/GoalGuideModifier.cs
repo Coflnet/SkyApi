@@ -88,6 +88,7 @@ public class GoalGuideModifier : ICustomModifier
             };
             if (guide == null)
                 return;
+            guide = WithMarginWarning(guide, ctx);
             if (guide.Slot is int slot && slot >= 0 && slot < data.mods.Count)
                 data.mods[slot].Add(new DescModification(DescModification.ModType.HIGHLIGHT, -1, OutlineColor));
             var lines = new List<DescModification>
@@ -105,6 +106,12 @@ public class GoalGuideModifier : ICustomModifier
     }
 
     private sealed record Guide(string Hint, int? Slot = null, string OnClick = null, string Hover = null, DescModification Fill = null);
+
+    /// <summary>Same warning as the hud line when the buy price leaves no margin after the sell tax.</summary>
+    private static Guide WithMarginWarning(Guide guide, GoalGuideContext ctx)
+        => ctx.Kind == StepKind.BuyOrder && BazaarFlipProgress.NoMargin(ctx.Plan, ctx.Step.UnitPrice)
+            ? guide with { Hint = BazaarFlipProgress.NoMarginWarning + McColorCodes.WHITE + guide.Hint }
+            : guide;
 
     private static Guide BuyOrder(Screen s, GoalGuideContext ctx, DataContainer data)
     {
@@ -204,7 +211,8 @@ public class GoalGuideModifier : ICustomModifier
         return new Guide("Go to the Forge", OnClick: "/warp forge", Hover: "Click to warp to the forge");
     }
 
-    private static string FormatPrice(double price) => price.ToString("0.##", CultureInfo.InvariantCulture);
+    /// <summary>The hud's price format without grouping, so it can be typed into the sign.</summary>
+    private static string FormatPrice(double price) => GoalHud.OrderPrice(price, grouping: false);
 
     private static Guide Sell(Screen s, GoalGuideContext ctx)
     {

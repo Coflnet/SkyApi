@@ -335,6 +335,7 @@ namespace Coflnet.Sky.Api
             {
                 c.BaseAddress = new Uri(Configuration["MOD_BASE_URL"]);
             });
+            services.AddSingleton<Coflnet.Sky.Api.Services.Description.IInstanceSettingsClient, Coflnet.Sky.Api.Services.Description.InstanceSettingsClient>();
 
             services.AddSingleton<Trade.Client.Api.ITradeApi>(p =>
             {

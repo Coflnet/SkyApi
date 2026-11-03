@@ -44,10 +44,14 @@ public class ModDescriptionServiceTests
     Mock<ISettingsApi> settingsApi;
     Mock<ISniperClient> sniperClient;
     Mock<ICraftsApi> craftsApi;
+    Mock<IInstanceSettingsClient> instanceClient;
+    bool originalDevMode;
     ModDescriptionService service;
     [SetUp]
     public void NewMethod()
     {
+        originalDevMode = ModDescriptionService.IsDevMode;
+        instanceClient = new Mock<IInstanceSettingsClient>();
         synchronousClient = new Mock<ISynchronousClient>();
         asynchronousClient = new Mock<IAsynchronousClient>();
         readableConfiguration = new Mock<IReadableConfiguration>();
@@ -66,7 +70,7 @@ public class ModDescriptionServiceTests
         ItemSkinHandler itemSkinHandler = new ItemSkinHandler(itemsApi);
         service = new(craftsApi.Object, settingsService, Mock.Of<IdConverter>(), Mock.Of<IServiceScopeFactory>(),
                     Mock.Of<BazaarApi>(), playerNameService, Mock.Of<ILogger<ModDescriptionService>>(), Mock.Of<IConfiguration>(), Mock.Of<IStateUpdateService>(), sniperClient.Object,
-                    itemSkinHandler, new(null, null, null), null, null, null, null, null);
+                    itemSkinHandler, new(null, null, null), null, null, null, null, null, instanceSettings: instanceClient.Object);
     }
 
     [Test]
@@ -248,6 +252,150 @@ public class ModDescriptionServiceTests
 
         Assert.That(result, Is.Not.Empty);
         Assert.That(result.All(modifications => !modifications.Any()), Is.True);
+    }
+
+    [TearDown]
+    public void RestoreDevMode() => ModDescriptionService.IsDevMode = originalDevMode;
+
+    private void SetupSignedOutUser()
+    {
+        // dev mode (hostname based) short-circuits the settings lookup
+        ModDescriptionService.IsDevMode = false;
+        settingsApi.Setup(api => api.GetSettingWithHttpInfoAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<int>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new Coflnet.Sky.Settings.Client.Client.ApiResponse<string>(System.Net.HttpStatusCode.NoContent, null));
+        sniperClient.Setup(s => s.GetPrices(It.IsAny<IEnumerable<SaveAuction>>(), default))
+            .Returns<IEnumerable<SaveAuction>, bool>((s, ai) => Task.FromResult(s.Select(_ => new Coflnet.Sky.Sniper.Client.Model.PriceEstimate()).ToList()));
+    }
+
+    private static DescriptionSetting DisabledInstanceSettings() =>
+        new() { Fields = new() { new() { DescriptionField.LBIN } }, Disabled = true };
+
+    private async Task<InventoryDataWithSettings> RequestAsSignedOut()
+    {
+        var inventory = GetMockInventory();
+        inventory.Settings = null;
+        await service.GetModifications(inventory, "test", "test");
+        return inventory;
+    }
+
+    [Test]
+    public async Task SignedOutUserGetsInstanceSettings()
+    {
+        SetupSignedOutUser();
+        var expected = DisabledInstanceSettings();
+        instanceClient.Setup(c => c.GetDescription(It.IsAny<string>(), It.IsAny<CancellationToken>())).ReturnsAsync(InstanceSettingsResult.Found(expected));
+
+        var inventory = await RequestAsSignedOut();
+
+        Assert.That(inventory.Settings, Is.SameAs(expected));
+    }
+
+    [Test]
+    public async Task InstanceLookupUsesComputedHashedId()
+    {
+        SetupSignedOutUser();
+        instanceClient.Setup(c => c.GetDescription(It.IsAny<string>(), It.IsAny<CancellationToken>())).ReturnsAsync(InstanceSettingsResult.Found(DisabledInstanceSettings()));
+
+        await RequestAsSignedOut();
+
+        var expectedId = new IdConverter().ComputeConnectionId("test", "test").Item2;
+        instanceClient.Verify(c => c.GetDescription(expectedId, It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Test]
+    public async Task SignedOutUserWithoutInstanceSettingsGetsDefault()
+    {
+        SetupSignedOutUser();
+        instanceClient.Setup(c => c.GetDescription(It.IsAny<string>(), It.IsAny<CancellationToken>())).ReturnsAsync(InstanceSettingsResult.None);
+
+        var inventory = await RequestAsSignedOut();
+
+        inventory.Settings.Should().BeEquivalentTo(DescriptionSetting.Default);
+    }
+
+    [Test]
+    public async Task InstanceClientFailureFallsBackToDefault()
+    {
+        SetupSignedOutUser();
+        instanceClient.Setup(c => c.GetDescription(It.IsAny<string>(), It.IsAny<CancellationToken>())).ThrowsAsync(new InvalidOperationException("down"));
+
+        var inventory = await RequestAsSignedOut();
+
+        inventory.Settings.Should().BeEquivalentTo(DescriptionSetting.Default);
+    }
+
+    [Test]
+    public async Task SignedOutLookupIsCachedNegatively()
+    {
+        SetupSignedOutUser();
+        instanceClient.Setup(c => c.GetDescription(It.IsAny<string>(), It.IsAny<CancellationToken>())).ReturnsAsync(InstanceSettingsResult.None);
+
+        await RequestAsSignedOut();
+        await RequestAsSignedOut();
+
+        instanceClient.Verify(c => c.GetDescription(It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Once);
+        settingsApi.Verify(api => api.GetSettingWithHttpInfoAsync("mod", It.IsAny<string>(), It.IsAny<int>(), It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Test]
+    public async Task FailedInstanceLookupIsCachedBrieflyWithDefaults()
+    {
+        SetupSignedOutUser();
+        instanceClient.Setup(c => c.GetDescription(It.IsAny<string>(), It.IsAny<CancellationToken>())).ReturnsAsync(InstanceSettingsResult.Failed);
+
+        var first = await RequestAsSignedOut();
+        await RequestAsSignedOut();
+
+        first.Settings.Should().BeEquivalentTo(DescriptionSetting.Default);
+        instanceClient.Verify(c => c.GetDescription(It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Once,
+            "an outage must not make every request wait for the lookup");
+        ModDescriptionService.InstanceFailureTtlForTests.Should().BeLessThanOrEqualTo(TimeSpan.FromSeconds(5),
+            "the lookup is repeated once the short entry expired");
+    }
+
+    [Test]
+    public async Task ThrowingInstanceClientIsCachedBriefly()
+    {
+        SetupSignedOutUser();
+        instanceClient.Setup(c => c.GetDescription(It.IsAny<string>(), It.IsAny<CancellationToken>())).ThrowsAsync(new InvalidOperationException("down"));
+
+        await RequestAsSignedOut();
+        await RequestAsSignedOut();
+
+        instanceClient.Verify(c => c.GetDescription(It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Test]
+    public void NegativeAndInstanceTtlsAreShort()
+    {
+        ModDescriptionService.NoSettingsTtlForTests.Should().BeLessThanOrEqualTo(TimeSpan.FromSeconds(15));
+        ModDescriptionService.InstanceSettingsTtlForTests.Should().BeLessThanOrEqualTo(TimeSpan.FromSeconds(20));
+    }
+
+    [Test]
+    public async Task SignedOutEntriesStayOutOfTheSignedInCache()
+    {
+        SetupSignedOutUser();
+        instanceClient.Setup(c => c.GetDescription(It.IsAny<string>(), It.IsAny<CancellationToken>())).ReturnsAsync(InstanceSettingsResult.None);
+
+        for (int i = 0; i < 1200; i++)
+            await service.GetModifications(GetMockInventory(), "anon" + i, "sid");
+
+        service.SignedInCacheCountForTests.Should().Be(0);
+        service.InstanceCacheCountForTests.Should().Be(1200);
+    }
+
+    [Test]
+    public async Task InstanceSettingsAreCachedBetweenRequests()
+    {
+        SetupSignedOutUser();
+        instanceClient.Setup(c => c.GetDescription(It.IsAny<string>(), It.IsAny<CancellationToken>())).ReturnsAsync(InstanceSettingsResult.Found(DisabledInstanceSettings()));
+
+        await RequestAsSignedOut();
+        var second = await RequestAsSignedOut();
+
+        Assert.That(second.Settings.Disabled, Is.True);
+        instanceClient.Verify(c => c.GetDescription(It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Once);
     }
 
     InventoryDataWithSettings GetMockInventory()
