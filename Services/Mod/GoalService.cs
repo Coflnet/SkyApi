@@ -73,7 +73,9 @@ public sealed class GoalListHolder : IDisposable
 /// <param name="Quantity">Amount needed</param>
 /// <param name="HasCookie">Whether the player has a booster cookie (bazaar from anywhere)</param>
 /// <param name="Offer">Cached cheapest active auction of the item, if known</param>
-public record GoalGuideContext(GoalStep Step, StepKind Kind, string ItemName, string SearchName, long Quantity, bool HasCookie, AuctionOffer Offer = null);
+/// <param name="Plan">Bazaar plan of the focused goal, null for goals without one</param>
+public record GoalGuideContext(GoalStep Step, StepKind Kind, string ItemName, string SearchName, long Quantity, bool HasCookie, AuctionOffer Offer = null,
+    BazaarPlanInfo Plan = null);
 
 /// <summary>Source of the guide context for <see cref="Description.GoalGuideModifier"/>.</summary>
 public interface IGoalGuideSource
@@ -155,6 +157,10 @@ public class GoalService : IGoalGuideSource, IDisposable
         public DateTime LastPush = DateTime.MinValue;
         public string McName;
         public bool HasCookie;
+        /// <summary>Best buy orders read from the bazaar screens the player opened, by item tag.</summary>
+        public Dictionary<string, BazaarTopOrder> TopBuyOrders = new();
+        /// <summary>Last bazaar product page the player opened; the price screens after it don't show the item.</summary>
+        public (string Tag, DateTime At) LastProductPage;
         public void Dispose() => Holder?.Dispose();
     }
 
@@ -249,7 +255,9 @@ public class GoalService : IGoalGuideSource, IDisposable
     }
 
     /// <summary>Evaluates inventory before guides are built; force restores unchanged HUD and expected-command state after reconnect. Never throws.</summary>
-    public async Task OnInventory(string userId, string mcName, List<Item> items, bool force = false, DescriptionSetting description = null)
+    // representedTags: tags of the auctions the slots represent (by slot), they name bazaar products better than the NBT id
+    public async Task OnInventory(string userId, string mcName, List<Item> items, bool force = false, DescriptionSetting description = null,
+        IReadOnlyList<string> representedTags = null)
     {
         try
         {
@@ -270,6 +278,7 @@ public class GoalService : IGoalGuideSource, IDisposable
             {
                 e.LastCounts = counts;
                 e.LastForging = forging;
+                ObserveBazaarScreen(e, items, representedTags);
                 var changed = Evaluate(e, forging);
                 if (changed)
                     await Persist(userId, e);
@@ -284,6 +293,36 @@ public class GoalService : IGoalGuideSource, IDisposable
         {
             logger.LogError(ex, "Failed to update goals of {UserId}", userId);
         }
+    }
+
+    /// <summary>How long the buy order screens after a product page are attributed to that product.</summary>
+    internal static readonly TimeSpan ProductPageAttribution = TimeSpan.FromMinutes(5);
+
+    /// <summary>
+    /// Remembers the best buy order of the open bazaar screen, so the buy step of an Active plan flip re-applies its
+    /// pricing rule to the order book the player is looking at instead of the quote it was created from. A buy price screen
+    /// does not show the item, it belongs to the product page opened before it. Caller holds the gate.
+    /// </summary>
+    private void ObserveBazaarScreen(Entry e, IList<Item> items, IReadOnlyList<string> representedTags)
+    {
+        var now = Now();
+        var productTag = BazaarTopOrderReader.ProductPageTag(items, representedTags);
+        if (productTag != null)
+        {
+            e.LastProductPage = (productTag, now);
+            StoreTopBuyOrder(e, productTag, BazaarTopOrderReader.ReadProductPage(items, now));
+            return;
+        }
+        if (now - e.LastProductPage.At > ProductPageAttribution)
+            return;
+        StoreTopBuyOrder(e, e.LastProductPage.Tag, BazaarTopOrderReader.ReadBuyPriceScreen(items, now));
+    }
+
+    private static void StoreTopBuyOrder(Entry e, string tag, BazaarTopOrder? top)
+    {
+        if (tag == null || top is not { } observed || !e.Holder.Value.Goals.Any(g => g.BazaarFlip != null && g.RootItemTag == tag))
+            return;
+        e.TopBuyOrders[tag] = observed;
     }
 
     /// <summary>Stores the open bazaar orders and marks matching buy steps as ordered. Never throws.</summary>
@@ -346,7 +385,7 @@ public class GoalService : IGoalGuideSource, IDisposable
         var progress = new Dictionary<string, GoalProgress>();
         foreach (var goal in e.Holder.Value.Goals)
         {
-            var p = GoalProgressEvaluator.Evaluate(goal, e.LastCounts, e.OpenBuyOrders, forging, now);
+            var p = GoalProgressEvaluator.Evaluate(goal, e.LastCounts, e.OpenBuyOrders, forging, now, e.TopBuyOrders);
             if (GoalProgressEvaluator.MarkNewlyDone(goal, p, now).Count > 0)
                 changed = true;
             progress[goal.Id] = p;
@@ -733,7 +772,7 @@ public class GoalService : IGoalGuideSource, IDisposable
             AuctionOffer offer = null;
             if (step.Kind == StepKind.Auction && step.ItemTag != null && offerCache.TryGetValue(step.ItemTag, out var cached))
                 offer = cached.offer;
-            return new GoalGuideContext(step, step.Kind, name, BazaarUtils.GetSearchValue(step.ItemTag, name), step.Quantity, e.HasCookie, offer);
+            return new GoalGuideContext(step, step.Kind, name, BazaarUtils.GetSearchValue(step.ItemTag, name), step.Quantity, e.HasCookie, offer, focus.Plan);
         }
         catch (Exception ex)
         {
