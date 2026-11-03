@@ -417,9 +417,24 @@ public class GoalServiceTests
         await service.OnInventory("u1", "Steve", Inventory(46));
 
         var hud = LastHud();
-        hud.Lines[0].OnClick.Should().MatchRegex("^/viewauction [0-9a-f]{32}$");
-        hud.Lines[0].Text.Should().Contain("(auction)").And.EndWith("§c-400k profit");
-        hud.Lines[1].Text.Should().StartWith("§7then Buy 8x");
+        hud.StepLines()[0].OnClick.Should().MatchRegex("^/viewauction [0-9a-f]{32}$");
+        hud.StepLines()[0].Text.Should().Contain("(auction)").And.EndWith("§c-400k profit");
+        hud.StepLines()[1].Text.Should().StartWith("§7then Buy 8x");
+        publisher.Verify(p => p.ExpectForUser("u1", "/viewauction " + FullUuid, It.IsAny<int>()), Times.Once);
+    }
+
+    /// <summary>The header line cancels the goal; the command the mod expects next is the first step's, never the cancel.</summary>
+    [Test]
+    public async Task Hud_HeaderCancelsGoal_ExpectedCommandIsTheFirstStep()
+    {
+        service.LowestBinSource = tag => Task.FromResult(tag == "WITHER_LEGGINGS" ? new AuctionOffer(FullUuid, 2_900_000) : null);
+        list.Goals.Add(Necron());
+        list.FocusId = list.Goals[0].Id;
+
+        await service.OnInventory("u1", "Steve", Inventory(46));
+
+        LastHud().Lines[0].OnClick.Should().Be("/cofl goal cancel " + list.Goals[0].Id);
+        publisher.Verify(p => p.ExpectForUser("u1", It.Is<string>(c => c.StartsWith("/cofl goal")), It.IsAny<int>()), Times.Never);
         publisher.Verify(p => p.ExpectForUser("u1", "/viewauction " + FullUuid, It.IsAny<int>()), Times.Once);
     }
 
@@ -434,7 +449,7 @@ public class GoalServiceTests
 
         await service.OnInventory("u1", "Steve", Inventory(46));
 
-        LastHud().Lines[0].OnClick.Should().Be("/ah");
+        LastHud().StepLines()[0].OnClick.Should().Be("/ah");
     }
 
     /// <summary>Offers are cached for 20 seconds and a changed cheapest auction changes the pushed hud.</summary>
@@ -462,7 +477,7 @@ public class GoalServiceTests
 
         lookups.Should().Be(2);
         publisher.Verify(p => p.DisplayForUser("u1", It.IsAny<object>()), Times.Exactly(2));
-        LastHud().Lines[0].Text.Should().Contain("3m");
+        LastHud().StepLines()[0].Text.Should().Contain("3m");
     }
 
     /// <summary>Without a bin the line keeps the plain auction text.</summary>
@@ -476,8 +491,8 @@ public class GoalServiceTests
 
         await service.OnInventory("u1", "Steve", Inventory(46));
 
-        LastHud().Lines[0].OnClick.Should().Be("/ah");
-        LastHud().Lines[0].Text.Should().EndWith("(auction)");
+        LastHud().StepLines()[0].OnClick.Should().Be("/ah");
+        LastHud().StepLines()[0].Text.Should().EndWith("(auction)");
     }
 
     /// <summary>Regression: without a booster cookie /ah is rejected by Hypixel, the line gets no click and no expect push.</summary>
@@ -490,8 +505,8 @@ public class GoalServiceTests
 
         await service.OnInventory("u1", "Steve", Inventory(46));
 
-        LastHud().Lines[0].OnClick.Should().BeNull();
-        LastHud().Lines[0].Text.Should().EndWith("at the Auction Master");
+        LastHud().StepLines()[0].OnClick.Should().BeNull();
+        LastHud().StepLines()[0].Text.Should().EndWith("at the Auction Master");
         publisher.Verify(p => p.ExpectForUser("u1", "/ah", It.IsAny<int>()), Times.Never);
     }
 
@@ -505,8 +520,8 @@ public class GoalServiceTests
 
         await service.OnInventory("u1", "Steve", Inventory(46));
 
-        LastHud().Lines[0].OnClick.Should().BeNull();
-        LastHud().Lines[0].Hover.Should().Contain("Auction Master");
+        LastHud().StepLines()[0].OnClick.Should().BeNull();
+        LastHud().StepLines()[0].Hover.Should().Contain("Auction Master");
         publisher.Verify(p => p.ExpectForUser("u1", "/ah", It.IsAny<int>()), Times.Never);
     }
 
@@ -597,7 +612,7 @@ public class GoalServiceTests
         await Task.Delay(200);
 
         DisplayPushes.Should().Be(before + 1);
-        LastHud().Lines.Select(l => l.Text).Should().Contain(t => t.Contains("Goal complete"));
+        LastHud().StepLines().Select(l => l.Text).Should().Contain(t => t.Contains("Goal complete"));
     }
 
     /// <summary>A change that does not alter the hud pushes nothing.</summary>
@@ -666,7 +681,7 @@ public class GoalServiceTests
         var before = DisplayPushes;
         holder.RaiseChanged();
         await Eventually(() => DisplayPushes > before);
-        LastHud().Lines.Select(l => l.Text).Should().Contain(t => t.Contains("Goal complete"));
+        LastHud().StepLines().Select(l => l.Text).Should().Contain(t => t.Contains("Goal complete"));
         return (holder, goal);
     }
 
@@ -712,7 +727,7 @@ public class GoalServiceTests
         holder.RaiseChanged();
         await Eventually(() => DisplayPushes > before);
 
-        LastHud().Title.Should().Contain("Other goal");
+        LastHud().Lines[0].Text.Should().Contain("Other goal");
         LastHud().Clear.Should().BeFalse();
     }
 
@@ -727,7 +742,7 @@ public class GoalServiceTests
         holder.RaiseChanged();
         await Eventually(() => DisplayPushes > before);
 
-        var texts = LastHud().Lines.Select(l => l.Text).ToList();
+        var texts = LastHud().StepLines().Select(l => l.Text).ToList();
         texts.Should().NotContain(t => t.Contains("Goal complete"));
         texts.Should().NotBeEmpty();
         // the crafted item is still in the last known inventory, so the sell step is next (no cookie: no command)
@@ -810,13 +825,13 @@ public class GoalServiceTests
         WolfToothFlip();
         await service.OnInventory("u1", "Steve", ProductPage("WOLF_TOOTH", BazaarTopOrderReaderTests.TopOrders("376.7")));
         GuidePrice().Should().Be(376.8);
-        LastHud().Lines[0].Text.Should().EndWith("§7@ §6376.8");
+        LastHud().StepLines()[0].Text.Should().EndWith("§7@ §6376.8");
 
         var pay = WolfToothPayScreen();
         await service.OnInventory("u1", "Steve", pay);
 
         GuidePrice().Should().Be(377.0);
-        LastHud().Lines[0].Text.Should().Be("§aPlace buy order: 4,383x WOLF_TOOTH §7@ §6377");
+        LastHud().StepLines()[0].Text.Should().Be("§aPlace buy order: 4,383x WOLF_TOOTH §7@ §6377");
         GuidePanel(pay).Should().Contain("Custom price -\\u003E enter 377").And.Contain("set price \\u00A7e377")
             .And.NotContain("376.6").And.NotContain("no margin");
     }
@@ -831,7 +846,7 @@ public class GoalServiceTests
         await service.OnInventory("u1", "Steve", pay);
 
         GuidePrice().Should().Be(386.1);
-        LastHud().Lines[0].Text.Should().StartWith(BazaarFlipProgress.NoMarginWarning);
+        LastHud().StepLines()[0].Text.Should().StartWith(BazaarFlipProgress.NoMarginWarning);
         GuidePanel(pay).Should().Contain("no margin at current top order, re-quote").And.Contain("enter 386.1");
     }
 
@@ -884,7 +899,7 @@ public class GoalServiceTests
         await service.OnInventory("u1", "Steve", WolfToothPayScreen());
 
         GuidePrice().Should().Be(376.6);
-        LastHud().Lines[0].Text.Should().EndWith("§7@ §6376.6");
+        LastHud().StepLines()[0].Text.Should().EndWith("§7@ §6376.6");
     }
 
     /// <summary>The represented auction tag names enchantment products, whose NBT id is ENCHANTED_BOOK.</summary>

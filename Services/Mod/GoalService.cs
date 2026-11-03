@@ -476,7 +476,7 @@ public class GoalService : IGoalGuideSource, IDisposable
         e.LastHash = hash;
         e.LastPush = Now();
         if ((force || hashChanged) && !dto.Clear && focusProgress?.Actionable.Count > 0
-            && dto.Lines.FirstOrDefault()?.OnClick is { Length: > 0 } command && command.StartsWith('/'))
+            && dto.StepLines().FirstOrDefault()?.OnClick is { Length: > 0 } command && command.StartsWith('/'))
             await publisher.ExpectForUser(userId, command, 120);
     }
 
