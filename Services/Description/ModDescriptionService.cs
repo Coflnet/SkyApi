@@ -228,7 +228,12 @@ public partial class ModDescriptionService : IDisposable
     internal int SignedInCacheCountForTests => settingsCache.Count;
     internal int InstanceCacheCountForTests => instanceCache.Count;
 
-    private sealed class SettingsCacheEntry(SelfUpdatingValue<DescriptionSetting> settings, Task<SelfUpdatingValue<AccountInfo>> accountInfo) : IDisposable
+    // the (conId, "userId") binding is what SkyModCommands writes on login/logout
+    internal Func<string, Task<SelfUpdatingValue<string>>> UserBindingFactory { get; set; } =
+        conId => SelfUpdatingValue<string>.Create(conId, "userId", () => null);
+
+    private sealed class SettingsCacheEntry(SelfUpdatingValue<DescriptionSetting> settings, Task<SelfUpdatingValue<AccountInfo>> accountInfo,
+        IDisposable userBinding = null) : IDisposable
     {
         private int disposed;
         public SelfUpdatingValue<DescriptionSetting> Settings { get; } = settings;
@@ -239,6 +244,7 @@ public partial class ModDescriptionService : IDisposable
             if (Interlocked.Exchange(ref disposed, 1) != 0)
                 return;
 
+            userBinding?.Dispose();
             Settings.Dispose();
             _ = AccountInfo.ContinueWith(static task => task.Result.Dispose(), CancellationToken.None,
                 TaskContinuationOptions.ExecuteSynchronously | TaskContinuationOptions.OnlyOnRanToCompletion, TaskScheduler.Default);
@@ -973,10 +979,28 @@ public partial class ModDescriptionService : IDisposable
 
     private async Task<SettingsCacheEntry> LoadSettings(string conId)
     {
-        var userId = await settingsService.GetCurrentValue<string>("mod", conId, () => null);
-        if (userId == null)
+        // one call for signed-in loads (the common case): the binding fetches and subscribes in parallel
+        var binding = await UserBindingFactory(conId);
+        var userId = binding.Value;
+        if (string.IsNullOrEmpty(userId))
+        {
+            binding.Dispose();
             return await LoadInstanceOrEmptySettings(conId);
+        }
 
+        try
+        {
+            return await LoadAccountSettings(conId, userId, binding);
+        }
+        catch
+        {
+            binding.Dispose();
+            throw;
+        }
+    }
+
+    private async Task<SettingsCacheEntry> LoadAccountSettings(string conId, string userId, SelfUpdatingValue<string> binding)
+    {
         var accountInfo = SelfUpdatingValue<AccountInfo>.Create(userId, "accountInfo", () => new());
         SelfUpdatingValue<DescriptionSetting> description;
         try
@@ -990,11 +1014,24 @@ public partial class ModDescriptionService : IDisposable
             throw;
         }
 
-        var entry = new SettingsCacheEntry(description, accountInfo);
+        var entry = new SettingsCacheEntry(description, accountInfo, binding);
+        // AfterChange runs once Value is set; subscribe before caching so no change is missed
+        binding.AfterChange += newUserId => EvictWhenUserChanged(conId, entry, userId, newUserId);
         if (!TryCacheEntry(conId, entry, new MemoryCacheEntryOptions { Size = 1, SlidingExpiration = TimeSpan.FromMinutes(30) }))
             return null;
+        // a change published during the load or before the subscription was attached
+        EvictWhenUserChanged(conId, entry, userId, binding.Value);
         _ = RemoveSettingsEntryOnAccountFailure(conId, entry);
         return entry;
+    }
+
+    // a logout or another login must not keep serving the old account's settings
+    private void EvictWhenUserChanged(string conId, SettingsCacheEntry entry, string cachedUserId, string newUserId)
+    {
+        if (Volatile.Read(ref disposed) != 0 || newUserId == cachedUserId)
+            return;
+        if (settingsCache.TryGetValue<SettingsCacheEntry>(conId, out var current) && ReferenceEquals(current, entry))
+            settingsCache.Remove(conId); // eviction callback disposes the entry and its subscriptions
     }
 
     /// <summary>
@@ -1044,7 +1081,15 @@ public partial class ModDescriptionService : IDisposable
             return false;
         }
 
-        settingsCache.Set(key, entry, options.RegisterPostEvictionCallback(static (_, value, _, _) => (value as IDisposable)?.Dispose()));
+        try
+        {
+            settingsCache.Set(key, entry, options.RegisterPostEvictionCallback(static (_, value, _, _) => (value as IDisposable)?.Dispose()));
+        }
+        catch (ObjectDisposedException)
+        {
+            entry.Dispose();
+            return false;
+        }
         return true;
     }
 
