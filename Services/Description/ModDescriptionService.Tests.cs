@@ -224,8 +224,8 @@ public class ModDescriptionServiceTests
         inventory.Settings = draft;
         settingsApi.Setup(api => api.GetSettingWithHttpInfoAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<int>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new Coflnet.Sky.Settings.Client.Client.ApiResponse<string>(System.Net.HttpStatusCode.NoContent, null));
-        settingsApi.Setup(api => api.GetSettingWithHttpInfoAsync("mod", It.IsAny<string>(), It.IsAny<int>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new Coflnet.Sky.Settings.Client.Client.ApiResponse<string>(System.Net.HttpStatusCode.OK, "\"preview-user\""));
+        settingsApi.Setup(api => api.GetSettingWithHttpInfoAsync(It.IsAny<string>(), "userId", It.IsAny<int>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new Coflnet.Sky.Settings.Client.Client.ApiResponse<string>(System.Net.HttpStatusCode.OK, "\"\\\"preview-user\\\"\""));
         sniperClient.Setup(s => s.GetPrices(It.IsAny<IEnumerable<SaveAuction>>(), default))
             .Returns<IEnumerable<SaveAuction>, bool>((s, ai) => Task.FromResult(s.Select(_ => new Coflnet.Sky.Sniper.Client.Model.PriceEstimate()).ToList()));
 
@@ -243,8 +243,8 @@ public class ModDescriptionServiceTests
         inventory.Settings = new DescriptionSetting { Fields = new() { new() { DescriptionField.LBIN } }, Disabled = true };
         settingsApi.Setup(api => api.GetSettingWithHttpInfoAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<int>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new Coflnet.Sky.Settings.Client.Client.ApiResponse<string>(System.Net.HttpStatusCode.NoContent, null));
-        settingsApi.Setup(api => api.GetSettingWithHttpInfoAsync("mod", It.IsAny<string>(), It.IsAny<int>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new Coflnet.Sky.Settings.Client.Client.ApiResponse<string>(System.Net.HttpStatusCode.OK, "\"preview-user\""));
+        settingsApi.Setup(api => api.GetSettingWithHttpInfoAsync(It.IsAny<string>(), "userId", It.IsAny<int>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new Coflnet.Sky.Settings.Client.Client.ApiResponse<string>(System.Net.HttpStatusCode.OK, "\"\\\"preview-user\\\"\""));
         sniperClient.Setup(s => s.GetPrices(It.IsAny<IEnumerable<SaveAuction>>(), default))
             .Returns<IEnumerable<SaveAuction>, bool>((s, ai) => Task.FromResult(s.Select(_ => new Coflnet.Sky.Sniper.Client.Model.PriceEstimate { Median = 100 }).ToList()));
 
@@ -352,7 +352,7 @@ public class ModDescriptionServiceTests
         await RequestAsSignedOut();
 
         instanceClient.Verify(c => c.GetDescription(It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Once);
-        settingsApi.Verify(api => api.GetSettingWithHttpInfoAsync("mod", It.IsAny<string>(), It.IsAny<int>(), It.IsAny<CancellationToken>()), Times.Once);
+        settingsApi.Verify(api => api.GetSettingWithHttpInfoAsync(It.IsAny<string>(), "userId", It.IsAny<int>(), It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Test]
@@ -416,6 +416,124 @@ public class ModDescriptionServiceTests
 
         Assert.That(second.Settings.Disabled, Is.True);
         instanceClient.Verify(c => c.GetDescription(It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    private void SetupBinding(string key, string json) =>
+        settingsApi.Setup(api => api.GetSettingWithHttpInfoAsync(It.IsAny<string>(), key, It.IsAny<int>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new Coflnet.Sky.Settings.Client.Client.ApiResponse<string>(System.Net.HttpStatusCode.OK, json));
+
+    [Test]
+    public async Task LoggedOutSessionIgnoresStaleModBinding()
+    {
+        SetupSignedOutUser();
+        // login writes it with "mod" as the user, logout never clears it
+        settingsApi.Setup(api => api.GetSettingWithHttpInfoAsync("mod", It.IsAny<string>(), It.IsAny<int>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new Coflnet.Sky.Settings.Client.Client.ApiResponse<string>(System.Net.HttpStatusCode.OK, "\"\\\"stale-user\\\"\""));
+        var expected = DisabledInstanceSettings();
+        instanceClient.Setup(c => c.GetDescription(It.IsAny<string>(), It.IsAny<CancellationToken>())).ReturnsAsync(InstanceSettingsResult.Found(expected));
+
+        var inventory = await RequestAsSignedOut();
+
+        Assert.That(inventory.Settings, Is.SameAs(expected));
+        settingsApi.Verify(api => api.GetSettingWithHttpInfoAsync("stale-user", "description", It.IsAny<int>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Test]
+    public async Task EmptyUserIdBindingCountsAsSignedOut()
+    {
+        SetupSignedOutUser();
+        SetupBinding("userId", "\"\"");
+        instanceClient.Setup(c => c.GetDescription(It.IsAny<string>(), It.IsAny<CancellationToken>())).ReturnsAsync(InstanceSettingsResult.Found(DisabledInstanceSettings()));
+
+        var inventory = await RequestAsSignedOut();
+
+        Assert.That(inventory.Settings.Disabled, Is.True);
+    }
+
+    [Test]
+    public async Task SignedInSessionLoadsAccountDescription()
+    {
+        SetupSignedOutUser();
+        SetupBinding("userId", "\"\\\"user-1\\\"\"");
+
+        await RequestAsSignedOut();
+
+        settingsApi.Verify(api => api.GetSettingWithHttpInfoAsync("user-1", "description", It.IsAny<int>(), It.IsAny<CancellationToken>()), Times.Once);
+        instanceClient.Verify(c => c.GetDescription(It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
+        service.SignedInCacheCountForTests.Should().Be(1);
+    }
+
+    [Test]
+    public async Task LogoutEvictsCachedAccountEntry()
+    {
+        SetupSignedOutUser();
+        SetupBinding("userId", "\"\\\"user-1\\\"\"");
+        var binding = SelfUpdatingValue<string>.CreateNoUpdate("user-1");
+        service.UserBindingFactory = _ => Task.FromResult(binding);
+        var expected = DisabledInstanceSettings();
+        instanceClient.Setup(c => c.GetDescription(It.IsAny<string>(), It.IsAny<CancellationToken>())).ReturnsAsync(InstanceSettingsResult.Found(expected));
+        await RequestAsSignedOut();
+        service.SignedInCacheCountForTests.Should().Be(1);
+
+        await binding.Update((string)null); // what /cofl logout publishes
+        service.UserBindingFactory = _ => Task.FromResult(SelfUpdatingValue<string>.CreateNoUpdate((string)null));
+        var inventory = await RequestAsSignedOut();
+
+        service.SignedInCacheCountForTests.Should().Be(0);
+        Assert.That(inventory.Settings, Is.SameAs(expected));
+    }
+
+    [Test]
+    public async Task LogoutDuringAccountLoadIsNotLost()
+    {
+        SetupSignedOutUser();
+        SetupBinding("userId", "\"\\\"user-1\\\"\"");
+        var binding = SelfUpdatingValue<string>.CreateNoUpdate("user-1");
+        service.UserBindingFactory = _ => Task.FromResult(binding);
+        // the logout is published while the account description is being loaded
+        settingsApi.Setup(api => api.GetSettingWithHttpInfoAsync("user-1", "description", It.IsAny<int>(), It.IsAny<CancellationToken>()))
+            .Returns(async () =>
+            {
+                await binding.Update((string)null);
+                return new Coflnet.Sky.Settings.Client.Client.ApiResponse<string>(System.Net.HttpStatusCode.NoContent, null);
+            });
+        var expected = DisabledInstanceSettings();
+        instanceClient.Setup(c => c.GetDescription(It.IsAny<string>(), It.IsAny<CancellationToken>())).ReturnsAsync(InstanceSettingsResult.Found(expected));
+
+        await RequestAsSignedOut();
+        service.UserBindingFactory = _ => Task.FromResult(SelfUpdatingValue<string>.CreateNoUpdate((string)null));
+        settingsApi.Setup(api => api.GetSettingWithHttpInfoAsync(It.IsAny<string>(), "userId", It.IsAny<int>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new Coflnet.Sky.Settings.Client.Client.ApiResponse<string>(System.Net.HttpStatusCode.NoContent, null));
+        var inventory = await RequestAsSignedOut();
+
+        service.SignedInCacheCountForTests.Should().Be(0);
+        Assert.That(inventory.Settings, Is.SameAs(expected));
+    }
+
+    [Test]
+    public async Task SignedInColdLoadReadsUserBindingOnce()
+    {
+        SetupSignedOutUser();
+        SetupBinding("userId", "\"\\\"user-1\\\"\"");
+
+        await RequestAsSignedOut();
+
+        // no separate probe before the subscription, signed-in loads must stay fast
+        settingsApi.Verify(api => api.GetSettingWithHttpInfoAsync(It.IsAny<string>(), "userId", It.IsAny<int>(), It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Test]
+    public async Task RepublishedSameUserKeepsCachedAccountEntry()
+    {
+        SetupSignedOutUser();
+        SetupBinding("userId", "\"\\\"user-1\\\"\"");
+        var binding = SelfUpdatingValue<string>.CreateNoUpdate("user-1");
+        service.UserBindingFactory = _ => Task.FromResult(binding);
+        await RequestAsSignedOut();
+
+        await binding.Update("user-1");
+
+        service.SignedInCacheCountForTests.Should().Be(1);
     }
 
     InventoryDataWithSettings GetMockInventory()

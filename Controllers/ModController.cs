@@ -119,6 +119,7 @@ namespace Coflnet.Sky.Api.Controller
             }
 
             GoogleUser user = await tokenService.GetUserWithToken(this, true);
+            // legacy binding, SkyApi now reads (conId, "userId"); kept for versions still reading it during rollout
             await settingsService.UpdateSetting("mod", newId, user.Id.ToString());
             await settingsService.UpdateSetting(newId, "userId", user.Id.ToString());
         }
