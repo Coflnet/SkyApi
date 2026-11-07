@@ -10,7 +10,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Coflnet.Core" Version="0.7.4" />
+    <PackageReference Include="Coflnet.Core" Version="0.7.8" />
     <ProjectReference Include="../dev/hypixel.csproj" />
     <ProjectReference Include="../SkyBackendForFrontend/SkyBackendForFrontend.csproj" />
   </ItemGroup>
