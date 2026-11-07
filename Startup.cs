@@ -343,6 +343,10 @@ namespace Coflnet.Sky.Api
             });
             services.AddSingleton<PlayerState.Client.Api.IPlayerStateApi>(p =>
                 new PlayerState.Client.Api.PlayerStateApi(Configuration["PLAYERSTATE_BASE_URL"]));
+            services.AddSingleton<PlayerState.Client.Api.ITaskApi>(p =>
+                new PlayerState.Client.Api.TaskApi(Configuration["PLAYERSTATE_BASE_URL"]));
+            services.AddSingleton(TimeProvider.System);
+            services.AddSingleton<Coflnet.Sky.Api.Services.Tasks.IPublicTaskService, Coflnet.Sky.Api.Services.Tasks.PublicTaskService>();
             services.AddSingleton<Coflnet.Sky.Bazaar.Flipper.Client.Api.IFleetApi>(p => new Coflnet.Sky.Bazaar.Flipper.Client.Api.FleetApi(Configuration["BAZAARFLIPPER_BASE_URL"]));
             services.AddSingleton<AhListChecker>();
 
