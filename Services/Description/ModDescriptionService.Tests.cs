@@ -267,6 +267,24 @@ public class ModDescriptionServiceTests
             .Returns<IEnumerable<SaveAuction>, bool>((s, ai) => Task.FromResult(s.Select(_ => new Coflnet.Sky.Sniper.Client.Model.PriceEstimate()).ToList()));
     }
 
+    // the instance TTLs are wall clock based, a slow first request must not let the entry expire before the second one
+    private void FreezeInstanceCacheClock()
+    {
+        var field = typeof(ModDescriptionService).GetField("instanceCache", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
+        var original = (Microsoft.Extensions.Caching.Memory.MemoryCache)field.GetValue(service);
+        field.SetValue(service, new Microsoft.Extensions.Caching.Memory.MemoryCache(new Microsoft.Extensions.Caching.Memory.MemoryCacheOptions
+        {
+            SizeLimit = 5000,
+            Clock = new FrozenClock(System.DateTimeOffset.UtcNow)
+        }));
+        original.Dispose();
+    }
+
+    private sealed class FrozenClock(System.DateTimeOffset now) : Microsoft.Extensions.Internal.ISystemClock
+    {
+        public System.DateTimeOffset UtcNow => now;
+    }
+
     private static DescriptionSetting DisabledInstanceSettings() =>
         new() { Fields = new() { new() { DescriptionField.LBIN } }, Disabled = true };
 
@@ -341,6 +359,7 @@ public class ModDescriptionServiceTests
     public async Task FailedInstanceLookupIsCachedBrieflyWithDefaults()
     {
         SetupSignedOutUser();
+        FreezeInstanceCacheClock();
         instanceClient.Setup(c => c.GetDescription(It.IsAny<string>(), It.IsAny<CancellationToken>())).ReturnsAsync(InstanceSettingsResult.Failed);
 
         var first = await RequestAsSignedOut();
@@ -357,6 +376,7 @@ public class ModDescriptionServiceTests
     public async Task ThrowingInstanceClientIsCachedBriefly()
     {
         SetupSignedOutUser();
+        FreezeInstanceCacheClock();
         instanceClient.Setup(c => c.GetDescription(It.IsAny<string>(), It.IsAny<CancellationToken>())).ThrowsAsync(new InvalidOperationException("down"));
 
         await RequestAsSignedOut();
