@@ -1,3 +1,4 @@
+using Coflnet.Sky.Api.Helper;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using Coflnet.Sky.Api.Models.Tasks;
@@ -59,7 +60,7 @@ public class TasksController : ControllerBase
             var task = await taskService.GetBySlugAsync(slug, HttpContext.RequestAborted);
             if (task == null)
             {
-                NoStore();
+                this.DisableResponseCaching();
                 return NotFound(new ErrorResponse { Slug = "task_not_found", Message = $"No task with slug {slug}" });
             }
             return Ok(task);
@@ -70,11 +71,9 @@ public class TasksController : ControllerBase
         }
     }
 
-    private void NoStore() => Response.Headers.CacheControl = "no-store";
-
     private ObjectResult Unavailable(CoflnetException e)
     {
-        NoStore();
+        this.DisableResponseCaching();
         return StatusCode(StatusCodes.Status503ServiceUnavailable, new ErrorResponse { Slug = e.Slug, Message = e.Message });
     }
 }

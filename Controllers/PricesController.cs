@@ -1,4 +1,5 @@
 using System;
+using Microsoft.Extensions.Caching.Memory;
 using System.Linq;
 using System.Threading.Tasks;
 using Coflnet.Sky.Api.Services;
@@ -235,14 +236,21 @@ public class PricesController : ControllerBase
     [Route("item/price/{itemTag}/history/year")]
     [HttpGet]
     [Authorize]
-    [ResponseCache(Duration = 3600 * 2, Location = ResponseCacheLocation.Any, NoStore = false, VaryByQueryKeys = new string[] { "*" })]
+    [ResponseCache(NoStore = true, Location = ResponseCacheLocation.None)]
     public async Task<PricesService.PriceStatistics> GetYearHistory(string itemTag,
         [FromQuery] IDictionary<string, string> filters,
         [FromServices] PremiumTierService premiumService,
-        [FromServices] PlayerNameService playerNameApi)
+        [FromServices] PlayerNameService playerNameApi,
+        [FromServices] IMemoryCache cache = null)
     {
         if (!await premiumService.HasPremium(this))
             throw new CoflnetException("premium_required", "This endpoint is only available for premium users");
+        var key = SharedResultCache.Key("price-year", filters, itemTag);
+        return await cache.GetOrCreateShared(key, TimeSpan.FromHours(2), () => LoadYearHistory(itemTag, filters, playerNameApi));
+    }
+
+    private async Task<PricesService.PriceStatistics> LoadYearHistory(string itemTag, IDictionary<string, string> filters, PlayerNameService playerNameApi)
+    {
     var result = await priceService.GetDetailedHistory(itemTag, DateTime.UtcNow - TimeSpan.FromDays(360), DateTime.UtcNow, itemTag == "ENCHANTED_BOOK" ? null : (filters as Dictionary<string, string> ?? new Dictionary<string, string>(filters ?? new Dictionary<string,string>())));
         var playerNames = await playerNameApi.GetNames(result.RecentSamples.Select(a => a.Seller).ToList());
         result.RecentSamples = result.RecentSamples.Select(a =>
@@ -263,10 +271,13 @@ public class PricesController : ControllerBase
     public async Task<PricesService.AdvancedAnalysisResult> GetAnalysis(string itemTag,
         [FromQuery] int days = 7,
         [FromQuery] IDictionary<string, string> filters = null,
-        [FromServices] PremiumTierService premiumService = null)
+        [FromServices] PremiumTierService premiumService = null,
+        [FromServices] IMemoryCache cache = null)
     {
         if (days < 1) days = 1;
         if (days > 365) days = 365;
+        if (days > 7)
+            this.DisableResponseCaching();
 
         if (days > 7 && days <= 30)
         {
@@ -285,7 +296,12 @@ public class PricesController : ControllerBase
         if (dictFilters != null)
             dictFilters.Remove("days");
 
-        return await priceService.GetAdvancedAnalysis(itemTag, DateTime.UtcNow - TimeSpan.FromDays(days), DateTime.UtcNow, dictFilters);
+        Task<PricesService.AdvancedAnalysisResult> Load() =>
+            priceService.GetAdvancedAnalysis(itemTag, DateTime.UtcNow - TimeSpan.FromDays(days), DateTime.UtcNow, dictFilters);
+        if (days <= 7)
+            return await Load();
+        // premium range, the http cache is off so keep the expensive query on the server
+        return await cache.GetOrCreateShared(SharedResultCache.Key("price-analysis", dictFilters, itemTag, days), TimeSpan.FromSeconds(300), Load);
     }
 
     /// <summary>

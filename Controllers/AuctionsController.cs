@@ -1,6 +1,8 @@
 
 
+using Coflnet.Sky.Api.Helper;
 using System;
+using Microsoft.Extensions.Caching.Memory;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
@@ -498,13 +500,19 @@ namespace Coflnet.Sky.Api.Controller
         /// <returns></returns>
         [Route("auctions/tag/{itemTag}/archive/overview")]
         [HttpGet]
-        [ResponseCache(Duration = 120, Location = ResponseCacheLocation.Any, NoStore = false, VaryByQueryKeys = ["*"])]
-        public async Task<ArchiveResponse> GetArchived(string itemTag, [FromQuery] IDictionary<string, string> query)
+        [ResponseCache(NoStore = true, Location = ResponseCacheLocation.None)]
+        public async Task<ArchiveResponse> GetArchived(string itemTag, [FromQuery] IDictionary<string, string> query, [FromServices] IMemoryCache cache = null)
         {
             if (!await premiumTierService.HasPremiumPlus(this))
                 throw new CoflnetException("premplus_required",
                            "Sorry but you need to be a premium plus member to access this data, Authorization header with google/account token");
             AssertArchiveQuery(query);
+            return await cache.GetOrCreateShared(SharedResultCache.Key("archive-overview", query, itemTag),
+                        TimeSpan.FromSeconds(120), () => LoadArchived(itemTag, query));
+        }
+
+        private async Task<ArchiveResponse> LoadArchived(string itemTag, IDictionary<string, string> query)
+        {
             await Task.Delay(2000); // soft ratelimit for db
             List<AuctionPreview> preview = await GetRecentFor(itemTag, query, 1500);
             return new ArchiveResponse()
@@ -577,6 +585,13 @@ namespace Coflnet.Sky.Api.Controller
             return await ToPreview(filter, itemId, orderedSelect);
         }
 
+        private async Task RequirePremiumPlusForDeepPages()
+        {
+            if (!await premiumTierService.HasPremiumPlus(this))
+                throw new CoflnetException("max_page_exceeded", "Sorry you are only allowed to query 10 pages");
+            this.DisableResponseCaching();
+        }
+
         private async Task<List<AuctionPreview>> ToPreview(IDictionary<string, string> query, int itemId, IOrderedQueryable<SaveAuction> baseSelect)
         {
             var filter = new Dictionary<string, string>(query);
@@ -585,8 +600,8 @@ namespace Coflnet.Sky.Api.Controller
             {
                 int.TryParse(filter["page"], out page);
                 filter.Remove("page");
-                if (page > 10 && !await premiumTierService.HasPremiumPlus(this))
-                    throw new CoflnetException("max_page_exceeded", "Sorry you are only allowed to query 10 pages");
+                if (page > 10)
+                    await RequirePremiumPlusForDeepPages();
             }
             filter["ItemId"] = itemId.ToString();
             var pageSize = 12;
