@@ -1,3 +1,5 @@
+using Coflnet.Sky.Api.Helper;
+using Microsoft.Extensions.Caching.Memory;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using Coflnet.Sky.Api.Services;
@@ -104,13 +106,17 @@ namespace Coflnet.Sky.Api.Controller
         [Route("attribute")]
         [HttpGet]
         [Authorize]
-        [ResponseCache(Duration = 60, Location = ResponseCacheLocation.Any, NoStore = false, VaryByQueryKeys = new[] { "sort" })]
-        public async Task<IEnumerable<AttributeFlip>> GetAttributeFlips(string sort = "profit")
+        [ResponseCache(NoStore = true, Location = ResponseCacheLocation.None)]
+        public async Task<IEnumerable<AttributeFlip>> GetAttributeFlips(string sort = "profit", [FromServices] IMemoryCache cache = null)
         {
             if (!await premiumTierService.HasPremium(this))
                 throw new CoflnetException("no_premium",
                     "Sorry this feature is only available for premium users.");
+            return await cache.GetOrCreateShared("attribute-flips|" + sort?.ToLowerInvariant(), TimeSpan.FromSeconds(60), () => LoadAttributeFlips(sort));
+        }
 
+        private async Task<IEnumerable<AttributeFlip>> LoadAttributeFlips(string sort)
+        {
             var itemNamesTask = itemsApi.ItemNamesGetAsync();
             var response = await attributeApi.ApiAttributeCraftsGetWithHttpInfoAsync();
             var flips = Newtonsoft.Json.JsonConvert.DeserializeObject<List<AttributeFlip>>(response.RawContent) ?? new List<AttributeFlip>();
@@ -287,6 +293,8 @@ namespace Coflnet.Sky.Api.Controller
         public async Task<IEnumerable<Crafts.Client.Model.NpcFlip>> GetReverseNpcFlips([FromServices] INpcApi npcApi, bool requestRefresh = false)
         {
             var refresh = requestRefresh && await premiumTierService.HasPremium(this);
+            if (refresh)
+                this.DisableResponseCaching();
             return await npcApi.GetNpcFlipsAsync(refresh);
         }
         /// <summary>
@@ -306,13 +314,14 @@ namespace Coflnet.Sky.Api.Controller
         [Route("fusion/multistep")]
         [HttpGet]
         [Authorize]
-        [ResponseCache(Duration = 20, Location = ResponseCacheLocation.Any, NoStore = false)]
-        public async Task<IEnumerable<Bazaar.Flipper.Client.Model.FuseFlip>> GetMultiStepFusionFlips()
+        [ResponseCache(NoStore = true, Location = ResponseCacheLocation.None)]
+        public async Task<IEnumerable<Bazaar.Flipper.Client.Model.FuseFlip>> GetMultiStepFusionFlips([FromServices] IMemoryCache cache = null)
         {
             if (!await premiumTierService.HasStarterPremium(this))
                 return new[] { new Bazaar.Flipper.Client.Model.FuseFlip() { Output = "Requires starter premium or better" } };
             // TODO: uncomment after bumping Coflnet.Sky.Bazaar.Flipper.Client to 0.7.0
-            return await bazaarFlipperApi.FusionMultistepGetAsync();
+            return await cache.GetOrCreateShared("fusion-multistep", TimeSpan.FromSeconds(20),
+                async () => (IEnumerable<Bazaar.Flipper.Client.Model.FuseFlip>)await bazaarFlipperApi.FusionMultistepGetAsync());
         }
         /// <summary>
         /// Copper flips - buy greenhouse crops from bazaar, analyze for copper
@@ -339,7 +348,7 @@ namespace Coflnet.Sky.Api.Controller
         /// </summary>
         [Route("forge")]
         [HttpGet]
-        [ResponseCache(Duration = 300, Location = ResponseCacheLocation.Any, NoStore = false)]
+        [ResponseCache(Duration = 300, Location = ResponseCacheLocation.Any, NoStore = false, VaryByQueryKeys = new[] { "uuid" })]
         public async Task<IEnumerable<Crafts.Client.Model.ForgeFlip>> GetForgeFlips([FromServices] ForgeFlipService forgeApi, string uuid = null)
         {
             var name = uuid == null ? null : await DiHandler.GetService<PlayerName.PlayerNameService>()
@@ -459,10 +468,14 @@ namespace Coflnet.Sky.Api.Controller
             Console.WriteLine($"Getting stats for {playerUuid} from {start} to {end}");
             var length = (end - start);
             if (length.TotalDays > 7 || start < DateTime.UtcNow.AddDays(-7.1))
+            {
                 if (!await premiumTierService.HasPremium(this))
                     throw new CoflnetException("invalid_time",
                         "Sorry but this is currently limited to one week for non premium users. "
                         + $"Please provide a google token as `{premiumTierService.HeaderName}` header to get further history");
+                // premium range, must not be served to other users from a shared cache
+                this.DisableResponseCaching();
+            }
             if (length.TotalDays <= 0)
                 throw new CoflnetException("invalid_time", "End has to be after start");
             var result = await flipService.GetPlayerFlips(playerUuid, length, end);
@@ -504,6 +517,7 @@ namespace Coflnet.Sky.Api.Controller
         /// </summary>
         /// <param name="end">The end time for the query window.</param>
         [HttpGet("unknown")]
+        [ResponseCache(NoStore = true, Location = ResponseCacheLocation.None)]
         public async Task<IEnumerable<FlipDetails>> GetUnknownFlips(DateTime end)
         {
             if (!await premiumTierService.HasPremiumPlus(this))

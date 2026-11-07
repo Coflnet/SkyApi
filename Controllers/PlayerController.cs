@@ -1,3 +1,4 @@
+using Coflnet.Sky.Api.Helper;
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
@@ -380,7 +381,7 @@ namespace Coflnet.Sky.Api.Controller
         /// <returns></returns>
         [Route("bazaar/flips")]
         [HttpGet]
-        [ResponseCache(Duration = 30, Location = ResponseCacheLocation.Any, NoStore = false, VaryByQueryKeys = new string[] { "apiKey" })]
+        [ResponseCache(NoStore = true, Location = ResponseCacheLocation.None)]
         public async Task<List<PlayerState.Client.Model.CompletedBazaarFlip>> GetPlayerBazaarFlips([FromServices] ApiKeyService keyService,[FromServices] IBazaarProfitApi profitApi, string apiKey = null)
         {
             var keyInfo = await keyService.GetKeyInfo(this);
@@ -392,6 +393,7 @@ namespace Coflnet.Sky.Api.Controller
         /// <returns></returns>
         [Route("extracted")]
         [HttpGet]
+        [ResponseCache(NoStore = true, Location = ResponseCacheLocation.None)]
         public async Task<PlayerState.Client.Model.ExtractedInfo> GetPlayerSate([FromServices] ApiKeyService keyService, string apiKey = null)
         {
             var keyInfo = await keyService.GetKeyInfo(this);

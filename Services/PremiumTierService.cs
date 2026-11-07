@@ -40,14 +40,14 @@ public class PremiumTierService
     /// <summary>
     /// Checks whether the requesting user has a premium_plus subscription.
     /// </summary>
-    public async Task<bool> HasPremiumPlus(ControllerBase controllerInstance)
+    public virtual async Task<bool> HasPremiumPlus(ControllerBase controllerInstance)
     {
         return await OwnsProduct(controllerInstance, "premium_plus");
     }
     /// <summary>
     /// Checks whether the requesting user has a starter premium subscription.
     /// </summary>
-    public async Task<bool> HasStarterPremium(ControllerBase controllerInstance)
+    public virtual async Task<bool> HasStarterPremium(ControllerBase controllerInstance)
     {
         var name = "starter_premium";
         return await OwnsProduct(controllerInstance, name);
@@ -118,7 +118,7 @@ public class PremiumTierService
     /// </summary>
     /// <param name="controllerInstance">The controller making the request.</param>
     /// <returns>The authenticated Google user, or null if not found.</returns>
-    public async Task<GoogleUser> GetUserOrDefault(ControllerBase controllerInstance)
+    public virtual async Task<GoogleUser> GetUserOrDefault(ControllerBase controllerInstance)
     {
         if (!controllerInstance.Request.Headers.TryGetValue(HeaderName, out StringValues value)
                         && !controllerInstance.Request.Headers.TryGetValue("Authorization", out value))

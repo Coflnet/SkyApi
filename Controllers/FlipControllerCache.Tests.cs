@@ -137,7 +137,7 @@ public class FlipControllerCacheTests
         }
     }
 
-    private static IHost CreateHost(out TestPremiumTierService premium, Action<IWebHostBuilder> configure = null)
+    internal static IHost CreateHost(out TestPremiumTierService premium, Action<IWebHostBuilder> configure = null)
     {
         premium = new TestPremiumTierService();
         var premiumService = premium;
@@ -172,7 +172,7 @@ public class FlipControllerCacheTests
         return await client.SendAsync(request);
     }
 
-    private static T CreateProxy<T>() where T : class =>
+    internal static T CreateProxy<T>() where T : class =>
         DispatchProxy.Create<T, EmptyAsyncProxy>();
 
     /// <summary>Represents an empty async proxy.</summary>
@@ -238,13 +238,23 @@ public class FlipControllerCacheTests
         }
     }
 
-    private sealed class TestPremiumTierService : PremiumTierService
+    /// <summary>Premium tier by token, only the token "premium" owns every tier.</summary>
+    internal sealed class TestPremiumTierService : PremiumTierService
     {
         public TestPremiumTierService() : base(null, null) { }
 
         public int Evaluations { get; private set; }
 
-        public override Task<bool> HasPremium(ControllerBase controllerInstance)
+        public override Task<bool> HasPremium(ControllerBase controllerInstance) => Evaluate(controllerInstance);
+
+        public override Task<bool> HasPremiumPlus(ControllerBase controllerInstance) => Evaluate(controllerInstance);
+
+        public override Task<bool> HasStarterPremium(ControllerBase controllerInstance) => Evaluate(controllerInstance);
+
+        public override Task<Core.GoogleUser> GetUserOrDefault(ControllerBase controllerInstance) =>
+            Task.FromResult(controllerInstance.Request.Headers["GoogleToken"] == "premium" ? new Core.GoogleUser() : null);
+
+        private Task<bool> Evaluate(ControllerBase controllerInstance)
         {
             Evaluations++;
             return Task.FromResult(

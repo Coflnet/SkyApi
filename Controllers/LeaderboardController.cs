@@ -1,6 +1,7 @@
 using System.Linq;
 using System.Threading.Tasks;
 using Coflnet.Leaderboard.Client.Api;
+using Coflnet.Sky.Api.Helper;
 using Coflnet.Sky.Api.Services;
 using Coflnet.Sky.Commands;
 using Coflnet.Sky.Core;
@@ -30,7 +31,7 @@ public class LeaderboardController : ControllerBase
     /// </summary>
     [Route("profit")]
     [HttpGet]
-    [ResponseCache(Duration = 60, Location = ResponseCacheLocation.Any, NoStore = false)]
+    [ResponseCache(Duration = 60, Location = ResponseCacheLocation.Any, NoStore = false, VaryByQueryKeys = new[] { "weekOffset" })]
     public async Task<List<LeaderboardEntry>> GetProfitLeaderboard(int weekOffset = 0)
     {
         // GetTopFlippers takes a page number, not a raw skip - offset is computed as page * count downstream
@@ -43,6 +44,8 @@ public class LeaderboardController : ControllerBase
         }
         else if (!await premiumTierService.HasPremiumPlus(this))
             throw new CoflnetException("no_premium_plus", "This endpoint is only available for Premium+ users");
+        else
+            this.DisableResponseCaching();
         var entries = await scoresApi.GetTopFlippers(GetBoardName(),DateTime.UtcNow.AddDays(weekOffset * -7) , page, take);
         return entries.Select(e => new LeaderboardEntry
         {

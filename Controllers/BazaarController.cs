@@ -1,3 +1,4 @@
+using Coflnet.Sky.Api.Helper;
 using System.Threading.Tasks;
 using Coflnet.Sky.Core;
 using Microsoft.AspNetCore.Mvc;
@@ -98,6 +99,7 @@ namespace Coflnet.Sky.Api.Controller
                 {
                     throw new CoflnetException("no_premium_plus", "Sorry for custom timeframes of over a year ago you require prem+");
                 }
+                this.DisableResponseCaching();
             }
             var result = await bazaarClient.GetHistoryGraphAsync(itemTag,
                 start.HasValue ? start!.Value.RoundDown(TimeSpan.FromMinutes(1)) : null,
