@@ -19,11 +19,12 @@ public static class SetupBasis
 /// Holds community data only (and numbers of locked tiers), it must never be returned as is.
 /// </summary>
 /// <param name="Estimates">The curated setups with modelled numbers, null when no profile is researched</param>
-/// <param name="Degraded">True when clusters, estimates or prices were missing because of a failure</param>
+/// <param name="Degraded">True when the gear model, estimates or prices were missing because of a failure</param>
 /// <param name="CommunityRate">The task's community coins per hour, null when unknown</param>
+/// <param name="ScoreFormula">The gear model's score formula, null without a gear model</param>
 public record SetupsModel(string Slug, string TaskName, string Category, DateTime? MeasuredAt, TaskGearSetups Estimates,
     TierPlan Plan, IReadOnlyList<GearModifierEffect> ModifierEffects, IReadOnlyDictionary<string, string> TaskSlugs, bool Degraded,
-    double? CommunityRate = null);
+    double? CommunityRate = null, GearScoreFormulaInfo ScoreFormula = null);
 
 /// <summary>Who a view is built for. Every access has its own cached view, the endgame tier is only in <see cref="PremiumPlus"/>.</summary>
 public enum SetupsAccess
@@ -39,7 +40,8 @@ public enum SetupsAccess
 /// <summary>
 /// Builds the public and the details view from a <see cref="SetupsModel"/>. A tier's numbers, player counts, modifiers
 /// and acquisition are only copied when the tier is free (<see cref="PublicSetupsMapper.FreeTiers"/>) or the details view is
-/// built, stat medians for the details view and modifier effects only for premium plus (pooled transitions of the endgame players can describe endgame gear). The endgame tier (measured or estimated) is only
+/// built, stat medians for the details view and modifier effects only for premium plus (pooled transitions of the endgame players can describe endgame gear).
+/// The late game cohort only ever travels on the endgame tier. The endgame tier (measured or estimated) is only
 /// described for <see cref="SetupsAccess.PremiumPlus"/>, everyone else gets <see cref="EndgamePlaceholder"/> that carries
 /// nothing derived from the gear. This is the single place that decides.
 /// </summary>
@@ -60,6 +62,7 @@ public static class TaskSetupsComposer
             Baseline = MapChoice(model.Plan.Baseline, model, quotes, access),
             Setups = OneEndgamePlaceholder(model.Plan.Setups.Select(c => MapChoice(c, model, quotes, access)).Where(s => s != null)),
             ModifierEffects = access == SetupsAccess.PremiumPlus ? MapEffects(model.ModifierEffects) : null,
+            ScoreFormula = MapFormula(model.ScoreFormula),
         };
         if (details || result.Baseline is not { Locked: true })
         {
@@ -106,13 +109,6 @@ public static class TaskSetupsComposer
         RequiredTier = PremiumPlusTier,
     };
 
-    /// <summary>
-    /// Owned items of a measured baseline in the estimates' <see cref="PublicSetupsMapper.QuoteKey"/> form (plain tags), null
-    /// for an estimated baseline. An estimate item with price filters (eg. a pet variant) never counts as owned by it.
-    /// </summary>
-    public static IReadOnlySet<string> DisplayedBaselineKeys(TierPlan plan)
-        => plan?.Baseline?.Measured?.Pieces.Select(p => PublicSetupsMapper.QuoteKey(p.Piece.Tag, null)).ToHashSet();
-
     /// <summary>The estimated setups that get numbers in a view, their items need resale quotes</summary>
     public static List<GearSetupEstimate> QuotedEstimates(TierPlan plan, SetupsAccess access)
         => plan.Setups.Where(c => c is { IsMeasured: false } && !IsHidden(c, access) && IsOpen(c, access)).Select(c => c.Estimate).ToList();
@@ -125,9 +121,19 @@ public static class TaskSetupsComposer
             return EndgamePlaceholder();
         var open = IsOpen(choice, access);
         if (choice.IsMeasured)
-            return MeasuredSetupMapper.Map(choice, model.Plan, model.CommunityRate, open, access != SetupsAccess.Public);
-        return PublicSetupsMapper.MapEstimate(choice.Estimate, model.Estimates, model.TaskSlugs, quotes, open, choice.DeltaCoinsPerHour,
-            DisplayedBaselineKeys(model.Plan));
+            return MeasuredSetupMapper.Map(choice, model.CommunityRate, open, access != SetupsAccess.Public);
+        return PublicSetupsMapper.MapEstimate(choice.Estimate, model.Estimates, model.TaskSlugs, quotes, open, choice.DeltaCoinsPerHour, null);
+    }
+
+    /// <summary>PlayerState's formula kind of tasks without a gear score (non-combat "other" tasks)</summary>
+    public const string NoScoreFormula = "none";
+
+    /// <summary>The formula is the same for every task of a category, nothing in it comes from players; null for a task without a score</summary>
+    private static PublicScoreFormula MapFormula(GearScoreFormulaInfo formula)
+    {
+        if (formula == null || string.IsNullOrEmpty(formula.Kind) || formula.Kind == NoScoreFormula)
+            return null;
+        return new PublicScoreFormula { Kind = formula.Kind, Expression = formula.Expression, Weights = formula.Weights ?? new() };
     }
 
     private static List<PublicModifierEffect> MapEffects(IReadOnlyList<GearModifierEffect> effects)

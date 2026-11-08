@@ -46,34 +46,42 @@ public class MeasuredSetupPricerTests
     public void Nothing_priced_is_an_unknown_cost()
         => MeasuredSetupPricer.CostOf(Found(null, null), ItemResaleQuote.Unknown("X")).Should().Be(((double?)null, (string)null));
 
-    private static async Task<PricedCluster> PriceOne(Func<string, long?> direct, Func<string, IReadOnlyDictionary<string, string>, ItemResaleQuote> quote,
-        IReadOnlySet<string> untradeable = null, GearCluster cluster = null)
+    /// <summary>A tool and a helmet of the catalog, as a measured build would have them</summary>
+    private static List<MeasuredPiece> Build(string tool = "HOE", string helmet = "HELMET_A", GearPiece toolPiece = null)
+        => [MeasuredPiece.Of(Entry("tool", tool, 100, item: toolPiece ?? Piece(tool))), MeasuredPiece.Of(Entry("helmet", helmet, 50))];
+
+    private static PricedBuild AsBuild(PricedPieces priced, IEnumerable<MeasuredPiece> pieces)
+        => new(pieces.Select(p => priced.Pieces[p.Id]).ToList(), 1, 1, null, RateBases.Curve, false, "low");
+
+    private static async Task<PricedBuild> PriceOne(Func<string, long?> direct, Func<string, IReadOnlyDictionary<string, string>, ItemResaleQuote> quote,
+        IReadOnlySet<string> untradeable = null)
     {
         var pricer = new MeasuredSetupPricer(MeasuredTestData.Acquisition(direct).Object, Resale(quote).Object);
-        return (await pricer.PriceAsync([cluster ?? Cluster("HOE", 1)], untradeable)).Clusters.Single();
+        var pieces = Build();
+        return AsBuild(await pricer.PriceAsync(pieces, untradeable), pieces);
     }
 
     /// <summary>Regression: an item without listings and sales counted as untradeable, so the setup looked free</summary>
     [Test]
     public async Task Item_without_any_price_is_not_free_without_evidence_it_is_untradeable()
     {
-        var cluster = await PriceOne(tag => tag == "HOE" ? 1000 : null, (tag, _) => tag == "HOE" ? Quote(tag, 1000) : ItemResaleQuote.Unknown(tag));
+        var build = await PriceOne(tag => tag == "HOE" ? 1000 : null, (tag, _) => tag == "HOE" ? Quote(tag, 1000) : ItemResaleQuote.Unknown(tag));
 
-        var helmet = cluster.Pieces.Single(p => p.Piece.Slot == "helmet");
+        var helmet = build.Pieces.Single(p => p.Piece.Slot == "helmet");
         helmet.NoMarket.Should().BeFalse();
         helmet.Transient.Should().BeFalse();
-        cluster.FullCost.Should().BeNull("the setup cost is unknown, not 1000");
-        cluster.TransientlyUnpriced.Should().BeFalse();
+        build.FullCost.Should().BeNull("the build cost is unknown, not 1000");
+        build.TransientlyUnpriced.Should().BeFalse();
     }
 
     [Test]
     public async Task Item_the_profile_marks_untradeable_is_left_out_of_the_cost()
     {
-        var cluster = await PriceOne(tag => tag == "HOE" ? 1000 : null, (tag, _) => tag == "HOE" ? Quote(tag, 1000) : ItemResaleQuote.Unknown(tag),
+        var build = await PriceOne(tag => tag == "HOE" ? 1000 : null, (tag, _) => tag == "HOE" ? Quote(tag, 1000) : ItemResaleQuote.Unknown(tag),
             new HashSet<string> { "HELMET_A" });
 
-        cluster.Pieces.Single(p => p.Piece.Slot == "helmet").NoMarket.Should().BeTrue();
-        cluster.FullCost.Should().Be(1000);
+        build.Pieces.Single(p => p.Piece.Slot == "helmet").NoMarket.Should().BeTrue();
+        build.FullCost.Should().Be(1000);
     }
 
     [Test]
@@ -85,11 +93,11 @@ public class MeasuredSetupPricerTests
             .ReturnsAsync(new AcquisitionResult(null, AcquisitionReasons.NoListing, null, AcquisitionReasons.NoBase, filters, At));
         var resale = Resale((tag, f) => f == null ? Quote(tag, 4000) : ItemResaleQuote.Unknown(tag));
 
-        var priced = await new MeasuredSetupPricer(acquisition.Object, resale.Object).PriceAsync([Cluster("HOE", 1)]);
+        var pieces = Build();
+        var build = AsBuild(await new MeasuredSetupPricer(acquisition.Object, resale.Object).PriceAsync(pieces), pieces);
 
-        var cluster = priced.Clusters.Single();
-        cluster.Pieces.Should().OnlyContain(p => p.LowerBound && p.CostSource == CostSources.Market);
-        cluster.LowerBound.Should().BeTrue();
+        build.Pieces.Should().OnlyContain(p => p.LowerBound && p.CostSource == CostSources.Market);
+        build.LowerBound.Should().BeTrue();
     }
 
     [Test]
@@ -99,21 +107,22 @@ public class MeasuredSetupPricerTests
         acquisition.Setup(a => a.GetAsync(It.IsAny<GearItemSpec>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(Found(null, Base(10, grind: true)));
 
-        var priced = await new MeasuredSetupPricer(acquisition.Object, Resale((tag, _) => Quote(tag, 999)).Object).PriceAsync([Cluster("HOE", 1)]);
+        var priced = await new MeasuredSetupPricer(acquisition.Object, Resale((tag, _) => Quote(tag, 999)).Object).PriceAsync(Build());
 
-        priced.Clusters.Single().Pieces.Should().OnlyContain(p => p.LowerBound && p.Cost == 999);
+        priced.Pieces.Values.Should().OnlyContain(p => p.LowerBound && p.Cost == 999);
     }
 
     [Test]
-    public async Task Failed_lookup_without_a_price_makes_the_cluster_transiently_unpriced()
+    public async Task Failed_lookup_without_a_price_makes_the_build_transiently_unpriced()
     {
         var acquisition = new Mock<IGearAcquisitionService>();
         acquisition.Setup(a => a.GetAsync(It.IsAny<GearItemSpec>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(Found(null, null, AcquisitionReasons.Timeout));
 
-        var priced = await new MeasuredSetupPricer(acquisition.Object, Resale((tag, _) => ItemResaleQuote.Unknown(tag)).Object).PriceAsync([Cluster("HOE", 1)]);
+        var pieces = Build();
+        var priced = await new MeasuredSetupPricer(acquisition.Object, Resale((tag, _) => ItemResaleQuote.Unknown(tag)).Object).PriceAsync(pieces);
 
-        priced.Clusters.Single().TransientlyUnpriced.Should().BeTrue();
+        AsBuild(priced, pieces).TransientlyUnpriced.Should().BeTrue();
         priced.Degraded.Should().BeTrue();
     }
 
@@ -140,15 +149,19 @@ public class MeasuredSetupPricerTests
                 Interlocked.Decrement(ref running);
                 return Direct(1000);
             });
-        // ten clusters with distinct tools, all sharing one helmet
-        var clusters = Enumerable.Range(0, 10).Select(i => Cluster("TOOL_" + i, 1_000_000 + i)).ToList();
+        // ten distinct tools, and two catalog entries (different ids) with the same helmet spec
+        var pieces = Enumerable.Range(0, 10).Select(i => MeasuredPiece.Of(Entry("tool", "TOOL_" + i, i))).ToList();
+        pieces.Add(MeasuredPiece.Of(Entry("helmet", "HELMET_A", 1)));
+        var sameSpec = Entry("helmet", "HELMET_A", 1);
+        sameSpec.Id = "helmet:HELMET_A:other";
+        pieces.Add(MeasuredPiece.Of(sameSpec));
         var pricer = new MeasuredSetupPricer(acquisition.Object, Resale((tag, _) => Quote(tag, 1000)).Object);
 
-        var priced = await pricer.PriceAsync(clusters);
+        var priced = await pricer.PriceAsync(pieces);
 
         acquisition.Verify(a => a.GetAsync(It.IsAny<GearItemSpec>(), It.IsAny<CancellationToken>()), Times.Exactly(11));
         maxRunning.Should().BeLessThanOrEqualTo(MeasuredSetupPricer.MaxParallelAcquisitions);
-        priced.Clusters.Should().HaveCount(10).And.OnlyContain(c => c.FullCost == 2000);
+        priced.Pieces.Should().HaveCount(12).And.OnlyContain(p => p.Value.Cost == 1000);
         priced.Degraded.Should().BeFalse();
     }
 
@@ -168,9 +181,9 @@ public class MeasuredSetupPricerTests
         var resale = Resale((tag, f) => f == null ? Quote(tag, 4000, 3500) : ItemResaleQuote.Unknown(tag));
         var pricer = new MeasuredSetupPricer(acquisition.Object, resale.Object);
 
-        var priced = await pricer.PriceAsync([Cluster("HOE", 1)]);
+        var priced = await pricer.PriceAsync(Build());
 
-        var tool = priced.Clusters.Single().Pieces.Single(p => p.Piece.Slot == "tool");
+        var tool = priced.Pieces["tool:HOE"];
         tool.Cost.Should().Be(5000, "the cost is the acquisition's");
         tool.Quote.Resale.Should().Be(3500, "the variant has no sales, so the plain item is the resale value");
         resale.Verify(r => r.GetQuoteAsync("HOE", It.Is<IReadOnlyDictionary<string, string>>(d => d != null && d["harvesting"] == ">5"), It.IsAny<CancellationToken>()), Times.Once);
@@ -187,23 +200,24 @@ public class MeasuredSetupPricerTests
         resale.Setup(r => r.GetQuoteAsync(It.IsAny<string>(), It.IsAny<IReadOnlyDictionary<string, string>>(), It.IsAny<CancellationToken>()))
             .ThrowsAsync(new InvalidOperationException("prices down"));
 
-        var priced = await new MeasuredSetupPricer(acquisition.Object, resale.Object).PriceAsync([Cluster("HOE", 1)]);
+        var pieces = Build();
+        var priced = await new MeasuredSetupPricer(acquisition.Object, resale.Object).PriceAsync(pieces);
 
         priced.Degraded.Should().BeTrue();
-        priced.Clusters.Single().FullCost.Should().BeNull("an unknown price is not untradeable");
+        AsBuild(priced, pieces).FullCost.Should().BeNull("an unknown price is not untradeable");
     }
 
     [Test]
     public async Task Tag_only_piece_and_pet_are_marked_and_looked_up_without_modifiers()
     {
-        var cluster = Cluster("HOE", 1, toolPiece: new GearPiece { Tag = "HOE" });
-        cluster.Pet = new GearPet { Type = "ELEPHANT" };
+        var catalog = Build(toolPiece: new GearPiece { Tag = "HOE" });
+        catalog.Add(MeasuredPiece.Of(new GearCatalogPiece { Id = "pet:ELEPHANT", Slot = "pet", Pet = new GearPet { Type = "ELEPHANT" } }));
         var acquisition = MeasuredTestData.Acquisition(_ => 1000);
         var pricer = new MeasuredSetupPricer(acquisition.Object, Resale((tag, _) => Quote(tag, 1000)).Object);
 
-        var priced = await pricer.PriceAsync([cluster]);
+        var priced = await pricer.PriceAsync(catalog);
 
-        var pieces = priced.Clusters.Single().Pieces.ToDictionary(p => p.Piece.Slot);
+        var pieces = priced.Pieces.Values.ToDictionary(p => p.Piece.Slot);
         pieces["tool"].Piece.ModifiersMeasured.Should().BeFalse();
         pieces["helmet"].Piece.ModifiersMeasured.Should().BeTrue();
         pieces["pet"].Piece.ModifiersMeasured.Should().BeFalse();
@@ -226,15 +240,16 @@ public class MeasuredSetupPricerTests
         var pricer = new MeasuredSetupPricer(acquisition.Object, Resale((tag, _) => Quote(tag, 1000)).Object,
             TimeSpan.FromMilliseconds(200), TimeSpan.FromSeconds(5));
 
-        var priced = await pricer.PriceAsync([Cluster("SLOW", 1), Cluster("FAST", 1, helmet: "H2")]).WaitAsync(TimeSpan.FromSeconds(10));
+        var slowBuild = Build("SLOW");
+        var fastBuild = Build("FAST", "H2");
+        var priced = await pricer.PriceAsync(slowBuild.Concat(fastBuild).ToList()).WaitAsync(TimeSpan.FromSeconds(10));
 
         priced.Degraded.Should().BeTrue();
-        var slowCluster = priced.Clusters.Single(c => c.Cluster.Slots["tool"].Tag == "SLOW");
-        var slow = slowCluster.Pieces.Single(p => p.Piece.Slot == "tool");
+        var slow = priced.Pieces["tool:SLOW"];
         slow.Acquisition.DirectUnavailableReason.Should().Be(AcquisitionReasons.Timeout);
-        slow.Transient.Should().BeTrue("the plain item's market price of a timed out spec must not price the setup");
-        slowCluster.TransientlyUnpriced.Should().BeTrue();
-        var fast = priced.Clusters.Single(c => c.Cluster.Slots["tool"].Tag == "FAST");
+        slow.Transient.Should().BeTrue("the plain item's market price of a timed out spec must not price the build");
+        AsBuild(priced, slowBuild).TransientlyUnpriced.Should().BeTrue();
+        var fast = AsBuild(priced, fastBuild);
         fast.FullCost.Should().Be(2000);
         fast.TransientlyUnpriced.Should().BeFalse();
     }
@@ -246,11 +261,11 @@ public class MeasuredSetupPricerTests
         var acquisition = new Mock<IGearAcquisitionService>();
         acquisition.Setup(a => a.GetAsync(It.IsAny<GearItemSpec>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(Found(null, null)); // no listing, no base, no filters (eg. only post hoc modifiers)
-        var tagOnly = Cluster("HOE", 1, toolPiece: new GearPiece { Tag = "HOE" });
+        var tagOnly = Build(toolPiece: new GearPiece { Tag = "HOE" });
 
-        var priced = await new MeasuredSetupPricer(acquisition.Object, Resale((tag, _) => Quote(tag, 999)).Object).PriceAsync([tagOnly]);
+        var priced = await new MeasuredSetupPricer(acquisition.Object, Resale((tag, _) => Quote(tag, 999)).Object).PriceAsync(tagOnly);
 
-        var pieces = priced.Clusters.Single().Pieces.ToDictionary(p => p.Piece.Slot);
+        var pieces = priced.Pieces.Values.ToDictionary(p => p.Piece.Slot);
         pieces["helmet"].LowerBound.Should().BeTrue("its rarity was measured but nothing filtered for it");
         pieces["tool"].LowerBound.Should().BeFalse("a tag only piece is priced as the plain item on purpose");
         pieces.Values.Should().OnlyContain(p => !p.Transient);
@@ -263,9 +278,10 @@ public class MeasuredSetupPricerTests
         acquisition.Setup(a => a.GetAsync(It.IsAny<GearItemSpec>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(Found(1000, null, AcquisitionReasons.PricesNotLoaded));
 
-        var priced = await new MeasuredSetupPricer(acquisition.Object, Resale((tag, _) => Quote(tag, 999)).Object).PriceAsync([Cluster("HOE", 1)]);
+        var pieces = Build();
+        var priced = await new MeasuredSetupPricer(acquisition.Object, Resale((tag, _) => Quote(tag, 999)).Object).PriceAsync(pieces);
 
-        priced.Clusters.Single().TransientlyUnpriced.Should().BeFalse("a matching auction is a real price");
+        AsBuild(priced, pieces).TransientlyUnpriced.Should().BeFalse("a matching auction is a real price");
         priced.Degraded.Should().BeTrue();
     }
 }

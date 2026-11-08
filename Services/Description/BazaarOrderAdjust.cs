@@ -113,7 +113,7 @@ public class BazaarOrderAdjust : ICustomModifier
                 }
             }
         }
-        if (ModDescriptionService.TracksGoals(data.userId, data.inventory))
+        if (!string.IsNullOrEmpty(data.userId))
         {
             try
             {

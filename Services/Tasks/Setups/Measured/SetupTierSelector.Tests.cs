@@ -20,20 +20,17 @@ public class SetupTierSelectorTests
         Estimates.Setup("mid", "upgrade", 20_000, Estimates.Item("M")),
         Estimates.Setup("endgame", "upgrade", 30_000, Estimates.Item("E")));
 
-    private static PricedCluster At(string tool, double rate, double? cost, int level = 1, string extraKey = null)
-        => Priced(Cluster(tool, rate, level: level, extraKey: extraKey), cost);
-
-    private static PricedCluster Base() => At("BASE", 1.0 * M, 0.5 * M);
-
     private static Dictionary<string, TierChoice> ByTier(TierPlan plan)
         => plan.Setups.Append(plan.Baseline).Where(c => c != null).ToDictionary(c => c.Tier);
 
-    private static string Tool(TierChoice choice) => choice.Measured.Cluster.Slots["tool"].Tag;
+    private static List<string> Tags(TierChoice choice) => choice.Measured.Pieces.Select(p => p.Piece.Tag).ToList();
+
+    private static TierPlan FourTiers(TaskGearSetups estimates = null) => SetupTierSelector.Select(FourTierModel.Priced(), estimates, FourTierModel.CommunityRate);
 
     [Test]
     public void Only_estimates_keep_every_tier_with_its_modelled_gain()
     {
-        var plan = SetupTierSelector.Select([], FourEstimates());
+        var plan = SetupTierSelector.Select(null, FourEstimates());
 
         var tiers = ByTier(plan);
         tiers.Values.Should().OnlyContain(c => !c.IsMeasured);
@@ -41,337 +38,261 @@ public class SetupTierSelectorTests
         tiers["mid"].DeltaCoinsPerHour.Should().Be(20_000);
         plan.Setups.Select(s => s.Tier).Should().Equal("budget", "mid", "endgame");
         plan.BaselineCoinsPerHour.Should().Be(1_000_000);
-        plan.OwnedSpecKeys.Should().BeEmpty();
     }
 
     [Test]
-    public void Only_measured_fills_every_tier_by_cost_band_and_rate()
+    public void Model_fills_budget_and_mid_from_the_curve_and_endgame_from_the_recommendation()
     {
-        var baseline = Base();
-        var budget = At("BUDGET", 1.5 * M, 5 * M);
-        var mid = At("MID", 2.0 * M, 50 * M);
-        var endgame = At("END", 3.0 * M, 300 * M);
+        var tiers = ByTier(FourTiers(FourEstimates()));
 
-        var plan = SetupTierSelector.Select([endgame, mid, budget, baseline], null);
-
-        var tiers = ByTier(plan);
-        tiers.Values.Should().OnlyContain(c => c.IsMeasured);
-        tiers["baseline"].Measured.Should().BeSameAs(baseline);
-        tiers["budget"].Measured.Should().BeSameAs(budget);
-        tiers["mid"].Measured.Should().BeSameAs(mid);
-        tiers["endgame"].Measured.Should().BeSameAs(endgame);
-        tiers["budget"].DeltaCoinsPerHour.Should().Be(0.5 * M, "measured vs measured is the difference of the rates");
-        tiers["endgame"].DeltaCoinsPerHour.Should().Be(2 * M);
-        plan.BaselineCoinsPerHour.Should().Be(1 * M);
-        plan.ComparisonCoinsPerHour.Should().Be(1 * M);
+        tiers["baseline"].IsMeasured.Should().BeFalse("the baseline is the curated estimate");
+        Tags(tiers["budget"]).Should().Equal("BUDGET_HOE");
+        tiers["budget"].Rate.Should().Be(FourTierModel.BudgetRate);
+        tiers["budget"].Measured.Score.Should().Be(250);
+        tiers["budget"].Measured.ScorePercentile.Should().Be(25);
+        tiers["budget"].DeltaCoinsPerHour.Should().Be(0.5 * M, "gain over the community rate");
+        Tags(tiers["mid"]).Should().Equal("BUDGET_HOE", "MID_HELMET");
+        tiers["mid"].Rate.Should().Be(FourTierModel.MidRate);
+        tiers["mid"].Measured.RateBasis.Should().Be(RateBases.Curve);
+        Tags(tiers["endgame"]).Should().Equal("END_HOE", "MID_HELMET");
+        tiers["endgame"].Rate.Should().Be(FourTierModel.EndRate);
+        tiers["endgame"].Measured.Extrapolated.Should().BeTrue();
+        tiers["endgame"].Measured.LateGame.Players.Should().Be(FourTierModel.SecretPlayers);
+        tiers.Values.Where(c => c.Tier != "endgame").Should().OnlyContain(c => c.Measured == null || c.Measured.LateGame == null);
     }
 
     [Test]
-    public void Mixed_estimate_tiers_get_their_gain_against_the_measured_baseline()
+    public void Budget_and_mid_stay_in_their_cost_bands()
     {
-        var plan = SetupTierSelector.Select([Base(), At("BUDGET", 1.4 * M, 4 * M)], RisingEstimates());
+        var tiers = ByTier(FourTiers());
+
+        tiers["budget"].Measured.FullCost.Should().BeLessThanOrEqualTo(TierBands.Default.BudgetMaxCost);
+        tiers["mid"].Measured.FullCost.Should().BeGreaterThan(TierBands.Default.BudgetMaxCost).And.BeLessThanOrEqualTo(TierBands.Default.MidMaxCost);
+    }
+
+    [Test]
+    public void Mid_that_costs_no_more_than_the_budget_band_is_dropped()
+    {
+        var model = MeasuredTestData.Model(null, Curve([(100, 1 * M), (300, 3 * M)]), [Entry("tool", "HOE", 200)]);
+
+        var plan = SetupTierSelector.Select(PricedModel(model, Priced(model.Pieces[0], 2 * M)), RisingEstimates(), 1 * M);
 
         var tiers = ByTier(plan);
-        tiers["baseline"].IsMeasured.Should().BeTrue();
+        tiers["budget"].IsMeasured.Should().BeTrue();
+        tiers["mid"].IsMeasured.Should().BeFalse("nothing above the budget band is affordable, so mid falls back");
+        tiers["mid"].Estimate.Id.Should().Be("mid", "the 3M/h estimate beats the 2M/h budget");
+    }
+
+    [Test]
+    public void Tier_that_does_not_beat_the_one_below_is_dropped_and_falls_back_to_an_estimate_that_does()
+    {
+        // a flat curve: the mid build scores higher but earns no more than the budget build
+        var model = MeasuredTestData.Model(null, Curve([(100, 2 * M), (400, 2 * M)]),
+            [Entry("tool", "HOE", 100), Entry("helmet", "HELM", 100)]);
+        var priced = PricedModel(model, Priced(model.Pieces[0], 1 * M), Priced(model.Pieces[1], 50 * M));
+
+        var tiers = ByTier(SetupTierSelector.Select(priced, RisingEstimates(), 1 * M));
+
         tiers["budget"].IsMeasured.Should().BeTrue();
         tiers["mid"].IsMeasured.Should().BeFalse();
-        tiers["mid"].DeltaCoinsPerHour.Should().Be(2.0 * M, "the modelled 3M/h minus the measured baseline's 1M/h");
-        tiers["endgame"].DeltaCoinsPerHour.Should().Be(5.0 * M);
+        tiers["mid"].Estimate.CoinsPerHour.Should().Be(3 * M, "the estimate beats the measured 2M/h below it");
     }
 
     [Test]
-    public void Estimate_tier_below_a_measured_baseline_is_left_out()
+    public void Budget_below_the_community_rate_is_dropped()
     {
-        var plan = SetupTierSelector.Select([At("BASE", 1.5 * M, 0.5 * M)], FourEstimates());
+        var model = MeasuredTestData.Model(null, Curve([(100, 0.5 * M), (400, 0.8 * M)]), [Entry("tool", "HOE", 100)]);
 
-        plan.Baseline.IsMeasured.Should().BeTrue();
-        plan.Setups.Should().BeEmpty("no estimate earns more than the measured 1.5M/h baseline");
+        var tiers = ByTier(SetupTierSelector.Select(PricedModel(model, Priced(model.Pieces[0], 1 * M)), null, 1 * M));
+
+        tiers.Should().NotContainKey("budget");
     }
 
     [Test]
-    public void Estimate_must_beat_every_measured_tier_below_it()
+    public void Without_a_curve_budget_and_mid_are_the_estimates_and_the_endgame_uses_the_cohort()
     {
-        var plan = SetupTierSelector.Select([Base(), At("BUDGET", 4 * M, 4 * M)], RisingEstimates());
+        var model = FourTierModel.Model();
+        model.Curve = null;
+        model.RecommendedEndgame.Basis = RateBases.Cohort;
+        model.RecommendedEndgame.CoinsPerHour = 8 * M;
 
-        var tiers = ByTier(plan);
-        tiers.Should().NotContainKey("mid", "the modelled 3M/h does not beat the measured 4M/h budget");
-        tiers["endgame"].Estimate.Id.Should().Be("endgame");
-    }
+        var tiers = ByTier(SetupTierSelector.Select(FourTierModel.Priced(model), RisingEstimates(), 1 * M));
 
-    [Test]
-    public void Endgame_dominated_by_budget_is_not_shown()
-    {
-        var budget = At("BUDGET", 10 * M, 8 * M);
-
-        var plan = SetupTierSelector.Select([Base(), budget, At("WORSE", 6 * M, 50 * M)], FourEstimates());
-
-        var tiers = ByTier(plan);
-        tiers["budget"].Measured.Should().BeSameAs(budget);
-        tiers.Should().NotContainKey("endgame", "6M/h is worse than the 10M/h budget and the estimate is lower still");
-        tiers.Should().NotContainKey("mid");
-    }
-
-    [Test]
-    public void Every_measured_tier_earns_more_than_the_one_below()
-    {
-        var plan = SetupTierSelector.Select([Base(), At("BUDGET", 2 * M, 5 * M), At("MIDLOW", 1.8 * M, 41 * M), At("END", 3 * M, 300 * M)], null);
-
-        var tiers = ByTier(plan);
-        tiers.Should().NotContainKey("mid");
-        tiers["endgame"].Rate.Should().BeGreaterThan(tiers["budget"].Rate!.Value);
-    }
-
-    [Test]
-    public void Measured_tier_against_an_estimated_baseline_is_compared_with_the_community_rate()
-    {
-        var estimates = FourEstimates();
-        estimates.CommunityCoinsPerHour = 1.2 * M;
-
-        var plan = SetupTierSelector.Select([At("END", 3 * M, 300 * M)], estimates);
-
-        var tiers = ByTier(plan);
-        tiers["baseline"].IsMeasured.Should().BeFalse("a 300M setup is no baseline");
-        plan.BaselineCoinsPerHour.Should().Be(1_000_000, "the estimated baseline's rate is shown with it");
-        plan.ComparisonCoinsPerHour.Should().Be(1.2 * M);
-        tiers["endgame"].DeltaCoinsPerHour.Should().Be(1.8 * M);
-    }
-
-    [Test]
-    public void Modelled_baseline_above_every_measured_cluster_does_not_hide_them()
-    {
-        var estimates = FourEstimates();
-        estimates.BaselineCoinsPerHour = 5 * M;
-        estimates.CommunityCoinsPerHour = 1 * M;
-
-        var plan = SetupTierSelector.Select([At("END", 2 * M, 300 * M)], estimates);
-
-        ByTier(plan)["endgame"].IsMeasured.Should().BeTrue("measured clusters are compared with the community rate, not the modelled baseline");
-    }
-
-    [Test]
-    public void Without_estimates_the_task_community_rate_is_used()
-    {
-        var plan = SetupTierSelector.Select([At("END", 2 * M, 300 * M)], null, communityRate: 0.8 * M);
-
-        ByTier(plan)["endgame"].DeltaCoinsPerHour.Should().BeApproximately(1.2 * M, 0.001);
-    }
-
-    [Test]
-    public void Expensive_cluster_never_becomes_the_free_baseline()
-    {
-        var only = At("END", 3 * M, 300 * M);
-
-        var plan = SetupTierSelector.Select([only], null, communityRate: 1 * M);
-
-        plan.Baseline.Should().BeNull();
-        plan.BaselineCoinsPerHour.Should().Be(1 * M, "the community average is the baseline rate");
-        ByTier(plan)["endgame"].Measured.Should().BeSameAs(only);
-    }
-
-    [Test]
-    public void Empty_budget_band_falls_back_to_the_estimate()
-    {
-        var plan = SetupTierSelector.Select([Base(), At("MID", 2 * M, 40 * M), At("END", 3 * M, 300 * M)], FourEstimates());
-
-        var tiers = ByTier(plan);
         tiers["budget"].IsMeasured.Should().BeFalse();
-        tiers["budget"].Estimate.Id.Should().Be("budget");
-        tiers["budget"].DeltaCoinsPerHour.Should().BeApproximately(10_000, 0.001);
-        Tool(tiers["mid"]).Should().Be("MID");
+        tiers["mid"].IsMeasured.Should().BeFalse();
+        tiers["endgame"].Measured.RateBasis.Should().Be(RateBases.Cohort);
+        tiers["endgame"].Rate.Should().Be(8 * M);
     }
 
     [Test]
-    public void Mid_takes_a_pricier_frontier_setup_that_is_not_the_endgame_when_its_band_is_empty()
+    public void Combat_formula_is_not_composed()
     {
-        var plan = SetupTierSelector.Select([Base(), At("BIG", 2 * M, 150 * M), At("END", 3 * M, 400 * M)], FourEstimates());
+        var model = FourTierModel.Model();
+        model.ScoreFormula = Formula("log-damage-product");
 
-        var tiers = ByTier(plan);
-        Tool(tiers["mid"]).Should().Be("BIG");
-        Tool(tiers["endgame"]).Should().Be("END");
+        var tiers = ByTier(SetupTierSelector.Select(FourTierModel.Priced(model), RisingEstimates(), 1 * M));
+
+        tiers["budget"].IsMeasured.Should().BeFalse();
+        tiers["mid"].IsMeasured.Should().BeFalse();
+        tiers["endgame"].IsMeasured.Should().BeTrue();
     }
 
     [Test]
-    public void Dominated_cluster_is_never_a_tier()
+    public void Composed_build_with_the_endgame_pieces_is_left_to_the_endgame_tier()
     {
-        var budget = At("BUDGET", 2 * M, 5 * M);
+        var model = FourTierModel.Model();
+        model.LateGame = null;
+        model.Distribution = null; // no score ceiling, so only the same-build check keeps them apart
+        var cheapEnd = FourTierModel.Priced(model).Pieces.ToDictionary(p => p.Key, p => p.Key == "tool:END_HOE"
+            ? Priced(model.Pieces.Single(e => e.Id == p.Key), 40 * M) : p.Value);
 
-        var plan = SetupTierSelector.Select([Base(), budget, At("WORSE", 1.5 * M, 20 * M), At("END", 3 * M, 400 * M)], FourEstimates());
+        var tiers = ByTier(SetupTierSelector.Select(new PricedGearModel(model, cheapEnd), RisingEstimates(), 1 * M));
 
-        var tiers = ByTier(plan);
-        tiers["budget"].Measured.Should().BeSameAs(budget);
-        tiers.Should().NotContainKey("mid");
-        plan.Setups.Should().NotContain(c => c.IsMeasured && Tool(c) == "WORSE");
+        tiers["endgame"].IsMeasured.Should().BeTrue();
+        tiers["mid"].IsMeasured.Should().BeFalse("the mid greedy reaches exactly the endgame build");
+    }
+
+    /// <summary>Regression: a composed mid earning the endgame's rate dropped the endgame tier (and showed its build to premium)</summary>
+    [Test]
+    public void Composed_build_that_earns_the_endgame_rate_is_not_shown()
+    {
+        var model = FourTierModel.Model();
+        model.RecommendedEndgame.CoinsPerHour = FourTierModel.MidRate;
+
+        var tiers = ByTier(SetupTierSelector.Select(FourTierModel.Priced(model), RisingEstimates(), 1 * M));
+
+        tiers["endgame"].IsMeasured.Should().BeTrue();
+        tiers["endgame"].Rate.Should().Be(FourTierModel.MidRate);
+        tiers["mid"].IsMeasured.Should().BeFalse("the mid would earn as much as the endgame");
+        tiers["budget"].IsMeasured.Should().BeTrue();
+    }
+
+    /// <summary>Regression: a budget build clamped at the top of the curve outdid the capped endgame and removed it</summary>
+    [Test]
+    public void Budget_clamped_at_the_top_of_the_curve_never_beats_or_removes_a_capped_endgame()
+    {
+        var model = FourTierModel.Model();
+        model.RecommendedEndgame.CoinsPerHour = 6 * M;
+        model.RecommendedEndgame.Capped = true;
+        var priced = FourTierModel.Priced(model).Pieces.ToDictionary(p => p.Key, p => p.Value);
+        var strong = Entry("tool", "STRONG_HOE", 399);
+        model.Pieces.Add(strong);
+        priced[strong.Id] = Priced(strong, 2 * M);
+
+        var tiers = ByTier(SetupTierSelector.Select(new PricedGearModel(model, priced), null, 1 * M));
+
+        tiers["endgame"].IsMeasured.Should().BeTrue();
+        tiers["endgame"].Rate.Should().Be(6 * M);
+        tiers.Values.Where(c => c.Tier != "endgame").Should().OnlyContain(c => c.Rate < 6 * M);
+        GearCurveReader.RateAt(model.Curve, 399).CoinsPerHour.Should().BeGreaterThan(6 * M, "the curve alone would outdo the endgame");
+    }
+
+    /// <summary>Regression: the mid could be the endgame build minus a lower bound priced piece, ie. the endgame for premium</summary>
+    [Test]
+    public void Mid_stays_below_the_late_game_score_so_it_is_never_the_endgame_minus_a_piece()
+    {
+        var tool = Entry("tool", "END_HOE", 400);
+        var helmet = Entry("helmet", "END_HELMET", 100);
+        var pet = PetEntry("ELEPHANT", 50);
+        var model = MeasuredTestData.Model(null, FourTierModel.Model().Curve, [tool, helmet, pet, Entry("tool", "CHEAP_HOE", 200)],
+            Recommended(550, 9 * M, tool, helmet, pet), LateGame(8 * M), Distribution(100, 250, 300, 350, 450));
+        model.LateGame.ScoreFrom = 450;
+        var priced = PricedModel(model, Priced(tool, 40 * M), Priced(helmet, 20 * M), Priced(pet, 500 * M, lowerBound: true),
+            Priced(model.Pieces[3], 1 * M));
+
+        var tiers = ByTier(SetupTierSelector.Select(priced, null, 1 * M));
+
+        tiers["endgame"].IsMeasured.Should().BeTrue();
+        var mid = tiers["mid"].Measured;
+        mid.Score.Should().BeLessThan(450);
+        mid.PieceIds().Should().NotBeEquivalentTo(new[] { "tool:END_HOE", "helmet:END_HELMET" });
     }
 
     [Test]
-    public void Cluster_below_the_baseline_rate_is_no_upgrade()
+    public void Score_ceiling_is_the_late_game_score_else_the_90th_percentile()
     {
-        var plan = SetupTierSelector.Select([Base(), At("SLOW", 0.8 * M, 5 * M)], FourEstimates());
+        var model = FourTierModel.Model();
+        SetupTierSelector.ScoreCeiling(model).Should().Be(400);
+        model.LateGame = null;
+        SetupTierSelector.ScoreCeiling(model).Should().Be(450);
+        model.Distribution = null;
+        SetupTierSelector.ScoreCeiling(model).Should().BeNull();
+    }
+
+    [Test]
+    public void Empty_piece_ids_of_the_endgame_are_ignored()
+    {
+        var model = FourTierModel.Model();
+        model.RecommendedEndgame.Pieces["pet"] = null;
+        model.RecommendedEndgame.Pieces["cloak"] = "";
+
+        SetupTierSelector.EndgameBuild(FourTierModel.Priced(model)).PieceIds().Should().BeEquivalentTo("tool:END_HOE", "helmet:MID_HELMET");
+        model.RecommendedEndgame.Pieces = new() { ["tool"] = null };
+        SetupTierSelector.EndgameBuild(FourTierModel.Priced(model)).Should().BeNull();
+    }
+
+    [Test]
+    public void Endgame_keeps_lower_bound_and_unknown_prices_but_sits_out_a_transient_one()
+    {
+        var model = FourTierModel.Model();
+        var priced = FourTierModel.Priced(model).Pieces.ToDictionary(p => p.Key, p => p.Value);
+        priced["tool:END_HOE"] = Priced(model.Pieces[0], 300 * M, lowerBound: true);
+        priced["helmet:MID_HELMET"] = Priced(model.Pieces[3], null);
+
+        var endgame = ByTier(SetupTierSelector.Select(new PricedGearModel(model, priced), null, 1 * M))["endgame"];
+
+        endgame.IsMeasured.Should().BeTrue();
+        endgame.Measured.LowerBound.Should().BeTrue();
+        endgame.Measured.FullCost.Should().BeNull();
+
+        priced["tool:END_HOE"] = Priced(model.Pieces[0], null, transient: true);
+        var fallback = ByTier(SetupTierSelector.Select(new PricedGearModel(model, priced), RisingEstimates(), 1 * M))["endgame"];
+        fallback.IsMeasured.Should().BeFalse();
+    }
+
+    [Test]
+    public void Missing_curve_distribution_and_endgame_give_estimates_only()
+    {
+        var model = MeasuredTestData.Model(null, null, [Entry("tool", "HOE", 100)]);
+
+        var plan = SetupTierSelector.Select(PricedModel(model, Priced(model.Pieces[0], 1 * M)), FourEstimates());
 
         plan.Setups.Should().OnlyContain(c => !c.IsMeasured);
     }
 
     [Test]
-    public void Budget_prefers_the_best_gain_per_coin()
+    public void Composed_build_outside_the_observed_range_is_flagged_and_low_confidence()
     {
-        var cheapGood = At("CHEAP", 1.3 * M, 2 * M);
+        var model = MeasuredTestData.Model(null, Curve([(100, 1 * M), (200, 2 * M)]), [Entry("tool", "HOE", 50)],
+            distribution: Distribution(100, 120, 150, 180, 200));
 
-        var plan = SetupTierSelector.Select([Base(), cheapGood, At("DEAR", 1.4 * M, 9 * M), At("END", 3 * M, 400 * M)], FourEstimates());
+        var budget = ByTier(SetupTierSelector.Select(PricedModel(model, Priced(model.Pieces[0], 1 * M)), null, 0.5 * M))["budget"];
 
-        ByTier(plan)["budget"].Measured.Should().BeSameAs(cheapGood);
+        budget.Measured.Extrapolated.Should().BeTrue();
+        budget.Measured.Confidence.Should().Be("low");
+        budget.Rate.Should().Be(1 * M, "the rate at the edge of the observed range");
     }
 
     [Test]
-    public void Owned_baseline_items_are_not_part_of_the_value_cost()
+    public void Endgame_confidence_follows_the_cohort_and_is_low_when_rounded_or_extrapolated()
     {
-        // both share the baseline helmet (HELMET_A) which costs 3M, only the tool counts
-        var baseline = Priced(Cluster("BASE", 1 * M), 0.1 * M, 3 * M);
-        var a = Priced(Cluster("A", 1.5 * M), 5 * M, 3 * M);
-        var b = Priced(Cluster("B", 1.3 * M, helmet: "HELMET_B"), 1 * M, 3 * M);
+        var model = FourTierModel.Model();
+        model.RecommendedEndgame.Extrapolated = false;
+        model.LateGame = LateGame(8 * M, players: 7);
+        ByTier(SetupTierSelector.Select(FourTierModel.Priced(model), null, 1 * M))["endgame"].Measured.Confidence.Should().Be("high");
 
-        var plan = SetupTierSelector.Select([baseline, a, b, At("END", 3 * M, 400 * M)], null);
+        model.LateGame = LateGame(8 * M, players: 3, rounded: true);
+        ByTier(SetupTierSelector.Select(FourTierModel.Priced(model), null, 1 * M))["endgame"].Measured.Confidence.Should().Be("low");
 
-        plan.OwnedSpecKeys.Should().HaveCount(2);
-        ByTier(plan)["budget"].Measured.Should().BeSameAs(a, "A gains 0.5M for 5M, B 0.3M for 4M with its own helmet");
+        ByTier(FourTiers())["endgame"].Measured.Confidence.Should().Be("low", "the four tier endgame is extrapolated");
     }
 
     [Test]
-    public void Setup_that_costs_nothing_extra_never_wins_the_value_ranking()
+    public void Endgame_with_a_piece_missing_from_the_catalog_is_not_measured()
     {
-        // same published items as the baseline (eg. its modifiers were not shared by enough players), another key
-        var free = Priced(Cluster("BASE", 1.1 * M), 0.5 * M);
-        free.Cluster.Key = "L1|armor=OTHER|tool=OTHER";
-        var paid = At("PAID", 1.2 * M, 3 * M);
+        var model = FourTierModel.Model();
+        model.RecommendedEndgame.Pieces["pet"] = "pet:UNKNOWN";
 
-        var plan = SetupTierSelector.Select([Base(), free, paid], null);
-
-        ByTier(plan)["budget"].Measured.Should().BeSameAs(paid, "a gain over zero extra coins must not divide by zero and win");
-    }
-
-    [Test]
-    public void Child_the_parent_does_not_dominate_wins_and_the_parent_is_not_shown_again()
-    {
-        var parent = At("TOOL", 1.5 * M, 4 * M, level: 1);
-        var child = At("TOOL", 1.6 * M, 4.5 * M, level: 3, extraKey: "tool.enchants.harvesting=6");
-
-        var plan = SetupTierSelector.Select([Base(), parent, child, At("END", 3 * M, 400 * M)], FourEstimates());
-
-        ByTier(plan)["budget"].Measured.Should().BeSameAs(child);
-        plan.Setups.Should().NotContain(c => c.Measured == parent);
-    }
-
-    [Test]
-    public void Dominated_child_does_not_hide_its_better_parent()
-    {
-        var parent = At("TOOL", 1.5 * M, 4 * M, level: 1);
-        var child = At("TOOL", 1.45 * M, 4.5 * M, level: 3, extraKey: "tool.enchants.harvesting=6");
-
-        var plan = SetupTierSelector.Select([Base(), parent, child, At("END", 3 * M, 400 * M)], FourEstimates());
-
-        ByTier(plan)["budget"].Measured.Should().BeSameAs(parent);
-        plan.Setups.Should().NotContain(c => c.Measured == child);
-    }
-
-    /// <summary>Regression: P dominates C1 but not C2, so P was dropped for C2 and the dominated C1 won on gain per coin</summary>
-    [Test]
-    public void Child_dominated_by_its_parent_never_wins_even_when_a_sibling_hides_the_parent()
-    {
-        var baseline = At("BASE", 2 * M, 0.5 * M);
-        var parent = At("TOOL", 3 * M, 5 * M, level: 1);
-        var c1 = At("TOOL", 2.8 * M, 6 * M, level: 3, extraKey: "tool.enchants.harvesting=5");
-        var c2 = At("TOOL", 3.1 * M, 9.9 * M, level: 3, extraKey: "tool.enchants.harvesting=6");
-
-        var plan = SetupTierSelector.Select([baseline, parent, c1, c2], null);
-
-        ByTier(plan)["budget"].Measured.Should().BeSameAs(c2);
-        ClusterKeys.Finest([parent, c1, c2]).Should().Equal(c2);
-    }
-
-    [Test]
-    public void Baseline_parent_stays_when_its_only_child_is_outside_the_band()
-    {
-        var parent = At("TOOL", 1.0 * M, 5 * M, level: 1);
-        var child = At("TOOL", 1.2 * M, 20 * M, level: 3, extraKey: "tool.enchants.harvesting=6");
-
-        var plan = SetupTierSelector.Select([parent, child], null);
-
-        plan.Baseline.Measured.Should().BeSameAs(parent);
-    }
-
-    [Test]
-    public void Endgame_picks_the_child_its_parent_does_not_dominate()
-    {
-        var parent = At("TOOL", 3 * M, 300 * M, level: 2);
-        var child = At("TOOL", 3.1 * M, 320 * M, level: 3, extraKey: "tool.reforge=blessed");
-
-        var plan = SetupTierSelector.Select([Base(), parent, child], FourEstimates());
-
-        ByTier(plan)["endgame"].Measured.Should().BeSameAs(child);
-        plan.Setups.Should().NotContain(c => c.Measured == parent);
-    }
-
-    [Test]
-    public void Parent_key_links_clusters_whose_keys_do_not_nest()
-    {
-        var parent = At("TOOL", 1.5 * M, 4 * M, level: 2);
-        var child = Priced(Cluster("OTHER", 1.6 * M, level: 3), 4.5 * M);
-        child.Cluster.ParentKey = parent.Cluster.Key;
-
-        ClusterKeys.IsAncestor(parent, child).Should().BeTrue();
-        ClusterKeys.IsAncestor(child, parent).Should().BeFalse();
-        var plan = SetupTierSelector.Select([Base(), parent, child, At("END", 3 * M, 400 * M)], FourEstimates());
-        ByTier(plan)["budget"].Measured.Should().BeSameAs(child);
-        plan.Setups.Should().NotContain(c => c.Measured == parent);
-    }
-
-    [Test]
-    public void Unrelated_clusters_of_different_levels_are_no_ancestors()
-    {
-        ClusterKeys.AreRelated(At("A", 1, 1, level: 1), At("B", 1, 1, level: 3, extraKey: "pet=ELEPHANT:LEGENDARY")).Should().BeFalse();
-    }
-
-    [Test]
-    public void Unpriced_cluster_can_be_endgame_but_not_budget_or_baseline()
-    {
-        var unpriced = At("RARE", 1.2 * M, null);
-
-        var plan = SetupTierSelector.Select([unpriced], FourEstimates());
-
-        var tiers = ByTier(plan);
-        tiers["baseline"].IsMeasured.Should().BeFalse();
-        tiers["endgame"].Measured.Should().BeSameAs(unpriced);
-        tiers["budget"].IsMeasured.Should().BeFalse();
-    }
-
-    [Test]
-    public void Transiently_unpriced_cluster_sits_the_build_out()
-    {
-        var failed = Priced(Cluster("RARE", 9 * M), null, toolTransient: true);
-
-        var plan = SetupTierSelector.Select([Base(), failed], FourEstimates());
-
-        plan.Setups.Should().NotContain(c => c.IsMeasured);
-    }
-
-    [Test]
-    public void Lower_bound_price_keeps_a_cluster_out_of_the_bands_but_not_out_of_the_endgame()
-    {
-        var lowerBound = Priced(Cluster("LB", 2 * M), 3 * M, toolLowerBound: true);
-
-        var plan = SetupTierSelector.Select([Base(), lowerBound], FourEstimates());
-
-        var tiers = ByTier(plan);
-        tiers["budget"].IsMeasured.Should().BeFalse("its real cost may be far above the budget band");
-        tiers["endgame"].Measured.Should().BeSameAs(lowerBound);
-        SetupTierSelector.Select([Priced(Cluster("LB", 1 * M), 3 * M, toolLowerBound: true)], null).Baseline.Should().BeNull();
-    }
-
-    [Test]
-    public void Bands_are_configurable()
-    {
-        var plan = SetupTierSelector.Select([Base(), At("X", 2 * M, 20 * M), At("END", 3 * M, 400 * M)], FourEstimates(), null,
-            new TierBands(1 * M, 30 * M, 100 * M));
-
-        Tool(ByTier(plan)["budget"]).Should().Be("X");
+        SetupTierSelector.EndgameBuild(FourTierModel.Priced(model)).Should().BeNull();
     }
 }

@@ -36,11 +36,6 @@ public class InventoryData
     /// Optional index into the slot list of <see cref="FullInventoryNbt"/> of the item the player holds, sent by newer mods
     /// </summary>
     public int? HeldSlot;
-    /// <summary>
-    /// Optional, sent as true by newer mods when the client is not connected to a hypixel.net host. The descriptions are
-    /// still answered, but the inventory is not forwarded as a player state update. Absent means false.
-    /// </summary>
-    public bool OffHypixel;
 }
 
 /// <summary>

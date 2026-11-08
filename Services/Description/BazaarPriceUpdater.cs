@@ -48,9 +48,17 @@ public class BazaarPriceUpdater : ICustomModifier
         var buyOrders = data.Items.Count > 15 ? data.Items[15] : null;
         var sellOffers = data.Items.Count > 16 ? data.Items[16] : null;
 
-        // prices seen off hypixel.net must not reach the shared price cache, order book or signals
-        if (data.inventory?.OffHypixel != true)
-            ShareObservation(data, itemTag, buyOrders?.Description, sellOffers?.Description);
+        double? topBuyPrice = ParsePrice(buyOrders?.Description);
+        double? cheapestSellPrice = ParsePrice(sellOffers?.Description);
+
+        if (topBuyPrice.HasValue || cheapestSellPrice.HasValue)
+        {
+            data.modService.UpdateBazaarPrice(itemTag, topBuyPrice, cheapestSellPrice);
+        }
+        // Start the HTTP request now; the player-state Kafka consumer is not on this path.
+        _ = UploadOrderBook(itemTag, buyOrders?.Description, sellOffers?.Description, DateTime.UtcNow,
+            logger: DiHandler.GetService<ILogger<BazaarPriceUpdater>>());
+        PublishInstaSellIntentIfApplicable(data, itemTag);
 
         // Create a clickable link to open SkyCofl history for this item
         var loreBuilder = new LoreBuilder()
@@ -79,21 +87,6 @@ public class BazaarPriceUpdater : ICustomModifier
         }
 
         data.mods.Add(display);
-    }
-
-    private static void ShareObservation(DataContainer data, string itemTag, string? buyDescription, string? sellDescription)
-    {
-        double? topBuyPrice = ParsePrice(buyDescription);
-        double? cheapestSellPrice = ParsePrice(sellDescription);
-
-        if (topBuyPrice.HasValue || cheapestSellPrice.HasValue)
-        {
-            data.modService.UpdateBazaarPrice(itemTag, topBuyPrice, cheapestSellPrice);
-        }
-        // Start the HTTP request now; the player-state Kafka consumer is not on this path.
-        _ = UploadOrderBook(itemTag, buyDescription, sellDescription, DateTime.UtcNow,
-            logger: DiHandler.GetService<ILogger<BazaarPriceUpdater>>());
-        PublishInstaSellIntentIfApplicable(data, itemTag);
     }
 
     /// <summary>

@@ -1,20 +1,23 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
-using System.Linq;
 using Coflnet.Sky.Api.Services.Tasks.Setups.Acquisition;
 using Coflnet.Sky.PlayerState.Client.Model;
 
 namespace Coflnet.Sky.Api.Services.Tasks.Setups.Measured;
 
 /// <summary>
-/// One item of a measured setup, a gear piece or the pet, with the spec the acquisition looks for.
-/// <see cref="SpecKey"/> is equal for equal requirements, it decides ownership and deduplicates lookups.
+/// One item of a measured build, a gear piece or the pet of PlayerState's piece catalog, with the spec the acquisition
+/// looks for. <see cref="SpecKey"/> is equal for equal requirements, it deduplicates lookups.
 /// </summary>
 public sealed class MeasuredPiece
 {
     public const string PetSlot = "pet";
 
+    /// <summary>The catalog id ("slot:TAG:hash" or "pet:..."), null for a piece not from the catalog</summary>
+    public string Id { get; private init; }
+    /// <summary>The catalog entry with the score contribution and the effects, null for a piece not from the catalog</summary>
+    public GearCatalogPiece Catalog { get; private init; }
     public string Slot { get; private init; }
     public string Tag { get; private init; }
     public GearPiece Piece { get; private init; }
@@ -47,26 +50,34 @@ public sealed class MeasuredPiece
         };
     }
 
-    /// <summary>The slots in a stable order and the pet last, pieces without a tag are skipped</summary>
-    public static List<MeasuredPiece> Of(GearCluster cluster)
+    /// <summary>A catalog entry, null when it has neither an item with a tag nor a pet with a type</summary>
+    public static MeasuredPiece Of(GearCatalogPiece entry)
     {
-        var pieces = (cluster.Slots ?? new())
-            .Where(s => !string.IsNullOrWhiteSpace(s.Value?.Tag))
-            .OrderBy(s => SlotOrder(s.Key)).ThenBy(s => s.Key, StringComparer.Ordinal)
-            .Select(s => From(s.Key, s.Value))
-            .ToList();
-        if (!string.IsNullOrWhiteSpace(cluster.Pet?.Type))
-            pieces.Add(From(cluster.Pet));
-        return pieces;
+        var piece = FromEntry(entry);
+        if (piece == null)
+            return null;
+        return new MeasuredPiece
+        {
+            Id = entry.Id, Catalog = entry, Slot = piece.Slot, Tag = piece.Tag, Piece = piece.Piece, Pet = piece.Pet,
+            ItemSpec = piece.ItemSpec, PetSpec = piece.PetSpec, SpecKey = piece.SpecKey, ModifiersMeasured = piece.ModifiersMeasured,
+        };
     }
 
-    private static readonly string[] Order = ["tool", "helmet", "chestplate", "leggings", "boots", "necklace", "cloak", "belt", "gloves"];
+    private static MeasuredPiece FromEntry(GearCatalogPiece entry)
+    {
+        if (!string.IsNullOrWhiteSpace(entry?.Item?.Tag) && !string.IsNullOrWhiteSpace(entry.Slot))
+            return From(entry.Slot, entry.Item);
+        return string.IsNullOrWhiteSpace(entry?.Pet?.Type) ? null : From(entry.Pet);
+    }
 
-    private static int SlotOrder(string slot)
+    /// <summary>Slots in a stable display order (tool, armor, equipment), the pet and unknown slots last</summary>
+    public static int SlotOrder(string slot)
     {
         var index = Array.IndexOf(Order, slot);
         return index < 0 ? Order.Length : index;
     }
+
+    private static readonly string[] Order = ["tool", "helmet", "chestplate", "leggings", "boots", "necklace", "cloak", "belt", "gloves"];
 
     private static GearItemSpec ToSpec(GearPiece piece) => new()
     {

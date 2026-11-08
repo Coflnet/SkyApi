@@ -318,8 +318,6 @@ public partial class ModDescriptionService : IDisposable
             // anonymous player only ineresting if ah contains seller
             if (playerId == null && !items.Any(i => i?.Description?.Contains("Seller") ?? false))
                 return items;
-            if (inventoryData.OffHypixel)
-                return items;
             ProduceInventory(inventoryData.ChestName, playerId, userId, items, inventoryData.Position, inventoryData.HeldSlot);
             return items;
         }
@@ -341,10 +339,6 @@ public partial class ModDescriptionService : IDisposable
         }
 
     }
-
-    /// <summary>Goal progress is player state too: only signed-in uploads made on hypixel.net count</summary>
-    internal static bool TracksGoals(string userId, InventoryData inventory)
-        => !string.IsNullOrEmpty(userId) && inventory?.OffHypixel != true;
 
     /// <summary>
     /// Produce an inventory update for the given player
@@ -405,9 +399,7 @@ public partial class ModDescriptionService : IDisposable
                             item.ExtraAttributes["tier"] = tier;
                     }
                 }
-                // skins are shared data, only hypixel.net uploads may add to it
-                if (!modDescription.OffHypixel)
-                    itemSkinHandler.StoreIfNeeded(item.Tag, compound);
+                itemSkinHandler.StoreIfNeeded(item.Tag, compound);
 
                 return item;
             }
@@ -596,7 +588,7 @@ public partial class ModDescriptionService : IDisposable
             try
             {
                 items = ProduceInventory(inventory, mcName, userInfo.UserId, auctionRepresent);
-                if (goalService != null && TracksGoals(userInfo.UserId, inventory))
+                if (!string.IsNullOrEmpty(userInfo.UserId) && goalService != null)
                     await goalService.OnInventory(userInfo.UserId, mcName, items, inventory.ForceGoalRefresh, inventory.Settings,
                         auctionRepresent.Select(a => a.auction?.Tag).ToList());
             }
