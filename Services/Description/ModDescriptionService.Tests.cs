@@ -360,6 +360,24 @@ public class ModDescriptionServiceTests
             .Returns<IEnumerable<SaveAuction>, bool>((s, ai) => Task.FromResult(s.Select(_ => new Coflnet.Sky.Sniper.Client.Model.PriceEstimate()).ToList()));
     }
 
+    // the failure entry lives only seconds; a slow first request on a loaded host must not expire it
+    private void FreezeInstanceCacheClock()
+    {
+        var field = typeof(ModDescriptionService).GetField("instanceCache", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+        var frozen = new Microsoft.Extensions.Caching.Memory.MemoryCache(new Microsoft.Extensions.Caching.Memory.MemoryCacheOptions
+        {
+            SizeLimit = 5000,
+            Clock = new FrozenClock()
+        });
+        ((IDisposable)field.GetValue(service)).Dispose();
+        field.SetValue(service, frozen);
+    }
+
+    private sealed class FrozenClock : Microsoft.Extensions.Internal.ISystemClock
+    {
+        public DateTimeOffset UtcNow { get; } = DateTimeOffset.UtcNow;
+    }
+
     private static DescriptionSetting DisabledInstanceSettings() =>
         new() { Fields = new() { new() { DescriptionField.LBIN } }, Disabled = true };
 
@@ -435,6 +453,7 @@ public class ModDescriptionServiceTests
     {
         SetupSignedOutUser();
         instanceClient.Setup(c => c.GetDescription(It.IsAny<string>(), It.IsAny<CancellationToken>())).ReturnsAsync(InstanceSettingsResult.Failed);
+        FreezeInstanceCacheClock();
 
         var first = await RequestAsSignedOut();
         await RequestAsSignedOut();
