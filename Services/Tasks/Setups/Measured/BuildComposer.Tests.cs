@@ -133,6 +133,74 @@ public class BuildComposerTests
         Tags(build).Should().Equal("S_BOOTS", "S_CHESTPLATE", "S_HELMET", "S_LEGGINGS");
     }
 
+    private static ComposedBuild Tier(double maxCost, ComposedBuild previous, params PricedPiece[] pieces)
+        => BuildComposer.ComposeTier(BuildComposer.Catalog(pieces, Formula()), maxCost, previous);
+
+    [Test]
+    public void Tier_build_starts_from_the_best_tool_that_fits_the_band()
+    {
+        var efficient = Priced(Entry("tool", "EFFICIENT_HOE", 100), 1 * M);
+        var best = Priced(Entry("tool", "BEST_HOE", 300), 9 * M);
+        var tooExpensive = Priced(Entry("tool", "TOP_HOE", 500), 20 * M);
+        var helmet = Priced(Entry("helmet", "HELMET", 50), 0.5 * M);
+
+        var build = Tier(10 * M, null, efficient, best, tooExpensive, helmet);
+
+        Tags(build).Should().Equal("BEST_HOE", "HELMET");
+    }
+
+    [Test]
+    public void Of_equal_tools_the_cheaper_one_is_the_seed()
+    {
+        var build = Tier(10 * M, null, Priced(Entry("tool", "DEAR_HOE", 100), 5 * M), Priced(Entry("tool", "CHEAP_HOE", 100), 1 * M));
+
+        Tags(build).Should().Equal("CHEAP_HOE");
+    }
+
+    [Test]
+    public void No_tool_in_the_band_means_no_tier_build()
+    {
+        var pieces = new[] { Priced(Entry("tool", "ROD", 120), 15 * M), Priced(Entry("chestplate", "CHEST", 60), 1 * M) };
+
+        Tier(10 * M, null, pieces).Should().BeNull("a build without a tool is no setup");
+        Tags(Tier(100 * M, null, pieces)).Should().Equal("CHEST", "ROD");
+    }
+
+    [Test]
+    public void Tier_build_continues_from_a_tier_below_that_has_a_tool()
+    {
+        var pieces = new[] { Priced(Entry("tool", "HOE", 100), 2 * M), Priced(Entry("tool", "TOP_HOE", 150), 90 * M), Priced(Entry("helmet", "HELM", 80), 50 * M) };
+        var budget = Tier(10 * M, null, pieces);
+
+        var mid = Tier(100 * M, budget, pieces);
+
+        Tags(mid).Should().Equal(["HELM", "HOE"], "the greedy goes on from the budget build instead of seeding the 90M tool");
+    }
+
+    [Test]
+    public void Empty_armor_slots_get_the_cheapest_piece_that_still_fits()
+    {
+        var tool = Priced(Entry("tool", "HOE", 100), 1 * M);
+        var plainHelmet = Priced(Entry("helmet", "PLAIN_HELMET", 0), 0.1 * M);
+        var otherHelmet = Priced(Entry("helmet", "OTHER_HELMET", 0), 0.2 * M);
+        var dearBoots = Priced(Entry("boots", "DEAR_BOOTS", 0), 20 * M);
+
+        var build = Tier(10 * M, null, tool, plainHelmet, otherHelmet, dearBoots);
+
+        Tags(build).Should().Equal("HOE", "PLAIN_HELMET");
+        build.Score.Should().Be(100, "a piece without a contribution adds nothing");
+    }
+
+    [Test]
+    public void Armor_filler_respects_the_score_ceiling()
+    {
+        var catalog = BuildComposer.Catalog([Priced(Entry("tool", "HOE", 100), 1 * M), Priced(Entry("helmet", "HELMET", 60), 20 * M)], Formula());
+
+        var build = BuildComposer.ComposeTier(catalog, 100 * M, null, 150);
+
+        Tags(build).Should().Equal("HOE");
+    }
+
     [Test]
     public void Greedy_stops_below_the_score_ceiling()
     {

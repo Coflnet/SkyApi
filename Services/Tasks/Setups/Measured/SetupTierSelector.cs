@@ -36,10 +36,11 @@ public record PricedGearModel(TaskGearModel Model, IReadOnlyDictionary<string, P
 /// it (the first one more than the community rate), else it is dropped.
 /// <list type="bullet">
 /// <item>baseline: the estimated baseline, else none (the community rate is the baseline rate then).</item>
-/// <item>budget: the build <see cref="BuildComposer"/> composes from the exactly priced catalog within
-/// <see cref="TierBands.BudgetMaxCost"/>; rate = the curve at its score (<see cref="GearCurveReader"/>). No curve (or a
+/// <item>budget: the build <see cref="BuildComposer.ComposeTier"/> composes from the exactly priced catalog within
+/// <see cref="TierBands.BudgetMaxCost"/> (always with a tool, empty armor slots filled; none without a tool that fits,
+/// none below the 10th score percentile); rate = the curve at its score (<see cref="GearCurveReader"/>). No curve (or a
 /// formula whose contributions don't add up) means no composed tiers.</item>
-/// <item>mid: the greedy continued from the budget build up to <see cref="TierBands.MidMaxCost"/>; it must cost more than
+/// <item>mid: the greedy continued from the budget build (or from the best tool when there is no budget build) up to <see cref="TierBands.MidMaxCost"/>; it must cost more than
 /// the budget band.</item>
 /// <item>budget and mid stay below the late game cohort's score (else the 90th score percentile), and one that earns at
 /// least the endgame's rate is not shown: the endgame tier is never replaced or outdone by a composed build.</item>
@@ -94,10 +95,10 @@ public static class SetupTierSelector
         var model = gear.Model;
         if (model?.Curve == null || !BuildComposer.CanCompose(model.ScoreFormula))
             return builds;
-        var units = BuildComposer.Units(gear.Pieces.Values, model.ScoreFormula);
+        var catalog = BuildComposer.Catalog(gear.Pieces.Values, model.ScoreFormula);
         var ceiling = ScoreCeiling(model);
-        var budget = BuildComposer.Compose(units, bands.BudgetMaxCost, null, ceiling);
-        var mid = BuildComposer.Compose(units, bands.MidMaxCost, budget, ceiling);
+        var budget = BuildComposer.ComposeTier(catalog, bands.BudgetMaxCost, null, ceiling);
+        var mid = BuildComposer.ComposeTier(catalog, bands.MidMaxCost, budget, ceiling);
         AddComposed(builds, Budget, budget, model, endgame, cost => cost > 0);
         AddComposed(builds, Mid, mid, model, endgame, cost => cost > bands.BudgetMaxCost);
         return builds;
@@ -106,7 +107,7 @@ public static class SetupTierSelector
     private static void AddComposed(Dictionary<string, PricedBuild> builds, string tier, ComposedBuild composed, TaskGearModel model,
         PricedBuild endgame, Func<double, bool> inBand)
     {
-        if (composed.Units.Count == 0 || !inBand(composed.Cost))
+        if (composed == null || composed.Units.Count == 0 || !inBand(composed.Cost) || BelowP10(composed, model))
             return;
         var build = Priced(composed, model);
         if (build == null || build.SameBuildAs(endgame))
@@ -115,6 +116,10 @@ public static class SetupTierSelector
             return;
         builds[tier] = build;
     }
+
+    /// <summary>A build below what 90 % of the players wear is no upgrade to show</summary>
+    private static bool BelowP10(ComposedBuild composed, TaskGearModel model)
+        => model.Distribution != null && composed.Score < model.Distribution.ScoreP10;
 
     /// <summary>Composed builds stay below the late game cohort's score, else below the 90th score percentile; null without either</summary>
     public static double? ScoreCeiling(TaskGearModel model)

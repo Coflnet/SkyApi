@@ -208,6 +208,54 @@ public class SetupTierSelectorTests
         mid.PieceIds().Should().NotBeEquivalentTo(new[] { "tool:END_HOE", "helmet:END_HELMET" });
     }
 
+    /// <summary>
+    /// The live winter fishing catalog: the rod costs more than the budget band and the helmet only has a lower bound price.
+    /// Regression: the budget was published without a tool and without a helmet (score 269, percentile 0).
+    /// </summary>
+    private static (TaskGearModel Model, PricedGearModel Priced) WinterFishing(double p10 = 300)
+    {
+        var rod = Entry("tool", "ROD_OF_THE_SEA", 120);
+        var helmet = Entry("helmet", "SHARK_SCALE_HELMET", 60);
+        var cheap = new (GearCatalogPiece Entry, double Cost)[]
+        {
+            (Entry("chestplate", "SHARK_SCALE_CHESTPLATE", 60), 1 * M), (Entry("leggings", "SHARK_SCALE_LEGGINGS", 60), 1 * M),
+            (Entry("boots", "THUNDER_BOOTS", 40), 1 * M), (Entry("necklace", "THUNDERBOLT_NECKLACE", 30), 0.5 * M),
+            (Entry("cloak", "BACKWATER_CLOAK", 20), 0.3 * M), (Entry("belt", "BACKWATER_BELT", 20), 0.3 * M),
+            (Entry("gloves", "BACKWATER_GLOVES", 20), 0.3 * M), (PetEntry("REINDEER", 19), 1 * M),
+        };
+        var curve = Curve([(300, 3 * M), (350, 4 * M), (400, 5 * M), (450, 6 * M), (500, 7 * M)]);
+        var model = MeasuredTestData.Model(null, curve, cheap.Select(c => c.Entry).Append(rod).Append(helmet),
+            distribution: Distribution(p10, 350, 400, 450, 500));
+        var pieces = cheap.Select(c => Priced(c.Entry, c.Cost)).Append(Priced(rod, 15 * M)).Append(Priced(helmet, 2 * M, lowerBound: true));
+        return (model, PricedModel(model, pieces.ToArray()));
+    }
+
+    [Test]
+    public void Composed_tiers_always_have_a_tool_and_without_one_in_the_band_fall_back()
+    {
+        var (_, priced) = WinterFishing();
+
+        var tiers = ByTier(SetupTierSelector.Select(priced, RisingEstimates(), 1 * M));
+
+        tiers["budget"].IsMeasured.Should().BeFalse("no rod fits 10M, so the budget is the estimate");
+        tiers["budget"].Estimate.Id.Should().Be("budget");
+        var mid = tiers["mid"].Measured;
+        Tags(tiers["mid"]).Should().Contain("ROD_OF_THE_SEA").And.NotContain("SHARK_SCALE_HELMET", "a lower bound price is never composed");
+        mid.Score.Should().Be(389);
+        mid.FullCost.Should().BeApproximately(20.4 * M, 1);
+    }
+
+    [Test]
+    public void Composed_build_below_the_10th_score_percentile_is_not_published()
+    {
+        var (_, priced) = WinterFishing(p10: 400);
+
+        var tiers = ByTier(SetupTierSelector.Select(priced, RisingEstimates(), 1 * M));
+
+        tiers["mid"].IsMeasured.Should().BeFalse("389 is below what 90 % of the players wear");
+        tiers["mid"].Estimate.Id.Should().Be("mid");
+    }
+
     [Test]
     public void Score_ceiling_is_the_late_game_score_else_the_90th_percentile()
     {
@@ -264,7 +312,7 @@ public class SetupTierSelectorTests
     public void Composed_build_outside_the_observed_range_is_flagged_and_low_confidence()
     {
         var model = MeasuredTestData.Model(null, Curve([(100, 1 * M), (200, 2 * M)]), [Entry("tool", "HOE", 50)],
-            distribution: Distribution(100, 120, 150, 180, 200));
+            distribution: Distribution(10, 120, 150, 180, 200));
 
         var budget = ByTier(SetupTierSelector.Select(PricedModel(model, Priced(model.Pieces[0], 1 * M)), null, 0.5 * M))["budget"];
 
