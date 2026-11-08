@@ -318,7 +318,9 @@ public partial class ModDescriptionService : IDisposable
             // anonymous player only ineresting if ah contains seller
             if (playerId == null && !items.Any(i => i?.Description?.Contains("Seller") ?? false))
                 return items;
-            ProduceInventory(inventoryData.ChestName, playerId, userId, items, inventoryData.Position);
+            if (inventoryData.OffHypixel)
+                return items;
+            ProduceInventory(inventoryData.ChestName, playerId, userId, items, inventoryData.Position, inventoryData.HeldSlot);
             return items;
         }
         catch (Exception e)
@@ -340,6 +342,10 @@ public partial class ModDescriptionService : IDisposable
 
     }
 
+    /// <summary>Goal progress is player state too: only signed-in uploads made on hypixel.net count</summary>
+    internal static bool TracksGoals(string userId, InventoryData inventory)
+        => !string.IsNullOrEmpty(userId) && inventory?.OffHypixel != true;
+
     /// <summary>
     /// Produce an inventory update for the given player
     /// </summary>
@@ -348,7 +354,8 @@ public partial class ModDescriptionService : IDisposable
     /// <param name="userId"></param>
     /// <param name="items"></param>
     /// <param name="position"></param>
-    public void ProduceInventory(string chestName, string playerId, string userId, List<Item> items, BlockPos position = null)
+    /// <param name="heldSlot">index into <paramref name="items"/> of the held item, null when unknown</param>
+    public void ProduceInventory(string chestName, string playerId, string userId, List<Item> items, BlockPos position = null, int? heldSlot = null)
     {
         stateService.Produce(playerId, new()
         {
@@ -358,7 +365,8 @@ public partial class ModDescriptionService : IDisposable
                 Name = chestName,
                 Items = items,
                 Position = position,
-                OpenedAt = DateTime.UtcNow
+                OpenedAt = DateTime.UtcNow,
+                HeldSlot = heldSlot
             },
             UserId = userId,
             ReceivedAt = DateTime.UtcNow
@@ -397,7 +405,9 @@ public partial class ModDescriptionService : IDisposable
                             item.ExtraAttributes["tier"] = tier;
                     }
                 }
-                itemSkinHandler.StoreIfNeeded(item.Tag, compound);
+                // skins are shared data, only hypixel.net uploads may add to it
+                if (!modDescription.OffHypixel)
+                    itemSkinHandler.StoreIfNeeded(item.Tag, compound);
 
                 return item;
             }
@@ -586,10 +596,9 @@ public partial class ModDescriptionService : IDisposable
             try
             {
                 items = ProduceInventory(inventory, mcName, userInfo.UserId, auctionRepresent);
-                if (!string.IsNullOrEmpty(userInfo.UserId))
-                    if (goalService != null)
-                        await goalService.OnInventory(userInfo.UserId, mcName, items, inventory.ForceGoalRefresh, inventory.Settings,
-                            auctionRepresent.Select(a => a.auction?.Tag).ToList());
+                if (goalService != null && TracksGoals(userInfo.UserId, inventory))
+                    await goalService.OnInventory(userInfo.UserId, mcName, items, inventory.ForceGoalRefresh, inventory.Settings,
+                        auctionRepresent.Select(a => a.auction?.Tag).ToList());
             }
             catch (Exception e)
             {
