@@ -360,22 +360,22 @@ public class ModDescriptionServiceTests
             .Returns<IEnumerable<SaveAuction>, bool>((s, ai) => Task.FromResult(s.Select(_ => new Coflnet.Sky.Sniper.Client.Model.PriceEstimate()).ToList()));
     }
 
-    // the instance TTLs are wall clock based, a slow first request must not let the entry expire before the second one
+    // the failure entry lives only seconds; a slow first request on a loaded host must not expire it
     private void FreezeInstanceCacheClock()
     {
-        var field = typeof(ModDescriptionService).GetField("instanceCache", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
-        var original = (Microsoft.Extensions.Caching.Memory.MemoryCache)field.GetValue(service);
-        field.SetValue(service, new Microsoft.Extensions.Caching.Memory.MemoryCache(new Microsoft.Extensions.Caching.Memory.MemoryCacheOptions
+        var field = typeof(ModDescriptionService).GetField("instanceCache", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+        var frozen = new Microsoft.Extensions.Caching.Memory.MemoryCache(new Microsoft.Extensions.Caching.Memory.MemoryCacheOptions
         {
             SizeLimit = 5000,
-            Clock = new FrozenClock(System.DateTimeOffset.UtcNow)
-        }));
-        original.Dispose();
+            Clock = new FrozenClock()
+        });
+        ((IDisposable)field.GetValue(service)).Dispose();
+        field.SetValue(service, frozen);
     }
 
-    private sealed class FrozenClock(System.DateTimeOffset now) : Microsoft.Extensions.Internal.ISystemClock
+    private sealed class FrozenClock : Microsoft.Extensions.Internal.ISystemClock
     {
-        public System.DateTimeOffset UtcNow => now;
+        public DateTimeOffset UtcNow { get; } = DateTimeOffset.UtcNow;
     }
 
     private static DescriptionSetting DisabledInstanceSettings() =>
@@ -452,8 +452,8 @@ public class ModDescriptionServiceTests
     public async Task FailedInstanceLookupIsCachedBrieflyWithDefaults()
     {
         SetupSignedOutUser();
-        FreezeInstanceCacheClock();
         instanceClient.Setup(c => c.GetDescription(It.IsAny<string>(), It.IsAny<CancellationToken>())).ReturnsAsync(InstanceSettingsResult.Failed);
+        FreezeInstanceCacheClock();
 
         var first = await RequestAsSignedOut();
         await RequestAsSignedOut();
