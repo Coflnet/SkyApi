@@ -14,7 +14,6 @@ using Coflnet.Sky.Api.Services.Tasks;
 using Coflnet.Sky.Api.Services.Tasks.Setups;
 using Coflnet.Sky.Api.Services.Tasks.Setups.Acquisition;
 using Coflnet.Sky.Core;
-using GearCluster = Coflnet.Sky.PlayerState.Client.Model.GearCluster;
 using SkyApi.Services.Tasks.Setups;
 using SkyApi.Services.Tasks.Setups.Measured;
 using Microsoft.AspNetCore.Http;
@@ -476,43 +475,17 @@ public class TasksControllerSetupsTests
         });
     }
 
-    /// <summary>Measured clusters: free baseline and budget, the mid and endgame carry the sentinels of <see cref="TaskSetupsComposerTests"/></summary>
+    /// <summary>The four tier gear model: free budget, the mid and endgame carry the sentinels of <see cref="TaskSetupsComposerTests"/></summary>
     private static TaskSetupsService MeasuredSetups()
     {
         var tasks = new Mock<IPublicTaskService>();
         tasks.Setup(t => t.GetAllAsync(It.IsAny<CancellationToken>()))
-            .ReturnsAsync([new PublicTaskEstimate { Name = "Task A", Slug = "task-a" }]);
-        GearCluster Secret(string tool, double rate, string helmet)
-        {
-            var cluster = MeasuredTestData.Cluster(tool, rate, players: TaskSetupsComposerTests.SecretPlayers, helmet: helmet,
-                toolPiece: MeasuredTestData.Piece(tool, new Dictionary<string, int> { ["harvesting"] = 6 }));
-            cluster.Hours = TaskSetupsComposerTests.SecretHours;
-            cluster.StatMedians = new Dictionary<string, double> { ["Farming Fortune"] = TaskSetupsComposerTests.SecretStat };
-            return cluster;
-        }
-        var clusters = MeasuredTestData.Clusters(null,
-            MeasuredTestData.Cluster("BASE_HOE", 1_000_000),
-            MeasuredTestData.Cluster("BUDGET_HOE", 1_500_000),
-            Secret("MID_HOE", TaskSetupsComposerTests.MidRate, "MID_HELMET"),
-            Secret("END_HOE", TaskSetupsComposerTests.EndRate, "END_HELMET"));
-        clusters.ModifierEffects = TaskSetupsComposerTests.Effects;
-        var prices = new Dictionary<string, (long Price, string Uuid)>
-        {
-            ["BASE_HOE"] = (500_000, "77777777777777777777777777777777"),
-            ["BUDGET_HOE"] = (5_000_000, TaskSetupsComposerTests.BudgetUuid),
-            ["MID_HOE"] = (TaskSetupsComposerTests.MidCost, TaskSetupsComposerTests.MidUuid),
-            ["END_HOE"] = (TaskSetupsComposerTests.EndCost, TaskSetupsComposerTests.EndUuid),
-        };
-        var acquisition = new Mock<IGearAcquisitionService>();
-        acquisition.Setup(a => a.GetAsync(It.IsAny<GearItemSpec>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync((GearItemSpec spec, CancellationToken _) => prices.TryGetValue(spec.Tag, out var p)
-                ? MeasuredTestData.Direct(p.Price, p.Uuid)
-                : MeasuredTestData.Direct(1_000_000, "66666666666666666666666666666666"));
+            .ReturnsAsync([new PublicTaskEstimate { Name = "Task A", Slug = "task-a", CoinsPerHour = FourTierModel.CommunityRate }]);
         var resale = new Mock<IItemResaleService>();
         resale.Setup(r => r.GetQuoteAsync(It.IsAny<string>(), It.IsAny<IReadOnlyDictionary<string, string>>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync((string tag, IReadOnlyDictionary<string, string> _, CancellationToken _) => MeasuredTestData.Quote(tag, 1000));
         return MeasuredTestData.Service(tasks.Object, Mock.Of<IGearSetupService>(), resale.Object,
-            clusters: MeasuredTestData.Returning(new ClusterLookup(clusters, false)), acquisition: acquisition.Object);
+            models: MeasuredTestData.Returning(new GearModelLookup(FourTierModel.Model(), false)), acquisition: FourTierModel.Acquisition().Object);
     }
 
     [TestCase(false)]

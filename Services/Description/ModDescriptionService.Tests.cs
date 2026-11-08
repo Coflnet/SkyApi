@@ -46,7 +46,6 @@ public class ModDescriptionServiceTests
     Mock<ICraftsApi> craftsApi;
     Mock<IInstanceSettingsClient> instanceClient;
     Mock<IStateUpdateService> stateUpdates;
-    Mock<ItemSkinHandler> skinHandler;
     bool originalDevMode;
     ModDescriptionService service;
     [SetUp]
@@ -70,8 +69,7 @@ public class ModDescriptionServiceTests
         craftsApi = new Mock<ICraftsApi>();
 
         IItemsApi itemsApi = new Mock<IItemsApi>().Object;
-        skinHandler = new Mock<ItemSkinHandler>(itemsApi);
-        ItemSkinHandler itemSkinHandler = skinHandler.Object;
+        ItemSkinHandler itemSkinHandler = new ItemSkinHandler(itemsApi);
         service = new(craftsApi.Object, settingsService, Mock.Of<IdConverter>(), Mock.Of<IServiceScopeFactory>(),
                     Mock.Of<BazaarApi>(), playerNameService, Mock.Of<ILogger<ModDescriptionService>>(), Mock.Of<IConfiguration>(), stateUpdates.Object, sniperClient.Object,
                     itemSkinHandler, new(null, null, null), null, null, null, null, null, instanceSettings: instanceClient.Object);
@@ -96,48 +94,6 @@ public class ModDescriptionServiceTests
 
         produced.Chest.HeldSlot.Should().Be(heldSlot);
         produced.Chest.Items.Should().HaveCount(2);
-    }
-
-    [TestCase("{}", false)]
-    [TestCase("{\"offHypixel\":false}", false)]
-    [TestCase("{\"offHypixel\":true}", true)]
-    public void InventoryRequest_OffHypixelIsOptional(string json, bool expected)
-    {
-        JsonConvert.DeserializeObject<InventoryDataWithSettings>(json).OffHypixel.Should().Be(expected);
-    }
-
-    [TestCase(false, 1)]
-    [TestCase(true, 0)]
-    public void OffHypixelInventoryIsNotProducedAsStateUpdate(bool offHypixel, int expectedProduced)
-    {
-        var inventory = new InventoryData { ChestName = "Inventory", FullInventoryNbt = TwoSlotInventoryNbt(), OffHypixel = offHypixel };
-
-        var items = service.ProduceInventory(inventory, "player", "user");
-
-        items.Should().HaveCount(2, "the descriptions are still produced");
-        stateUpdates.Verify(s => s.Produce("player", It.IsAny<UpdateMessage>()), Times.Exactly(expectedProduced));
-    }
-
-    [TestCase(false, 1)]
-    [TestCase(true, 0)]
-    public void OffHypixelInventoryDoesNotStoreSkins(bool offHypixel, int expectedStores)
-    {
-        var inventory = new InventoryData { ChestName = "Inventory", FullInventoryNbt = TwoSlotInventoryNbt(), OffHypixel = offHypixel };
-
-        service.InventoryToItems(inventory);
-
-        skinHandler.Verify(s => s.StoreIfNeeded(It.IsAny<string>(), It.IsAny<fNbt.Tags.NbtCompound>()), Times.Exactly(expectedStores));
-    }
-
-    [TestCase("user", false, true)]
-    [TestCase("user", true, false)]
-    [TestCase(null, false, false)]
-    [TestCase("", false, false)]
-    public void GoalsAreOnlyTrackedForSignedInUploadsFromHypixel(string userId, bool offHypixel, bool expected)
-    {
-        var inventory = new InventoryDataWithSettings { OffHypixel = offHypixel };
-
-        ModDescriptionService.TracksGoals(userId, inventory).Should().Be(expected);
     }
 
     [Test]

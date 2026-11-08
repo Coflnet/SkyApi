@@ -352,7 +352,7 @@ namespace Coflnet.Sky.Api
             services.AddSingleton<Coflnet.Sky.Api.Services.Tasks.Setups.IItemPriceSource, Coflnet.Sky.Api.Services.Tasks.Setups.PricesServiceSource>();
             services.AddSingleton<Coflnet.Sky.Api.Services.Tasks.Setups.IItemResaleService, Coflnet.Sky.Api.Services.Tasks.Setups.ItemResaleService>();
             services.AddSingleton<Coflnet.Sky.Api.Services.Tasks.Setups.IGearSetupService, Coflnet.Sky.Api.Services.Tasks.Setups.GearSetupService>();
-            services.AddSingleton<Coflnet.Sky.Api.Services.Tasks.Setups.IGearClusterService, Coflnet.Sky.Api.Services.Tasks.Setups.GearClusterService>();
+            services.AddSingleton<Coflnet.Sky.Api.Services.Tasks.Setups.IGearModelService, Coflnet.Sky.Api.Services.Tasks.Setups.GearModelService>();
             services.AddSingleton<Coflnet.Sky.Api.Services.Tasks.Setups.Measured.IMeasuredSetupPricer, Coflnet.Sky.Api.Services.Tasks.Setups.Measured.MeasuredSetupPricer>();
             services.AddSingleton<Coflnet.Sky.Api.Services.Tasks.Setups.ITaskSetupsService, Coflnet.Sky.Api.Services.Tasks.Setups.TaskSetupsService>();
             services.AddSingleton<Coflnet.Sky.Api.Services.Tasks.Setups.Acquisition.IGearListingSource, Coflnet.Sky.Api.Services.Tasks.Setups.Acquisition.ActiveAuctionGearListingSource>();

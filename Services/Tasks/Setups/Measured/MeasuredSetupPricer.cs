@@ -33,43 +33,23 @@ public record PricedPiece(MeasuredPiece Piece, AcquisitionResult Acquisition, It
     public bool Priced => Cost != null || NoMarket;
 }
 
-/// <summary>A measured cluster with its priced items</summary>
-public record PricedCluster(GearCluster Cluster, IReadOnlyList<PricedPiece> Pieces)
-{
-    /// <summary>The key's parts (tool=..., pet=...) to tell parent and child clusters apart</summary>
-    public IReadOnlyDictionary<string, string> KeyParts { get; } = ClusterKeys.Parts(Cluster.Key);
-
-    public double Rate => Cluster.CoinsPerHour;
-    public bool Priced => Pieces.All(p => p.Priced);
-    /// <summary>What every item costs together, null when an item has no price</summary>
-    public double? FullCost => Priced ? Pieces.Sum(p => p.Cost ?? 0) : null;
-    /// <summary>True when <see cref="FullCost"/> is only a lower bound</summary>
-    public bool LowerBound => Pieces.Any(p => p.LowerBound);
-    /// <summary>An item's price lookup failed: the cluster sits this build out instead of being ranked on a wrong price</summary>
-    public bool TransientlyUnpriced => Pieces.Any(p => p.Transient);
-
-    public HashSet<string> SpecKeys() => Pieces.Select(p => p.Piece.SpecKey).ToHashSet();
-
-    /// <summary>What the items not in <paramref name="owned"/> cost, null when one of them has no price</summary>
-    public double? CostWithout(IReadOnlySet<string> owned)
-    {
-        var bought = Pieces.Where(p => !owned.Contains(p.Piece.SpecKey)).ToList();
-        return bought.All(p => p.Priced) ? bought.Sum(p => p.Cost ?? 0) : null;
-    }
-}
-
+/// <param name="Pieces">Priced catalog pieces by <see cref="MeasuredPiece.Id"/></param>
 /// <param name="Degraded">True when a lookup failed or timed out, the result should only be kept briefly</param>
-public record PricedClusters(IReadOnlyList<PricedCluster> Clusters, bool Degraded);
+public record PricedPieces(IReadOnlyDictionary<string, PricedPiece> Pieces, bool Degraded)
+{
+    public static readonly PricedPieces None = new(new Dictionary<string, PricedPiece>(), false);
+}
 
 public interface IMeasuredSetupPricer
 {
+    /// <param name="pieces">Catalog pieces, each needs an <see cref="MeasuredPiece.Id"/></param>
     /// <param name="untradeableTags">Tags known to be untradeable (soulbound), they are excluded from costs</param>
-    Task<PricedClusters> PriceAsync(IReadOnlyList<GearCluster> clusters, IReadOnlySet<string> untradeableTags = null,
+    Task<PricedPieces> PriceAsync(IReadOnlyList<MeasuredPiece> pieces, IReadOnlySet<string> untradeableTags = null,
         CancellationToken cancellationToken = default);
 }
 
 /// <summary>
-/// Prices measured clusters: one acquisition per distinct spec (at most <see cref="MaxParallelAcquisitions"/> at once),
+/// Prices catalog pieces: one acquisition per distinct spec (at most <see cref="MaxParallelAcquisitions"/> at once),
 /// then one resale quote per distinct tag and filters.
 /// An item costs the cheaper of buying a matching auction and upgrading a complete cheapest base,
 /// without either it costs its market price (a lower bound when only the plain item or a base needing grind has one).
@@ -105,19 +85,18 @@ public class MeasuredSetupPricer : IMeasuredSetupPricer
     /// <summary>A resale quote and whether it is the plain item's because the variant had no market</summary>
     private sealed record QuoteResult(ItemResaleQuote Quote, bool PlainTag);
 
-    public async Task<PricedClusters> PriceAsync(IReadOnlyList<GearCluster> clusters, IReadOnlySet<string> untradeableTags = null,
+    public async Task<PricedPieces> PriceAsync(IReadOnlyList<MeasuredPiece> pieces, IReadOnlySet<string> untradeableTags = null,
         CancellationToken cancellationToken = default)
     {
         untradeableTags ??= NoTags;
-        var pieces = (clusters ?? []).Where(c => c != null).Select(c => (Cluster: c, Pieces: MeasuredPiece.Of(c))).ToList();
-        var distinct = pieces.SelectMany(p => p.Pieces).GroupBy(p => p.SpecKey).Select(g => g.First()).ToList();
+        var catalog = (pieces ?? []).Where(p => p?.Id != null).GroupBy(p => p.Id).Select(g => g.First()).ToList();
+        var distinct = catalog.GroupBy(p => p.SpecKey).Select(g => g.First()).ToList();
         var acquisitions = await LoadAcquisitions(distinct, cancellationToken);
         var targets = distinct.Select(p => QuoteTargetOf(p, acquisitions[p.SpecKey])).ToList();
         var quotes = await LoadQuotes(targets, cancellationToken);
-        var priced = pieces.Select(p => new PricedCluster(p.Cluster,
-            p.Pieces.Select(piece => Price(piece, acquisitions[piece.SpecKey], quotes, untradeableTags)).ToList())).ToList();
+        var priced = catalog.ToDictionary(p => p.Id, p => Price(p, acquisitions[p.SpecKey], quotes, untradeableTags));
         var degraded = acquisitions.Values.Any(IsTransient) || quotes.Values.Any(q => q.Quote.Degraded);
-        return new PricedClusters(priced, degraded);
+        return new PricedPieces(priced, degraded);
     }
 
     /// <summary>The cheaper of a direct buy and a complete base, else the market price; null when nothing has a price</summary>

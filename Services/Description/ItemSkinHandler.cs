@@ -57,7 +57,7 @@ public class ItemSkinHandler : BackgroundService, IItemSkinHandler
 
 
     /// <inheritdoc/>
-    public virtual void StoreIfNeeded(string tag, NbtCompound compound)
+    public void StoreIfNeeded(string tag, NbtCompound compound)
     {
         if (tag == null)
             return;

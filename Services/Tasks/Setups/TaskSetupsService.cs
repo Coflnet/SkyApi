@@ -27,9 +27,10 @@ public interface ITaskSetupsService
 }
 
 /// <summary>
-/// Combines task slugs, measured gear clusters, curated estimates and prices into the public and premium setups views.
-/// Measured clusters come from PlayerState's gear clusters endpoint; when that fails the curated estimates of the
-/// gear setups list are served alone and the views are only cached briefly.
+/// Combines task slugs, the measured gear model, curated estimates and prices into the public and premium setups views.
+/// The gear model comes from PlayerState's gear model endpoint; when that fails the curated estimates of the
+/// gear setups list are served alone and the views are only cached briefly. Only the catalog pieces a tier can use are
+/// priced: the recommended endgame's first, then (with a curve) the composable ones, at most <see cref="MaxPiecesPerSlot"/> tags per slot.
 /// The shared model is served stale for up to <see cref="StaleModelDuration"/> while one caller's build refreshes it in
 /// the background, so only the very first build of a slug makes callers wait.
 /// </summary>
@@ -39,9 +40,11 @@ public class TaskSetupsService : ITaskSetupsService
     public static readonly TimeSpan DegradedCacheDuration = TimeSpan.FromSeconds(15);
     /// <summary>How long a model past its fresh time is still served while a refresh runs</summary>
     public static readonly TimeSpan StaleModelDuration = TimeSpan.FromMinutes(10);
+    /// <summary>Distinct tags priced per slot (highest score contribution first), bounds the acquisitions of one build</summary>
+    public const int MaxPiecesPerSlot = 6;
     private readonly IPublicTaskService taskService;
     private readonly IGearSetupService gearService;
-    private readonly IGearClusterService clusterService;
+    private readonly IGearModelService modelService;
     private readonly IMeasuredSetupPricer pricer;
     private readonly IItemResaleService resaleService;
     private readonly IMemoryCache cache;
@@ -51,13 +54,13 @@ public class TaskSetupsService : ITaskSetupsService
     /// <summary>A model, until when it is fresh (then it is served stale while it is rebuilt) and when it must not be served any more</summary>
     private sealed record StampedModel(SetupsModel Model, DateTimeOffset FreshUntil, DateTimeOffset ExpiresAt);
 
-    public TaskSetupsService(IPublicTaskService taskService, IGearSetupService gearService, IGearClusterService clusterService,
+    public TaskSetupsService(IPublicTaskService taskService, IGearSetupService gearService, IGearModelService modelService,
         IMeasuredSetupPricer pricer, IItemResaleService resaleService, IMemoryCache cache, TimeProvider time)
     {
         this.time = time ?? TimeProvider.System;
         this.taskService = taskService;
         this.gearService = gearService;
-        this.clusterService = clusterService;
+        this.modelService = modelService;
         this.pricer = pricer;
         this.resaleService = resaleService;
         this.cache = cache;
@@ -158,7 +161,7 @@ public class TaskSetupsService : ITaskSetupsService
         if (model.Plan == null)
             throw new CoflnetException("gear_setups_not_found", $"No gear setups for task {slug}");
         var quoted = TaskSetupsComposer.QuotedEstimates(model.Plan, access);
-        var targets = model.Estimates == null ? new List<QuoteTarget>() : PublicSetupsMapper.QuoteTargets(model.Estimates, quoted, TaskSetupsComposer.DisplayedBaselineKeys(model.Plan));
+        var targets = model.Estimates == null ? new List<QuoteTarget>() : PublicSetupsMapper.QuoteTargets(model.Estimates, quoted, null);
         var (quotes, lookupFailed) = await TryLoadQuotes(targets, CancellationToken.None);
         var view = TaskSetupsComposer.Compose(model, quotes, access);
         // a permanently missing price (item without a market) is not degraded, it keeps the normal cache time
@@ -169,19 +172,43 @@ public class TaskSetupsService : ITaskSetupsService
     private async Task<SetupsModel> BuildModel(string slug)
     {
         var (task, slugs) = await LoadTask(slug, CancellationToken.None);
-        var lookup = await clusterService.GetAsync(task.Name, CancellationToken.None);
+        var lookup = await modelService.GetAsync(task.Name, CancellationToken.None);
         var (estimates, estimatesFailed) = await LoadEstimates(task.Name, lookup);
         // not derived yet (right after a PlayerState restart) is no failure: the estimates keep the normal cache time
         var degraded = lookup.Failed || estimatesFailed;
-        var clusters = lookup.Clusters?.Clusters ?? new();
-        if (clusters.Count == 0 && estimates == null)
+        var gear = lookup.Model;
+        var pieces = PricedCatalog(gear);
+        if (pieces.Count == 0 && estimates == null)
             return new SetupsModel(slug, task.Name, null, null, null, null, [], slugs, degraded);
-        var priced = await pricer.PriceAsync(clusters, UntradeableTags(estimates), CancellationToken.None);
+        var priced = await pricer.PriceAsync(pieces, UntradeableTags(estimates), CancellationToken.None);
         var community = SetupTierSelector.CommunityRate(estimates, task.CoinsPerHour);
-        var plan = SetupTierSelector.Select(priced.Clusters, estimates, community, TierBands.Default);
-        return new SetupsModel(slug, task.Name, lookup.Clusters?.Category, lookup.Clusters?.ComputedAt, estimates, plan,
-            lookup.Clusters?.ModifierEffects ?? new(), slugs, degraded || priced.Degraded, community);
+        var plan = SetupTierSelector.Select(new PricedGearModel(gear, priced.Pieces), estimates, community, TierBands.Default);
+        return new SetupsModel(slug, task.Name, gear?.Category, gear?.ComputedAt, estimates, plan, gear?.ModifierEffects ?? new(),
+            slugs, degraded || priced.Degraded, community, gear?.ScoreFormula);
     }
+
+    /// <summary>
+    /// The catalog pieces a tier can use, in pricing order: the recommended endgame's first, then with a curve the best
+    /// <see cref="MaxPiecesPerSlot"/> tags per slot (the best variant of each tag) to compose budget and mid from.
+    /// Nothing is priced for a model that can't produce a measured tier.
+    /// </summary>
+    public static List<MeasuredPiece> PricedCatalog(TaskGearModel gear)
+    {
+        var catalog = (gear?.Pieces ?? new()).Select(MeasuredPiece.Of).Where(p => p != null).ToList();
+        var endgameIds = (gear?.RecommendedEndgame?.Pieces?.Values ?? Enumerable.Empty<string>()).Where(id => !string.IsNullOrEmpty(id)).ToHashSet();
+        var endgame = catalog.Where(p => endgameIds.Contains(p.Id));
+        var composable = gear?.Curve != null && BuildComposer.CanCompose(gear.ScoreFormula);
+        var top = composable ? TopPerSlot(catalog) : [];
+        return endgame.Concat(top).DistinctBy(p => p.Id).ToList();
+    }
+
+    private static IEnumerable<MeasuredPiece> TopPerSlot(List<MeasuredPiece> catalog)
+        => catalog.GroupBy(p => p.Slot).SelectMany(slot => slot
+            .GroupBy(p => p.Tag).Select(BestVariant)
+            .OrderByDescending(p => p.Catalog.ScoreContribution).Take(MaxPiecesPerSlot));
+
+    private static MeasuredPiece BestVariant(IEnumerable<MeasuredPiece> variants)
+        => variants.OrderByDescending(p => p.Catalog.ScoreContribution).ThenByDescending(p => p.Catalog.Players).First();
 
     /// <summary>Positive evidence only: tags the curated profile marks as untradeable (soulbound)</summary>
     private static HashSet<string> UntradeableTags(TaskGearSetups estimates)
@@ -192,15 +219,15 @@ public class TaskSetupsService : ITaskSetupsService
             .ToHashSet();
 
     /// <summary>
-    /// The clusters response carries the estimates. Without clusters (failed or unknown task) the estimates come from
-    /// the gear setups list as before, its outage is a 503. Clusters without estimates may mean the estimate failed
+    /// The gear model carries the estimates. Without a model (failed or unknown task) the estimates come from
+    /// the gear setups list as before, its outage is a 503. A model without estimates may mean the estimate failed
     /// upstream, the list is asked then too, but its outage only degrades the view.
     /// </summary>
-    private async Task<(TaskGearSetups Estimates, bool Failed)> LoadEstimates(string taskName, ClusterLookup lookup)
+    private async Task<(TaskGearSetups Estimates, bool Failed)> LoadEstimates(string taskName, GearModelLookup lookup)
     {
-        if (lookup.Clusters?.Estimates != null)
-            return (lookup.Clusters.Estimates, false);
-        if (lookup.Clusters == null)
+        if (lookup.Model?.Estimates != null)
+            return (lookup.Model.Estimates, false);
+        if (lookup.Model == null)
             return (await gearService.GetByTaskNameAsync(taskName, CancellationToken.None), false);
         try
         {
