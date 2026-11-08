@@ -469,7 +469,6 @@ public class ModDescriptionServiceTests
     public async Task ThrowingInstanceClientIsCachedBriefly()
     {
         SetupSignedOutUser();
-        FreezeInstanceCacheClock();
         instanceClient.Setup(c => c.GetDescription(It.IsAny<string>(), It.IsAny<CancellationToken>())).ThrowsAsync(new InvalidOperationException("down"));
 
         await RequestAsSignedOut();
