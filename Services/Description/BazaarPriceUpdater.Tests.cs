@@ -66,4 +66,28 @@ public class BazaarPriceUpdaterTests
         api.VerifyNoOtherCalls();
     }
 
+    /// <summary>The shared price cache is null here, so touching it would throw: an off hypixel screen must still get its links</summary>
+    [Test]
+    public void OffHypixelScreenSharesNoPricesButStillGetsItsDisplay()
+    {
+        var items = Enumerable.Range(0, 17).Select(_ => new Coflnet.Sky.Core.Item()).ToList();
+        items[10] = new() { ItemName = "Buy Instantly" };
+        items[13] = new() { Tag = "FINE_FLOUR" };
+        items[15] = new() { Description = "§8- §64,362.4 coins §7each | §a475§7x" };
+        items[16] = new() { Description = "§8- §64,500.0 coins §7each | §a100§7x" };
+        var data = new DataContainer
+        {
+            inventory = new Coflnet.Sky.Api.Models.Mod.InventoryDataWithSettings
+            {
+                ChestName = "Fine Flour ➜ Bazaar", OffHypixel = true, Settings = new Coflnet.Sky.Api.Models.Mod.DescriptionSetting()
+            },
+            Items = items,
+            auctionRepresent = items.Select(_ => ((Coflnet.Sky.Core.SaveAuction)null, (string[])null)).ToList(),
+            mods = new(),
+        };
+
+        new BazaarPriceUpdater().Apply(data);
+
+        data.mods.Should().ContainSingle("the website link and bookmark are still shown");
+    }
 }

@@ -45,6 +45,8 @@ public class ModDescriptionServiceTests
     Mock<ISniperClient> sniperClient;
     Mock<ICraftsApi> craftsApi;
     Mock<IInstanceSettingsClient> instanceClient;
+    Mock<IStateUpdateService> stateUpdates;
+    Mock<ItemSkinHandler> skinHandler;
     bool originalDevMode;
     ModDescriptionService service;
     [SetUp]
@@ -52,6 +54,7 @@ public class ModDescriptionServiceTests
     {
         originalDevMode = ModDescriptionService.IsDevMode;
         instanceClient = new Mock<IInstanceSettingsClient>();
+        stateUpdates = new Mock<IStateUpdateService>();
         synchronousClient = new Mock<ISynchronousClient>();
         asynchronousClient = new Mock<IAsynchronousClient>();
         readableConfiguration = new Mock<IReadableConfiguration>();
@@ -67,10 +70,100 @@ public class ModDescriptionServiceTests
         craftsApi = new Mock<ICraftsApi>();
 
         IItemsApi itemsApi = new Mock<IItemsApi>().Object;
-        ItemSkinHandler itemSkinHandler = new ItemSkinHandler(itemsApi);
+        skinHandler = new Mock<ItemSkinHandler>(itemsApi);
+        ItemSkinHandler itemSkinHandler = skinHandler.Object;
         service = new(craftsApi.Object, settingsService, Mock.Of<IdConverter>(), Mock.Of<IServiceScopeFactory>(),
-                    Mock.Of<BazaarApi>(), playerNameService, Mock.Of<ILogger<ModDescriptionService>>(), Mock.Of<IConfiguration>(), Mock.Of<IStateUpdateService>(), sniperClient.Object,
+                    Mock.Of<BazaarApi>(), playerNameService, Mock.Of<ILogger<ModDescriptionService>>(), Mock.Of<IConfiguration>(), stateUpdates.Object, sniperClient.Object,
                     itemSkinHandler, new(null, null, null), null, null, null, null, null, instanceSettings: instanceClient.Object);
+    }
+
+    [TestCase("{}", null)]
+    [TestCase("{\"heldSlot\":38}", 38)]
+    public void InventoryRequest_HeldSlotIsOptional(string json, int? expected)
+    {
+        JsonConvert.DeserializeObject<InventoryDataWithSettings>(json).HeldSlot.Should().Be(expected);
+    }
+
+    [TestCase(null)]
+    [TestCase(1)]
+    public void ProducedInventoryUpdate_CarriesTheHeldSlot(int? heldSlot)
+    {
+        UpdateMessage produced = null;
+        stateUpdates.Setup(s => s.Produce("player", It.IsAny<UpdateMessage>())).Callback<string, UpdateMessage>((_, m) => produced = m);
+        var inventory = new InventoryData { ChestName = "Inventory", FullInventoryNbt = TwoSlotInventoryNbt(), HeldSlot = heldSlot };
+
+        service.ProduceInventory(inventory, "player", "user");
+
+        produced.Chest.HeldSlot.Should().Be(heldSlot);
+        produced.Chest.Items.Should().HaveCount(2);
+    }
+
+    [TestCase("{}", false)]
+    [TestCase("{\"offHypixel\":false}", false)]
+    [TestCase("{\"offHypixel\":true}", true)]
+    public void InventoryRequest_OffHypixelIsOptional(string json, bool expected)
+    {
+        JsonConvert.DeserializeObject<InventoryDataWithSettings>(json).OffHypixel.Should().Be(expected);
+    }
+
+    [TestCase(false, 1)]
+    [TestCase(true, 0)]
+    public void OffHypixelInventoryIsNotProducedAsStateUpdate(bool offHypixel, int expectedProduced)
+    {
+        var inventory = new InventoryData { ChestName = "Inventory", FullInventoryNbt = TwoSlotInventoryNbt(), OffHypixel = offHypixel };
+
+        var items = service.ProduceInventory(inventory, "player", "user");
+
+        items.Should().HaveCount(2, "the descriptions are still produced");
+        stateUpdates.Verify(s => s.Produce("player", It.IsAny<UpdateMessage>()), Times.Exactly(expectedProduced));
+    }
+
+    [TestCase(false, 1)]
+    [TestCase(true, 0)]
+    public void OffHypixelInventoryDoesNotStoreSkins(bool offHypixel, int expectedStores)
+    {
+        var inventory = new InventoryData { ChestName = "Inventory", FullInventoryNbt = TwoSlotInventoryNbt(), OffHypixel = offHypixel };
+
+        service.InventoryToItems(inventory);
+
+        skinHandler.Verify(s => s.StoreIfNeeded(It.IsAny<string>(), It.IsAny<fNbt.Tags.NbtCompound>()), Times.Exactly(expectedStores));
+    }
+
+    [TestCase("user", false, true)]
+    [TestCase("user", true, false)]
+    [TestCase(null, false, false)]
+    [TestCase("", false, false)]
+    public void GoalsAreOnlyTrackedForSignedInUploadsFromHypixel(string userId, bool offHypixel, bool expected)
+    {
+        var inventory = new InventoryDataWithSettings { OffHypixel = offHypixel };
+
+        ModDescriptionService.TracksGoals(userId, inventory).Should().Be(expected);
+    }
+
+    [Test]
+    public void HeldSlot_SurvivesTheStateUpdateSerialization()
+    {
+        var message = new UpdateMessage { Kind = UpdateMessage.UpdateKind.INVENTORY, Chest = new ChestView { Name = "Inventory", HeldSlot = 7 } };
+
+        var copy = MessagePack.MessagePackSerializer.Deserialize<UpdateMessage>(MessagePack.MessagePackSerializer.Serialize(message));
+
+        copy.Chest.HeldSlot.Should().Be(7);
+    }
+
+    private static string TwoSlotInventoryNbt()
+    {
+        var hoe = new fNbt.Tags.NbtCompound() {
+            new fNbt.Tags.NbtString("id", "minecraft:diamond_hoe"), new fNbt.Tags.NbtByte("Count", 1),
+            new fNbt.Tags.NbtCompound("tag") {
+                new fNbt.Tags.NbtCompound("ExtraAttributes") { new fNbt.Tags.NbtString("id", "THEORETICAL_HOE_WHEAT_3") },
+                new fNbt.Tags.NbtCompound("display") { new fNbt.Tags.NbtString("Name", "§9Wheat Hoe") }
+            }
+        };
+        var nbt = new fNbt.NbtFile(new fNbt.Tags.NbtCompound("") {
+            new fNbt.Tags.NbtList("i", new[] { new fNbt.Tags.NbtCompound(), hoe }) });
+        using var stream = new MemoryStream();
+        nbt.SaveToStream(stream, fNbt.NbtCompression.GZip);
+        return Convert.ToBase64String(stream.ToArray());
     }
 
     [Test]
