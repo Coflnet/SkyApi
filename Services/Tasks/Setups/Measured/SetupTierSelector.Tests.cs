@@ -280,7 +280,7 @@ public class SetupTierSelectorTests
     }
 
     [Test]
-    public void Endgame_keeps_lower_bound_and_unknown_prices_but_sits_out_a_transient_one()
+    public void Endgame_keeps_lower_bound_and_unknown_prices_and_shows_a_transient_one_as_lower_bound()
     {
         var model = FourTierModel.Model();
         var priced = FourTierModel.Priced(model).Pieces.ToDictionary(p => p.Key, p => p.Value);
@@ -293,9 +293,13 @@ public class SetupTierSelectorTests
         endgame.Measured.LowerBound.Should().BeTrue();
         endgame.Measured.FullCost.Should().BeNull();
 
+        // regression: a transient price hid the endgame, without an estimate the tier list came back empty (Blaze, Sven, Zealots)
         priced["tool:END_HOE"] = Priced(model.Pieces[0], null, transient: true);
-        var fallback = ByTier(SetupTierSelector.Select(new PricedGearModel(model, priced), RisingEstimates(), 1 * M))["endgame"];
-        fallback.IsMeasured.Should().BeFalse();
+        var transient = ByTier(SetupTierSelector.Select(new PricedGearModel(model, priced), null, 1 * M))["endgame"];
+        transient.IsMeasured.Should().BeTrue();
+        transient.Measured.TransientlyUnpriced.Should().BeFalse();
+        transient.Measured.LowerBound.Should().BeTrue("the missing price is a lower bound of the build's cost");
+        transient.Measured.FullCost.Should().BeNull();
     }
 
     /// <summary>A model whose only tier is the recommended endgame at <paramref name="rate"/></summary>

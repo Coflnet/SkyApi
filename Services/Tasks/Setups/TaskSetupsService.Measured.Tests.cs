@@ -196,6 +196,42 @@ public class TaskSetupsServiceMeasuredTests
             .Should().OnlyHaveUniqueItems();
     }
 
+    private void WithoutProfile(TaskGearModel model)
+    {
+        tasks.Setup(t => t.GetAllAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<PublicTaskEstimate> { new() { Name = "Task A", Slug = "task-a", CoinsPerHour = 2_000_000 } });
+        Lookup(new GearModelLookup(model, false));
+        gear.Setup(g => g.GetByTaskNameAsync("Task A", It.IsAny<CancellationToken>())).ReturnsAsync((TaskGearSetups)null);
+    }
+
+    /// <summary>Regression: Treasure Hoarder, Glacite Walker, Chill, Ender Dragon and Ghost have a gear model but no curated profile and were 404</summary>
+    [Test]
+    public async Task Model_without_a_curated_profile_gets_its_measured_endgame()
+    {
+        var endHoe = FourTierModel.EndHoe();
+        WithoutProfile(MeasuredTestData.Model(null, null, [endHoe], Recommended(500, 5_000_000, endHoe), LateGame(5_000_000)));
+        var service = Create();
+
+        var premiumPlus = (await service.GetPremiumPlusAsync("task-a")).Setups;
+        var publicView = (await service.GetPublicAsync("task-a")).Setups;
+
+        premiumPlus.BaselineCoinsPerHour.Should().Be(2_000_000, "the community rate is the baseline");
+        var endgame = premiumPlus.Setups.Single();
+        endgame.Basis.Should().Be("measured");
+        endgame.CoinsPerHour.Should().Be(5_000_000);
+        publicView.Setups.Single().Id.Should().Be("locked-endgame");
+    }
+
+    [Test]
+    public async Task Model_with_only_a_distribution_and_no_profile_stays_not_found()
+    {
+        WithoutProfile(MeasuredTestData.Model(null, null, [], distribution: Distribution(1, 2, 3, 4, 5)));
+
+        var thrown = await FluentActions.Awaiting(() => Create().GetPublicAsync("task-a")).Should().ThrowAsync<Coflnet.Sky.Core.CoflnetException>();
+
+        thrown.Which.Slug.Should().Be("gear_setups_not_found");
+    }
+
     [Test]
     public async Task Task_without_any_setup_is_not_found_and_not_asked_again_right_away()
     {

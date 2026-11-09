@@ -168,7 +168,10 @@ public class TaskSetupsService : ITaskSetupsService
         return new SetupsView(view, model.Degraded || lookupFailed || quotes.Values.Any(q => q.Degraded));
     }
 
-    /// <summary>A task without any setup gets a model without a plan, so repeated requests don't ask PlayerState again</summary>
+    /// <summary>
+    /// A task without any setup (no curated profile and no measured gear model) gets a model without a plan, so repeated
+    /// requests don't ask PlayerState again
+    /// </summary>
     private async Task<SetupsModel> BuildModel(string slug)
     {
         var (task, slugs) = await LoadTask(slug, CancellationToken.None);
@@ -178,7 +181,7 @@ public class TaskSetupsService : ITaskSetupsService
         var degraded = lookup.Failed || estimatesFailed;
         var gear = lookup.Model;
         var pieces = PricedCatalog(gear);
-        if (pieces.Count == 0 && estimates == null)
+        if (pieces.Count == 0 && estimates == null && !HasMeasurement(gear))
             return new SetupsModel(slug, task.Name, null, null, null, null, [], slugs, degraded);
         var priced = await pricer.PriceAsync(pieces, UntradeableTags(estimates), CancellationToken.None);
         var community = SetupTierSelector.CommunityRate(estimates, task.CoinsPerHour);
@@ -186,6 +189,14 @@ public class TaskSetupsService : ITaskSetupsService
         return new SetupsModel(slug, task.Name, gear?.Category, gear?.ComputedAt, estimates, plan, gear?.ModifierEffects ?? new(),
             slugs, degraded || priced.Degraded, community, gear?.ScoreFormula);
     }
+
+    /// <summary>
+    /// A gear model that can give a measured tier (a curve to compose budget and mid from, or a recommended endgame) gets
+    /// setups without a curated profile too: the community rate as the baseline plus the measured tiers. A distribution
+    /// alone gives no tier, such a task stays not found.
+    /// </summary>
+    private static bool HasMeasurement(TaskGearModel gear)
+        => gear != null && (gear.Curve != null || gear.RecommendedEndgame != null);
 
     /// <summary>
     /// The catalog pieces a tier can use, in pricing order: the recommended endgame's first, then with a curve the best

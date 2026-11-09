@@ -164,10 +164,15 @@ public static class SetupTierSelector
         var pieces = ids.Select(id => gear.Pieces.GetValueOrDefault(id)).ToList();
         if (pieces.Any(p => p == null))
             return null;
+        pieces = pieces.Select(TransientAsLowerBound).ToList();
         var basis = recommended.Basis == RateBases.Cohort ? RateBases.Cohort : RateBases.Curve;
         return new PricedBuild(InSlotOrder(pieces), recommended.CoinsPerHour, recommended.Score, recommended.ScorePercentile, basis,
             recommended.Extrapolated, EndgameConfidence(gear.Model, recommended), recommended.Capped, gear.Model.LateGame);
     }
+
+    /// <summary>A transient price of an endgame piece is shown as a lower bound (or no price) instead of hiding the whole endgame</summary>
+    private static PricedPiece TransientAsLowerBound(PricedPiece piece)
+        => piece.Transient ? piece with { Transient = false, LowerBound = true } : piece;
 
     private static List<PricedPiece> InSlotOrder(IEnumerable<PricedPiece> pieces)
         => pieces.OrderBy(p => MeasuredPiece.SlotOrder(p.Piece.Slot)).ThenBy(p => p.Piece.Slot, StringComparer.Ordinal).ToList();
