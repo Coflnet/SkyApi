@@ -298,6 +298,53 @@ public class SetupTierSelectorTests
         fallback.IsMeasured.Should().BeFalse();
     }
 
+    /// <summary>A model whose only tier is the recommended endgame at <paramref name="rate"/></summary>
+    private static PricedGearModel EndgameOnly(double rate)
+    {
+        var hoe = Entry("tool", "END_HOE", 400);
+        var model = MeasuredTestData.Model(null, null, [hoe], Recommended(500, rate, hoe), LateGame(rate));
+        return PricedModel(model, Priced(hoe, 10 * M));
+    }
+
+    private static TaskGearSetups WithoutEndgameEstimate()
+    {
+        var estimates = FourEstimates();
+        estimates.Setups.RemoveAll(e => e.Tier == "endgame");
+        return estimates;
+    }
+
+    /// <summary>Regression: M7's measured endgame was published at -9.7M/h</summary>
+    [Test]
+    public void Negative_endgame_falls_back_to_the_estimate_else_an_unrated_placeholder()
+    {
+        ByTier(SetupTierSelector.Select(EndgameOnly(-9.7 * M), FourEstimates(), 1 * M))["endgame"].Estimate.Id.Should().Be("endgame");
+
+        var plan = SetupTierSelector.Select(EndgameOnly(-9.7 * M), null, 1 * M);
+
+        var endgame = plan.Setups.Single(c => c.Tier == "endgame");
+        endgame.IsUnrated.Should().BeTrue();
+        endgame.Rate.Should().BeNull();
+    }
+
+    [Test]
+    public void Endgame_below_the_baseline_tiers_rate_is_not_measured()
+    {
+        // community 0.9M, the curated baseline 1M: an endgame at 0.95M beats the community rate but not the baseline
+        var below = SetupTierSelector.Select(EndgameOnly(0.95 * M), WithoutEndgameEstimate(), 0.9 * M);
+        below.Setups.Single(c => c.Tier == "endgame").IsUnrated.Should().BeTrue();
+
+        var above = SetupTierSelector.Select(EndgameOnly(1.2 * M), WithoutEndgameEstimate(), 0.9 * M);
+        above.Setups.Single(c => c.Tier == "endgame").IsMeasured.Should().BeTrue();
+    }
+
+    [Test]
+    public void No_recommended_endgame_adds_no_placeholder()
+    {
+        var model = MeasuredTestData.Model(null, null, [Entry("tool", "HOE", 100)]);
+
+        SetupTierSelector.Select(PricedModel(model, Priced(model.Pieces[0], 1 * M)), null, 1 * M).Setups.Should().BeEmpty();
+    }
+
     [Test]
     public void Missing_curve_distribution_and_endgame_give_estimates_only()
     {

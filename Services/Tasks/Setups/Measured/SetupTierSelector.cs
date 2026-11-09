@@ -17,6 +17,8 @@ public record TierBands(double BudgetMaxCost, double MidMaxCost)
 public record TierChoice(string Tier, PricedBuild Measured, GearSetupEstimate Estimate, double? DeltaCoinsPerHour, double? Rate = null)
 {
     public bool IsMeasured => Measured != null;
+    /// <summary>A tier with neither a measured build nor an estimate: the endgame's locked placeholder without a rate</summary>
+    public bool IsUnrated => Measured == null && Estimate == null;
 }
 
 /// <param name="Baseline">The estimated baseline, null when there is none</param>
@@ -45,8 +47,10 @@ public record PricedGearModel(TaskGearModel Model, IReadOnlyDictionary<string, P
 /// <item>budget and mid stay below the late game cohort's score (else the 90th score percentile), and one that earns at
 /// least the endgame's rate is not shown: the endgame tier is never replaced or outdone by a composed build.</item>
 /// <item>endgame: PlayerState's recommended "maximum achievable" build with its rate (curve or late game cohort), the
-/// pieces priced as they are (lower bound or unknown prices allowed). A build with a transient price sits this build out.
-/// A composed build with exactly the endgame's pieces is not shown as budget or mid, the endgame tier is that build.</item>
+/// pieces priced as they are (lower bound or unknown prices allowed; a transient price counts as a lower bound, the view is
+/// only cached briefly then). A rate of 0 or less, or below the baseline tier's rate, is not shown as measured: the
+/// curated endgame estimate takes its place, else an unrated endgame (<see cref="TierChoice.IsUnrated"/>, the locked
+/// placeholder). A composed build with exactly the endgame's pieces is not shown as budget or mid, the endgame tier is that build.</item>
 /// </list>
 /// Gain rules: a measured tier's gain is its rate minus <see cref="TierPlan.ComparisonCoinsPerHour"/>, the community rate.
 /// With a measured tier below, an estimate is only shown when its modelled rate beats every measured tier below it;
@@ -68,14 +72,28 @@ public static class SetupTierSelector
     public static TierPlan Select(PricedGearModel gear, TaskGearSetups estimates, double? communityRate = null, TierBands bands = null)
     {
         bands ??= TierBands.Default;
+        gear ??= PricedGearModel.None;
         var community = CommunityRate(estimates, communityRate);
-        var builds = MeasuredBuilds(gear ?? PricedGearModel.None, bands);
-        var selection = new Selection(community);
-        var setups = UpgradeTiers.SelectMany(tier => selection.Choose(tier, builds.GetValueOrDefault(tier), estimates)).ToList();
+        var baselineRate = estimates?.BaselineCoinsPerHour ?? community;
+        var builds = MeasuredBuilds(gear, bands);
+        var selection = new Selection(community, baselineRate);
+        var setups = UpgradeTiers.SelectMany(tier => ChooseTier(selection, tier, builds.GetValueOrDefault(tier), estimates, gear)).ToList();
         setups.AddRange(OtherTierEstimates(estimates).Select(s => EstimateChoice(s.Tier, s, s.DeltaCoinsPerHour)));
         var baseline = EstimateChoice(Baseline, estimates?.Baseline, estimates?.Baseline?.DeltaCoinsPerHour);
-        return new TierPlan(baseline, setups, estimates?.BaselineCoinsPerHour ?? community, community);
+        return new TierPlan(baseline, setups, baselineRate, community);
     }
+
+    /// <summary>The tier's choices; an endgame PlayerState recommends but that is not shown otherwise stays as an unrated placeholder</summary>
+    private static IEnumerable<TierChoice> ChooseTier(Selection selection, string tier, PricedBuild build, TaskGearSetups estimates, PricedGearModel gear)
+    {
+        var chosen = selection.Choose(tier, build, estimates).ToList();
+        if (chosen.Count == 0 && tier == Endgame && HasRecommendedEndgame(gear.Model))
+            chosen.Add(new TierChoice(Endgame, null, null, null));
+        return chosen;
+    }
+
+    private static bool HasRecommendedEndgame(TaskGearModel model)
+        => (model?.RecommendedEndgame?.Pieces?.Values ?? Enumerable.Empty<string>()).Any(id => !string.IsNullOrEmpty(id));
 
     /// <summary>The estimates' community rate, else the task's</summary>
     public static double? CommunityRate(TaskGearSetups estimates, double? taskRate)
@@ -172,15 +190,18 @@ public static class SetupTierSelector
     private static TierChoice EstimateChoice(string tier, GearSetupEstimate estimate, double? delta)
         => estimate == null ? null : new TierChoice(tier, null, estimate, delta, estimate.CoinsPerHour);
 
-    /// <summary>State of one selection: the measured tiers taken and the rate the next one has to beat</summary>
-    private sealed class Selection(double? comparisonRate)
+    /// <summary>
+    /// State of one selection: the measured tiers taken and the rate the next one has to beat. A measured endgame also has
+    /// to earn more than 0 and at least the baseline tier's rate.
+    /// </summary>
+    private sealed class Selection(double? comparisonRate, double? baselineRate)
     {
         private readonly List<PricedBuild> taken = new();
 
         /// <summary>The measured build of the tier when it beats the tiers below, else the tier's estimates that do</summary>
         public IEnumerable<TierChoice> Choose(string tier, PricedBuild build, TaskGearSetups estimates)
         {
-            if (build != null && !build.TransientlyUnpriced && BeatsMeasured(build.Rate))
+            if (build != null && !build.TransientlyUnpriced && BeatsMeasured(build.Rate) && (tier != Endgame || AtLeastBaseline(build.Rate)))
                 return [Take(tier, build)];
             return (estimates?.Setups ?? new()).Where(s => IsTier(s, tier) && EstimateBeatsMeasured(s))
                 .Select(s => EstimateChoice(tier, s, s.DeltaCoinsPerHour)).ToList();
@@ -197,6 +218,8 @@ public static class SetupTierSelector
             var floor = taken.Count > 0 ? taken.Max(t => t.Rate) : comparisonRate;
             return floor == null || rate > floor;
         }
+
+        private bool AtLeastBaseline(double rate) => rate > 0 && (baselineRate == null || rate >= baselineRate);
 
         private bool EstimateBeatsMeasured(GearSetupEstimate estimate)
             => taken.Count == 0 || estimate.CoinsPerHour is { } rate && rate > taken.Max(t => t.Rate);
