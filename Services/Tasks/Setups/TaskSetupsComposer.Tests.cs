@@ -362,4 +362,35 @@ public class TaskSetupsComposerTests
         second.Setups.Single(s => s.Tier == "endgame").Id.Should().Be("measured-endgame");
         first.Setups.Single(s => s.Tier == "budget").Id.Should().Be("measured-budget");
     }
+
+    private static SetupsModel UnratedEndgame()
+    {
+        var hoe = Entry("tool", "END_HOE", 400);
+        var model = MeasuredTestData.Model(null, null, [hoe], Recommended(500, -9_700_000, hoe), LateGame(-9_700_000));
+        return Model(PricedModel(model, Priced(hoe, 10_000_000)));
+    }
+
+    /// <summary>Regression: a hidden or unrated endgame left the tier list empty, not even the locked placeholder was shown</summary>
+    [TestCase(SetupsAccess.Public)]
+    [TestCase(SetupsAccess.Premium)]
+    public void Unrated_endgame_is_the_locked_placeholder_below_premium_plus(SetupsAccess access)
+    {
+        var view = Compose(UnratedEndgame(), access);
+
+        var endgame = view.Setups.Single();
+        endgame.Locked.Should().BeTrue();
+        endgame.Id.Should().Be("locked-endgame");
+        endgame.CoinsPerHour.Should().BeNull();
+        endgame.Items.Should().BeNullOrEmpty();
+        JsonConvert.SerializeObject(view).Should().NotContain("END_HOE").And.NotContain("9700000");
+    }
+
+    [Test]
+    public void Unrated_endgame_has_no_row_for_premium_plus()
+    {
+        var view = Compose(UnratedEndgame(), SetupsAccess.PremiumPlus);
+
+        view.Setups.Should().BeEmpty("premium plus would otherwise see a locked premium plus row");
+        JsonConvert.SerializeObject(view).Should().NotContain("9700000");
+    }
 }

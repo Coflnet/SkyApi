@@ -111,7 +111,8 @@ public static class TaskSetupsComposer
 
     /// <summary>The estimated setups that get numbers in a view, their items need resale quotes</summary>
     public static List<GearSetupEstimate> QuotedEstimates(TierPlan plan, SetupsAccess access)
-        => plan.Setups.Where(c => c is { IsMeasured: false } && !IsHidden(c, access) && IsOpen(c, access)).Select(c => c.Estimate).ToList();
+        => plan.Setups.Where(c => c is { IsMeasured: false, IsUnrated: false } && !IsHidden(c, access) && IsOpen(c, access))
+            .Select(c => c.Estimate).ToList();
 
     private static PublicGearSetup MapChoice(TierChoice choice, SetupsModel model, IReadOnlyDictionary<string, ItemResaleQuote> quotes, SetupsAccess access)
     {
@@ -119,6 +120,9 @@ public static class TaskSetupsComposer
             return null;
         if (IsHidden(choice, access))
             return EndgamePlaceholder();
+        // premium plus sees every tier, a locked "premium plus only" row would make no sense: without a rate there is no row
+        if (choice.IsUnrated)
+            return null;
         var open = IsOpen(choice, access);
         if (choice.IsMeasured)
             return MeasuredSetupMapper.Map(choice, model.CommunityRate, open, access != SetupsAccess.Public);
