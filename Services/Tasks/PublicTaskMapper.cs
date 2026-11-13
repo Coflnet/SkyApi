@@ -43,9 +43,19 @@ public static class PublicTaskMapper
             WhereWikiUrl = t.WhereWikiUrl,
             Steps = (t.Steps ?? new()).Select(s => new PublicTaskStep { Number = s.Number, Text = s.Text }).ToList(),
             Drops = (t.Drops ?? new()).Select(d => MapDrop(d, itemNames)).ToList(),
+            Requirements = (t.Requirements ?? new()).Select(MapRequirement).ToList(),
             BestZones = (t.BestZones ?? new()).Select(z => new PublicTaskZone { Zone = z.Zone, CoinsPerHour = z.CoinsPerHour, Players = z.Players }).ToList(),
         };
     }
+
+    private static PublicTaskRequirement MapRequirement(TaskRequirementInfo r) => new()
+    {
+        Label = r.Label,
+        Kind = r.Kind,
+        Key = r.Key,
+        Target = r.Target,
+        Hard = r.Hard,
+    };
 
     private static PublicTaskDrop MapDrop(TaskDropRate d, IReadOnlyDictionary<string, string> itemNames)
     {

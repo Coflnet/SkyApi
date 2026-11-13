@@ -140,6 +140,38 @@ public class PublicTaskServiceTests
     }
 
     [Test]
+    public void Map_PassesRequirementsThroughWithoutPlayerFields()
+    {
+        var upstream = JsonConvert.DeserializeObject<TaskEstimate>(@"{
+            ""taskName"":""X"",
+            ""requirements"":[
+              {""label"":""Mining 12"",""kind"":""skill_level"",""key"":""mining"",""target"":12,""hard"":true,""met"":true,""current"":40,""currentText"":""40""},
+              {""label"":""Catacombs 20"",""kind"":""catacombs_level"",""target"":20,""hard"":false}]}");
+        var mapped = Coflnet.Sky.Api.Services.Tasks.PublicTaskMapper.Map(upstream, "x", new Dictionary<string, string>());
+
+        mapped.Requirements.Should().HaveCount(2);
+        mapped.Requirements[0].Should().BeEquivalentTo(new PublicTaskRequirement
+        {
+            Label = "Mining 12", Kind = "skill_level", Key = "mining", Target = 12, Hard = true
+        });
+        mapped.Requirements[1].Hard.Should().BeFalse();
+        var json = JObject.Parse(JsonConvert.SerializeObject(mapped, new JsonSerializerSettings
+        {
+            ContractResolver = new Newtonsoft.Json.Serialization.CamelCasePropertyNamesContractResolver()
+        }));
+        var requirementKeys = json["requirements"].SelectMany(r => ((JObject)r).Properties().Select(p => p.Name)).Distinct();
+        requirementKeys.Should().BeEquivalentTo("label", "kind", "key", "target", "hard");
+        json.ToString().Should().NotContain("\"met\"").And.NotContain("\"current\"").And.NotContain("currentText");
+    }
+
+    [Test]
+    public void Map_TaskWithoutRequirementsGetsEmptyList()
+    {
+        var mapped = Coflnet.Sky.Api.Services.Tasks.PublicTaskMapper.Map(new TaskEstimate { TaskName = "X" }, "x", new Dictionary<string, string>());
+        mapped.Requirements.Should().BeEmpty();
+    }
+
+    [Test]
     public void Map_UnknownItemNameIsNull()
     {
         var upstream = new TaskEstimate { TaskName = "X", Drops = new() { new() { ItemTag = "NOPE" } } };
