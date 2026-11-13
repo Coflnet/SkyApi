@@ -401,6 +401,93 @@ public class TaskSetupsComposerTests
         first.Setups.Single(s => s.Tier == "budget").Id.Should().Be("measured-budget");
     }
 
+    private static SetupsModel DuplicateEstimates()
+    {
+        GearSetupEstimate Setup(string tier)
+        {
+            var setup = PublicSetupsMapperTests.Setup(tier, "upgrade", 10_000,
+                PublicSetupsMapperTests.Item("HOE", filters: new() { ["rarity"] = "legendary" }),
+                PublicSetupsMapperTests.Item("HELMET"));
+            setup.UnlocksTask = null;
+            return setup;
+        }
+        return Model(null, PublicSetupsMapperTests.Gear(
+            PublicSetupsMapperTests.Setup("baseline", "baseline", 0, PublicSetupsMapperTests.Item("OLD")),
+            Setup("budget"), Setup("mid"), Setup("endgame")));
+    }
+
+    [TestCase(SetupsAccess.Public, 2)]
+    [TestCase(SetupsAccess.Premium, 2)]
+    [TestCase(SetupsAccess.PremiumPlus, 1)]
+    public void Identical_estimated_gear_keeps_the_first_option_and_preserves_hidden_endgame(SetupsAccess access, int count)
+    {
+        var model = DuplicateEstimates();
+        model.Estimates.Setups[1].Items.Reverse();
+        model.Estimates.Setups[1].Stats = new() { ["fortune"] = 100 };
+
+        var view = Compose(model, access);
+
+        view.Setups.Should().HaveCount(count);
+        view.Setups[0].Tier.Should().Be("budget");
+        view.Baseline.Id.Should().Be("baseline");
+        view.BaselineCoinsPerHour.Should().Be(model.Plan.BaselineCoinsPerHour);
+        view.ComparisonCoinsPerHour.Should().Be(model.Plan.ComparisonCoinsPerHour);
+        TaskSetupsComposer.QuotedEstimates(model.Plan, access).Select(s => s.Tier).Should().Equal("budget");
+        if (access != SetupsAccess.PremiumPlus)
+            view.Setups[1].Id.Should().Be("locked-endgame");
+    }
+
+    [TestCase(SetupsAccess.Public)]
+    [TestCase(SetupsAccess.Premium)]
+    [TestCase(SetupsAccess.PremiumPlus)]
+    public void Upgrade_identical_to_baseline_is_omitted_without_changing_the_comparison(SetupsAccess access)
+    {
+        var model = DuplicateEstimates();
+        var baseline = model.Estimates.Baseline;
+        baseline.Items = model.Estimates.Setups[0].Items.ToList();
+        baseline.Stats = new() { ["fortune"] = 50 };
+        model.Estimates.Setups[0].Stats = new() { ["fortune"] = 100 };
+
+        var view = Compose(model, access);
+
+        view.Setups.Should().NotContain(s => s.Tier == "budget" || s.Tier == "mid");
+        view.Baseline.Id.Should().Be(baseline.Id);
+        view.Baseline.CoinsPerHour.Should().Be(baseline.CoinsPerHour);
+        view.BaselineCoinsPerHour.Should().Be(model.Plan.BaselineCoinsPerHour);
+        view.ComparisonCoinsPerHour.Should().Be(model.Plan.ComparisonCoinsPerHour);
+        TaskSetupsComposer.QuotedEstimates(model.Plan, access).Should().BeEmpty();
+        if (access == SetupsAccess.PremiumPlus)
+            view.Setups.Should().BeEmpty();
+        else
+            view.Setups.Should().ContainSingle().Which.Id.Should().Be("locked-endgame");
+    }
+
+    [TestCase("variant")]
+    [TestCase("slot")]
+    [TestCase("unlock")]
+    [TestCase("tradeable")]
+    public void Estimated_gear_with_a_distinct_variant_slot_unlock_or_ownership_is_kept(string difference)
+    {
+        var model = DuplicateEstimates();
+        var mid = model.Estimates.Setups[1];
+        if (difference == "variant") mid.Items[0].PriceFilters["rarity"] = "mythic";
+        if (difference == "slot") mid.Items[0].Slot = "other";
+        if (difference == "unlock") mid.UnlocksTask = "Another task";
+        if (difference == "tradeable") mid.Items[0].Tradeable = false;
+
+        Compose(model, SetupsAccess.PremiumPlus).Setups.Select(s => s.Tier).Should().Equal("budget", "mid");
+    }
+
+    [Test]
+    public void Unidentified_estimates_are_not_assumed_to_be_the_same_build()
+    {
+        var model = DuplicateEstimates();
+        foreach (var setup in model.Estimates.Setups)
+            setup.Items.Clear();
+
+        Compose(model, SetupsAccess.PremiumPlus).Setups.Should().HaveCount(3);
+    }
+
     private static SetupsModel UnratedEndgame()
     {
         var hoe = Entry("tool", "END_HOE", 400);

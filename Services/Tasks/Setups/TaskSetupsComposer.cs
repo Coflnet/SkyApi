@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using Coflnet.Sky.Api.Helper;
 using Coflnet.Sky.Api.Models.Tasks;
 using Coflnet.Sky.Api.Services.Tasks.Setups.Measured;
 using Coflnet.Sky.PlayerState.Client.Model;
@@ -60,7 +61,7 @@ public static class TaskSetupsComposer
             Category = string.IsNullOrEmpty(model.Category) ? null : model.Category,
             MeasuredAt = model.MeasuredAt,
             Baseline = MapChoice(model.Plan.Baseline, model, quotes, access),
-            Setups = OneEndgamePlaceholder(model.Plan.Setups.Select(c => MapChoice(c, model, quotes, access)).Where(PublicSetupsMapper.IsRecommended)),
+            Setups = OneEndgamePlaceholder(DistinctChoices(model.Plan, access).Select(c => MapChoice(c, model, quotes, access)).Where(PublicSetupsMapper.IsRecommended)),
             ModifierEffects = access == SetupsAccess.PremiumPlus ? MapEffects(model.ModifierEffects) : null,
             ScoreFormula = MapFormula(model.ScoreFormula),
         };
@@ -111,8 +112,36 @@ public static class TaskSetupsComposer
 
     /// <summary>The estimated setups that get numbers in a view, their items need resale quotes</summary>
     public static List<GearSetupEstimate> QuotedEstimates(TierPlan plan, SetupsAccess access)
-        => plan.Setups.Where(c => c is { IsMeasured: false, IsUnrated: false } && !IsHidden(c, access) && IsOpen(c, access))
+        => DistinctChoices(plan, access).Where(c => c is { IsMeasured: false, IsUnrated: false } && !IsHidden(c, access) && IsOpen(c, access))
             .Select(c => c.Estimate).ToList();
+
+    /// <summary>Keep the first identifiable estimate of a build; hidden endgame never affects the visible selection.</summary>
+    private static IEnumerable<TierChoice> DistinctChoices(TierPlan plan, SetupsAccess access)
+    {
+        var seen = new List<GearSetupEstimate>();
+        foreach (var choice in plan.Setups.Prepend(plan.Baseline).Where(c => c != null))
+        {
+            var estimate = choice.Estimate;
+            if (!IsHidden(choice, access) && estimate?.Items is { Count: > 0 }
+                && estimate.Items.All(i => i != null && !string.IsNullOrWhiteSpace(i.ItemTag)))
+            {
+                if (seen.Any(previous => SameEstimate(previous, estimate)))
+                    continue;
+                seen.Add(estimate);
+            }
+            if (!ReferenceEquals(choice, plan.Baseline))
+                yield return choice;
+        }
+    }
+
+    private static bool SameEstimate(GearSetupEstimate left, GearSetupEstimate right)
+        => left.UnlocksTask == right.UnlocksTask
+            && left.Items.Count == right.Items.Count
+            && left.Items.Select(ItemIdentity).OrderBy(k => k, StringComparer.Ordinal)
+                .SequenceEqual(right.Items.Select(ItemIdentity).OrderBy(k => k, StringComparer.Ordinal));
+
+    private static string ItemIdentity(GearSetupItem item)
+        => SharedResultCache.Key(item.Slot, item.PriceFilters, item.ItemTag, item.Tradeable.ToString());
 
     private static PublicGearSetup MapChoice(TierChoice choice, SetupsModel model, IReadOnlyDictionary<string, ItemResaleQuote> quotes, SetupsAccess access)
     {
