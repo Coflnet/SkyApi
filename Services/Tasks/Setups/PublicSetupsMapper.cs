@@ -25,6 +25,11 @@ public static class PublicSetupsMapper
 
     public static bool IsFreeTier(GearSetupEstimate setup) => setup?.Tier != null && FreeTiers.Contains(setup.Tier);
 
+    /// <summary>Keep reached setups and unknown paybacks; omit budget upgrades needing more than 150 hours to recover their full cost</summary>
+    public static bool IsRecommended(PublicGearSetup setup)
+        => setup != null && !(string.Equals(setup.Tier, "budget", StringComparison.OrdinalIgnoreCase)
+            && setup.Status == StatusUpgrade && setup.PaybackTooLong == true);
+
     /// <summary>
     /// One estimated setup of <paramref name="upstream"/>, with numbers only when <paramref name="open"/>.
     /// Owned items are the estimated baseline's (and the highest reached setup's), as in the estimates only view.
@@ -203,6 +208,7 @@ public static class PublicSetupsMapper
             return;
         target.PaybackHoursBorrow = resale.PaybackBorrowHours;
         target.PaybackHoursFull = resale.PaybackFullHours;
+        target.PaybackTooLong = resale.PaybackFullHours is { } hours ? hours > 150 : null;
         target.NetGain10h = resale.NetGainAfter10h;
         target.NetGain50h = resale.NetGainAfter50h;
         target.NoProfitGain = deltaCoinsPerHour is { } delta ? delta <= 0 : null;

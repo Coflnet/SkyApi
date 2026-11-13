@@ -54,6 +54,44 @@ public class TaskSetupsComposerTests
     private static string ViewJson(SetupsAccess access, SetupsModel model = null)
         => JsonConvert.SerializeObject(Compose(model ?? FourTiers(), access), new Microsoft.AspNetCore.Mvc.MvcNewtonsoftJsonOptions().SerializerSettings);
 
+    [TestCase(SetupsAccess.Public)]
+    [TestCase(SetupsAccess.Premium)]
+    [TestCase(SetupsAccess.PremiumPlus)]
+    public void Slow_estimated_budget_is_omitted_from_every_view(SetupsAccess access)
+    {
+        var source = PublicSetupsMapperTests.Setup("budget", "upgrade", 1_000, PublicSetupsMapperTests.Item("NEW"));
+        var estimates = PublicSetupsMapperTests.Gear(PublicSetupsMapperTests.Setup("baseline", "baseline", 0), source);
+        var quotes = new Dictionary<string, ItemResaleQuote>
+        {
+            [PublicSetupsMapper.QuoteKey("NEW", null)] = PublicSetupsMapperTests.Quote("NEW", 151_000, 150_900),
+        };
+
+        var view = TaskSetupsComposer.Compose(Model(null, estimates), quotes, access);
+
+        view.Setups.Should().BeEmpty();
+        view.Baseline.Should().NotBeNull();
+        view.Locked.Should().BeFalse();
+    }
+
+    [TestCase(SetupsAccess.Public, 150d, true)]
+    [TestCase(SetupsAccess.Public, 151d, false)]
+    [TestCase(SetupsAccess.Premium, 151d, false)]
+    [TestCase(SetupsAccess.PremiumPlus, 151d, false)]
+    public void Measured_budget_uses_the_same_payback_filter(SetupsAccess access, double hours, bool kept)
+    {
+        var model = FourTiers();
+        model = model with { Plan = model.Plan with
+        {
+            Setups = model.Plan.Setups.Select(c => c.Tier == "budget"
+                ? c with { DeltaCoinsPerHour = FourTierModel.BudgetCost / hours } : c).ToList(),
+        } };
+
+        var view = Compose(model, access);
+
+        view.Setups.Any(s => s.Tier == "budget").Should().Be(kept);
+        view.Setups.Should().Contain(s => s.Tier == "mid").And.Contain(s => s.Tier == "endgame");
+    }
+
     [Test]
     public void Public_view_contains_no_locked_number_uuid_or_details_only_data()
     {

@@ -153,6 +153,8 @@ public class PublicGearSetup
     public double? PaybackHoursBorrow { get; set; }
     /// <summary>Locked: null. Hours until the extra income covers the full buy cost</summary>
     public double? PaybackHoursFull { get; set; }
+    /// <summary>Locked or unknown payback: null. True when full buy cost takes more than 150 hours to recover; budget upgrades with this flag are omitted</summary>
+    public bool? PaybackTooLong { get; set; }
     /// <summary>Locked: null. Income gain after 10 hours minus the borrow cost</summary>
     public double? NetGain10h { get; set; }
     /// <summary>Locked: null. Income gain after 50 hours minus the borrow cost</summary>

@@ -60,7 +60,7 @@ public static class TaskSetupsComposer
             Category = string.IsNullOrEmpty(model.Category) ? null : model.Category,
             MeasuredAt = model.MeasuredAt,
             Baseline = MapChoice(model.Plan.Baseline, model, quotes, access),
-            Setups = OneEndgamePlaceholder(model.Plan.Setups.Select(c => MapChoice(c, model, quotes, access)).Where(s => s != null)),
+            Setups = OneEndgamePlaceholder(model.Plan.Setups.Select(c => MapChoice(c, model, quotes, access)).Where(PublicSetupsMapper.IsRecommended)),
             ModifierEffects = access == SetupsAccess.PremiumPlus ? MapEffects(model.ModifierEffects) : null,
             ScoreFormula = MapFormula(model.ScoreFormula),
         };
