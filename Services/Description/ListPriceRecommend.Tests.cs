@@ -4,8 +4,11 @@ using System.Threading.Tasks;
 using AwesomeAssertions;
 using Coflnet.Sky.Api.Models.Mod;
 using Coflnet.Sky.Api.Services.Description;
+using Coflnet.Sky.Commands.Shared;
 using Coflnet.Sky.Core;
 using Coflnet.Sky.Sniper.Client.Model;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using Newtonsoft.Json;
 using NUnit.Framework;
 
@@ -41,7 +44,30 @@ public class ListPriceRecommendTests
         display.Should().NotContain(m => m.Type == DescModification.ModType.SUGGEST);
     }
 
-    private static DataContainer CreateData(PriceEstimate estimate)
+    /// <summary>
+    /// Regression: crafting keeps the uuid of an input item, the flip estimate of the bought input item
+    /// was suggested for the crafted item (e.g. runeblade ring crafted into a runeblade artifact).
+    /// Without a known purchase tag (purchase not found) the estimate can't be attributed to the item either.
+    /// </summary>
+    [TestCase("RUNEBLADE_RING", "median")]
+    [TestCase(null, "median")]
+    [TestCase("RUNEBLADE_ARTIFACT", "Flip estimate")]
+    public void FlipEstimateIsOnlyUsedForItemWithPurchasedTag(string purchasedTag, string expectedSource)
+    {
+        // json so the stored purchase tag is passed along even where PriceInfo doesn't declare it
+        var priceInfo = JsonConvert.SerializeObject(new { Recommended = 1_000_000, PurchasedTag = purchasedTag });
+        var data = CreateData(new PriceEstimate { Median = 3_000_000, Volume = 5, ItemKey = "artifact", MedianKey = "artifact", Lbin = new() }, priceInfo);
+        data.auctionRepresent[13].auction.Tag = "RUNEBLADE_ARTIFACT";
+        data.auctionRepresent[13].auction.FlatenedNBT = new();
+        DiHandler.OverrideService<ILogger<ListPriceRecommend>, ILogger<ListPriceRecommend>>(NullLogger<ListPriceRecommend>.Instance);
+
+        new ListPriceRecommend().Apply(data);
+
+        var display = data.mods.Last().Select(m => m.Value).ToList();
+        display.Should().ContainSingle(v => v.StartsWith("Based on")).Which.Should().Contain(expectedSource);
+    }
+
+    private static DataContainer CreateData(PriceEstimate estimate, string priceInfo = null)
     {
         var priceEst = Enumerable.Repeat<PriceEstimate>(null, 45).ToList();
         priceEst[13] = estimate;
@@ -57,7 +83,7 @@ public class ListPriceRecommendTests
             Loaded = new Dictionary<string, Task<string>>
             {
                 // no flip was sent for the item, so nothing is recommended
-                { nameof(ListPriceRecommend), Task.FromResult(JsonConvert.SerializeObject(new ListPriceRecommend.PriceInfo())) }
+                { nameof(ListPriceRecommend), Task.FromResult(priceInfo ?? JsonConvert.SerializeObject(new ListPriceRecommend.PriceInfo())) }
             }
         };
     }
