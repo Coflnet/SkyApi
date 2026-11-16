@@ -26,10 +26,8 @@ public class ModRatCheckServiceTests
     private static ModController NewController(ModRatCheckService service)
     {
         // RatCheck only touches ratCheckService and HttpContext, so every other dependency can stay null
-        var controller = new ModController(null, null, null, null, null, null, null, null, null, null, null)
-        {
-            ControllerContext = new ControllerContext { HttpContext = new DefaultHttpContext() }
-        };
+        var controller = ModControllerTests.CreateController();
+        controller.ControllerContext = new ControllerContext { HttpContext = new DefaultHttpContext() };
         return controller;
     }
 
