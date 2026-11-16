@@ -43,8 +43,25 @@ public class PublicTaskEstimate
     public List<PublicTaskStep> Steps { get; set; } = new();
     /// <summary>Items dropped</summary>
     public List<PublicTaskDrop> Drops { get; set; } = new();
+    /// <summary>What a player needs for this task, hard ones block it, the others are recommended</summary>
+    public List<PublicTaskRequirement> Requirements { get; set; } = new();
     /// <summary>Best zones for this task</summary>
     public List<PublicTaskZone> BestZones { get; set; } = new();
+}
+
+/// <summary>A requirement of a task, the same for every player</summary>
+public class PublicTaskRequirement
+{
+    /// <summary>Human readable name, for example "Catacombs 36"</summary>
+    public string Label { get; set; }
+    /// <summary>Kind of requirement, for example skill_level, catacombs_level or slayer_tier</summary>
+    public string Kind { get; set; }
+    /// <summary>Sub selector of the kind (skill name, slayer family, dungeon mode), null if it has none</summary>
+    public string Key { get; set; }
+    /// <summary>Level, floor or tier to reach</summary>
+    public int Target { get; set; }
+    /// <summary>True when the game blocks the task without it, false when only recommended</summary>
+    public bool Hard { get; set; }
 }
 
 /// <summary>A step of a task</summary>

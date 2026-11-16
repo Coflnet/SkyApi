@@ -51,7 +51,7 @@ public class PublicSetupsMapperTests
     private static readonly string[] NumberFields =
     [
         "coinsPerHour", "deltaCoinsPerHour", "multiplier", "buyCost", "resaleValue", "borrowCost", "resaleRatio",
-        "paybackHoursBorrow", "paybackHoursFull", "netGain10h", "netGain50h", "stability", "priceIncomplete", "noProfitGain",
+        "paybackHoursBorrow", "paybackHoursFull", "paybackTooLong", "netGain10h", "netGain50h", "stability", "priceIncomplete", "noProfitGain",
         "buyPrice", "cv", "trendPerWeek", "p10", "volumePerDay",
     ];
 
@@ -73,7 +73,7 @@ public class PublicSetupsMapperTests
             TaskName = upstream.TaskName,
             ProfileName = upstream.ProfileName,
             Baseline = Map(upstream.Baseline),
-            Setups = (upstream.Setups ?? new()).Select(Map).ToList(),
+            Setups = (upstream.Setups ?? new()).Select(Map).Where(PublicSetupsMapper.IsRecommended).ToList(),
         };
         if (all || result.Baseline == null || !result.Baseline.Locked)
             result.BaselineCoinsPerHour = upstream.BaselineCoinsPerHour;
@@ -267,6 +267,61 @@ public class PublicSetupsMapperTests
         var gear = Gear(Setup("baseline", "baseline", 0), Setup("budget", "upgrade", 1, Item("NEW")));
 
         ToPremium("slug", gear, Slugs, Quotes(Quote("NEW", 10, 9))).Setups.Single().NoProfitGain.Should().BeFalse();
+    }
+
+    [TestCase(149d, false)]
+    [TestCase(150d, false)]
+    [TestCase(150.01d, true)]
+    [TestCase(169d, true)]
+    [TestCase(213d, true)]
+    [TestCase(627d, true)]
+    [TestCase(1245d, true)]
+    [TestCase(1357d, true)]
+    public void Budget_filter_uses_full_payback_instead_of_borrow_payback(double hours, bool tooLong)
+    {
+        var source = Setup("budget", "upgrade", 1_000, Item("NEW"));
+        var gear = Gear(Setup("baseline", "baseline", 0), source);
+        var quotes = Quotes(Quote("NEW", hours * 1_000, hours * 1_000 - 100));
+
+        var setup = PublicSetupsMapper.MapEstimate(source, gear, Slugs, quotes, true, source.DeltaCoinsPerHour);
+
+        setup.PaybackHoursFull.Should().Be(hours);
+        setup.PaybackHoursBorrow.Should().BeApproximately(0.1, 0.0001);
+        setup.PaybackTooLong.Should().Be(tooLong);
+        PublicSetupsMapper.IsRecommended(setup).Should().Be(!tooLong);
+    }
+
+    [TestCase("budget", "reached", true)]
+    [TestCase("baseline", "baseline", true)]
+    [TestCase("mid", "upgrade", true)]
+    [TestCase("endgame", "upgrade", true)]
+    [TestCase("BUDGET", "upgrade", false)]
+    public void Slow_payback_filter_preserves_reached_baseline_and_other_tiers(string tier, string status, bool kept)
+    {
+        var source = Setup(tier, status, 1_000, Item("NEW"));
+        var gear = Gear(status == "baseline" ? source : Setup("baseline", "baseline", 0), source);
+
+        var setup = PublicSetupsMapper.MapEstimate(source, gear, Slugs, Quotes(Quote("NEW", 200_000, 199_000)), true, 1_000);
+
+        PublicSetupsMapper.IsRecommended(setup).Should().Be(kept);
+        setup.PaybackTooLong.Should().Be(status == "upgrade" ? true : null);
+    }
+
+    [TestCase(null)]
+    [TestCase(0d)]
+    [TestCase(-1d)]
+    [TestCase(1d)]
+    public void Budget_with_unknown_payback_is_retained(double? delta)
+    {
+        var source = Setup("budget", "upgrade", delta, Item("NEW"));
+        var gear = Gear(Setup("baseline", "baseline", 0), source);
+        var quotes = delta == 1 ? Quotes() : Quotes(Quote("NEW", 200_000, 199_000));
+
+        var setup = PublicSetupsMapper.MapEstimate(source, gear, Slugs, quotes, true, delta);
+
+        setup.PaybackHoursFull.Should().BeNull();
+        setup.PaybackTooLong.Should().BeNull();
+        PublicSetupsMapper.IsRecommended(setup).Should().BeTrue();
     }
 
     [Test]
