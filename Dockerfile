@@ -5,7 +5,7 @@ ENV MSBUILDDISABLENODEREUSE=1 \
     DOTNET_CLI_DO_NOT_USE_MSBUILD_SERVER=1 \
     UseSharedCompilation=false
 WORKDIR /build
-ARG CACHEBUST=15
+ARG CACHEBUST=16
 RUN git init dev && git -C dev remote add origin https://github.com/Coflnet/HypixelSkyblock.git && git -C dev fetch --depth=1 origin 2df0f7c7a34c8c04653e4cf7c02ab6805876eb7a && git -C dev checkout --detach FETCH_HEAD \
     && git clone --depth=1 https://github.com/Coflnet/SkyBackendForFrontend.git \
     && git clone --depth=1 https://github.com/Coflnet/SkyFilter.git
