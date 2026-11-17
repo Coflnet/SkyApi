@@ -416,12 +416,25 @@ public class PricesController : ControllerBase
             filterList.Add(("Rarity", asAuction.Tier.ToString()));
         }
         var all = filterList.GroupBy(g => g.key).Select(g => g.OrderBy(f => f.value.Length).First()).ToDictionary(f => f.key, f => f.value);
-        all.Remove("UnlockedSlots");
-        all.Remove("PerfectGemsCount");
-        all.Remove("FlawlessGemsCount");
-        all.Remove("HasAttribute");
-        all.Remove("unknown"); // not yet added enchants
-        return all;
+        return RemoveUnsuitableItemFilters(all);
+    }
+
+    /// <summary>
+    /// Filters that never produce a useful exact value filter from a single item.
+    /// The counter filters grow continuously, so an exact value would match nothing.
+    /// </summary>
+    internal static readonly HashSet<string> NonExactItemFilters = new()
+    {
+        "UnlockedSlots", "PerfectGemsCount", "FlawlessGemsCount", "HasAttribute",
+        "unknown", // not yet added enchants
+        "CompactBlocks", "ChampionCombatXp", "HecatombRuns", "ToxophiliteCombatXp", "StatsBook", "SecondsHeld"
+    };
+
+    internal static Dictionary<string, string> RemoveUnsuitableItemFilters(Dictionary<string, string> filters)
+    {
+        foreach (var name in NonExactItemFilters)
+            filters.Remove(name);
+        return filters;
     }
 
     /// <summary>

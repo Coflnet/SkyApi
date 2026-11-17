@@ -13,6 +13,7 @@ using System.Threading;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Text;
+using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Configuration;
 using Newtonsoft.Json;
@@ -136,18 +137,27 @@ namespace Coflnet.Sky.Api.Controller
 
         internal static void ForwardPaymentErrors(Exception ex)
         {
-            if (ex is not Coflnet.Payments.Client.Client.ApiException { ErrorContent: string errorContent })
-                return;
+            var message = UpstreamPaymentMessage(ex);
+            if (message != null)
+                throw new CoflnetException("payment_error", message);
+        }
 
+        /// <summary>The user facing message from a Payments error body, falling back to the exception message.</summary>
+        internal static string PaymentErrorMessage(Exception ex) => UpstreamPaymentMessage(ex) ?? ex.Message;
+
+        private static string? UpstreamPaymentMessage(Exception ex)
+        {
+            if (ex is not Coflnet.Payments.Client.Client.ApiException { ErrorContent: string errorContent })
+                return null;
             try
             {
                 var message = JsonConvert.DeserializeObject<ErrorResponse>(errorContent)?.Message;
-                if (!string.IsNullOrWhiteSpace(message))
-                    throw new CoflnetException("payment_error", message);
+                return string.IsNullOrWhiteSpace(message) ? null : message;
             }
-            catch (JsonReaderException)
+            catch (JsonException)
             {
-                // Preserve the original upstream exception when its body is not JSON.
+                // The upstream body is not an error object; keep the original exception message.
+                return null;
             }
         }
 
@@ -278,9 +288,9 @@ namespace Coflnet.Sky.Api.Controller
         /// <summary>Gets discount code details.</summary>
         [Route("discount/{code}")]
         [HttpGet]
-        public async Task<ValidatedDiscount> GetDiscountCodeDetails(string code)
+        public async Task<ValidatedDiscount> GetDiscountCodeDetails(string code, bool? isSubscription = null, string provider = null)
         {
-            return await topUpApi.TopUpDiscountValidateGetAsync(code);
+            return await topUpApi.TopUpDiscountValidateGetAsync(code, isSubscription, provider);
         }
 
         /// <summary>Represents a pricing request.</summary>
@@ -919,12 +929,20 @@ namespace Coflnet.Sky.Api.Controller
         /// <summary>
         /// Purchase a service 
         /// </summary>
+        /// <param name="subscriptionSlug">Slug of the subscription plan</param>
+        /// <param name="creatorCode">Optional creator code</param>
+        /// <param name="discountcode">Optional discount code</param>
+        /// <param name="assignSlots">Return to the slot management page after checkout</param>
+        /// <param name="provider">stripe, paypal or lemonsqueezy; defaults to lemonsqueezy</param>
+        /// <param name="country">Optional ISO country the buyer selected; defaults to the request country</param>
         /// <returns></returns>
         [Route("premium/subscription/{subscriptionSlug}")]
         [HttpPost]
         [Microsoft.AspNetCore.Authorization.Authorize]
-        public async Task<ActionResult<TopUpIdResponse>> PurchaseServiceSubscription(string subscriptionSlug, string creatorCode = null, string discountcode = null, bool assignSlots = false)
+        public async Task<ActionResult<TopUpIdResponse>> PurchaseServiceSubscription(string subscriptionSlug, string creatorCode = null, string discountcode = null, bool assignSlots = false, string provider = null, string country = null)
         {
+            if (!SubscriptionCheckoutRouter.TryNormalize(provider, out var normalizedProvider))
+                return BadRequest("Unknown subscription provider");
             var user = await GetUserOrDefault();
             if (user == default)
                 return Unauthorized("no googletoken header");
@@ -938,14 +956,72 @@ namespace Coflnet.Sky.Api.Controller
                 options.DiscountCode = discountcode;
                 if (assignSlots)
                     options.SuccessUrl = "https://sky.coflnet.com/account?slots=checkout#purchased-slots";
-                var link = await topUpApi.TopUpLemonsqueezySubscribePostAsync(user.Id.ToString(), subscriptionSlug, options);
+                options.Country = NormalizeCountry(country);
+                var link = await SubscriptionCheckoutRouter.Subscribe(topUpApi, normalizedProvider, user.Id.ToString(), subscriptionSlug, options);
                 return Ok(link);
             }
             catch (Exception e)
             {
-                throw new CoflnetException("payment_error", e.Message);
+                // Payments explains country mismatches and unavailable providers in the error body.
+                throw new CoflnetException("payment_error", PaymentErrorMessage(e));
             }
         }
+        /// <summary>Gets the subscription providers the buyer can choose for a plan.</summary>
+        /// <param name="country">ISO country of the buyer</param>
+        /// <param name="productSlug">Optional plan slug; PayPal is only offered for plans it supports</param>
+        [HttpGet]
+        [Route("premium/subscription/providers")]
+        public async Task<IEnumerable<SubscriptionProviderOption>> GetSubscriptionProviders(string country = null, string productSlug = null)
+        {
+            return await topUpApi.TopUpSubscribeProvidersGetAsync(RequestBuyerCountry(country), productSlug);
+        }
+
+        /// <summary>Gets the promotion applied automatically to new subscriptions.</summary>
+        /// <param name="country">ISO country of the buyer</param>
+        /// <returns>The discount, or 204 when there is none</returns>
+        [HttpGet]
+        [Route("premium/discount/auto")]
+        [ProducesResponseType(typeof(AutoDiscount), 200)]
+        [ProducesResponseType(204)]
+        public async Task<ActionResult<AutoDiscount>> GetAutoDiscount(string country = null, [FromServices] IMemoryCache cache = null)
+        {
+            var normalizedCountry = RequestBuyerCountry(country);
+            var discount = await cache.GetOrCreateAsync(AutoDiscountCacheKey(normalizedCountry), entry =>
+            {
+                entry.AbsoluteExpirationRelativeToNow = TimeSpan.FromSeconds(60);
+                return topUpApi.TopUpDiscountAutoGetAsync(normalizedCountry);
+            });
+            if (discount == null)
+                return NoContent();
+            return Ok(discount);
+        }
+
+        internal static string AutoDiscountCacheKey(string country) => "premium-auto-discount-" + country;
+
+        private string RequestBuyerCountry(string country)
+        {
+            Request.Headers.TryGetValue("cf-ipcountry", out StringValues ipCountry);
+            return BuyerCountry(country, ipCountry.ToString());
+        }
+
+        /// <summary>
+        /// The selected country, else the Cloudflare IP country. Without any country Payments would list
+        /// every direct provider, so a buyer who can only use Lemon Squeezy would see promotion prices.
+        /// </summary>
+        internal static string BuyerCountry(string country, string ipCountry)
+        {
+            return NormalizeCountry(country) ?? NormalizeCountry(ipCountry);
+        }
+
+        /// <summary>Two letter upper case country or null; keeps the cache key space bounded.</summary>
+        internal static string NormalizeCountry(string country)
+        {
+            var trimmed = country?.Trim();
+            if (trimmed is not { Length: 2 } || !trimmed.All(char.IsAsciiLetter))
+                return null;
+            return trimmed.ToUpperInvariant();
+        }
+
         /// <summary>Gets the current user's subscriptions.</summary>
         [HttpGet]
         [Route("premium/subscription")]
@@ -965,7 +1041,10 @@ namespace Coflnet.Sky.Api.Controller
                 SlotCount = s.Product?.SlotCount ?? 0,
                 PaymentAmount = s.PaymentAmount,
                 RenewsAt = s.RenewsAt,
-                CreatedAt = s.CreatedAt
+                CreatedAt = s.CreatedAt,
+                ProviderSlug = s.ProviderSlug,
+                CanResume = s.CanResume,
+                CanChangePlan = s.CanChangePlan
             }).ToArray();
             return Ok(publicSubscriptions);
         }

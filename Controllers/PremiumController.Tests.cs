@@ -405,5 +405,39 @@ public class PremiumControllerTests
         Assert.That(error.Message, Is.EqualTo(
             "We could not verify your country from your IP address. Stripe payments are unavailable."));
     }
+
+    [Test]
+    public void PaymentErrorMessage_UsesUpstreamMessageForSubscriptionCheckouts()
+    {
+        var upstream = new ApiException(
+            400,
+            "Error calling TopUpPaypalSubscribePost: {\"Message\":\"Your selected country (DE) does not match your IP country (NL).\"}",
+            """{"Message":"Your selected country (DE) does not match your IP country (NL)."}""");
+
+        Assert.That(PremiumController.PaymentErrorMessage(upstream),
+            Is.EqualTo("Your selected country (DE) does not match your IP country (NL)."));
+    }
+
+    [TestCase("Bad Gateway")]
+    [TestCase("\"just a string\"")]
+    [TestCase("{}")]
+    public void PaymentErrorMessage_FallsBackToExceptionMessage(string body)
+    {
+        var upstream = new ApiException(502, "Error calling TopUpStripeSubscribePost", body);
+
+        Assert.That(PremiumController.PaymentErrorMessage(upstream), Is.EqualTo("Error calling TopUpStripeSubscribePost"));
+    }
+
+    // without a country Payments lists every direct provider, showing promotion prices to Lemon Squeezy-only buyers
+    [TestCase("de", "BR", "DE")]
+    [TestCase(null, "BR", "BR")]
+    [TestCase("", "br", "BR")]
+    [TestCase("Germany", "US", "US")]
+    [TestCase(null, "T1", null)]
+    [TestCase(null, "", null)]
+    public void BuyerCountry_FallsBackToTheIpCountry(string country, string ipCountry, string expected)
+    {
+        Assert.That(PremiumController.BuyerCountry(country, ipCountry), Is.EqualTo(expected));
+    }
 }
 #pragma warning restore CS1591

@@ -116,5 +116,29 @@ public class PricesControllerTests
 
         Assert.That(result.Select(p => p.Date), Is.EqualTo(new[] { Today.AddDays(-1) }));
     }
+
+    [Test]
+    public void RemoveUnsuitableItemFilters_DropsCounterFiltersButKeepsStableOnes()
+    {
+        var filters = new Dictionary<string, string>
+        {
+            ["CompactBlocks"] = "1234567", ["ChampionCombatXp"] = "5", ["HecatombRuns"] = "3",
+            ["ToxophiliteCombatXp"] = "9", ["StatsBook"] = "7", ["SecondsHeld"] = "100", ["UnlockedSlots"] = "x",
+            ["Reforge"] = "Fabled", ["Rarity"] = "LEGENDARY"
+        };
+
+        var result = PricesController.RemoveUnsuitableItemFilters(filters);
+
+        Assert.That(result.Keys, Is.EquivalentTo(new[] { "Reforge", "Rarity" }));
+    }
+
+    [Test]
+    public void NonExactItemFilters_NamesExistInFilterEngine()
+    {
+        var engine = new Coflnet.Sky.Filter.FilterEngine(Mock.Of<INBT>());
+        var names = engine.AvailableFilters.Select(f => f.Name).ToHashSet();
+
+        Assert.That(names, Is.SupersetOf(PricesController.NonExactItemFilters.Except(["unknown"])));
+    }
 }
 #pragma warning restore CS1591

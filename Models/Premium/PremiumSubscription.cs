@@ -18,4 +18,10 @@ public class PremiumSubscription
     public DateTime RenewsAt { get; set; }
     /// <summary>Gets or sets the created at.</summary>
     public DateTime CreatedAt { get; set; }
+    /// <summary>Payment provider that bills this subscription (lemonsqueezy, stripe, paypal).</summary>
+    public string ProviderSlug { get; set; }
+    /// <summary>Whether a cancelled subscription can be reactivated; false for example for PayPal.</summary>
+    public bool CanResume { get; set; }
+    /// <summary>Whether the plan can be switched to another tier.</summary>
+    public bool CanChangePlan { get; set; }
 }

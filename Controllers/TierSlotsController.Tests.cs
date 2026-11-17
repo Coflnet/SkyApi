@@ -36,4 +36,22 @@ public class TierSlotsControllerTests
         Assert.That(catalog[0].Cost, Is.EqualTo(7200));
         products.Verify(api => api.ProductsTopupGetAsync(It.IsAny<int?>(), int.MaxValue, false, It.IsAny<int>(), It.IsAny<CancellationToken>()), Times.Once);
     }
+
+    [Test]
+    public void SubscriptionSlotProducts_IncludeAnyProviderAndCollapseDuplicateSlugs()
+    {
+        var catalog = new[]
+        {
+            new TopUpProduct { Slug = "l_premium-slots-4", ProviderSlug = "lemonsqueezy", SlotCount = 4, Cost = 1 },
+            new TopUpProduct { Slug = "l_premium-slots-4", ProviderSlug = "stripe", SlotCount = 4, Cost = 2 },
+            new TopUpProduct { Slug = "l_premium-slots-13", ProviderSlug = "paypal", SlotCount = 4 },
+            new TopUpProduct { Slug = "l_premium", ProviderSlug = "stripe", SlotCount = 0 },
+            new TopUpProduct { Slug = "coins-slots", ProviderSlug = "stripe", SlotCount = 4 }
+        };
+
+        var result = TierSlotsController.SubscriptionSlotProducts(catalog).ToList();
+
+        Assert.That(result.Select(p => p.Slug), Is.EqualTo(new[] { "l_premium-slots-4", "l_premium-slots-13" }));
+        Assert.That(result[0].ProviderSlug, Is.EqualTo("lemonsqueezy"));
+    }
 }

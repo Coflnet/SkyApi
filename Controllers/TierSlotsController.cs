@@ -29,12 +29,20 @@ public class TierSlotsController(GoogletokenService tokens, ITierSlotsApi slots,
         // Recurring plans are stored in Payments' separate provider-product catalog.
         var subscriptions = products.ProductsTopupGetAsync(amount: int.MaxValue, includeDisabled: false);
         await Task.WhenAll(prepaid, subscriptions);
-        return prepaid.Result.Concat(subscriptions.Result
-            .Where(p => p.SlotCount > 0 && p.ProviderSlug == "lemonsqueezy" && p.Slug.StartsWith("l_"))
+        return prepaid.Result.Concat(SubscriptionSlotProducts(subscriptions.Result)
             .Select(p => new PurchaseableProduct(p.Id, p.Title, p.Slug, p.Description, p.Cost,
                 p.OwnershipSeconds, p.SlotCount, p.SlotTier, p.Type)))
             .OrderBy(p => p.Cost).ToList();
     }
+
+    /// <summary>
+    /// Recurring slot plans share one slug (the "l_" plans) for every subscription provider (LemonSqueezy, Stripe, PayPal),
+    /// so the provider is not filtered and rows repeated per provider are collapsed.
+    /// </summary>
+    internal static IEnumerable<TopUpProduct> SubscriptionSlotProducts(IEnumerable<TopUpProduct> catalog) => catalog
+        .Where(p => p.SlotCount > 0 && p.Slug != null && p.Slug.StartsWith("l_"))
+        .GroupBy(p => p.Slug)
+        .Select(group => group.First());
 
     [HttpGet]
     public async Task<List<OwnedTierSlot>> GetOwned()
