@@ -1,5 +1,9 @@
+using Coflnet.Payments.Client.Api;
+using Coflnet.Payments.Client.Model;
 using Coflnet.Payments.Client.Client;
 using Coflnet.Sky.Core;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc;
 using Moq;
 using NUnit.Framework;
 using StackExchange.Redis;
@@ -454,6 +458,111 @@ public class PremiumControllerTests
     public void BuyerCountry_FallsBackToTheIpCountry(string country, string ipCountry, string expected)
     {
         Assert.That(PremiumController.BuyerCountry(country, ipCountry), Is.EqualTo(expected));
+    }
+
+    [TestCase("CA", "CA")]
+    [TestCase(" ny ", "NY")]
+    [TestCase(null, null)]
+    [TestCase("", null)]
+    [TestCase("US-CA", null)]
+    [TestCase("California", null)]
+    [TestCase("34", "34")]
+    [TestCase("C!", null)]
+    public void NormalizeRegion_AcceptsOnlyShortAlphanumericCodes(string header, string expected)
+    {
+        Assert.That(PremiumController.NormalizeRegion(header), Is.EqualTo(expected));
+    }
+
+    [TestCase(null, "US", "CA", "CA")]
+    [TestCase("us", "US", " ny ", "NY")]
+    [TestCase("DE", "US", "CA", null)]
+    [TestCase(null, "XX", "CA", "CA")]
+    [TestCase(null, "", "CA", null)]
+    public void BuyerRegion_OnlyForTheIpCountry(string country, string ipCountry, string region, string expected)
+    {
+        Assert.That(PremiumController.BuyerRegion(country, ipCountry, region), Is.EqualTo(expected));
+    }
+
+    [Test]
+    public void AutoDiscountCacheKey_IncludesTheRegion()
+    {
+        Assert.That(PremiumController.AutoDiscountCacheKey("US", "CA"), Is.Not.EqualTo(PremiumController.AutoDiscountCacheKey("US", "NY")));
+        Assert.That(PremiumController.AutoDiscountCacheKey("US", null), Is.Not.EqualTo(PremiumController.AutoDiscountCacheKey("US", "CA")));
+    }
+
+    private sealed class RecordingHandler
+    {
+        public System.Collections.Generic.List<string> Queries { get; } = new();
+        public IAsynchronousClient Client { get; }
+
+        public RecordingHandler()
+        {
+            var mock = new Mock<IAsynchronousClient>();
+            mock.Setup(c => c.GetAsync<It.IsAnyType>(It.IsAny<string>(), It.IsAny<RequestOptions>(), It.IsAny<IReadableConfiguration>(), It.IsAny<System.Threading.CancellationToken>()))
+                .Returns(new InvocationFunc(Record));
+            Client = mock.Object;
+        }
+
+        private object Record(IInvocation invocation)
+        {
+            var options = (RequestOptions)invocation.Arguments[1];
+            Queries.Add(string.Join("&", options.QueryParameters.Select(q => q.Key + "=" + string.Join(",", q.Value))));
+            throw new ApiException(404, "not found");
+        }
+    }
+
+    private static PremiumController ControllerWith(RecordingHandler handler, string ipCountry, string region)
+    {
+        var context = new DefaultHttpContext();
+        context.Request.Headers["cf-ipcountry"] = ipCountry;
+        context.Request.Headers["cf-region-code"] = region;
+        var api = new TopUpApi(new Mock<ISynchronousClient>().Object, handler.Client, new Configuration());
+        return new PremiumController(null, api, null, null, null, null, null, null, null)
+        { ControllerContext = new ControllerContext { HttpContext = context } };
+    }
+
+    [Test]
+    public async Task Providers_ForwardTheIpRegion()
+    {
+        var handler = new RecordingHandler();
+
+        await ControllerWith(handler, "US", "ca").GetSubscriptionProviders(null, "premium");
+
+        Assert.That(handler.Queries.Single(), Does.Contain("region=CA"));
+    }
+
+    [Test]
+    public async Task Providers_DropTheRegionForAnotherSelectedCountry()
+    {
+        var handler = new RecordingHandler();
+
+        await ControllerWith(handler, "US", "CA").GetSubscriptionProviders("DE", "premium");
+
+        Assert.That(handler.Queries.Single(), Does.Not.Contain("region"));
+    }
+
+    [Test]
+    public async Task AutoDiscount_ForwardsTheRegionAndCachesPerRegion()
+    {
+        var handler = new RecordingHandler();
+        using var cache = new Microsoft.Extensions.Caching.Memory.MemoryCache(new Microsoft.Extensions.Caching.Memory.MemoryCacheOptions());
+
+        await ControllerWith(handler, "US", "CA").GetAutoDiscount(null, cache);
+        await ControllerWith(handler, "US", "NY").GetAutoDiscount(null, cache);
+        await ControllerWith(handler, "US", "CA").GetAutoDiscount(null, cache);
+
+        Assert.That(handler.Queries, Has.Count.EqualTo(2));
+        Assert.That(handler.Queries[0], Does.Contain("region=CA"));
+        Assert.That(handler.Queries[1], Does.Contain("region=NY"));
+    }
+
+    [Test]
+    public void CheckoutOptions_CarryTheRegionOfTheIpCountry()
+    {
+        var controller = ControllerWith(new RecordingHandler(), "US", "ca");
+
+        Assert.That(controller.RequestBuyerRegion("us"), Is.EqualTo("CA"));
+        Assert.That(controller.RequestBuyerRegion("DE"), Is.Null);
     }
 }
 #pragma warning restore CS1591

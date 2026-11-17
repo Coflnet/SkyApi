@@ -951,6 +951,7 @@ namespace Coflnet.Sky.Api.Controller
                 if (assignSlots)
                     options.SuccessUrl = "https://sky.coflnet.com/account?slots=checkout#purchased-slots";
                 options.Country = NormalizeCountry(country);
+                options.Region = RequestBuyerRegion(country);
                 options.ServicePerformanceDeclaration = SubscriptionDeclarationMapper.ToDeclaration(
                     declaration, GetLocale(), legalManifest.PremiumEarlyStart, legalManifest.Agreement, legalManifest.Withdrawal);
                 var link = await SubscriptionCheckoutRouter.Subscribe(topUpApi, normalizedProvider, user.Id.ToString(), subscriptionSlug, options);
@@ -992,8 +993,9 @@ namespace Coflnet.Sky.Api.Controller
         public async Task<IEnumerable<SubscriptionProviderOption>> GetSubscriptionProviders(string country = null, string productSlug = null)
         {
             var buyerCountry = RequestBuyerCountry(country);
+            var region = RequestBuyerRegion(country);
             return await FallbackWhenPaymentsLacksEndpoint(
-                () => topUpApi.TopUpSubscribeProvidersGetAsync(buyerCountry, productSlug),
+                () => topUpApi.TopUpSubscribeProvidersGetAsync(buyerCountry, productSlug, region),
                 new List<SubscriptionProviderOption>());
         }
 
@@ -1023,17 +1025,47 @@ namespace Coflnet.Sky.Api.Controller
         public async Task<ActionResult<AutoDiscount>> GetAutoDiscount(string country = null, [FromServices] IMemoryCache cache = null)
         {
             var normalizedCountry = RequestBuyerCountry(country);
-            var discount = await cache.GetOrCreateAsync(AutoDiscountCacheKey(normalizedCountry), entry =>
+            var region = RequestBuyerRegion(country);
+            var discount = await cache.GetOrCreateAsync(AutoDiscountCacheKey(normalizedCountry, region), entry =>
             {
                 entry.AbsoluteExpirationRelativeToNow = TimeSpan.FromSeconds(60);
-                return FallbackWhenPaymentsLacksEndpoint(() => topUpApi.TopUpDiscountAutoGetAsync(normalizedCountry), (AutoDiscount)null);
+                return FallbackWhenPaymentsLacksEndpoint(() => topUpApi.TopUpDiscountAutoGetAsync(normalizedCountry, region), (AutoDiscount)null);
             });
             if (discount == null)
                 return NoContent();
             return Ok(discount);
         }
 
-        internal static string AutoDiscountCacheKey(string country) => "premium-auto-discount-" + country;
+        internal static string AutoDiscountCacheKey(string country, string region = null)
+            => "premium-auto-discount-" + country + (region == null ? "" : "-" + region);
+
+        internal string RequestBuyerRegion(string country)
+        {
+            Request.Headers.TryGetValue("cf-ipcountry", out StringValues ipCountry);
+            Request.Headers.TryGetValue("cf-region-code", out StringValues regionCode);
+            return BuyerRegion(country, ipCountry.ToString(), regionCode.ToString());
+        }
+
+        /// <summary>
+        /// The Cloudflare region of the IP, only when the buyer country is the IP country; a selected
+        /// country elsewhere must not inherit the region of the IP.
+        /// </summary>
+        internal static string BuyerRegion(string country, string ipCountry, string regionCode)
+        {
+            var buyerCountry = BuyerCountry(country, ipCountry);
+            if (buyerCountry == null || buyerCountry != NormalizeCountry(ipCountry))
+                return null;
+            return NormalizeRegion(regionCode);
+        }
+
+        /// <summary>1-3 upper case ASCII letters or digits (ISO 3166-2 subdivision without country prefix) or null.</summary>
+        internal static string NormalizeRegion(string region)
+        {
+            var trimmed = region?.Trim();
+            if (trimmed is not { Length: >= 1 and <= 3 } || !trimmed.All(char.IsAsciiLetterOrDigit))
+                return null;
+            return trimmed.ToUpperInvariant();
+        }
 
         private string RequestBuyerCountry(string country)
         {
