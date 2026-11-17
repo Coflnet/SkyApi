@@ -973,7 +973,26 @@ namespace Coflnet.Sky.Api.Controller
         [Route("premium/subscription/providers")]
         public async Task<IEnumerable<SubscriptionProviderOption>> GetSubscriptionProviders(string country = null, string productSlug = null)
         {
-            return await topUpApi.TopUpSubscribeProvidersGetAsync(RequestBuyerCountry(country), productSlug);
+            var buyerCountry = RequestBuyerCountry(country);
+            return await FallbackWhenPaymentsLacksEndpoint(
+                () => topUpApi.TopUpSubscribeProvidersGetAsync(buyerCountry, productSlug),
+                new List<SubscriptionProviderOption>());
+        }
+
+        /// <summary>
+        /// A Payments version without the endpoint answers 404; the website then keeps the Lemon Squeezy
+        /// checkout and shows no promotion, so answer "nothing new" instead of a 500 on every premium page view.
+        /// </summary>
+        internal static async Task<T> FallbackWhenPaymentsLacksEndpoint<T>(Func<Task<T>> call, T fallback)
+        {
+            try
+            {
+                return await call();
+            }
+            catch (Coflnet.Payments.Client.Client.ApiException e) when (e.ErrorCode == 404)
+            {
+                return fallback;
+            }
         }
 
         /// <summary>Gets the promotion applied automatically to new subscriptions.</summary>
@@ -989,7 +1008,7 @@ namespace Coflnet.Sky.Api.Controller
             var discount = await cache.GetOrCreateAsync(AutoDiscountCacheKey(normalizedCountry), entry =>
             {
                 entry.AbsoluteExpirationRelativeToNow = TimeSpan.FromSeconds(60);
-                return topUpApi.TopUpDiscountAutoGetAsync(normalizedCountry);
+                return FallbackWhenPaymentsLacksEndpoint(() => topUpApi.TopUpDiscountAutoGetAsync(normalizedCountry), (AutoDiscount)null);
             });
             if (discount == null)
                 return NoContent();

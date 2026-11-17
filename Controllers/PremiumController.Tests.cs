@@ -428,6 +428,22 @@ public class PremiumControllerTests
         Assert.That(PremiumController.PaymentErrorMessage(upstream), Is.EqualTo("Error calling TopUpStripeSubscribePost"));
     }
 
+    [Test]
+    public async Task PaymentsWithoutTheEndpointGivesTheFallback()
+    {
+        var result = await PremiumController.FallbackWhenPaymentsLacksEndpoint<string>(
+            () => throw new ApiException(404, "Error calling TopUpDiscountAutoGet: Not Found"), "fallback");
+
+        Assert.That(result, Is.EqualTo("fallback"));
+    }
+
+    [Test]
+    public void OtherPaymentsErrorsStillFail()
+    {
+        Assert.ThrowsAsync<ApiException>(() => PremiumController.FallbackWhenPaymentsLacksEndpoint<string>(
+            () => throw new ApiException(500, "Error calling TopUpDiscountAutoGet"), "fallback"));
+    }
+
     // without a country Payments lists every direct provider, showing promotion prices to Lemon Squeezy-only buyers
     [TestCase("de", "BR", "DE")]
     [TestCase(null, "BR", "BR")]
