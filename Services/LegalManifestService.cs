@@ -10,6 +10,7 @@ using System.Threading.Tasks;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Prometheus;
 
 namespace Coflnet.Sky.Api.Services;
 
@@ -20,6 +21,19 @@ public sealed class LegalManifestService : BackgroundService
     private const string AgreementKind = "coflnet-legal-agreement-node";
     private static readonly TimeSpan RetryDelay = TimeSpan.FromSeconds(30);
     private static readonly TimeSpan MaximumDelay = TimeSpan.FromHours(1);
+    private static readonly TimeSpan DefaultRefreshInterval = TimeSpan.FromSeconds(300);
+    private static readonly TimeSpan MinimumRefreshInterval = TimeSpan.FromSeconds(30);
+    private static readonly TimeSpan MaximumRefreshInterval = TimeSpan.FromSeconds(3600);
+    private static readonly Gauge LoadedTimestamp = Metrics.CreateGauge(
+        "sky_api_legal_manifest_loaded_timestamp_seconds",
+        "Unix time of the last successful legal manifest load");
+    private static readonly Gauge WithdrawalVersionInfo = Metrics.CreateGauge(
+        "sky_api_legal_manifest_withdrawal_version_info",
+        "The withdrawal version currently stamped on purchases (value is always 1)",
+        new GaugeConfiguration { LabelNames = new[] { "version" } });
+    private static readonly Counter RefreshFailures = Metrics.CreateCounter(
+        "sky_api_legal_manifest_refresh_failures_total",
+        "Failed legal manifest load attempts");
     private static readonly Uri CoflnetOrigin = new("https://coflnet.com/");
     private readonly IHttpClientFactory clients;
     private readonly IConfiguration configuration;
@@ -27,13 +41,18 @@ public sealed class LegalManifestService : BackgroundService
     private readonly Func<DateTimeOffset> utcNow;
     private readonly Func<TimeSpan, CancellationToken, Task> delay;
     private Uri manifestUri;
+    private TimeSpan refreshInterval = DefaultRefreshInterval;
+    private LegalManifestSnapshot current;
 
-    /// <summary>Gets or sets the agreement.</summary>
-    public LegalAgreementSnapshot Agreement { get; private set; }
-    /// <summary>Gets or sets the withdrawal.</summary>
-    public LegalDocumentSnapshot Withdrawal { get; private set; }
-    /// <summary>Gets or sets the premium early start.</summary>
-    public LegalDeclarationSnapshot PremiumEarlyStart { get; private set; }
+    /// <summary>Gets the current immutable snapshot, or null before the first successful load.</summary>
+    /// <remarks>Callers that need several values must read this once and use that single reference.</remarks>
+    public LegalManifestSnapshot Current => Volatile.Read(ref current);
+    /// <summary>Gets the agreement of the current snapshot.</summary>
+    public LegalAgreementSnapshot Agreement => Current?.Agreement;
+    /// <summary>Gets the withdrawal of the current snapshot.</summary>
+    public LegalDocumentSnapshot Withdrawal => Current?.Withdrawal;
+    /// <summary>Gets the premium early start declaration of the current snapshot.</summary>
+    public LegalDeclarationSnapshot PremiumEarlyStart => Current?.PremiumEarlyStart;
 
     /// <summary>Initializes a new instance of the <see cref="LegalManifestService"/> class.</summary>
     public LegalManifestService(
@@ -71,7 +90,24 @@ public sealed class LegalManifestService : BackgroundService
             ?? "https://coflnet.com/legal/manifest.json");
         if (!IsCoflnetHttpsOrigin(manifestUri))
             throw new InvalidOperationException("LEGAL_MANIFEST_URL must use the Coflnet HTTPS origin.");
+        refreshInterval = ResolveRefreshInterval(configuration);
         return base.StartAsync(cancellationToken);
+    }
+
+    /// <summary>Reads LEGAL_MANIFEST_REFRESH_SECONDS (default 300) clamped to 30..3600 seconds.</summary>
+    internal static TimeSpan ResolveRefreshInterval(IConfiguration configuration)
+    {
+        if (!double.TryParse(
+                configuration["LEGAL_MANIFEST_REFRESH_SECONDS"],
+                System.Globalization.NumberStyles.Float,
+                System.Globalization.CultureInfo.InvariantCulture,
+                out var seconds)
+            || double.IsNaN(seconds))
+            return DefaultRefreshInterval;
+        return TimeSpan.FromSeconds(Math.Clamp(
+            seconds,
+            MinimumRefreshInterval.TotalSeconds,
+            MaximumRefreshInterval.TotalSeconds));
     }
 
     /// <inheritdoc/>
@@ -81,25 +117,17 @@ public sealed class LegalManifestService : BackgroundService
         {
             try
             {
-                var loaded = await Load(manifestUri, stoppingToken);
-                var untilEffective = loaded.Agreement.EffectiveFromUtc - utcNow().UtcDateTime;
+                var untilEffective = await RefreshOnceAsync(stoppingToken);
                 if (untilEffective > TimeSpan.Zero)
-                {
-                    TermsAcceptancePolicy.Stage(
-                        loaded.Agreement,
-                        loaded.PremiumEarlyStart);
-                    logger.LogInformation(
-                        "The legal agreement becomes effective at {EffectiveFromUtc}; enforcement is deferred.",
-                        loaded.Agreement.EffectiveFromUtc);
-                    await delay(Min(untilEffective, MaximumDelay), stoppingToken);
-                    continue;
-                }
-
-                Agreement = loaded.Agreement;
-                Withdrawal = loaded.Withdrawal;
-                PremiumEarlyStart = loaded.PremiumEarlyStart;
-                TermsAcceptancePolicy.Initialize(Agreement, PremiumEarlyStart);
-                return;
+                    // Before the first load there is nothing to serve, so wake exactly when the agreement
+                    // becomes effective; afterwards keep refreshing on the regular interval.
+                    await delay(
+                        Current == null
+                            ? Min(untilEffective, MaximumDelay)
+                            : Min(untilEffective, refreshInterval),
+                        stoppingToken);
+                else
+                    await delay(refreshInterval, stoppingToken);
             }
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
             {
@@ -107,13 +135,70 @@ public sealed class LegalManifestService : BackgroundService
             }
             catch (Exception exception)
             {
-                logger.LogWarning(exception, "Loading the legal manifest failed; retrying in {RetryDelay}.", RetryDelay);
+                RefreshFailures.Inc();
+                if (Current == null)
+                    logger.LogWarning(exception, "Loading the legal manifest failed; retrying in {RetryDelay}.", RetryDelay);
+                else
+                    logger.LogWarning(
+                        exception,
+                        "Refreshing the legal manifest failed; keeping the previous snapshot and retrying in {RetryDelay}.",
+                        RetryDelay);
                 await delay(RetryDelay, stoppingToken);
             }
         }
     }
 
-    private async Task<LoadedManifest> Load(Uri uri, CancellationToken cancellationToken)
+    /// <summary>
+    /// Loads the manifest once and publishes it as the new snapshot when it differs.
+    /// Returns the time until a not yet effective agreement starts (it is only staged), otherwise zero.
+    /// </summary>
+    internal async Task<TimeSpan> RefreshOnceAsync(CancellationToken cancellationToken)
+    {
+        var loaded = await Load(manifestUri, cancellationToken);
+        var untilEffective = loaded.Agreement.EffectiveFromUtc - utcNow().UtcDateTime;
+        if (untilEffective > TimeSpan.Zero)
+        {
+            TermsAcceptancePolicy.Stage(loaded.Agreement, loaded.PremiumEarlyStart);
+            logger.LogInformation(
+                "The legal agreement becomes effective at {EffectiveFromUtc}; enforcement is deferred.",
+                loaded.Agreement.EffectiveFromUtc);
+            return untilEffective;
+        }
+
+        var previous = Current;
+        var changed = previous == null || !Describe(previous).Equals(Describe(loaded));
+        // Keep the old instance when nothing changed so readers holding it stay valid.
+        var snapshot = changed ? loaded : previous;
+        if (changed)
+        {
+            Volatile.Write(ref current, snapshot);
+            logger.LogInformation(
+                "Legal manifest changed: withdrawal version {OldWithdrawalVersion} -> {NewWithdrawalVersion}, "
+                + "agreement hash {OldAgreementHash} -> {NewAgreementHash}.",
+                previous?.Withdrawal.Version,
+                snapshot.Withdrawal.Version,
+                previous?.Agreement.Hash,
+                snapshot.Agreement.Hash);
+            if (previous != null)
+                WithdrawalVersionInfo.RemoveLabelled(previous.Withdrawal.Version);
+            WithdrawalVersionInfo.WithLabels(snapshot.Withdrawal.Version).Set(1);
+        }
+        TermsAcceptancePolicy.Initialize(snapshot.Agreement, snapshot.PremiumEarlyStart);
+        LoadedTimestamp.Set(utcNow().ToUnixTimeSeconds());
+        return TimeSpan.Zero;
+    }
+
+    private static string Describe(LegalManifestSnapshot snapshot) =>
+        string.Join(
+            "|",
+            snapshot.Agreement.Hash,
+            snapshot.Agreement.EffectiveFromUtc.Ticks,
+            snapshot.Withdrawal.Version,
+            string.Join(",", snapshot.Withdrawal.Sha256.OrderBy(item => item.Key).Select(item => $"{item.Key}={item.Value}")),
+            snapshot.PremiumEarlyStart.Version,
+            string.Join(",", snapshot.PremiumEarlyStart.Sha256.OrderBy(item => item.Key).Select(item => $"{item.Key}={item.Value}")));
+
+    private async Task<LegalManifestSnapshot> Load(Uri uri, CancellationToken cancellationToken)
     {
         var client = clients.CreateClient(nameof(LegalManifestService));
         var manifestBytes = await client.GetByteArrayAsync(uri, cancellationToken);
@@ -439,11 +524,16 @@ public sealed class LegalManifestService : BackgroundService
         AgreementDescriptor Descriptor,
         List<LoadedAgreement> Dependencies);
 
-    private sealed record LoadedManifest(
-        LegalAgreementSnapshot Agreement,
-        LegalDocumentSnapshot Withdrawal,
-        LegalDeclarationSnapshot PremiumEarlyStart);
 }
+
+/// <summary>An immutable view of the legal manifest. Read all values of one operation from the same instance.</summary>
+/// <param name="Agreement">The agreement identity.</param>
+/// <param name="Withdrawal">The withdrawal document identity.</param>
+/// <param name="PremiumEarlyStart">The premium early start declaration.</param>
+public sealed record LegalManifestSnapshot(
+    LegalAgreementSnapshot Agreement,
+    LegalDocumentSnapshot Withdrawal,
+    LegalDeclarationSnapshot PremiumEarlyStart);
 
 /// <summary>Represents a legal agreement snapshot.</summary>
 /// <param name="Id">The agreement ID.</param>
