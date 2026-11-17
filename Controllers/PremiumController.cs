@@ -791,15 +791,8 @@ namespace Coflnet.Sky.Api.Controller
                 if (MustRejectDeclaredPurchase(
                         await HasCurrentAgreement(user.Id)))
                     return TermsAcceptanceRequired();
-                var requestedLocale = string.IsNullOrWhiteSpace(
-                    args.legalLocale)
-                        ? GetLocale()
-                        : args.legalLocale;
-                var legalLocale = requestedLocale.StartsWith(
-                    "de",
-                    StringComparison.OrdinalIgnoreCase)
-                        ? "de"
-                        : "en";
+                var legalLocale = SubscriptionDeclarationMapper.ResolveLegalLocale(
+                    args.legalLocale, GetLocale());
                 var declaration = legalManifest.PremiumEarlyStart
                     ?? throw new InvalidOperationException(
                         "The Premium declaration is unavailable.");
@@ -935,11 +928,12 @@ namespace Coflnet.Sky.Api.Controller
         /// <param name="assignSlots">Return to the slot management page after checkout</param>
         /// <param name="provider">stripe, paypal or lemonsqueezy; defaults to lemonsqueezy</param>
         /// <param name="country">Optional ISO country the buyer selected; defaults to the request country</param>
+        /// <param name="declaration">Optional early performance declaration (withdrawal right); required by Payments once its enforcement is on</param>
         /// <returns></returns>
         [Route("premium/subscription/{subscriptionSlug}")]
         [HttpPost]
         [Microsoft.AspNetCore.Authorization.Authorize]
-        public async Task<ActionResult<TopUpIdResponse>> PurchaseServiceSubscription(string subscriptionSlug, string creatorCode = null, string discountcode = null, bool assignSlots = false, string provider = null, string country = null)
+        public async Task<ActionResult<TopUpIdResponse>> PurchaseServiceSubscription(string subscriptionSlug, string creatorCode = null, string discountcode = null, bool assignSlots = false, string provider = null, string country = null, [FromBody] SubscriptionDeclarationArgs declaration = null)
         {
             if (!SubscriptionCheckoutRouter.TryNormalize(provider, out var normalizedProvider))
                 return BadRequest("Unknown subscription provider");
@@ -957,15 +951,39 @@ namespace Coflnet.Sky.Api.Controller
                 if (assignSlots)
                     options.SuccessUrl = "https://sky.coflnet.com/account?slots=checkout#purchased-slots";
                 options.Country = NormalizeCountry(country);
+                options.ServicePerformanceDeclaration = SubscriptionDeclarationMapper.ToDeclaration(
+                    declaration, GetLocale(), legalManifest.PremiumEarlyStart, legalManifest.Agreement, legalManifest.Withdrawal);
                 var link = await SubscriptionCheckoutRouter.Subscribe(topUpApi, normalizedProvider, user.Id.ToString(), subscriptionSlug, options);
                 return Ok(link);
             }
             catch (Exception e)
             {
                 // Payments explains country mismatches and unavailable providers in the error body.
-                throw new CoflnetException("payment_error", PaymentErrorMessage(e));
+                var message = PaymentErrorMessage(e);
+                var slug = SubscriptionDeclarationMapper.DeclarationErrorSlug(message);
+                throw new CoflnetException(slug ?? "payment_error", message);
             }
         }
+        /// <summary>Gets the country of the caller as seen by Cloudflare; never cached.</summary>
+        /// <returns>The two letter country, null when unknown</returns>
+        [HttpGet]
+        [Route("premium/country")]
+        [ProducesResponseType(typeof(CountryResponse), 200)]
+        public CountryResponse GetCountry()
+        {
+            Request.Headers.TryGetValue("cf-ipcountry", out StringValues ipCountry);
+            // A CDN keys by url and would hand one visitor's country to every other visitor
+            Response.Headers["Cache-Control"] = "private, no-store";
+            return new CountryResponse { Country = CountryOfRequest(ipCountry.ToString()) };
+        }
+
+        /// <summary>The Cloudflare country; null when missing, XX (unknown) or T1 (Tor)</summary>
+        internal static string CountryOfRequest(string ipCountry)
+        {
+            var country = NormalizeCountry(ipCountry);
+            return country == "XX" ? null : country;
+        }
+
         /// <summary>Gets the subscription providers the buyer can choose for a plan.</summary>
         /// <param name="country">ISO country of the buyer</param>
         /// <param name="productSlug">Optional plan slug; PayPal is only offered for plans it supports</param>
