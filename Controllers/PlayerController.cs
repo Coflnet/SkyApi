@@ -78,13 +78,14 @@ namespace Coflnet.Sky.Api.Controller
             AssertUuid(playerUuid);
             var offset = pageSize * page;
             var baseSelect = context.Bids.Where(b => b.BidderId == context.Players.Where(p => p.UuId == playerUuid).Select(p => p.Id).FirstOrDefault() && b.BidderId != 0);
+            filters ??= new();
             filters.Remove("page");
             if (filters.TryGetValue("tag", out string itemTag))
             {
                 int itemId = ExtractItemIdFromFilter(filters, itemTag);
                 baseSelect = baseSelect.Where(b => b.Auction.ItemId == itemId);
             }
-            if (filters != null && filters.Count > 0)
+            if (filters.Count > 0)
             {
                 var expression = filterEngine.GetMatchExpression(filters, true);
                 baseSelect = baseSelect.Select(b => b.Auction).Where(expression).Select(a => a.Bids.FirstOrDefault());
