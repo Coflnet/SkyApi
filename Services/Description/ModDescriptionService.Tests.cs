@@ -627,6 +627,31 @@ public class ModDescriptionServiceTests
     }
 
     [Test]
+    public void HiddenTooltipItemWithIdIsTreatedAsEmptySlot()
+    {
+        var boots = new fNbt.Tags.NbtCompound() {
+            new fNbt.Tags.NbtInt("count", 1), new fNbt.Tags.NbtByte("Slot", 8),
+            new fNbt.Tags.NbtString("id", "minecraft:leather_boots"),
+            new fNbt.Tags.NbtCompound("components") {
+                new fNbt.Tags.NbtInt("minecraft:dyed_color", 333089),
+                new fNbt.Tags.NbtCompound("minecraft:tooltip_display") { new fNbt.Tags.NbtByte("hide_tooltip", 1) },
+                new fNbt.Tags.NbtCompound("minecraft:enchantments") { new fNbt.Tags.NbtInt("minecraft:depth_strider", 3) },
+                new fNbt.Tags.NbtCompound("minecraft:custom_data") {
+                    new fNbt.Tags.NbtString("id", "SPEED_WITHER_BOOTS"), new fNbt.Tags.NbtString("dye_item", "DYE_BLACK_ICE") }
+            }
+        };
+        var nbt = new fNbt.NbtFile(new fNbt.Tags.NbtCompound("") { new fNbt.Tags.NbtList("i", new[] { boots }) });
+        using var stream = new MemoryStream();
+        nbt.SaveToStream(stream, fNbt.NbtCompression.GZip);
+
+        var auctions = service.GetAuctionsFromNbt(Convert.ToBase64String(stream.ToArray()));
+
+        auctions.Should().HaveCount(1);
+        auctions[0].auction.Should().BeNull();
+        auctions[0].desc.Should().BeEmpty();
+    }
+
+    [Test]
     public void Parse121()
     {
         var base64 = File.ReadAllText("MockObjects/inventory1.21.json");
@@ -1031,4 +1056,19 @@ public class ModDescriptionServiceTests
          auction.SetFlattenedNbt(NBT.FlattenNbtData(item.ExtraAttributes));
          Assert.That("1", Is.EqualTo(auction.FlatenedNBT.GetValueOrDefault("veteran")), JsonConvert.SerializeObject(auction.FlatenedNBT, Formatting.Indented));
      }*/
+
+    [Test]
+    public void DefaultLoreFieldIsNotReportedAsInvalidDescriptionType()
+    {
+        var logger = new Mock<ILogger<ModDescriptionService>>();
+        service.logger = logger.Object;
+        var data = new DataContainer { PriceEst = new() { new Coflnet.Sky.Sniper.Client.Model.PriceEstimate() } };
+        var method = typeof(ModDescriptionService).GetMethod("AddFieldToBuilder", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+
+        // the unknown type error is only logged for 1 in 100 calls, repeat until it would have fired
+        for (int i = 0; i < 3000; i++)
+            method.Invoke(service, new object[] { new SaveAuction(), 0, data, new System.Text.StringBuilder(), DescriptionField.DefaultLore });
+
+        logger.Verify(l => l.Log(LogLevel.Error, It.IsAny<EventId>(), It.IsAny<It.IsAnyType>(), It.IsAny<System.Exception>(), It.IsAny<System.Func<It.IsAnyType, System.Exception, string>>()), Times.Never);
+    }
 }

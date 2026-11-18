@@ -1282,6 +1282,8 @@ public partial class ModDescriptionService : IDisposable
                 break;
             case DescriptionField.NONE:
                 break; // ignore
+            case DescriptionField.DefaultLore:
+                break; // handled by the caller, which turns the mods so far into inserts
             default:
                 if (Random.Shared.Next() % 100 == 0)
                     logger.LogError("Invalid description type " + item);
@@ -2150,6 +2152,8 @@ public partial class ModDescriptionService : IDisposable
                         // quiver arrow when selected a bow
                         return (new SaveAuction() { Tag = "SKYBLOCK_MENU", ItemName = "§8Quiver Arrow" }, new string[0]);
                 }
+                if (NBT.GetName(compound) == null)
+                    return (null, []); // hidden gui decoration with an id but no name (hide_tooltip)
                 var auction = new SaveAuction();
                 auction.Context = new Dictionary<string, string>();
                 NBT.FillFromTag(auction, compound, true);
