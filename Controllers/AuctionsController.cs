@@ -747,38 +747,64 @@ namespace Coflnet.Sky.Api.Controller
         [ResponseCache(Duration = 600, Location = ResponseCacheLocation.Any, NoStore = false)]
         public async Task<IEnumerable<SupplyElement>> GetLowestBins()
         {
-            var client = new RestClient(config["API_BASE_URL"]);
             var lowSupply = await IndexerClient.LowSupply();
-            var result = new List<SupplyElement>();
-            var tasks = lowSupply.Where(s => s.Value > 2).Select(
-            async item =>
+            var candidates = lowSupply.Where(s => s.Value > 2).Select(s => (tag: s.Key, supply: (long)s.Value));
+            return await BuildSupplyElements(candidates);
+        }
+
+        private const int SupplyLookupConcurrency = 16;
+        private static readonly TimeSpan SupplyLookupTimeout = TimeSpan.FromSeconds(3);
+
+        /// <summary>Loads the lowest bin of an item in its own scope (a DbContext can't be shared between tasks), replaceable for tests</summary>
+        internal Func<IServiceProvider, string, CancellationToken, Task<(long cost, string uuid, long slbin)>> LowestBinLookup =
+            (services, tag, token) => services.GetRequiredService<PricesService>().GetLowestBinData(tag, null, token);
+
+        internal async Task<List<SupplyElement>> BuildSupplyElements(IEnumerable<(string tag, long supply)> candidates)
+        {
+            var list = candidates.ToList();
+            var elements = new SupplyElement[list.Count];
+            // bounded so the lookups can't exhaust the database connection pool
+            await Parallel.ForEachAsync(Enumerable.Range(0, list.Count),
+                new ParallelOptions { MaxDegreeOfParallelism = SupplyLookupConcurrency },
+                async (i, _) => elements[i] = await TryBuildSupplyElement(list[i].tag, list[i].supply));
+            var result = elements.Where(e => e != null).ToList();
+            WarnIfMostFailed(list.Count, result.Count);
+            return result;
+        }
+
+        private void WarnIfMostFailed(int total, int succeeded)
+        {
+            var failed = total - succeeded;
+            if (failed * 2 > total)
+                logger.LogWarning("Low supply page: {failed} of {total} candidates were skipped", failed, total);
+        }
+
+        private async Task<SupplyElement> TryBuildSupplyElement(string tag, long supply)
+        {
+            try
             {
                 using var scope = factory.CreateScope();
-                var tempService = scope.ServiceProvider.GetRequiredService<Client.Api.IPricesApi>();
-                try
-                {
-                    var data = await tempService.ApiItemPriceItemTagGetAsync(item.Key);
-                    if (data.Median < 1_000_000 && data.Volume > 0)
-                        return;
+                var data = await scope.ServiceProvider.GetRequiredService<Client.Api.IPricesApi>().ApiItemPriceItemTagGetAsync(tag);
+                if (data.Median < 1_000_000 && data.Volume > 0)
+                    return null;
 
-                    var lowestBinTask = client.ExecuteAsync(CreateRequestTo($"/api/item/price/{item.Key}/bin"));
-                    var lbinData = JsonConvert.DeserializeObject<BinResponse>((await lowestBinTask).Content);
-                    result.Add(new SupplyElement()
-                    {
-                        Supply = item.Value,
-                        Tag = item.Key,
-                        Median = data.Median,
-                        LbinData = lbinData,
-                        Volume = data.Volume
-                    });
-                }
-                catch (Exception e)
+                using var timeout = new CancellationTokenSource(SupplyLookupTimeout);
+                var lbin = await LowestBinLookup(scope.ServiceProvider, tag, timeout.Token);
+                return new SupplyElement()
                 {
-                    logger.LogError(e, "getting average price data for low supply page");
-                }
-            });
-            await Task.WhenAll(tasks);
-            return result;
+                    Supply = supply,
+                    Tag = tag,
+                    Median = data.Median,
+                    LbinData = new BinResponse(lbin.cost, lbin.uuid, lbin.slbin),
+                    Volume = data.Volume
+                };
+            }
+            catch (Exception e)
+            {
+                // a single item without price data is not worth an error, the page works without it
+                logger.LogDebug(e, "getting price data for low supply item {tag}", tag);
+                return null;
+            }
         }
 
         /*
@@ -827,14 +853,6 @@ namespace Coflnet.Sky.Api.Controller
                     }).Select(a => a.Result).ToList();
                 }
         */
-        private static RestRequest CreateRequestTo(string path)
-        {
-            var lbinReq = new RestRequest(path)
-            {
-                Timeout = TimeSpan.FromSeconds(3)
-            };
-            return lbinReq;
-        }
     }
 }
 
