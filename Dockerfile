@@ -9,7 +9,7 @@ ARG CACHEBUST=16
 RUN git init dev && git -C dev remote add origin https://github.com/Coflnet/HypixelSkyblock.git && git -C dev fetch --depth=1 origin 763b610ef4e0f4c7535405e11afb2797f77047fd && git -C dev checkout --detach FETCH_HEAD \
     && git clone --depth=1 https://github.com/Coflnet/SkyBackendForFrontend.git \
     && git clone --depth=1 https://github.com/Coflnet/SkyFilter.git
-ARG SHARED_GOALS_REVISION=9df6b829cffe9bc397bed12b042405948fe6eca5
+ARG SHARED_GOALS_REVISION=99f6dbcba56bf6a0f2a5afe03a121d39b9520c00
 RUN git -C /build/SkyBackendForFrontend fetch --depth=1 origin "$SHARED_GOALS_REVISION" \
     && git -C /build/SkyBackendForFrontend checkout --detach FETCH_HEAD
 WORKDIR /build/sky
