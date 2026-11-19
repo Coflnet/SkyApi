@@ -1091,6 +1091,37 @@ namespace Coflnet.Sky.Api.Controller
             return trimmed.ToUpperInvariant();
         }
 
+        internal static PremiumSubscription ToPremiumSubscription(UserSubscription s) => new()
+        {
+            ExternalId = s.ExternalId,
+            EndsAt = s.EndsAt,
+            ProductName = s.Product?.Title,
+            SlotCount = s.Product?.SlotCount ?? 0,
+            PaymentAmount = s.PaymentAmount,
+            RenewsAt = s.RenewsAt,
+            CreatedAt = s.CreatedAt,
+            ProviderSlug = s.ProviderSlug,
+            CanResume = s.CanResume,
+            CanChangePlan = s.CanChangePlan,
+            Currency = s.Currency,
+            CurrentTermEndsAt = s.CurrentTermEndsAt,
+            CanExtendLongTerm = s.CanExtendLongTerm,
+            ExtensionPrice = (decimal)s.ExtensionPrice,
+            ExtensionTaxTreatment = s.ExtensionTaxTreatment,
+            RenewalPrice = (decimal)s.RenewalPrice,
+            ExtendedUntil = s.ExtendedUntil,
+            TermWeeks = s.Product == null ? null : TermWeeksOf(s.Product.OwnershipSeconds)
+        };
+
+        /// <summary>Term length in weeks with the ranges Payments uses to classify a plan: 4, 13 or 52; null otherwise.</summary>
+        internal static int? TermWeeksOf(long ownershipSeconds) => ownershipSeconds switch
+        {
+            >= 2332800 and <= 2678400 => 4,
+            >= 7516800 and <= 8035200 => 13,
+            31536000 => 52,
+            _ => null
+        };
+
         /// <summary>Gets the current user's subscriptions.</summary>
         [HttpGet]
         [Route("premium/subscription")]
@@ -1102,19 +1133,7 @@ namespace Coflnet.Sky.Api.Controller
                 return Unauthorized("no googletoken header");
 
             var subscriptions = await subscriptionApi.ApiSubscriptionUUserIdGetAsync(user.Id.ToString());
-            var publicSubscriptions = subscriptions.Select(s => new PremiumSubscription
-            {
-                ExternalId = s.ExternalId,
-                EndsAt = s.EndsAt,
-                ProductName = s.Product?.Title,
-                SlotCount = s.Product?.SlotCount ?? 0,
-                PaymentAmount = s.PaymentAmount,
-                RenewsAt = s.RenewsAt,
-                CreatedAt = s.CreatedAt,
-                ProviderSlug = s.ProviderSlug,
-                CanResume = s.CanResume,
-                CanChangePlan = s.CanChangePlan
-            }).ToArray();
+            var publicSubscriptions = subscriptions.Select(ToPremiumSubscription).ToArray();
             return Ok(publicSubscriptions);
         }
 
@@ -1154,6 +1173,103 @@ namespace Coflnet.Sky.Api.Controller
             return Ok();
         }
 
+        /// <summary>
+        /// Renews a 13 or 52 week subscription for another term instead of continuing every 4 weeks.
+        /// Stripe extends immediately, PayPal returns an approval url the buyer has to be redirected to.
+        /// </summary>
+        /// <param name="externalId">External id of the subscription as listed by the subscription endpoint</param>
+        /// <param name="declaration">Early performance declaration, the same body the subscription checkout takes</param>
+        /// <returns>Whether the term was extended or where to approve the extension</returns>
+        [HttpPost]
+        [Route("premium/subscription/{externalId}/extend")]
+        [Microsoft.AspNetCore.Authorization.Authorize]
+        [ProducesResponseType(typeof(SubscriptionExtensionResponse), 200)]
+        [ProducesResponseType(StatusCodes.Status428PreconditionRequired)]
+        [ProducesResponseType(StatusCodes.Status503ServiceUnavailable)]
+        public async Task<ActionResult<SubscriptionExtensionResponse>> ExtendSubscription(string externalId, [FromBody] SubscriptionDeclarationArgs declaration)
+        {
+            var user = await GetUserOrDefault();
+            if (user == default)
+                return Unauthorized("no googletoken header");
+            if (await MustRejectNewContract(user.Id, configuration))
+                return TermsAcceptanceRequired();
+            SubscriptionExtensionRequest request;
+            try
+            {
+                request = BuildExtensionRequest(
+                    externalId, declaration, GetLocale(), legalManifest.PremiumEarlyStart, legalManifest.Agreement, legalManifest.Withdrawal);
+            }
+            catch (InvalidOperationException e)
+            {
+                // the manifest changed while the page was open, same answer as the checkout
+                throw new CoflnetException("payment_error", e.Message);
+            }
+            return await RequestExtension(subscriptionApi, user.Id.ToString(), externalId, request, logger);
+        }
+
+        internal static SubscriptionExtensionRequest BuildExtensionRequest(
+            string externalId,
+            SubscriptionDeclarationArgs declaration,
+            string requestLocale,
+            LegalDeclarationSnapshot earlyStart,
+            LegalAgreementSnapshot agreement,
+            LegalDocumentSnapshot withdrawal)
+        {
+            var mapped = SubscriptionDeclarationMapper.ToDeclaration(declaration, requestLocale, earlyStart, agreement, withdrawal)
+                ?? throw new CoflnetException("service_performance_declaration_required",
+                    "The extension needs the early performance declaration.");
+            return new(mapped, ExtensionReturnUrl(externalId), ExtensionCancelUrl(externalId));
+        }
+
+        internal static string ExtensionReturnUrl(string externalId) =>
+            $"https://sky.coflnet.com/account?extended={Uri.EscapeDataString(externalId)}";
+
+        internal static string ExtensionCancelUrl(string externalId) =>
+            $"https://sky.coflnet.com/account?extend={Uri.EscapeDataString(externalId)}";
+
+        internal static async Task<SubscriptionExtensionResponse> RequestExtension(
+            ISubscriptionApi api, string userId, string externalId, SubscriptionExtensionRequest request, ILogger logger = null)
+        {
+            SubscriptionExtensionResult result;
+            try
+            {
+                result = await api.ApiSubscriptionUUserIdSubscriptionIdExtendPostAsync(userId, externalId, request);
+            }
+            catch (Coflnet.Payments.Client.Client.ApiException ex)
+            {
+                throw ToExtensionException(ex);
+            }
+            if (result.ApprovalUrl != null && !IsPayPalUrl(result.ApprovalUrl))
+            {
+                logger?.LogError("Payments returned an approval url outside paypal.com for a subscription extension");
+                throw new CoflnetException("extension_failed", "The extension could not be started. Try again later.");
+            }
+            return new SubscriptionExtensionResponse
+            {
+                Extended = result.Extended,
+                ApprovalUrl = result.ApprovalUrl,
+                TermEndsAt = result.TermEndsAt,
+                ExtendedUntil = result.ExtendedUntil
+            };
+        }
+
+        internal static bool IsPayPalUrl(string url)
+        {
+            if (!Uri.TryCreate(url, UriKind.Absolute, out var uri) || uri.Scheme != Uri.UriSchemeHttps)
+                return false;
+            return uri.Host == "paypal.com" || uri.Host.EndsWith(".paypal.com", StringComparison.Ordinal);
+        }
+
+        private static CoflnetException ToExtensionException(Coflnet.Payments.Client.Client.ApiException ex)
+        {
+            if (ex.ErrorCode is < 400 or >= 500)
+                return new CoflnetException("extension_failed", "The extension could not be started. Try again later.");
+            var message = PaymentErrorMessage(ex);
+            var slug = SubscriptionDeclarationMapper.DeclarationErrorSlug(message)
+                ?? (message == "extension_unavailable" ? "extension_unavailable" : "extension_failed");
+            return new CoflnetException(slug, message);
+        }
+
         private ObjectResult TermsAcceptanceRequired()
         {
             if (!TermsAcceptancePolicy.IsEffective())
@@ -1165,7 +1281,7 @@ namespace Coflnet.Sky.Api.Controller
             return StatusCode(StatusCodes.Status428PreconditionRequired, new
             {
                 slug = "terms_acceptance_required",
-                message = "Accept the current SkyCofl Agreement at https://sky.coflnet.com/premium before starting a new purchase, top-up, upgrade or subscription reactivation.",
+                message = "Accept the current SkyCofl Agreement at https://sky.coflnet.com/premium before starting a new purchase, top-up, upgrade, subscription reactivation or subscription renewal.",
                 agreementId = TermsAcceptancePolicy.CurrentAgreementId,
                 version = TermsAcceptancePolicy.CurrentVersion,
                 hash = TermsAcceptancePolicy.CurrentHash,

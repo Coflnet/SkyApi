@@ -24,4 +24,20 @@ public class PremiumSubscription
     public bool CanResume { get; set; }
     /// <summary>Whether the plan can be switched to another tier.</summary>
     public bool CanChangePlan { get; set; }
+    /// <summary>Currency of the prices of this subscription (ISO code).</summary>
+    public string Currency { get; set; }
+    /// <summary>When the term that is currently paid for ends.</summary>
+    public DateTime CurrentTermEndsAt { get; set; }
+    /// <summary>Whether the subscription can be renewed for another long term (13 or 52 weeks).</summary>
+    public bool CanExtendLongTerm { get; set; }
+    /// <summary>Price of renewing for another term, in the subscription currency.</summary>
+    public decimal ExtensionPrice { get; set; }
+    /// <summary>Whether the extension price includes tax: included, net or none.</summary>
+    public string ExtensionTaxTreatment { get; set; }
+    /// <summary>Price of the 4 week continuation, in the subscription currency.</summary>
+    public decimal RenewalPrice { get; set; }
+    /// <summary>Until when the subscription is already extended, null when it is not.</summary>
+    public DateTime? ExtendedUntil { get; set; }
+    /// <summary>Length of the current term in weeks (4, 13 or 52), null when unknown.</summary>
+    public int? TermWeeks { get; set; }
 }
