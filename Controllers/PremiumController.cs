@@ -1270,6 +1270,210 @@ namespace Coflnet.Sky.Api.Controller
             return new CoflnetException(slug, message);
         }
 
+        /// <summary>
+        /// Lists the longer terms (13 or 52 weeks of the same tier) a running subscription can switch to now:
+        /// what each charges now, how the paid days left are kept and how it continues every 4 weeks afterwards.
+        /// An empty list comes with an unavailableReason.
+        /// </summary>
+        /// <param name="externalId">External id of the subscription as listed by the subscription endpoint</param>
+        /// <returns>The terms that can be switched to</returns>
+        [HttpGet]
+        [Route("premium/subscription/{externalId}/terms")]
+        [Microsoft.AspNetCore.Authorization.Authorize]
+        [ProducesResponseType(typeof(SubscriptionTermOptionsResponse), 200)]
+        public async Task<ActionResult<SubscriptionTermOptionsResponse>> GetSubscriptionTerms(string externalId)
+        {
+            var user = await GetUserOrDefault();
+            if (user == default)
+                return Unauthorized("no googletoken header");
+            return await RequestTermOptions(subscriptionApi, user.Id.ToString(), externalId);
+        }
+
+        /// <summary>
+        /// Switches a running subscription to a longer term, charged now; the paid days left are kept on top.
+        /// Stripe completes it or returns the page to confirm the payment at, PayPal returns an approval url.
+        /// Rejections carry a slug such as term_switch_price_changed when the price shown is no longer the price charged.
+        /// </summary>
+        /// <param name="externalId">External id of the subscription as listed by the subscription endpoint</param>
+        /// <param name="args">The term, the early performance declaration and the price shown to the buyer</param>
+        /// <returns>Whether the term was switched or where to pay or approve it</returns>
+        [HttpPost]
+        [Route("premium/subscription/{externalId}/term")]
+        [Microsoft.AspNetCore.Authorization.Authorize]
+        [ProducesResponseType(typeof(SubscriptionTermSwitchResponse), 200)]
+        [ProducesResponseType(StatusCodes.Status428PreconditionRequired)]
+        [ProducesResponseType(StatusCodes.Status503ServiceUnavailable)]
+        public async Task<ActionResult<SubscriptionTermSwitchResponse>> SwitchSubscriptionTerm(string externalId, [FromBody] SubscriptionTermSwitchArgs args)
+        {
+            var user = await GetUserOrDefault();
+            if (user == default)
+                return Unauthorized("no googletoken header");
+            if (await MustRejectNewContract(user.Id, configuration))
+                return TermsAcceptanceRequired();
+            SubscriptionTermSwitchRequest request;
+            try
+            {
+                request = BuildTermSwitchRequest(
+                    externalId, args, GetLocale(), legalManifest.PremiumEarlyStart, legalManifest.Agreement, legalManifest.Withdrawal);
+            }
+            catch (InvalidOperationException e)
+            {
+                // the manifest changed while the page was open, same answer as the checkout
+                throw new CoflnetException("payment_error", e.Message);
+            }
+            return await RequestTermSwitch(subscriptionApi, user.Id.ToString(), externalId, request, logger);
+        }
+
+        internal static SubscriptionTermSwitchRequest BuildTermSwitchRequest(
+            string externalId,
+            SubscriptionTermSwitchArgs args,
+            string requestLocale,
+            LegalDeclarationSnapshot earlyStart,
+            LegalAgreementSnapshot agreement,
+            LegalDocumentSnapshot withdrawal)
+        {
+            if (args == null)
+                throw new CoflnetException("term_switch_failed", "The request body is missing.");
+            var declaration = SubscriptionDeclarationMapper.ToDeclaration(args.Declaration, requestLocale, earlyStart, agreement, withdrawal)
+                ?? throw new CoflnetException("service_performance_declaration_required",
+                    "The term switch needs the early performance declaration.");
+            var expected = args.ExpectedChargedNow
+                ?? throw new CoflnetException("expected_charged_now_required", "The price shown to the buyer is required.");
+            return new(args.Weeks, declaration, (double)expected, TermSwitchReturnUrl(externalId), TermSwitchCancelUrl(externalId));
+        }
+
+        internal static string TermSwitchReturnUrl(string externalId) =>
+            $"https://sky.coflnet.com/account?switched={Uri.EscapeDataString(externalId)}";
+
+        internal static string TermSwitchCancelUrl(string externalId) =>
+            $"https://sky.coflnet.com/account?switch={Uri.EscapeDataString(externalId)}";
+
+        internal static async Task<SubscriptionTermOptionsResponse> RequestTermOptions(
+            ISubscriptionApi api, string userId, string externalId)
+        {
+            Coflnet.Payments.Client.Model.SubscriptionTermOptions options;
+            try
+            {
+                options = await api.ApiSubscriptionUUserIdSubscriptionIdTermsGetAsync(userId, externalId);
+            }
+            catch (Coflnet.Payments.Client.Client.ApiException ex)
+            {
+                throw ToTermSwitchException(ex);
+            }
+            return new SubscriptionTermOptionsResponse
+            {
+                SubscriptionId = options.SubscriptionId,
+                CurrentWeeks = options.CurrentWeeks,
+                CurrentAccessEndsAt = options.CurrentAccessEndsAt,
+                UnavailableReason = options.UnavailableReason,
+                Pending = ToSafePending(options.Pending),
+                Terms = (options.Terms ?? []).Select(ToTermOption).ToList()
+            };
+        }
+
+        /// <summary>A pending switch is only passed on with a payment link the website may redirect to (same allowlist as the switch itself)</summary>
+        private static SubscriptionTermSwitchResponse ToSafePending(Coflnet.Payments.Client.Model.SubscriptionTermSwitchResult pending)
+        {
+            if (pending == null)
+                return null;
+            if (pending.ApprovalUrl != null && !IsPaymentApprovalUrl(pending.ApprovalUrl))
+                throw new CoflnetException("term_switch_failed", "The pending term switch has an unexpected payment link. Please contact support.");
+            return ToSwitchResponse(pending);
+        }
+
+        private static SubscriptionTermOptionResponse ToTermOption(Coflnet.Payments.Client.Model.SubscriptionTermOption t) => new()
+        {
+            Weeks = t.Weeks,
+            ProductSlug = t.ProductSlug,
+            Title = t.Title,
+            RegularPrice = (decimal)t.RegularPrice,
+            ChargedNow = (decimal)t.ChargedNow,
+            Currency = t.Currency,
+            TaxTreatment = t.TaxTreatment,
+            Promotion = t.Promotion == null ? null : new SubscriptionTermPromotionResponse
+            {
+                Code = t.Promotion.Code,
+                Name = t.Promotion.Name,
+                AmountType = t.Promotion.AmountType,
+                Amount = (decimal)t.Promotion.Amount,
+                ExpiresAt = t.Promotion.ExpiresAt
+            },
+            CurrentAccessEndsAt = t.CurrentAccessEndsAt,
+            NewAccessEndsAt = t.NewAccessEndsAt,
+            CarriedOverDays = t.CarriedOverDays,
+            FirstRenewalAt = t.FirstRenewalAt,
+            RenewsAsProductSlug = t.RenewsAsProductSlug,
+            RenewalPrice = (decimal)t.RenewalPrice,
+            RenewalWeeks = t.RenewalWeeks
+        };
+
+        private static SubscriptionTermSwitchResponse ToSwitchResponse(SubscriptionTermSwitchResult r) => new()
+        {
+            Switched = r.Switched,
+            Status = r.Status,
+            ApprovalUrl = r.ApprovalUrl,
+            Weeks = r.Weeks,
+            ProductSlug = r.ProductSlug,
+            ChargedNow = (decimal)r.ChargedNow,
+            Currency = r.Currency,
+            TaxTreatment = r.TaxTreatment,
+            PromotionCode = r.PromotionCode,
+            AccessUntil = r.AccessUntil,
+            FirstRenewalAt = r.FirstRenewalAt,
+            RenewsAsProductSlug = r.RenewsAsProductSlug,
+            RenewalPrice = (decimal)r.RenewalPrice,
+            RenewalWeeks = r.RenewalWeeks
+        };
+
+        internal static async Task<SubscriptionTermSwitchResponse> RequestTermSwitch(
+            ISubscriptionApi api, string userId, string externalId, SubscriptionTermSwitchRequest request, ILogger logger = null)
+        {
+            SubscriptionTermSwitchResult result;
+            try
+            {
+                result = await api.ApiSubscriptionUUserIdSubscriptionIdTermPostAsync(userId, externalId, request);
+            }
+            catch (Coflnet.Payments.Client.Client.ApiException ex)
+            {
+                throw ToTermSwitchException(ex);
+            }
+            if (result.ApprovalUrl != null && !IsPaymentApprovalUrl(result.ApprovalUrl))
+            {
+                logger?.LogError("Payments returned an approval url outside stripe and paypal for a term switch");
+                throw new CoflnetException("term_switch_failed", "The term switch could not be started. Try again later.");
+            }
+            return ToSwitchResponse(result);
+        }
+
+        private static readonly HashSet<string> TermSwitchSlugs =
+        [
+            "term_switch_unavailable", "subscription_not_active", "extension_booked", "term_not_paid", "no_longer_term",
+            "term_switch_not_offered", "subscription_not_switchable", "term_switch_pending", "term_switch_price_changed",
+            "renewal_due", "expected_charged_now_required"
+        ];
+
+        private static readonly string[] StripeHosts = ["invoice.stripe.com", "checkout.stripe.com", "billing.stripe.com"];
+
+        /// <summary>Whether the url is an https page of Stripe's hosted invoice, checkout or billing portal.</summary>
+        internal static bool IsStripeUrl(string url)
+        {
+            if (!Uri.TryCreate(url, UriKind.Absolute, out var uri) || uri.Scheme != Uri.UriSchemeHttps)
+                return false;
+            return StripeHosts.Contains(uri.Host);
+        }
+
+        internal static bool IsPaymentApprovalUrl(string url) => IsStripeUrl(url) || IsPayPalUrl(url);
+
+        private static CoflnetException ToTermSwitchException(Coflnet.Payments.Client.Client.ApiException ex)
+        {
+            if (ex.ErrorCode is < 400 or >= 500)
+                return new CoflnetException("term_switch_failed", "Switching the term is not available right now. Try again later.");
+            var message = PaymentErrorMessage(ex);
+            var slug = SubscriptionDeclarationMapper.DeclarationErrorSlug(message)
+                ?? (TermSwitchSlugs.Contains(message) ? message : "term_switch_failed");
+            return new CoflnetException(slug, message);
+        }
+
         private ObjectResult TermsAcceptanceRequired()
         {
             if (!TermsAcceptancePolicy.IsEffective())
