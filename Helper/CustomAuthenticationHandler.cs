@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -43,6 +44,9 @@ namespace Coflnet.Sky.Api.Helper
         /// </summary>
         protected override async Task<AuthenticateResult> HandleAuthenticateAsync()
         {
+            if (Controller.PremiumController.IsPlaySubscriptionCompletion(Context.GetEndpoint()))
+                return AuthenticateResult.NoResult();
+
             // Check for Authorization header with Bearer token or GoogleToken header
             var authorizationHeader = Request.Headers["Authorization"].FirstOrDefault();
             var googleTokenHeader = Request.Headers["GoogleToken"].FirstOrDefault();

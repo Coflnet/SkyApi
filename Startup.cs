@@ -17,7 +17,7 @@ using Coflnet.Sky.Commands.Shared;
 using Newtonsoft.Json;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Diagnostics;
-using Microsoft.AspNetCore.Mvc.Controllers;
+using Microsoft.AspNetCore.Mvc;
 using Coflnet.Payments.Client.Api;
 using System.Net;
 using StackExchange.Redis;
@@ -67,6 +67,7 @@ namespace Coflnet.Sky.Api
         public void ConfigureServices(IServiceCollection services)
         {
             services.AddControllers().AddNewtonsoftJson();
+            services.PostConfigure<MvcOptions>(options => options.InputFormatters.Insert(0, new PlaySubscriptionPurchaseInputFormatter()));
             services.AddSwaggerGenNewtonsoftSupport();
             
             // Add Custom Authentication that integrates with existing Google token system
@@ -137,6 +138,7 @@ namespace Coflnet.Sky.Api
                 .AddSource(BazaarTelemetry.SourceName));
             services.AddScoped<PricesService>();
             services.AddSingleton<GoogletokenService>();
+            services.AddSingleton<PlayCheckoutAccountLabel>();
             services.AddSingleton<IAccountDeletionClient, IndexerAccountDeletionClient>();
             services.AddSingleton<AccountDeletionService>();
             services.AddSingleton<ApiKeyService>();
@@ -392,9 +394,7 @@ namespace Coflnet.Sky.Api
         }
 
         internal static bool ShouldCaptureRequestBody(HttpContext context) =>
-            context.Features.Get<IExceptionHandlerFeature>()?.Endpoint?.Metadata
-                .GetMetadata<ControllerActionDescriptor>()?.ActionName
-            != nameof(Controller.PremiumController.CompletePlayStoreSubscription);
+            !Controller.PremiumController.IsPlaySubscriptionCompletion(context.Features.Get<IExceptionHandlerFeature>()?.Endpoint);
 
         /// <summary>
         /// This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
@@ -488,7 +488,8 @@ namespace Coflnet.Sky.Api
                 }
             });
 
-            app.UseClientRateLimiting();
+            app.UseWhen(context => !Controller.PremiumController.IsPlaySubscriptionCompletion(context.GetEndpoint()),
+                branch => branch.UseClientRateLimiting());
           /*  app.Use(async (context, next) =>
             {
                 if (context.Request.Method == HttpMethods.Post)
