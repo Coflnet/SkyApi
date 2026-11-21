@@ -92,7 +92,7 @@ public partial class PremiumController
     /// <response code="400">The token is invalid or the purchase was rejected, including missing or mismatched buyers.</response>
     /// <response code="409">The purchase is processing. Retry later.</response>
     /// <response code="429">The quota of ten requests per IPv4 address or IPv6 /64 or 1,000 globally in a rolling minute was exceeded. Retry after the indicated delay.</response>
-    /// <response code="503">Verification is unavailable. Retry later.</response>
+    /// <response code="503">Verification or the plan is unavailable, or the purchase state is unsupported. Retry later.</response>
     [HttpPost("premium/subscription/{productSlug}/playstore/complete")]
     [AllowAnonymous]
     [TypeFilter(typeof(PlaySubscriptionCompletionFilter), Order = -2100)]
@@ -169,8 +169,9 @@ public partial class PremiumController
         { Status: "missing_user" or "user_mismatch" } or { ErrorMessage: "missing_user" or "user_mismatch" }
             => StatusCodes.Status400BadRequest,
         { Status: "processing" } => StatusCodes.Status409Conflict,
-        { Status: "verification_unavailable" or "unsupported_state" }
-            or { ErrorMessage: "verification_unavailable" or "unsupported_state" } => StatusCodes.Status503ServiceUnavailable,
+        { Status: "verification_unavailable" or "unsupported_state" or "plan_unavailable" }
+            or { ErrorMessage: "verification_unavailable" or "unsupported_state" or "plan_unavailable" }
+            => StatusCodes.Status503ServiceUnavailable,
         { Status: not null and not "expired", ErrorMessage: null } => StatusCodes.Status200OK,
         _ => StatusCodes.Status400BadRequest
     };
