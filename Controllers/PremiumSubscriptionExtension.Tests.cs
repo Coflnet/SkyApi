@@ -187,6 +187,15 @@ public class PremiumSubscriptionExtensionTests
         });
     }
 
+    [Test]
+    public void List_MapsTheProviderManagementUrl()
+    {
+        const string url = "https://play.google.com/store/account/subscriptions?sku=premium&package=com.coflnet.sky";
+        var subscription = new UserSubscription { ManageUrl = url };
+
+        Assert.That(PremiumController.ToPremiumSubscription(subscription).ManageUrl, Is.EqualTo(url));
+    }
+
     [TestCase(2419200L, 4)]
     [TestCase(7862400L, 13)]
     [TestCase(31536000L, 52)]

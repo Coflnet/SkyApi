@@ -12,6 +12,7 @@ using Coflnet.Sky.Api.Services;
 using System.Threading;
 using System.Net.Http;
 using System.Net.Http.Headers;
+using System.Security.Claims;
 using System.Text;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
@@ -29,7 +30,7 @@ namespace Coflnet.Sky.Api.Controller
     [ApiController]
     [Route("api")]
     [ResponseCache(Duration = 0, Location = ResponseCacheLocation.None, NoStore = true)]
-    public class PremiumController : ControllerBase
+    public partial class PremiumController : ControllerBase
     {
         private const string LinkvertisePublicKey = """
             -----BEGIN PUBLIC KEY-----
@@ -1101,6 +1102,7 @@ namespace Coflnet.Sky.Api.Controller
             RenewsAt = s.RenewsAt,
             CreatedAt = s.CreatedAt,
             ProviderSlug = s.ProviderSlug,
+            ManageUrl = s.ManageUrl,
             CanResume = s.CanResume,
             CanChangePlan = s.CanChangePlan,
             Currency = s.Currency,
@@ -1559,8 +1561,13 @@ namespace Coflnet.Sky.Api.Controller
             }
         }
 
-        private async Task<GoogleUser?> GetUserOrDefault(bool isPurchase = false)
+        private async Task<GoogleUser?> GetUserOrDefault(bool isPurchase = false, bool authenticatedOnly = false)
         {
+            if (authenticatedOnly)
+                return User.Identity?.IsAuthenticated == true && int.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out var id)
+                    ? new GoogleUser { Id = id }
+                    : null;
+
             if (!Request.Headers.TryGetValue("GoogleToken", out StringValues value)
                 && !Request.Headers.TryGetValue("Authorization", out value))
                 return null;

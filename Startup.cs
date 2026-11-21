@@ -17,6 +17,8 @@ using Coflnet.Sky.Commands.Shared;
 using Newtonsoft.Json;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Diagnostics;
+using Microsoft.AspNetCore.Mvc.Controllers;
+using Coflnet.Payments.Client.Api;
 using System.Net;
 using StackExchange.Redis;
 using AspNetCoreRateLimit;
@@ -305,6 +307,7 @@ namespace Coflnet.Sky.Api
                 bypassToken));
             services.AddSingleton<DiscordBot.Client.Api.IMessageApi>(new DiscordBot.Client.Api.MessageApi(Configuration["DISCORD_BOT_BASE_URL"]));
             services.AddCoflService();
+            services.AddPaymentSingleton<IGooglePlaySubscriptionApi>(url => new GooglePlaySubscriptionApi(url));
             services.AddSingleton<ItemFilterSearchService>();
             services.AddActiveAuctions();
             services.AddSingleton<ActiveAuctionHintService>();
@@ -388,6 +391,11 @@ namespace Coflnet.Sky.Api
             });
         }
 
+        internal static bool ShouldCaptureRequestBody(HttpContext context) =>
+            context.Features.Get<IExceptionHandlerFeature>()?.Endpoint?.Metadata
+                .GetMetadata<ControllerActionDescriptor>()?.ActionName
+            != nameof(Controller.PremiumController.CompletePlayStoreSubscription);
+
         /// <summary>
         /// This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
         /// </summary>
@@ -395,7 +403,8 @@ namespace Coflnet.Sky.Api
         {
             app.UseExceptionHandler(errorApp =>
             {
-                ErrorHandler.Add(logger, errorApp, "api");
+                // The shared handler captures short request bodies by default.
+                ErrorHandler.Add(logger, errorApp, "api", ShouldCaptureRequestBody);
             });
             if (env.IsDevelopment())
             {
