@@ -1,9 +1,12 @@
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
+using System.Security.Claims;
+using System.Security.Cryptography;
 using System.Text;
 using System.Threading.Tasks;
 using AspNetCoreRateLimit;
@@ -17,6 +20,7 @@ using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.TestHost;
+using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -31,6 +35,8 @@ namespace Coflnet.Sky.Api.Controller;
 #pragma warning disable CS1591
 public class PremiumControllerPlayStoreHttpTests
 {
+    private const string Plan = "l_premium";
+    private const string UserId = "42";
     private const string Token = "play-token-kept-private";
     private const string Purchase = """{"purchaseToken":"play-token-kept-private","subscriptionId":"premium","userId":"99","packageName":"other.app"}""";
     private Mock<IGooglePlaySubscriptionApi> payments;
@@ -43,6 +49,59 @@ public class PremiumControllerPlayStoreHttpTests
         payments = new(MockBehavior.Strict);
         db = new(MockBehavior.Strict);
         logs = new();
+    }
+
+    [Test]
+    public async Task Start_ReturnsTheSaleOfferAndSignsItsId()
+    {
+        const string offerId = "autumn-sale";
+        using var key = ECDsa.Create(ECCurve.NamedCurves.nistP256);
+        using var host = await StartCheckoutHost(key, offerId, 25);
+        using var client = host.GetTestClient();
+
+        using var response = await PostCheckout(client);
+
+        Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+        var body = JObject.Parse(await response.Content.ReadAsStringAsync());
+        Assert.That(body.Value<string>("offerId"), Is.EqualTo(offerId));
+        Assert.That(body.Value<int>("discountPercent"), Is.EqualTo(25));
+        Assert.That(body.Value<string>("obfuscatedAccountId"), Is.EqualTo(UserId));
+        Assert.That(body.Value<string>("playProductId"), Is.EqualTo("premium"));
+        Assert.That(body.Value<string>("basePlanId"), Is.EqualTo("monthly"));
+        Assert.That(body.Value<string>("accountLabel"), Is.EqualTo("é***@example.com"));
+
+        var expiresAt = body.Value<long>("expiresAt").ToString(CultureInfo.InvariantCulture);
+        var payload = $"coflnet-play-checkout-v2\n{UserId}\npremium\nmonthly\n{Plan}\né***@example.com\n{expiresAt}\n";
+        var signature = WebEncoders.Base64UrlDecode(body.Value<string>("signature"));
+        using var publicKey = ECDsa.Create(key.ExportParameters(false));
+        bool Verify(string signedOfferId) => publicKey.VerifyData(Encoding.UTF8.GetBytes(payload + signedOfferId),
+            signature, HashAlgorithmName.SHA256, DSASignatureFormat.Rfc3279DerSequence);
+        Assert.That(Verify(offerId), Is.True);
+        Assert.That(Verify("another-sale"), Is.False);
+    }
+
+    [TestCase("", 25)]
+    [TestCase("-sale", 25)]
+    [TestCase("Sale", 25)]
+    [TestCase("sale\n", 25)]
+    [TestCase("0123456789012345678901234567890123456789012345678901234567890123", 25)]
+    [TestCase("autumn-sale", null)]
+    [TestCase("autumn-sale", 0)]
+    [TestCase("autumn-sale", 100)]
+    [TestCase(null, 25)]
+    public async Task Start_RejectsMalformedSaleWithoutIssuingASignature(string offerId, int? discountPercent)
+    {
+        using var key = ECDsa.Create(ECCurve.NamedCurves.nistP256);
+        using var host = await StartCheckoutHost(key, offerId, discountPercent);
+        using var client = host.GetTestClient();
+
+        using var response = await PostCheckout(client);
+
+        Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.ServiceUnavailable));
+        var body = JObject.Parse(await response.Content.ReadAsStringAsync());
+        Assert.That(body.Value<string>("slug"), Is.EqualTo("play_checkout_signing_unavailable"));
+        Assert.That(body.ContainsKey("signature"), Is.False);
+        payments.Verify(api => api.ApiGoogleplaySubscriptionEligibilityGetAsync(UserId, Plan, 0, default), Times.Once);
     }
 
     [TestCase(false)]
@@ -236,7 +295,15 @@ public class PremiumControllerPlayStoreHttpTests
     private void AllowRequests() => db.Setup(database => database.ScriptEvaluateAsync(PlaySubscriptionCompletionFilter.ReserveQuota,
         It.IsAny<RedisKey[]>(), It.IsAny<RedisValue[]>(), CommandFlags.None)).ReturnsAsync(RedisResult.Create(0));
 
-    private Task<IHost> StartHost(string trustedProxies = null)
+    private Task<IHost> StartCheckoutHost(ECDsa key, string offerId, int? discountPercent)
+    {
+        payments.Setup(api => api.ApiGoogleplaySubscriptionEligibilityGetAsync(UserId, Plan, 0, default))
+            .ReturnsAsync(new GooglePlayEligibility(true, playProductId: "premium", basePlanId: "monthly",
+                offerId: offerId, discountPercent: discountPercent));
+        return StartHost(signingKey: Convert.ToBase64String(key.ExportPkcs8PrivateKey()));
+    }
+
+    private Task<IHost> StartHost(string trustedProxies = null, string signingKey = null)
     {
         var redis = new Mock<IConnectionMultiplexer>();
         redis.Setup(r => r.GetDatabase(-1, null)).Returns(db.Object);
@@ -246,6 +313,8 @@ public class PremiumControllerPlayStoreHttpTests
                 config.AddJsonFile(Path.Combine(AppContext.BaseDirectory, "appsettings.json"));
                 if (trustedProxies != null)
                     config.AddInMemoryCollection(new Dictionary<string, string> { ["PLAY_CHECKOUT_TRUSTED_PROXIES"] = trustedProxies });
+                if (signingKey != null)
+                    config.AddInMemoryCollection(new Dictionary<string, string> { [PlayCheckoutSigner.ConfigurationKey] = signingKey });
             })
             .ConfigureWebHost(web => web.UseTestServer()
                 .ConfigureServices(services => ConfigureTestServices(services, redis.Object))
@@ -272,6 +341,8 @@ public class PremiumControllerPlayStoreHttpTests
             options.GeneralRules = [new RateLimitRule { Endpoint = "*", Period = "1m", Limit = 1 }];
         });
         services.AddSingleton(new PremiumTierService(null, null));
+        services.AddSingleton(new PlayCheckoutAccountLabel((_, _) => Task.FromResult<Coflnet.Sky.McConnect.Model.User>(null),
+            _ => Task.FromResult<string>(null), TimeSpan.FromSeconds(2)));
         services.AddSingleton(Mock.Of<IScrapingDetectionService>());
         services.AddSingleton<GoogletokenService>(_ => throw new InvalidOperationException("Authentication lookup was invoked"));
         services.AddSingleton(redis);
@@ -286,6 +357,9 @@ public class PremiumControllerPlayStoreHttpTests
         app.Use(async (context, next) =>
         {
             context.Connection.RemoteIpAddress = IPAddress.Parse(context.Request.Headers["X-Test-Remote-IP"].Single());
+            if (context.Request.Headers.TryGetValue("X-Test-Checkout-User", out var userId))
+                context.User = new ClaimsPrincipal(new ClaimsIdentity([new Claim(ClaimTypes.NameIdentifier, userId.ToString()),
+                    new Claim(ClaimTypes.Email, "éclair@example.com")], "test"));
             await next();
         });
         var services = app.ApplicationServices;
@@ -293,8 +367,16 @@ public class PremiumControllerPlayStoreHttpTests
             services.GetRequiredService<IWebHostEnvironment>(), services.GetRequiredService<ILogger<Startup>>(), null);
     }
 
+    private static async Task<HttpResponseMessage> PostCheckout(HttpClient client)
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Post, $"/api/premium/subscription/{Plan}/playstore");
+        request.Headers.Add("X-Test-Remote-IP", "198.51.100.1");
+        request.Headers.Add("X-Test-Checkout-User", UserId);
+        return await client.SendAsync(request);
+    }
+
     private static async Task<HttpResponseMessage> Post(HttpClient client, string remote, string forwarded = null,
-        string slug = "l_premium", string body = Purchase)
+        string slug = Plan, string body = Purchase)
     {
         using var request = new HttpRequestMessage(HttpMethod.Post, $"/api/premium/subscription/{slug}/playstore/complete");
         request.Content = new StringContent(body, Encoding.UTF8, "application/json");

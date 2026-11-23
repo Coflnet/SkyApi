@@ -38,10 +38,13 @@ internal static class PlayCheckoutSigner
     }
 
     internal static string? Sign(ECDsa key, string accountId, string playProductId, string basePlanId,
-        string productSlug, string accountLabel, long expiresAt)
+        string productSlug, string accountLabel, long expiresAt, string? offerId = null)
     {
-        string[] lines = ["coflnet-play-checkout-v1", accountId, playProductId, basePlanId, productSlug,
+        var version = offerId == null ? "coflnet-play-checkout-v1" : "coflnet-play-checkout-v2";
+        string[] lines = [version, accountId, playProductId, basePlanId, productSlug,
             accountLabel, expiresAt.ToString(CultureInfo.InvariantCulture)];
+        if (offerId != null)
+            lines = [.. lines, offerId];
         if (lines.Any(line => string.IsNullOrWhiteSpace(line) || line.Any(c => char.IsControl(c) || c is '\u2028' or '\u2029')))
             return null;
 

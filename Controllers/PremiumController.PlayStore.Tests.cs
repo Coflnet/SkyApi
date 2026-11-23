@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.IO;
 using System.Linq;
 using System.Net.Http;
 using System.Reflection;
@@ -66,19 +67,26 @@ public class PremiumControllerPlayStoreTests
     }
 
     [Test]
-    public void CheckoutSchema_RequiresEveryField()
+    public void CheckoutSchema_DocumentsOptionalSaleFields()
     {
         var services = new ServiceCollection();
         services.AddControllers().AddNewtonsoftJson();
         services.AddSwaggerGenNewtonsoftSupport();
-        services.AddSwaggerGen(options => options.SchemaFilter<RequireNonNullablePropertiesSchemaFilter>());
+        services.AddSwaggerGen(options =>
+        {
+            options.SchemaFilter<RequireNonNullablePropertiesSchemaFilter>();
+            options.IncludeXmlComments(Path.Combine(AppContext.BaseDirectory, "SkyApi.xml"));
+        });
         using var provider = services.BuildServiceProvider();
         var schemas = new SchemaRepository();
         provider.GetRequiredService<ISchemaGenerator>()
             .GenerateSchema(typeof(PremiumController.PlaySubscriptionCheckout), schemas);
 
-        Assert.That(schemas.Schemas[nameof(PremiumController.PlaySubscriptionCheckout)].Required, Is.EquivalentTo(new[]
+        var schema = schemas.Schemas[nameof(PremiumController.PlaySubscriptionCheckout)];
+        Assert.That(schema.Required, Is.EquivalentTo(new[]
             { "obfuscatedAccountId", "playProductId", "basePlanId", "accountLabel", "expiresAt", "signature" }));
+        Assert.That(schema.Properties["offerId"].Description, Does.Contain("sale offer ID"));
+        Assert.That(schema.Properties["discountPercent"].Description, Does.Contain("1 to 99"));
     }
 
     [Test]
@@ -98,7 +106,7 @@ public class PremiumControllerPlayStoreTests
             ContractResolver = new Newtonsoft.Json.Serialization.CamelCasePropertyNamesContractResolver()
         }));
         Assert.That(json.Properties().Select(p => p.Name), Is.EquivalentTo(new[]
-            { "obfuscatedAccountId", "playProductId", "basePlanId", "accountLabel", "expiresAt", "signature" }));
+            { "obfuscatedAccountId", "playProductId", "basePlanId", "accountLabel", "expiresAt", "signature", "offerId", "discountPercent" }));
         Assert.Multiple(() =>
         {
             Assert.That(checkout.ObfuscatedAccountId, Is.EqualTo(UserId));
@@ -107,6 +115,8 @@ public class PremiumControllerPlayStoreTests
             Assert.That(checkout.AccountLabel, Is.EqualTo("é***@example.com"));
             Assert.That(checkout.ExpiresAt, Is.InRange(before + 600, after + 600));
             Assert.That(checkout.Signature, Does.Match("^[A-Za-z0-9_-]+$"));
+            Assert.That(json["offerId"].Type, Is.EqualTo(JTokenType.Null));
+            Assert.That(json["discountPercent"].Type, Is.EqualTo(JTokenType.Null));
         });
 
         using var publicKey = ECDsa.Create(signingKey.ExportParameters(false));
@@ -122,6 +132,25 @@ public class PremiumControllerPlayStoreTests
             tampered[i] = i == 6 ? (checkout.ExpiresAt + 1).ToString(CultureInfo.InvariantCulture) : tampered[i] + "x";
             Assert.That(Verify(string.Join('\n', tampered)), Is.False, $"Tampered line {i + 1}");
         }
+    }
+
+    [Test]
+    public void Sign_UsesDistinctVersionedPayloads()
+    {
+        const long expiresAt = 1800000000;
+        const string offerId = "winter-sale";
+        var v1Signature = PlayCheckoutSigner.Sign(signingKey, UserId, "premium", "monthly", Plan, "é***@example.com", expiresAt);
+        var v2Signature = PlayCheckoutSigner.Sign(signingKey, UserId, "premium", "monthly", Plan, "é***@example.com", expiresAt, offerId);
+        var v1Payload = "coflnet-play-checkout-v1\n42\npremium\nmonthly\nl_premium\né***@example.com\n1800000000"u8;
+        var v2Payload = "coflnet-play-checkout-v2\n42\npremium\nmonthly\nl_premium\né***@example.com\n1800000000\nwinter-sale"u8;
+
+        using var publicKey = ECDsa.Create(signingKey.ExportParameters(false));
+        bool Verify(ReadOnlySpan<byte> payload, string signature) => publicKey.VerifyData(payload,
+            WebEncoders.Base64UrlDecode(signature), HashAlgorithmName.SHA256, DSASignatureFormat.Rfc3279DerSequence);
+        Assert.That(Verify(v1Payload, v1Signature), Is.True);
+        Assert.That(Verify(v2Payload, v2Signature), Is.True);
+        Assert.That(Verify(v1Payload, v2Signature), Is.False);
+        Assert.That(Verify(v2Payload, v1Signature), Is.False);
     }
 
     [TestCase(null)]
@@ -155,13 +184,13 @@ public class PremiumControllerPlayStoreTests
         AssertResult(complete, 200, true, "active", null);
     }
 
-    [TestCase(Plan, "active_subscription", "stripe", "billed by stripe")]
-    [TestCase(Plan, "active_subscription", null, "already have an active subscription")]
-    [TestCase("unknown", "plan_unavailable", null, "unavailable in Google Play")]
-    public void Start_UsesEligibilityReasonAsErrorSlug(string plan, string reason, string provider, string message)
+    [TestCase(Plan, "active_subscription", "stripe", "billed by stripe", null)]
+    [TestCase(Plan, "active_subscription", null, "already have an active subscription", "invalid offer")]
+    [TestCase("unknown", "plan_unavailable", null, "unavailable in Google Play", null)]
+    public void Start_UsesEligibilityReasonAsErrorSlug(string plan, string reason, string provider, string message, string offerId)
     {
         playApi.Setup(api => api.ApiGoogleplaySubscriptionEligibilityGetAsync(UserId, plan, 0, default))
-            .ReturnsAsync(new GooglePlayEligibility(false, reason, blockingProvider: provider));
+            .ReturnsAsync(new GooglePlayEligibility(false, reason, blockingProvider: provider, offerId: offerId));
 
         var error = Assert.ThrowsAsync<CoflnetException>(() => Controller().StartPlayStoreSubscription(plan, playApi.Object, AccountLabel));
 

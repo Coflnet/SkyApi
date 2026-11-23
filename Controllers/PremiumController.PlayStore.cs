@@ -4,6 +4,7 @@ using System.Linq;
 using System.Net;
 using System.Security.Claims;
 using System.Security.Cryptography;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using Coflnet.Payments.Client.Api;
 using Coflnet.Payments.Client.Client;
@@ -53,26 +54,35 @@ public partial class PremiumController
 
         var userId = user.Id.ToString(CultureInfo.InvariantCulture);
         var eligibility = await playApi.ApiGoogleplaySubscriptionEligibilityGetAsync(userId, productSlug);
-        if (eligibility.Eligible)
+        if (!eligibility.Eligible)
         {
-            var label = await accountLabel.GetAsync(userId, User.FindFirstValue(ClaimTypes.Email));
-            var expiresAt = DateTimeOffset.UtcNow.ToUnixTimeSeconds() + 600;
-            var signature = PlayCheckoutSigner.Sign(key, userId, eligibility.PlayProductId, eligibility.BasePlanId,
-                productSlug, label, expiresAt);
-            if (signature == null)
-                return PlayCheckoutUnavailable("Google Play checkout is missing valid signing fields");
-
-            return Ok(new PlaySubscriptionCheckout(userId, eligibility.PlayProductId, eligibility.BasePlanId,
-                label, expiresAt, signature));
+            var message = eligibility.Reason == "active_subscription"
+                ? "You already have an active subscription in this plan's line."
+                : "This subscription plan is unavailable in Google Play.";
+            if (!string.IsNullOrWhiteSpace(eligibility.BlockingProvider))
+                message += $" The blocking subscription is billed by {eligibility.BlockingProvider}.";
+            throw new CoflnetException(eligibility.Reason ?? "plan_unavailable", message);
         }
 
-        var message = eligibility.Reason == "active_subscription"
-            ? "You already have an active subscription in this plan's line."
-            : "This subscription plan is unavailable in Google Play.";
-        if (!string.IsNullOrWhiteSpace(eligibility.BlockingProvider))
-            message += $" The blocking subscription is billed by {eligibility.BlockingProvider}.";
-        throw new CoflnetException(eligibility.Reason ?? "plan_unavailable", message);
+        var offerId = eligibility.OfferId;
+        var discountPercent = eligibility.DiscountPercent;
+        if (!HasValidPlayOffer(offerId, discountPercent))
+            return PlayCheckoutUnavailable("Google Play eligibility has invalid sale offer fields");
+
+        var label = await accountLabel.GetAsync(userId, User.FindFirstValue(ClaimTypes.Email));
+        var expiresAt = DateTimeOffset.UtcNow.ToUnixTimeSeconds() + 600;
+        var signature = PlayCheckoutSigner.Sign(key, userId, eligibility.PlayProductId, eligibility.BasePlanId,
+            productSlug, label, expiresAt, offerId);
+        if (signature == null)
+            return PlayCheckoutUnavailable("Google Play checkout is missing valid signing fields");
+
+        return Ok(new PlaySubscriptionCheckout(userId, eligibility.PlayProductId, eligibility.BasePlanId,
+            label, expiresAt, signature, offerId, discountPercent));
     }
+
+    private static bool HasValidPlayOffer(string? offerId, int? discountPercent) => offerId == null
+        ? discountPercent == null
+        : discountPercent is >= 1 and <= 99 && Regex.IsMatch(offerId, @"\A[a-z0-9][a-z0-9-]{0,62}\z");
 
     private ObjectResult PlayCheckoutUnavailable(string reason)
     {
@@ -183,9 +193,12 @@ public partial class PremiumController
     /// <param name="AccountLabel">The verified Minecraft name, masked email, or a generic label.</param>
     /// <param name="ExpiresAt">Expiration as Unix seconds.</param>
     /// <param name="Signature">Base64url-encoded DER ECDSA P-256 signature over the checkout data.</param>
+    /// <param name="OfferId">The signed Google Play sale offer ID, or null when no sale applies.</param>
+    /// <param name="DiscountPercent">The sale discount percentage from 1 to 99, or null when no sale applies.</param>
     public record PlaySubscriptionCheckout([property: Required] string ObfuscatedAccountId,
         [property: Required] string PlayProductId, [property: Required] string BasePlanId,
-        [property: Required] string AccountLabel, [property: Required] long ExpiresAt, [property: Required] string Signature);
+        [property: Required] string AccountLabel, [property: Required] long ExpiresAt, [property: Required] string Signature,
+        string? OfferId = null, int? DiscountPercent = null);
 
     /// <summary>A purchase returned by Google Play Billing.</summary>
     /// <param name="PurchaseToken">The token returned by Play Billing.</param>
