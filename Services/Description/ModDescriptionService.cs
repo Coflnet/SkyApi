@@ -172,6 +172,13 @@ public partial class ModDescriptionService : IDisposable
     private static TimeSpan GetTimeout(IConfiguration config, string key, int defaultMilliseconds) =>
         TimeSpan.FromMilliseconds(int.TryParse(config?[key], out var value) ? Math.Max(1, value) : defaultMilliseconds);
 
+    /// <summary>AI values are requested for the AiEstimate lore field and for modifiers that price with them.</summary>
+    internal static bool NeedsAiValues(DescriptionSetting settings, IEnumerable<ICustomModifier> modifiers)
+    {
+        return settings.Fields.Any(f => f.Contains(DescriptionField.AiEstimate))
+            || modifiers.Any(m => m is ListPriceRecommend);
+    }
+
     private void Register(Regex chestName, ICustomModifier modifier) => customModifiers.Add((chestName, modifier));
 
     private void RegisterModifiers()
@@ -577,8 +584,7 @@ public partial class ModDescriptionService : IDisposable
         var (userSettings, userInfoTask) = await GetSettingForConid(mcName, sessionId, inventory.Settings);
         inventory.Settings = inventory.Settings?.Fields != null ? inventory.Settings : userSettings;
         inventory.Settings ??= DescriptionSetting.Default;
-        var pricesTask = GetPrices(auctionRepresent.Select(a => a.auction),
-            inventory.Settings.Fields.Any(f => f.Contains(DescriptionField.AiEstimate)));
+        var pricesTask = GetPrices(auctionRepresent.Select(a => a.auction), NeedsAiValues(inventory.Settings, matchingModifiers.Select(m => m.Modifier)));
         var userInfo = await userInfoTask;
         preRequest.userIdSource.TrySetResult(userInfo.UserId);
 

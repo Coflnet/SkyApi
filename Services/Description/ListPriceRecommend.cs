@@ -42,17 +42,18 @@ public class ListPriceRecommend : ICustomModifier
 
 
         var priceEst = data.PriceEst[13];
-        if (priceEst == null || priceEst.Median == 0)
-        {
+        if (priceEst == null)
             return;
-        }
-        var suggestedPrice = priceEst.Median;
-        var priceSource = "median";
+        var (baseline, priceSource) = Baseline(priceEst);
+        var hasAiValue = priceSource == AiSource;
+        if (baseline == 0)
+            return;
+        var suggestedPrice = baseline;
         var priceInfo = JsonConvert.DeserializeObject<PriceInfo>(data.Loaded[nameof(ListPriceRecommend)].Result);
         // Recommended is null whenever the item wasn't sent as flip to the player, which is the common case
         var hasFlipEstimate = priceInfo.Recommended > 0;
 
-        if ((priceEst == null || priceEst.Volume <= 0.5) && !hasFlipEstimate)
+        if (priceEst.Volume <= 0.5 && !hasFlipEstimate && !hasAiValue)
         {
             data.mods.Add([
                 new DescModification("Looks like this is not sold often"),
@@ -61,7 +62,7 @@ public class ListPriceRecommend : ICustomModifier
             ]);
             return;
         }
-        if (priceEst.MedianKey.Replace("&comb", "") != priceEst.ItemKey && !hasFlipEstimate)
+        if (!hasFlipEstimate && !hasAiValue && priceEst.MedianKey?.Replace("&comb", "") != priceEst.ItemKey)
         {
             data.mods.Add([
                 new DescModification("item has too few similar sales"),
@@ -97,7 +98,7 @@ public class ListPriceRecommend : ICustomModifier
             suggestedPrice = priceInfo.LastListings.First();
             priceSource = McColorCodes.GREEN + "last listings of item";
         }
-        else if (priceEst.Lbin.Price > priceEst.Median && priceEst.LbinKey == priceEst.ItemKey
+        else if (priceEst.Lbin.Price > baseline && priceEst.LbinKey == priceEst.ItemKey
             && priceEst.Volume > 3 && (priceEst.Volatility < 10 || priceEst.Volatility < 30 && priceEst.Volume > 15)
             && !data.inventory.Settings.PreferLbinInSuggestions)
         {
@@ -106,9 +107,9 @@ public class ListPriceRecommend : ICustomModifier
         }
 
         var generalSellTime = TimeSpan.FromMinutes(priceEst.AvgSellTime);
-        if (suggestedPrice > priceEst.Median)
+        if (suggestedPrice > baseline)
             generalSellTime = generalSellTime.Multiply(2) + TimeSpan.FromMinutes(20);
-        else if (suggestedPrice < priceEst.Median)
+        else if (suggestedPrice < baseline)
             generalSellTime = generalSellTime.Divide(1.2);
         var list = new List<DescModification>
         {
@@ -118,7 +119,9 @@ public class ListPriceRecommend : ICustomModifier
         if (data.inventory.Settings.SuggestQuicksell)
         {
             var (quickPrice, fromMedian) = SniperClient.InstaSellPrice(priceEst);
-            suggestedPrice = Math.Min(suggestedPrice, (long)quickPrice);
+            // without a median there is no instasell price, an AI value then stays as it is
+            if (quickPrice > 0)
+                suggestedPrice = Math.Min(suggestedPrice, (long)quickPrice);
             list.Add(new($"{McColorCodes.YELLOW}Quicksell enabled, reduced the recommendation"));
             list.Add(new($"{McColorCodes.GRAY}/cofl set suggestQuicksell false, to disable"));
         }
@@ -152,6 +155,17 @@ public class ListPriceRecommend : ICustomModifier
         DiHandler.GetService<ILogger<ListPriceRecommend>>().LogInformation("For {itemUuid} sending suggestion text {text}",
             data.auctionRepresent[13].auction.FlatenedNBT.GetValueOrDefault("uuid"), string.Join(", ", list.Select(l => l.Value)));
         data.mods.Add(list);
+    }
+
+    private const string AiSource = "AI finder";
+
+    /// <summary>The AI finder estimate when available, the median otherwise.</summary>
+    internal static (long price, string source) Baseline(PriceEstimate priceEst)
+    {
+        var aiValue = (long)priceEst.SelfLearningEstimatedValue;
+        if (aiValue > 0)
+            return (aiValue, AiSource);
+        return (priceEst.Median, "median");
     }
 
     /// <summary>Gets recommend text.</summary>

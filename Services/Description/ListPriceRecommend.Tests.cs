@@ -67,17 +67,81 @@ public class ListPriceRecommendTests
         display.Should().ContainSingle(v => v.StartsWith("Based on")).Which.Should().Contain(expectedSource);
     }
 
+    [Test]
+    public void AiValueIsSuggestedAndNamedAsSource()
+    {
+        var data = CreateData(new PriceEstimate { Median = 2_000_000, Volume = 5, ItemKey = "a", MedianKey = "a", SelfLearningEstimatedValue = 5_000_000, Lbin = new() });
+
+        new ListPriceRecommend().Apply(data);
+
+        var display = data.mods.Last();
+        display.Select(m => m.Value).Should().ContainSingle(v => v.StartsWith("Based on")).Which.Should().Contain("AI finder");
+        display.Single(m => m.Type == DescModification.ModType.SUGGEST).Value.Should().Be("starting bid: 5m");
+    }
+
+    [Test]
+    public void AiValueSuggestsDespiteNoVolumeAndForeignMedianKey()
+    {
+        var data = CreateData(new PriceEstimate { Median = 0, Volume = 0, ItemKey = "a", MedianKey = "other", SelfLearningEstimatedValue = 5_000_000, Lbin = new() });
+
+        new ListPriceRecommend().Apply(data);
+
+        data.mods.Last().Should().Contain(m => m.Type == DescModification.ModType.SUGGEST);
+    }
+
+    [Test]
+    public void AiValueWithoutMedianKeySuggests()
+    {
+        var data = CreateData(new PriceEstimate { Median = 0, Volume = 0, SelfLearningEstimatedValue = 5_000_000, Lbin = new() });
+
+        new ListPriceRecommend().Apply(data);
+
+        data.mods.Last().Should().Contain(m => m.Type == DescModification.ModType.SUGGEST && m.Value == "starting bid: 5m");
+    }
+
+    [Test]
+    public void QuicksellWithoutMedianKeepsAiValue()
+    {
+        var data = CreateData(new PriceEstimate { Median = 0, Volume = 0, SelfLearningEstimatedValue = 5_000_000, Lbin = new() });
+        data.inventory.Settings.SuggestQuicksell = true;
+
+        new ListPriceRecommend().Apply(data);
+
+        data.mods.Last().Should().Contain(m => m.Type == DescModification.ModType.SUGGEST && m.Value == "starting bid: 5m");
+    }
+
+    [Test]
+    public void ConfiguredLbinWinsOverAiValue()
+    {
+        var data = CreateData(new PriceEstimate { Median = 2_000_000, Volume = 5, ItemKey = "a", MedianKey = "a", SelfLearningEstimatedValue = 5_000_000, Lbin = new() { Price = 3_000_000 } });
+        data.inventory.Settings.PreferLbinInSuggestions = true;
+
+        new ListPriceRecommend().Apply(data);
+
+        data.mods.Last().Select(m => m.Value).Should().ContainSingle(v => v.StartsWith("Based on")).Which.Should().Contain("lbin (as configured)");
+    }
+
+    [Test]
+    public void AiValuesAreRequestedForListPriceInventory()
+    {
+        var settings = new DescriptionSetting { Fields = new() };
+        Coflnet.Sky.Api.Services.ModDescriptionService.NeedsAiValues(settings, new ICustomModifier[] { new ListPriceRecommend() }).Should().BeTrue();
+        Coflnet.Sky.Api.Services.ModDescriptionService.NeedsAiValues(settings, new ICustomModifier[0]).Should().BeFalse();
+    }
+
     private static DataContainer CreateData(PriceEstimate estimate, string priceInfo = null)
     {
         var priceEst = Enumerable.Repeat<PriceEstimate>(null, 45).ToList();
         priceEst[13] = estimate;
         var items = Enumerable.Range(0, 45).Select(_ => new Item()).ToList();
         items[31] = new Item { ItemName = "§fItem price: §629,113 coins" };
+        var auctions = Enumerable.Range(0, 45).Select(_ => (new Coflnet.Sky.Core.SaveAuction { FlatenedNBT = new() }, new string[0])).ToList();
+        DiHandler.OverrideService<ILogger<ListPriceRecommend>, ILogger<ListPriceRecommend>>(NullLogger<ListPriceRecommend>.Instance);
         return new DataContainer
         {
             inventory = new InventoryDataWithSettings { ChestName = "Create BIN Auction", Settings = new() },
             Items = items,
-            auctionRepresent = Enumerable.Range(0, 45).Select(_ => (new Coflnet.Sky.Core.SaveAuction(), new string[0])).ToList(),
+            auctionRepresent = auctions,
             PriceEst = priceEst,
             mods = Enumerable.Range(0, 45).Select(_ => new List<DescModification>()).ToList(),
             Loaded = new Dictionary<string, Task<string>>
