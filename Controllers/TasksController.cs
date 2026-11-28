@@ -1,6 +1,7 @@
 using Coflnet.Sky.Api.Helper;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Coflnet.Sky.Api.Models.Tasks;
@@ -22,26 +23,33 @@ namespace Coflnet.Sky.Api.Controller;
 public class TasksController : ControllerBase
 {
     private readonly IPublicTaskService taskService;
+    private readonly TimeProvider time;
 
     /// <summary>
     /// Creates a new instance of <see cref="TasksController"/>
     /// </summary>
-    public TasksController(IPublicTaskService taskService)
+    public TasksController(IPublicTaskService taskService, TimeProvider time = null)
     {
         this.taskService = taskService;
+        this.time = time ?? TimeProvider.System;
     }
 
     /// <summary>
-    /// All task estimates sorted by coins per hour, best first
+    /// Task estimates sorted by coins per hour, best first. Tasks whose SkyBlock event or mayor perk is not running
+    /// (available false, for example Spooky Fishing outside the Spooky Festival) are left out unless includeUnavailable is set,
+    /// the slug endpoint always serves them with their availability note.
     /// </summary>
+    /// <param name="includeUnavailable">Also list tasks that can't be done right now, for example for a sitemap</param>
     [HttpGet("")]
+    [ResponseCache(Duration = 120, Location = ResponseCacheLocation.Any, NoStore = false, VaryByQueryKeys = new[] { "includeUnavailable" })]
     [ProducesResponseType(typeof(List<PublicTaskEstimate>), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status503ServiceUnavailable)]
-    public async Task<ActionResult<IReadOnlyList<PublicTaskEstimate>>> GetAll()
+    public async Task<ActionResult<IReadOnlyList<PublicTaskEstimate>>> GetAll([FromQuery] bool includeUnavailable = false)
     {
         try
         {
-            return Ok(await taskService.GetAllAsync(HttpContext.RequestAborted));
+            var all = await taskService.GetAllAsync(HttpContext.RequestAborted);
+            return Ok(includeUnavailable ? all : Listed(all));
         }
         catch (CoflnetException e)
         {
@@ -172,6 +180,12 @@ public class TasksController : ControllerBase
         {
             return Unavailable(e);
         }
+    }
+
+    private List<PublicTaskEstimate> Listed(IReadOnlyList<PublicTaskEstimate> all)
+    {
+        var now = time.GetUtcNow().UtcDateTime;
+        return all.Where(t => PublicTaskMapper.IsListed(t, now)).ToList();
     }
 
     private static ObjectResult Error(int status, string slug, string message)

@@ -45,8 +45,24 @@ public static class PublicTaskMapper
             Drops = (t.Drops ?? new()).Select(d => MapDrop(d, itemNames)).ToList(),
             Requirements = (t.Requirements ?? new()).Select(MapRequirement).ToList(),
             BestZones = (t.BestZones ?? new()).Select(z => new PublicTaskZone { Zone = z.Zone, CoinsPerHour = z.CoinsPerHour, Players = z.Players }).ToList(),
+            RequiredEvent = t.RequiredEvent,
+            Available = IsAvailable(t),
+            AvailabilityNote = t.AvailabilityNote,
+            NextAvailableAt = t.NextAvailableAt,
         };
     }
+
+    /// <summary>
+    /// Only a task with a required event can be unavailable. An upstream without the availability fields
+    /// deserializes available as false, so without the event it is always available.
+    /// </summary>
+    public static bool IsAvailable(TaskEstimate t) => t.RequiredEvent == null || t.Available;
+
+    /// <summary>
+    /// Whether the list shows the task: available ones, and unavailable ones whose event started by its own schedule
+    /// (the cached availability is older than that, e.g. while the upstream is down).
+    /// </summary>
+    public static bool IsListed(PublicTaskEstimate t, DateTime utcNow) => t.Available || t.NextAvailableAt?.ToUniversalTime() <= utcNow;
 
     private static PublicTaskRequirement MapRequirement(TaskRequirementInfo r) => new()
     {

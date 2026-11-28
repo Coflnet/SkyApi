@@ -81,6 +81,45 @@ public class PublicTaskServiceTests
 
     private static TaskEstimate Estimate(string name) => new() { TaskName = name, CoinsPerHour = 5 };
 
+    [Test]
+    public void Map_CarriesTheAvailabilityOfAnEventTask()
+    {
+        var upstream = JsonConvert.DeserializeObject<TaskEstimate>(@"{""taskName"":""Spooky Fishing"",
+            ""requiredEvent"":""Spooky Festival"",""available"":false,""availabilityNote"":""Only possible during the Spooky Festival"",
+            ""nextAvailableAt"":""2026-12-01T00:00:00Z""}");
+
+        var mapped = Coflnet.Sky.Api.Services.Tasks.PublicTaskMapper.Map(upstream, "spooky-fishing", null);
+
+        mapped.RequiredEvent.Should().Be("Spooky Festival");
+        mapped.Available.Should().BeFalse();
+        mapped.AvailabilityNote.Should().Be("Only possible during the Spooky Festival");
+        mapped.NextAvailableAt.Should().Be(new DateTime(2026, 12, 1, 0, 0, 0, DateTimeKind.Utc));
+    }
+
+    [Test]
+    public void Map_UpstreamWithoutAvailabilityFields_IsAvailable()
+    {
+        // an older PlayerState sends no availability, the generated model then reads available as false
+        var upstream = JsonConvert.DeserializeObject<TaskEstimate>(@"{""taskName"":""Diana""}");
+
+        Coflnet.Sky.Api.Services.Tasks.PublicTaskMapper.Map(upstream, "diana", null).Available.Should().BeTrue();
+    }
+
+    [Test]
+    public async Task GetBySlug_FindsAnUnavailableTask()
+    {
+        SetupEstimates().ReturnsAsync(() => new List<TaskEstimate>
+        {
+            new() { TaskName = "Diana", RequiredEvent = "Mythological Ritual", Available = false, AvailabilityNote = "Needs Diana" }
+        });
+
+        var task = await service.GetBySlugAsync("diana");
+
+        task.Should().NotBeNull();
+        task.Available.Should().BeFalse();
+        task.AvailabilityNote.Should().Be("Needs Diana");
+    }
+
     [TestCase("T4 Voidglooms (FD)", "t4-voidglooms-fd")]
     [TestCase("  --Hello   World!! ", "hello-world")]
     [TestCase("***", "task")]

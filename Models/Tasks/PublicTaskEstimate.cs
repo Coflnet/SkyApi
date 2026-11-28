@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 
 namespace Coflnet.Sky.Api.Models.Tasks;
@@ -47,6 +48,14 @@ public class PublicTaskEstimate
     public List<PublicTaskRequirement> Requirements { get; set; } = new();
     /// <summary>Best zones for this task</summary>
     public List<PublicTaskZone> BestZones { get; set; } = new();
+    /// <summary>SkyBlock event or mayor perk the task needs, for example "Spooky Festival" or "Mythological Ritual", null when it is always doable</summary>
+    public string RequiredEvent { get; set; }
+    /// <summary>False while the required event is known not to run. Such tasks are left out of the list but still served by slug</summary>
+    public bool Available { get; set; } = true;
+    /// <summary>Why the task is not (or maybe not) possible right now and what has to be active, null when plainly available</summary>
+    public string AvailabilityNote { get; set; }
+    /// <summary>When an unavailable task is possible again (UTC), null when available or unknown</summary>
+    public DateTime? NextAvailableAt { get; set; }
 }
 
 /// <summary>A requirement of a task, the same for every player</summary>
